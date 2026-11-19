@@ -1,0 +1,10 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createGeography, applyGeographyChange, validateGeography } from "../src/world/geography.js";
+const polygon=(x)=>({type:"Polygon",coordinates:[[[x,0],[x+1,0],[x+1,1],[x,1],[x,0]]]});
+const region=(id,x=0)=>({id,name:id,geometry:polygon(x)});
+test("keeps base geography separate from current geography",()=>{const g=createGeography([region("a")]);const n=applyGeographyChange(g,{type:"reshape-region",regionId:"a",geometry:polygon(4)});assert.equal(g.currentRegions[0].geometry.coordinates[0][0][0],0);assert.equal(n.baseRegions[0].geometry.coordinates[0][0][0],0);assert.equal(n.currentRegions[0].geometry.coordinates[0][0][0],4);});
+test("records a geography change in history",()=>{const n=applyGeographyChange(createGeography([region("a")]),{type:"remove-region",regionId:"a"},{date:"1444-01-02",cause:"Impact"});assert.equal(n.revision,1);assert.equal(n.history[0].cause,"Impact");assert.equal(n.currentRegions.length,0);});
+test("can split a region into supplied resulting geometries",()=>{const n=applyGeographyChange(createGeography([region("a")]),{type:"split-region",regionId:"a",regions:[region("b"),region("c",2)]});assert.deepEqual(n.currentRegions.map(r=>r.id),["b","c"]);});
+test("rejects duplicate ids and malformed geometry",()=>{assert.throws(()=>validateGeography(createGeography([region("a"),region("a")])));assert.throws(()=>applyGeographyChange(createGeography([region("a")]),{type:"reshape-region",regionId:"a",geometry:{type:"Point",coordinates:[0,0]}}));});
+test("can create and merge regions",()=>{let g=createGeography();g=applyGeographyChange(g,{type:"create-region",region:region("a")});g=applyGeographyChange(g,{type:"create-region",region:region("b",2)});g=applyGeographyChange(g,{type:"merge-regions",regionIds:["a","b"],region:region("ab")});assert.deepEqual(g.currentRegions.map(r=>r.id),["ab"]);});

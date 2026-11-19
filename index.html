@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <meta name="description" content="TERRA NOVA — une simulation vivante de civilisations, d'exploration et de transformations du monde.">
+  <title>TERRA NOVA</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Terra Nova accueil"><span class="brand-mark">TN</span><span>TERRA <b>NOVA</b></span></a>
+    <div class="status"><span class="status-dot"></span> Simulation locale · Fondation technique</div>
+  </header>
+  <main class="shell">
+    <section class="intro">
+      <p class="eyebrow">UN MONDE, MILLE DESTINS</p>
+      <h1>Le monde commence<br><em>à se transformer.</em></h1>
+      <p class="lead">Une simulation historique ouverte, du 1er janvier 1444 vers un avenir sans limite.</p>
+    </section>
+    <section class="sim-panel" aria-labelledby="clock-title">
+      <div class="panel-heading"><div><p class="eyebrow">CHRONOLOGIE MONDIALE</p><h2 id="clock-title">Le temps</h2></div><span class="pill" id="run-state">EN PAUSE</span></div>
+      <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
+      <div class="controls">
+        <button id="toggle-clock" class="button button-primary">Lancer</button>
+        <button id="advance-day" class="button">+ 1 jour</button>
+        <label class="speed-control">Vitesse
+          <select id="speed">
+            <option value="1">1× · Posée</option>
+            <option value="5">5× · Rapide</option>
+            <option value="20">20× · Très rapide</option>
+            <option value="60">60× · Accélérée</option>
+          </select>
+        </label>
+      </div>
+      <div class="panel-footer"><span>Début de partie : 01.01.1444</span><span id="elapsed-days">Jour 1</span></div>
+    </section>
+    <section class="foundation-grid">
+      <article class="info-card"><span class="card-index">01</span><h3>Géographie évolutive</h3><p>Une géographie physique indépendante des frontières politiques, conçue pour pouvoir être remodelée par les événements.</p><span class="tag">Architecture préparée</span></article>
+      <article class="info-card"><span class="card-index">02</span><h3>Un temps sans limite</h3><p>Une horloge quotidienne, avec des systèmes qui pourront évoluer à des rythmes différents pour préserver les performances.</p><span class="tag">Horloge active</span></article>
+      <article class="info-card"><span class="card-index">03</span><h3>Monde persistant</h3><p>Des sauvegardes locales versionnées, avec validation des données avant restauration.</p><span class="tag">Sauvegarde locale</span></article>
+    </section>
+    <div class="save-row"><span id="save-status">Aucune sauvegarde enregistrée.</span><div><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div></div>
+    <footer>Prototype technique · Lot 1 · TERRA NOVA</footer>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

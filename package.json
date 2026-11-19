@@ -1,0 +1,12 @@
+{
+  "name": "terra-nova",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A long-running world civilization simulation beginning in 1444.",
+  "scripts": {
+    "test": "node --test",
+    "check": "node scripts/check-syntax.mjs && node --test"
+  },
+  "engines": { "node": ">=20" }
+}
