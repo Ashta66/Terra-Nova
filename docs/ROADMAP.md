@@ -47,7 +47,7 @@ Légende :
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
-| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | À FAIRE |
+| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom, panoramique, molette et recentrage intégrés ; sélection/infobulles/couches à faire |
 | 2.8 | Frontières politiques historiques de 1444 et territoires comme couche séparée | À FAIRE |
 | 2.9 | Performance : chargement progressif, simplification et rendu adapté au zoom | À FAIRE |
 
@@ -151,4 +151,4 @@ Légende :
 
 Terminer le lot **2.1** : obtenir le raster mondial ETOPO 2022 à 60 secondes, l'assembler en VRT/GeoTIFF si nécessaire, exécuter `scripts/build-etopo-overview.sh`, vérifier l'en-tête ENVI, la couverture mondiale, les valeurs d'altitude et la taille. Puis intégrer le binaire 10 minutes et tester son chargement hors ligne. Ne pas présenter de relief continu tant que les données NOAA réelles ne sont pas téléchargées et validées.
 
-Après le MNT, le prochain objectif visuel est le relief ombré réel, puis la navigation et les niveaux de zoom. Ne pas passer aux systèmes de gameplay tant que la carte de base n'est pas assez solide pour supporter l'exploration et les territoires.
+Après la préparation du MNT, la première navigation 2D est intégrée : zoom jusqu'à 800 %, panoramique par glisser-déposer, zoom à la molette centré sur le pointeur et recentrage. Le prochain objectif visuel est le relief ombré réel à partir du raster NOAA, puis la navigation globe/atlas et les niveaux de détail régionaux. Ne pas passer aux systèmes de gameplay tant que la carte de base n'est pas assez solide pour supporter l'exploration et les territoires.
