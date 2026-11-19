@@ -19,7 +19,9 @@ function createCanvas() {
     measureText: (text) => ({ width: String(text).length * 6 }),
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
-    stroke: (...args) => calls.push(["stroke", ...args])
+    stroke: (...args) => calls.push(["stroke", ...args]),
+    createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
+    putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)])
   };
   return { canvas: { clientWidth: 640, getContext: () => context }, calls };
 }
@@ -115,4 +117,18 @@ test("le raster de terrain produit des pixels sans dépendre du DOM", () => {
   assert.equal(placed, true);
   assert.equal(image.data.length, 32);
   assert.ok([...image.data].some(value => value > 0));
+});
+
+
+test("le relief ETOPO est actif en équirectangulaire et masqué sur les projections non prises en charge", () => {
+  const bytes = new Uint8Array(8);
+  const view = new DataView(bytes.buffer);
+  [-1000, 500, 1200, 3200].forEach((value, index) => view.setInt16(index * 2, value, true));
+  const terrain = createTerrainGrid(bytes, 2, 2);
+  const { canvas, calls } = createCanvas();
+  const flat = renderWorldMap(canvas, land, { width: 4, height: 2, pixelRatio: 1, terrain });
+  assert.equal(flat.terrainEnabled, true);
+  assert.ok(calls.some(call => call[0] === "putImageData"));
+  const globe = renderWorldMap(canvas, land, { width: 4, height: 2, pixelRatio: 1, terrain, projection: "orthographic" });
+  assert.equal(globe.terrainEnabled, false);
 });
