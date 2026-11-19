@@ -15,6 +15,8 @@ function createCanvas() {
     closePath: () => calls.push(["closePath"]),
     arc: (...args) => calls.push(["arc", ...args]),
     fillText: (...args) => calls.push(["fillText", ...args]),
+    strokeText: (...args) => calls.push(["strokeText", ...args]),
+    measureText: (text) => ({ width: String(text).length * 6 }),
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args])
@@ -69,4 +71,17 @@ test("le moteur ignore les géométries nulles sans interrompre le rendu", () =>
   const result = renderWorldMap(canvas, data, { width: 640, height: 320, pixelRatio: 1 });
   assert.equal(result.featureCount, 1);
   assert.equal(result.landCount, 0);
+});
+
+test("les labels géographiques apparaissent selon le niveau de zoom", () => {
+  const { canvas, calls } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Europe", kind: "continent", minZoom: 1 }, geometry: { type: "Point", coordinates: [15, 45] } },
+    { type: "Feature", properties: { name: "Paris", kind: "city", minZoom: 2 }, geometry: { type: "Point", coordinates: [2.35, 48.86] } }
+  ] };
+  const world = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 1 } });
+  assert.deepEqual(world.labelHits.map(label => label.name), ["Europe"]);
+  const regional = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 2 } });
+  assert.ok(regional.labelHits.some(label => label.name === "Paris"));
+  assert.ok(calls.some(call => call[0] === "strokeText" && call[1] === "Europe"));
 });
