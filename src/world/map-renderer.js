@@ -1,7 +1,7 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 
-function drawRing(context, ring, width, height, projection) {
+function traceRing(context, ring, width, height, projection) {
   let started = false;
   for (const coordinate of ring) {
     const point = projectCoordinate(coordinate, width, height, projection);
@@ -12,15 +12,80 @@ function drawRing(context, ring, width, height, projection) {
   if (started) context.closePath();
 }
 
-function drawGeometry(context, geometry, width, height, projection) {
-  if (!geometry) return;
+function traceGeometry(context, geometry, width, height, projection) {
+  if (!geometry) return false;
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
-  for (const polygon of polygons) {
+  if (!polygons.length) return false;
+  for (const polygon of polygons) for (const ring of polygon) traceRing(context, ring, width, height, projection);
+  return true;
+}
+
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  for (const feature of collection.features) {
+    if (!feature?.geometry) continue;
     context.beginPath();
-    for (const ring of polygon) drawRing(context, ring, width, height, projection);
+    if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
+    context.fillStyle = fill;
+    context.strokeStyle = stroke;
+    context.lineWidth = lineWidth;
     context.fill("evenodd");
     context.stroke();
+    drawn++;
   }
+  return drawn;
+}
+
+function drawLineLayer(context, collection, width, height, projection, color, lineWidth) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  for (const feature of collection.features) {
+    const geometry = feature?.geometry;
+    if (!geometry) continue;
+    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
+    for (const line of lines) {
+      context.beginPath();
+      let started = false;
+      for (const coordinate of line) {
+        const point = projectCoordinate(coordinate, width, height, projection);
+        if (!point) { started = false; continue; }
+        if (!started) { context.moveTo(point.x, point.y); started = true; }
+        else context.lineTo(point.x, point.y);
+      }
+      if (started) {
+        context.strokeStyle = color;
+        context.lineWidth = lineWidth;
+        context.stroke();
+        drawn++;
+      }
+    }
+  }
+  return drawn;
+}
+
+function drawLandHachures(context, collection, width, height, projection, color) {
+  if (!collection?.features || typeof context.clip !== "function") return;
+  context.save();
+  context.globalAlpha = 0.12;
+  context.strokeStyle = color;
+  context.lineWidth = 0.45;
+  for (const feature of collection.features) {
+    if (!feature?.geometry) continue;
+    context.save();
+    context.beginPath();
+    if (traceGeometry(context, feature.geometry, width, height, projection)) {
+      context.clip("evenodd");
+      for (let offset = -height; offset < width; offset += 13) {
+        context.beginPath();
+        context.moveTo(offset, height);
+        context.lineTo(offset + height, 0);
+        context.stroke();
+      }
+    }
+    context.restore();
+  }
+  context.restore();
 }
 
 export function renderWorldMap(canvas, featureCollection, options = {}) {
@@ -28,12 +93,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
     throw new TypeError("Une FeatureCollection GeoJSON est requise.");
   }
-  const width = options.width ?? canvas.clientWidth ?? 960;
-  const height = options.height ?? Math.round(width * 0.52);
+  const width = Math.max(1, options.width ?? canvas.clientWidth ?? 960);
+  const height = Math.max(1, options.height ?? Math.round(width * 0.52));
   const pixelRatio = Math.min(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1, 2);
   canvas.width = Math.round(width * pixelRatio);
   canvas.height = Math.round(height * pixelRatio);
   const context = canvas.getContext("2d");
+  if (!context) throw new Error("Contexte Canvas 2D indisponible.");
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const year = options.year ?? 1444;
   const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
@@ -64,13 +130,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   context.restore();
 
-  for (const feature of featureCollection.features) {
-    const geometry = feature?.geometry;
-    if (!geometry) continue;
-    context.fillStyle = theme.colors.land;
-    context.strokeStyle = theme.colors.coast;
-    context.lineWidth = 0.8;
-    drawGeometry(context, geometry, width, height, projection);
-  }
-  return { theme, projection, featureCount: featureCollection.features.length, width, height };
+  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, theme.colors.land, theme.colors.coast, 0.85);
+  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
+
+  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
+  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
+
+  return {
+    theme, projection, featureCount: featureCollection.features.length,
+    landCount, lakeCount, riverCount, width, height
+  };
 }
