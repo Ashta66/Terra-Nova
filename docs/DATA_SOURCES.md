@@ -65,3 +65,10 @@ Ne pas livrer directement au navigateur les centaines de millions de cellules du
 - Le script vérifie la taille exacte du fichier et demande de contrôler que l'en-tête ENVI indique le little-endian (`byte order = 0`).
 
 Cette préparation est reproductible, mais le raster n'est **pas encore intégré** : aucun fichier d'altitude n'est déclaré présent avant d'avoir téléchargé la source NOAA, exécuté le script et validé les données obtenues. Les tuiles haute résolution seront étudiées ensuite pour les zooms régionaux.
+
+
+## Labels géographiques et villes historiques
+
+Le fichier `data/ne_110m_map_labels.geojson` est une couche éditoriale légère dédiée à la lisibilité de la carte : noms des continents, océans et une sélection de villes importantes existant au début de la partie (1444). Les coordonnées sont des points de placement cartographique ; elles ne définissent ni frontières ni contrôle politique.
+
+Les noms de villes sont affichés à partir du zoom 2×. Les pays modernes ne sont pas affichés, afin de ne pas confondre géographie contemporaine et situation politique historique de 1444. Les labels sont une sélection initiale et devront être étendus/validés lors de l'intégration de données historiques. Pour les fonds et jeux de données physiques/culturels Natural Earth : https://www.naturalearthdata.com/downloads/110m-cultural-vectors/ ; le jeu de données est libre d'utilisation, attribution conseillée « Natural Earth ».
