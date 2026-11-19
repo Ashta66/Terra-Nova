@@ -1,21 +1,28 @@
 const DEG = Math.PI / 180;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-export function projectEquirectangular(longitude, latitude, width, height) {
+export function projectEquirectangular(longitude, latitude, width, height, viewport = {}) {
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 12);
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85, 85);
   return {
-    x: ((longitude + 180) / 360) * width,
-    y: ((90 - latitude) / 180) * height
+    x: width / 2 + ((longitude - centerLongitude) / 360) * width * zoom,
+    y: height / 2 - ((latitude - centerLatitude) / 180) * height * zoom
   };
 }
 
-export function projectMercator(longitude, latitude, width, height) {
+export function projectMercator(longitude, latitude, width, height, viewport = {}) {
   const safeLatitude = clamp(latitude, -85.05112878, 85.05112878);
+  const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85.05112878, 85.05112878);
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
   const phi = safeLatitude * DEG;
+  const centerPhi = centerLatitude * DEG;
   const mercatorY = Math.log(Math.tan(Math.PI / 4 + phi / 2));
-  const worldY = clamp((1 - mercatorY / Math.PI) / 2, 0, 1);
+  const centerY = Math.log(Math.tan(Math.PI / 4 + centerPhi / 2));
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 12);
   return {
-    x: ((longitude + 180) / 360) * width,
-    y: worldY * height
+    x: width / 2 + ((longitude - centerLongitude) / 360) * width * zoom,
+    y: height / 2 - ((mercatorY - centerY) / (2 * Math.PI)) * height * zoom
   };
 }
 
@@ -36,8 +43,10 @@ export function projectCoordinate(coordinate, width, height, projection = "equir
   if (!Array.isArray(coordinate) || coordinate.length < 2) throw new TypeError("Coordonnée longitude/latitude invalide.");
   const [longitude, latitude] = coordinate;
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) throw new TypeError("Coordonnée non numérique.");
-  if (projection === "mercator") return projectMercator(longitude, latitude, width, height);
-  if (projection === "orthographic") return projectOrthographic(longitude, latitude, width, height, center);
-  if (projection !== "equirectangular") throw new RangeError("Projection inconnue : " + projection);
-  return projectEquirectangular(longitude, latitude, width, height);
+  const type = typeof projection === "object" && projection !== null ? projection.type : projection;
+  const viewport = typeof projection === "object" && projection !== null ? projection.viewport ?? {} : {};
+  if (type === "mercator") return projectMercator(longitude, latitude, width, height, viewport);
+  if (type === "orthographic") return projectOrthographic(longitude, latitude, width, height, center);
+  if (type !== "equirectangular") throw new RangeError("Projection inconnue : " + type);
+  return projectEquirectangular(longitude, latitude, width, height, viewport);
 }
