@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
-import { calculateHillshade, terrainColorForElevation } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
   const calls = [];
@@ -153,4 +153,23 @@ test("le hillshade directionnel est neutre sur une surface plane et borné sur l
   assert.ok(illuminatedSlope >= 0.72 && illuminatedSlope <= 1.22);
   assert.ok(oppositeSlope >= 0.72 && oppositeSlope <= 1.22);
   assert.notEqual(illuminatedSlope, oppositeSlope);
+});
+
+
+test("les classes de relief distinguent montagnes, plateaux, vallées et plaines", () => {
+  assert.equal(classifyLandform(-2500, -2600, -2400, -2550, -2450, 35), "ocean");
+  assert.equal(classifyLandform(3200, 0, 2600, 1800, 300, 45), "mountains");
+  assert.equal(classifyLandform(1200, 1190, 1210, 1200, 1200, 30), "plateaus");
+  assert.equal(classifyLandform(400, 700, 700, 700, 700, 40), "valleys");
+  assert.equal(classifyLandform(100, 100, 100, 100, 100, 40), "plains");
+});
+
+test("les classes terrestres modulent discrètement la palette sans toucher la bathymétrie", () => {
+  const base = terrainColorForElevation(300, 1);
+  const plain = terrainColorForElevation(300, 1, "plains");
+  const mountain = terrainColorForElevation(3000, 1, "mountains");
+  const sea = terrainColorForElevation(-3000, 1, "ocean");
+  assert.notDeepEqual(plain, base);
+  assert.notDeepEqual(mountain, terrainColorForElevation(3000, 1));
+  assert.deepEqual(sea, terrainColorForElevation(-3000, 1));
 });
