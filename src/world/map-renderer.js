@@ -130,6 +130,48 @@ function drawElevationPoints(context, collection, width, height, projection, the
   return drawn;
 }
 
+
+function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
+  if (!collection?.features) return [];
+  const hits = [];
+  const occupied = [];
+  const candidates = collection.features
+    .filter(feature => Number(feature.properties?.minZoom ?? 1) <= zoom)
+    .sort((a, b) => {
+      const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : 2;
+      return rank(a.properties?.kind) - rank(b.properties?.kind);
+    });
+  for (const feature of candidates) {
+    if (feature.geometry?.type !== "Point") continue;
+    const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
+    if (!point || point.x < 12 || point.x > width - 12 || point.y < 12 || point.y > height - 12) continue;
+    const name = String(feature.properties?.name ?? "");
+    if (!name) continue;
+    const kind = feature.properties?.kind ?? "place";
+    const fontSize = kind === "continent" ? 13 : kind === "ocean" ? 10 : 10;
+    context.save();
+    context.font = kind === "city" ? "600 10px Arial, sans-serif" : `italic 600 ${fontSize}px Georgia, serif`;
+    const textWidth = context.measureText(name).width;
+    const x = point.x - textWidth / 2;
+    const y = point.y + (kind === "city" ? 3 : 0);
+    const box = { left: x - 4, right: x + textWidth + 4, top: y - fontSize - 3, bottom: y + 4 };
+    const collides = occupied.some(other => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom));
+    if (collides) { context.restore(); continue; }
+    occupied.push(box);
+    context.textAlign = "left";
+    context.textBaseline = "alphabetic";
+    context.lineWidth = kind === "city" ? 2.8 : 3.4;
+    context.strokeStyle = theme.colors.ocean;
+    context.fillStyle = kind === "ocean" ? "#a9c6cf" : kind === "city" ? theme.colors.text : theme.colors.text;
+    context.globalAlpha = kind === "city" ? 0.92 : 0.78;
+    context.strokeText(name, x, y);
+    context.fillText(name, x, y);
+    context.restore();
+    hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5, right: x + textWidth + 5, top: y - fontSize - 5, bottom: y + 6 }, coordinates: feature.geometry.coordinates });
+  }
+  return hits;
+}
+
 export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
@@ -178,9 +220,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
+  const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, width, height
   };
 }
