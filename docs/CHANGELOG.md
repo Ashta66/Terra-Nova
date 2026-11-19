@@ -5,7 +5,8 @@
 - Une surface plane garde un éclairage neutre ; le facteur d'ombrage est borné pour préserver la lisibilité des couleurs.
 - Tests ajoutés pour la neutralité d'une surface plane et le comportement borné de pentes opposées.
 - Documentation mise à jour : moteur cartographique, roadmap, cahier des charges maître.
-- Validation CI de ce complément en attente ; rendu visuel navigateur non inspecté.
+- CI GitHub Actions sur le commit `85e1eaa2fd1c17f720d2e58599f46d3c89a9f995` : 44 tests réussis, 0 échec ; vérification des scripts shell réussie. Workflow : https://github.com/Ashta66/Terra-Nova/actions/runs/44640970755.
+- Rendu visuel navigateur non inspecté.
 
 ## 20 novembre 2026 — bathymétrie simplifiée et allègement du rendu marin
 
