@@ -48,3 +48,10 @@ Le joueur a retenu l'option C : un mélange de labels visibles automatiquement e
 - Les collisions entre labels sont filtrées pour limiter la surcharge visuelle.
 
 Données : `data/ne_110m_map_labels.geojson`. Cette première couche est une sélection éditoriale de continents, océans et villes, pas un inventaire exhaustif. Les noms de pays modernes sont volontairement absents : TERRA NOVA commence en 1444, et les frontières/noms politiques doivent être établis avec des sources historiques adaptées avant affichage. Les niveaux de zoom et règles de collision seront affinés avec des données régionales plus détaillées.
+
+
+## Données de relief ETOPO — extraction validée (20 novembre 2026)
+
+Une extraction mondiale NOAA ERDDAP a été convertie en grille brute 2 160 × 1 080, Int16 little-endian, en mètres (4 665 600 octets). Les coordonnées ont été réordonnées du nord vers le sud et de −180° à +180°. Le contrôle a confirmé 1 080 × 2 160 valeurs finies, une plage d'altitude de −10 511 à 6 734 mètres après arrondi et la référence verticale EGM2008.
+
+La source extraite est décimée par stride 10 : elle n'est pas moyennée par blocs. Le fichier de données et ses métadonnées constituent un artefact préparé ; le renderer ne le lit pas encore et aucun ombrage réel n'est encore affiché. Le script reproductible est `scripts/convert-etopo-erddap.py`.
