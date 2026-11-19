@@ -81,7 +81,7 @@ test("les labels géographiques apparaissent selon le niveau de zoom", () => {
   ] };
   const world = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 1 } });
   assert.deepEqual(world.labelHits.map(label => label.name), ["Europe"]);
-  const regional = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 2 } });
+  const regional = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 2, centerLatitude: 45 } });
   assert.ok(regional.labelHits.some(label => label.name === "Paris"));
   assert.ok(calls.some(call => call[0] === "strokeText" && call[1] === "Europe"));
 });
