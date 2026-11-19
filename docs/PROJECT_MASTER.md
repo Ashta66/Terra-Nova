@@ -203,6 +203,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - Résolution source retenue pour l'aperçu : 60 secondes d'arc ; sortie cible 10 minutes d'arc, 2160 × 1080, Int16 little-endian en mètres (environ 4,45 Mio).
 - Script de préparation : `scripts/build-etopo-overview.sh` (GDAL hors ligne).
 - Le fichier raster n'est pas encore présent dans le dépôt ; aucun relief mesuré continu ne doit être affiché avant validation du raster.
+- Une voie d'extraction officielle complémentaire est identifiée via NOAA ERDDAP (`ETOPO_2022_v1_60s`, Ice Surface), avec grille latitude/longitude et extraction décimée possible. Le téléchargement, le réordonnancement des longitudes 0–360° et la validation du binaire restent à réaliser.
 
 ## 10. Organisation de développement et règles de reprise
 
