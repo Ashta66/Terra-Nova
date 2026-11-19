@@ -1,3 +1,22 @@
+## 20 novembre 2026 — réception et conversion du relief ETOPO NOAA
+
+### Données reçues et contrôlées
+- Réception du NetCDF `ETOPO_2022_v1_60s` extrait via NOAA ERDDAP, de taille 9 363 244 octets.
+- Dimensions contrôlées : 1 080 × 2 160 ; variable `z` en mètres ; référence verticale EGM2008.
+- Aucune valeur manquante/non finie détectée ; plage source mesurée : −10 511,002 à 6 734,173 m.
+- Coordonnées source validées : latitude ascendante et longitude 0–360°, pas régulier de 1/6°.
+
+### Conversion et fichiers
+- Ajout de `scripts/convert-etopo-erddap.py` : validation stricte du NetCDF, inversion des lignes pour obtenir le nord en haut, rotation des colonnes de 180° pour obtenir les longitudes −180° à +180°, arrondi au mètre et export Int16 little-endian.
+- Génération d'un binaire de 4 665 600 octets (2 160 × 1 080 × 2), d'un en-tête ENVI et de métadonnées JSON.
+- Empreinte SHA-256 du binaire : `dfbb54b8bfaf062f2589521ee96d94ba8025e2723bb2e7d2103ff0afcfa79927`.
+- Le paquet de préparation est fourni séparément à l'utilisateur ; le binaire n'est pas encore intégré au dépôt Git.
+
+### Correction de méthode et limites
+- L'extraction ERDDAP reçue est un échantillonnage par stride 10, et non une moyenne de blocs 10×10. Les docs et métadonnées décrivent désormais cette méthode précisément.
+- Le fichier est validé comme donnée préparée, mais n'est pas encore chargé par `map-renderer.js`. Aucun relief ombré réel n'est déclaré opérationnel.
+- Lot 2.1 reste EN COURS jusqu'à l'intégration du fichier et à la vérification de son géoréférencement/rendu.
+
 # Journal des changements — TERRA NOVA
 
 ## 19 novembre 2026 — amélioration du pipeline d'accès ETOPO (recherche de source)
