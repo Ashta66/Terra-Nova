@@ -1,5 +1,29 @@
 # Journal des changements — TERRA NOVA
 
+## 19 novembre 2026 — labels géographiques progressifs (choix joueur C)
+
+### Décision de conception
+- Le joueur a choisi l'option C : noms principaux affichés progressivement selon le zoom, détails au survol et au clic.
+- Monde : continents et océans ; zoom régional : villes historiques ; survol : nom/type ; clic : coordonnées géographiques.
+- Les noms et frontières des pays modernes ne sont pas injectés dans la carte de 1444 : il faudra un référentiel politique historique adapté.
+
+### Code et données
+- Ajout de `data/ne_110m_map_labels.geojson` : continents, océans et sélection initiale de villes historiques (Paris, Londres, Rome, Constantinople, Le Caire, Tombouctou, Delhi, Pékin, Kyoto, Tenochtitlan, Cuzco, etc.).
+- `src/world/map-renderer.js` : rendu de labels à seuil de zoom, hiérarchie typographique, évitement simple des collisions et zones de détection.
+- `src/main.js` : chargement de la couche, infobulle au survol, informations au clic, maintien de la navigation par glisser-déposer.
+- `index.html` et `styles/main.css` : surface d'infobulle et présentation.
+- `tests/map-renderer.test.js` : test de visibilité progressive des labels et du rendu de texte.
+
+### Documentation
+- Mise à jour de `docs/PROJECT_MASTER.md`, `docs/ROADMAP.md`, `docs/MAP_ENGINE.md` et `docs/DATA_SOURCES.md`.
+- Les villes affichées sont une sélection initiale éditoriale, pas une base exhaustive ni une preuve de statut politique.
+- Les données pays/limites modernes ne sont pas utilisées comme carte politique 1444.
+
+### Vérification
+- Les tests et la CI de ce lot sont à consulter sur le workflow du commit final ; ne pas considérer ce lot validé avant succès du dernier run.
+- Limites : pas encore de sélection de territoires, fiche de lieu complète, données de pays historiques, densité de labels régionale ni gestion avancée des collisions.
+
+
 Ce journal consigne les changements réellement effectués dans le dépôt. Les documents maîtres et la roadmap décrivent l'état courant ; ce journal garde la trace des évolutions par session.
 
 ## 19 novembre 2026 — navigation interactive de la carte (branche `dev`)
