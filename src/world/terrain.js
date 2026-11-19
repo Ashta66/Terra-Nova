@@ -32,21 +32,49 @@ function colorForElevation(e, shade) {
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  const image = context.createImageData(width, height), pixels = image.data;
+  // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
+  // Cela évite plusieurs millions d'échantillonnages à chaque déplacement/zoom.
+  const scale = Math.min(1, 1024 / width, 512 / height);
+  const renderWidth = Math.max(1, Math.round(width * scale));
+  const renderHeight = Math.max(1, Math.round(height * scale));
+  let renderContext = context;
+  let surface = null;
+  if (scale < 1 && typeof OffscreenCanvas !== "undefined") {
+    surface = new OffscreenCanvas(renderWidth, renderHeight);
+    renderContext = surface.getContext("2d");
+  } else if (scale < 1 && typeof document !== "undefined" && context.drawImage) {
+    surface = document.createElement("canvas");
+    surface.width = renderWidth;
+    surface.height = renderHeight;
+    renderContext = surface.getContext("2d");
+  }
+  if (!renderContext?.createImageData || !renderContext?.putImageData) return false;
+  const image = renderContext.createImageData(renderWidth, renderHeight), pixels = image.data;
   const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0);
   const dx = 360 / grid.width, dy = 180 / grid.height;
-  for (let py = 0; py < height; py++) {
-    const lat = cy - ((py + 0.5) / height - 0.5) * 180 / zoom;
-    for (let px = 0; px < width; px++) {
-      const lon = cx + ((px + 0.5) / width - 0.5) * 360 / zoom;
+  for (let py = 0; py < renderHeight; py++) {
+    const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
+    for (let px = 0; px < renderWidth; px++) {
+      const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
       const e = sampleElevation(grid, lon, lat);
       const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
       const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
       const shade = clamp(1.04 - (((east ?? e) - (west ?? e)) * 0.000035 + ((south ?? e) - (north ?? e)) * 0.00005), 0.68, 1.28);
-      const color = colorForElevation(e, shade), i = (py * width + px) * 4;
+      const color = colorForElevation(e, shade), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
     }
   }
-  context.putImageData(image, 0, 0);
+  renderContext.putImageData(image, 0, 0);
+  if (surface && typeof context.drawImage === "function") {
+    context.save?.();
+    context.setTransform?.(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.drawImage(surface, 0, 0, width, height);
+    context.restore?.();
+  } else if (renderContext === context) {
+    // Fallback DOM-less pour les tests et les contextes Canvas minimaux.
+  } else {
+    return false;
+  }
   return true;
 }
