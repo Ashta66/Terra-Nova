@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
+import { terrainColorForElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
   const calls = [];
@@ -131,4 +132,15 @@ test("le relief ETOPO est actif en équirectangulaire et masqué sur les project
   assert.ok(calls.some(call => call[0] === "putImageData"));
   const globe = renderWorldMap(canvas, land, { width: 4, height: 2, pixelRatio: 1, terrain, projection: "orthographic" });
   assert.equal(globe.terrainEnabled, false);
+});
+
+
+test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
+  const deep = terrainColorForElevation(-6000, 1);
+  const deepWithStrongRelief = terrainColorForElevation(-6000, 0.65);
+  const shelf = terrainColorForElevation(-200, 1);
+  const land = terrainColorForElevation(1800, 1);
+  assert.deepEqual(deepWithStrongRelief, deep);
+  assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - shelf[i]))) < 35);
+  assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - land[i]))) > 35);
 });
