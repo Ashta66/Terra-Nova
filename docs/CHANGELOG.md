@@ -21,7 +21,8 @@
 
 ### Vérification
 - Deux premières exécutions CI ont révélé que le test plaçait Paris hors du canevas après un zoom centré sur l'équateur ; le test a été corrigé pour centrer la vue sur l'Europe, sans changer le moteur.
-- La validation finale doit être confirmée sur le dernier workflow du commit de correction.
+- Vérification finale du commit `526e2f1c01a64d6417206d445f39257fc7acd0f2` : syntaxe JavaScript OK (16 fichiers), 39 tests réussis, 0 échec ; vérification shell ETOPO réussie.
+- Workflow : https://github.com/Ashta66/Terra-Nova/actions/runs/44632304565.
 - Limites : pas encore de sélection de territoires, fiche de lieu complète, données de pays historiques, densité de labels régionale ni gestion avancée des collisions.
 
 
