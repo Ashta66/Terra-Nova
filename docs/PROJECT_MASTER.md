@@ -190,7 +190,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 
 ### Limites connues
 - Extraction ETOPO 2022 NOAA ERDDAP intégrée comme grille mondiale décimée 2160 × 1080 Int16 little-endian (4 665 600 octets), en mètres et référence verticale EGM2008 ; chargement et première colorisation actifs sur `dev`.
-- Le relief terrestre utilise une palette hypsométrique progressive et un hillshade directionnel nord-ouest tenant compte de la latitude ; le réglage artistique après inspection visuelle, les classes géomorphologiques et les données régionales haute résolution restent à développer.
+- Le relief terrestre utilise une palette hypsométrique progressive, un hillshade directionnel nord-ouest tenant compte de la latitude et des classes visuelles heuristiques initiales (montagnes, plateaux, vallées, collines, plaines et basses terres). Ces classes ne remplacent pas une donnée géomorphologique scientifique ; le réglage artistique après inspection visuelle et les données régionales haute résolution restent à développer.
 - La bathymétrie est volontairement simplifiée en grandes masses de profondeur, avec contraste réduit et sans ombrage local des fosses/dorsales pour ne pas surcharger la carte.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
 - Pas de frontières politiques historiques de 1444. Les labels de villes actuels sont une sélection historique éditoriale et non un référentiel exhaustif ; les noms des pays ne sont pas encore affichés pour éviter l'anachronisme.
@@ -231,3 +231,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 
 ### Première intégration logicielle ETOPO
 Le moteur possède désormais un lecteur raster Int16, une interpolation d'altitude et un rendu hypsométrique ombré facultatif. Le binaire, son en-tête, ses métadonnées et le script de conversion sont présents dans `data/terrain/` sur `main` et `dev`. Le chargement navigateur est branché sur `dev`. Le rendu n'a pas encore été visuellement inspecté dans un navigateur réel.
+
+
+### Complément relief terrestre — 20 novembre 2026
+Le renderer utilise désormais les quatre échantillons voisins déjà nécessaires au hillshade pour différencier discrètement les formes de relief. Les classes sont heuristiques et purement visuelles. La bathymétrie reste volontairement simplifiée, à faible contraste, sans ombrage détaillé des fosses et dorsales. Aucun nouveau fichier de données n'est nécessaire.
