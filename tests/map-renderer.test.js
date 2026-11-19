@@ -76,7 +76,7 @@ test("le moteur ignore les géométries nulles sans interrompre le rendu", () =>
 test("les labels géographiques apparaissent selon le niveau de zoom", () => {
   const { canvas, calls } = createCanvas();
   const labels = { type: "FeatureCollection", features: [
-    { type: "Feature", properties: { name: "Europe", kind: "continent", minZoom: 1 }, geometry: { type: "Point", coordinates: [15, 45] } },
+    { type: "Feature", properties: { name: "Europe", kind: "continent", minZoom: 1 }, geometry: { type: "Point", coordinates: [-30, 65] } },
     { type: "Feature", properties: { name: "Paris", kind: "city", minZoom: 2 }, geometry: { type: "Point", coordinates: [2.35, 48.86] } }
   ] };
   const world = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 1 } });
