@@ -20,8 +20,11 @@ export function getCartographicTheme(year, technologyLevel = 0) {
   const current = THEMES[Math.max(0, index)];
   const next = THEMES[Math.min(THEMES.length - 1, Math.max(0, index) + 1)];
   const span = current.to === Infinity ? 1 : current.to - current.from;
-  const chronologicalBlend = current.to === Infinity ? 0 : clamp((year - current.from) / span, 0, 1) * 0.22;
-  const technologyBlend = clamp(technologyLevel, 0, 1) * 0.18;
+  // Begin the visual transition during the final fifth of an era so the
+  // palette reaches the next era exactly at its boundary.
+  const transitionStart = current.from + span * 0.8;
+  const chronologicalBlend = current.to === Infinity ? 0 : clamp((year - transitionStart) / (span * 0.2), 0, 1);
+  const technologyBlend = clamp(technologyLevel, 0, 1) * 0.65;
   const t = Math.max(chronologicalBlend, technologyBlend);
   return {
     ...current,
