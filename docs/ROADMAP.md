@@ -42,8 +42,8 @@ Légende :
 | Lot | Contenu | Statut |
 |---|---|---|
 | 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — raster Int16 2160 × 1080 (4,45 Mio), métadonnées et script présents sur `main` et `dev` ; chargement facultatif branché ; validation visuelle navigateur restante |
-| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive et hillshade directionnel tenant compte de la latitude ; validation visuelle et classes géomorphologiques à faire |
-| 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | EN COURS — bathymétrie volontairement simplifiée en grandes masses océaniques et plateau continental discret ; classes de relief terrestre et couches géographiques à développer |
+| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive, hillshade directionnel et premières classes visuelles heuristiques ; validation visuelle à faire |
+| 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | EN COURS — classes visuelles initiales montagnes/plateaux/vallées/collines/plaines ; bathymétrie simplifiée ; données et détails régionaux à développer |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
@@ -166,3 +166,11 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Chargement optionnel du raster au démarrage ; la carte reste fonctionnelle en l'absence du binaire.
 - Tests unitaires du parseur, de l'interpolation et de la génération de pixels ajoutés.
 - Le binaire a été ajouté à `data/terrain/` sur `main` et `dev`. Le renderer limite le calcul à 1 024 × 512 pixels avant agrandissement et masque la couche sous les projections non prises en charge. Vérification visuelle dans le navigateur encore nécessaire.
+
+
+### Suite terrain — classes de relief terrestres (20 novembre 2026)
+- Ajout d'une classification heuristique locale à partir de l'altitude et des quatre échantillons voisins déjà utilisés par le hillshade : montagnes, plateaux, vallées, collines, plaines et basses terres.
+- Teintes discrètes appliquées à la palette terrestre ; aucun pictogramme triangulaire ni couche marine détaillée ajoutés.
+- La classification est un traitement visuel du MNT global, pas une donnée géomorphologique scientifique sourcée.
+- Les classes ne demandent pas de nouveaux échantillonnages : le coût supplémentaire est limité aux calculs locaux et à une légère modulation RGB.
+- Validation visuelle navigateur toujours requise ; les seuils pourront être ajustés après inspection.
