@@ -145,7 +145,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const year = options.year ?? 1444;
   const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
-  const projection = options.projection ?? "equirectangular";
+  const projection = { type: options.projection ?? "equirectangular", viewport: options.viewport ?? {} };
 
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
@@ -180,7 +180,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
 
   return {
-    theme, projection, featureCount: featureCollection.features.length,
+    theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, width, height
   };
 }
