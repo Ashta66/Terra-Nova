@@ -185,7 +185,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - CI GitHub Actions : vérification de syntaxe et tests Node.
 
 ### Limites connues
-- Pas encore de modèle numérique de terrain continu embarqué.
+- Pas encore de modèle numérique de terrain continu embarqué. Le choix ETOPO 2022 NOAA est fait ; un script reproductible prépare un aperçu mondial 2160 × 1080 Int16 à 10 minutes d'arc, mais les données sources doivent encore être téléchargées et validées.
 - Pas de véritable relief ombré mesuré, ni de couches régionales haute résolution.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas.
 - Pas de frontières politiques historiques de 1444.
@@ -193,6 +193,12 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - Pas encore d'assistant IA fonctionnel ni d'éditeur d'événements complet.
 - Les opérations de géométrie physique avancées (booléens, impact, submersion, tectonique) ne sont pas encore implémentées.
 - Ce dépôt est un prototype technique en construction, pas encore un jeu complet.
+
+### Avancement du lot relief au 19 novembre 2026
+- Source : ETOPO 2022 NOAA confirmée, licence CC0-1.0 et DOI documentés.
+- Résolution source retenue pour l'aperçu : 60 secondes d'arc ; sortie cible 10 minutes d'arc, 2160 × 1080, Int16 little-endian en mètres (environ 4,45 Mio).
+- Script de préparation : `scripts/build-etopo-overview.sh` (GDAL hors ligne).
+- Le fichier raster n'est pas encore présent dans le dépôt ; aucun relief mesuré continu ne doit être affiché avant validation du raster.
 
 ## 10. Organisation de développement et règles de reprise
 
