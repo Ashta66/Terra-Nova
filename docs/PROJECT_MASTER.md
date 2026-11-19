@@ -180,16 +180,19 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - Thèmes cartographiques temporels et interpolation de palette.
 - Rendu Canvas mondial.
 - Données locales Natural Earth : terres, grands lacs, grands cours d'eau, zones glaciaires et points de repère d'altitude.
+- Première couche de labels géographiques progressifs : continents et océans à l'échelle mondiale ; villes historiques à partir du zoom 2× ; infobulle au survol et coordonnées au clic.
 - Hachures décoratives, clairement distinctes de l'altitude mesurée.
 - Interface ordinateur plein écran à trois colonnes ; carte centrale dominante, temps à gauche, assistant à droite.
 - Navigation 2D de la carte : zoom 1× à 8×, molette avec ancrage sous le pointeur, panoramique pointeur et recentrage.
+- Décision d'affichage des noms : option C validée — labels progressifs selon le zoom, informations importantes visibles automatiquement, détails au survol et coordonnées au clic.
+- Première couche de labels sur `dev` : continents, océans et sélection de villes historiques pertinentes pour le départ 1444. Les noms de pays modernes sont volontairement exclus tant que les frontières et noms politiques historiques ne sont pas sourcés.
 - CI GitHub Actions : vérification de syntaxe et tests Node.
 
 ### Limites connues
 - Pas encore de modèle numérique de terrain continu embarqué. Le choix ETOPO 2022 NOAA est fait ; un script reproductible prépare un aperçu mondial 2160 × 1080 Int16 à 10 minutes d'arc, mais les données sources doivent encore être téléchargées et validées.
 - Pas de véritable relief ombré mesuré, ni de couches régionales haute résolution.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
-- Pas de frontières politiques historiques de 1444.
+- Pas de frontières politiques historiques de 1444. Les labels de villes actuels sont une sélection historique éditoriale et non un référentiel exhaustif ; les noms des pays ne sont pas encore affichés pour éviter l'anachronisme.
 - Pas encore de nations, populations, économie, diplomatie, exploration jouable ou IA de nations.
 - Pas encore d'assistant IA fonctionnel ni d'éditeur d'événements complet.
 - Les opérations de géométrie physique avancées (booléens, impact, submersion, tectonique) ne sont pas encore implémentées.
