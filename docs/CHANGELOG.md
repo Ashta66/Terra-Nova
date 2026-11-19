@@ -1,3 +1,12 @@
+## 20 novembre 2026 — hillshade directionnel terrestre
+
+- `src/world/terrain.js` : remplacement de l'ombrage local heuristique par un calcul directionnel nord-ouest (azimut 315°, hauteur 45°).
+- Le gradient est converti en pente à partir de la taille approximative des cellules en mètres ; la largeur des cellules tient compte de la latitude.
+- Une surface plane garde un éclairage neutre ; le facteur d'ombrage est borné pour préserver la lisibilité des couleurs.
+- Tests ajoutés pour la neutralité d'une surface plane et le comportement borné de pentes opposées.
+- Documentation mise à jour : moteur cartographique, roadmap, cahier des charges maître.
+- Validation CI de ce complément en attente ; rendu visuel navigateur non inspecté.
+
 ## 20 novembre 2026 — bathymétrie simplifiée et allègement du rendu marin
 
 - Choix de lisibilité confirmé : les océans doivent rester visuellement secondaires par rapport aux reliefs terrestres.
