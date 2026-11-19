@@ -225,3 +225,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 5. Vérifier l'état réel de `dev`, les PR et les dernières GitHub Actions.
 6. Continuer depuis la prochaine tâche non terminée sans redemander les choix déjà validés.
 7. Si le contexte conversationnel est absent, ce document et la roadmap sont la source de vérité du projet.
+
+
+### Première intégration logicielle ETOPO
+Le moteur possède désormais un lecteur raster Int16, une interpolation d'altitude et un rendu hypsométrique ombré facultatif. Le binaire reste un asset séparé à placer dans `data/terrain/etopo_global_10m_i16.bin` ; sans lui, la carte conserve son rendu précédent. Ce jalon logiciel ne signifie pas que l'asset est déjà présent dans le dépôt ou que le rendu navigateur a été visuellement validé.
