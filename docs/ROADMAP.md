@@ -41,7 +41,7 @@ Légende :
 
 | Lot | Contenu | Statut |
 |---|---|---|
-| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — source, licence et format d'aperçu choisis ; script GDAL ajouté ; endpoint NOAA ERDDAP global 60s identifié pour extraction décimée ; téléchargement et validation du raster encore à faire |
+| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — extraction NetCDF ERDDAP reçue et contrôlée ; grille Int16 2160 × 1080 générée (4,45 Mio) ; branchement au moteur et rendu à faire |
 | 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | À FAIRE |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | À FAIRE |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
@@ -152,3 +152,10 @@ Légende :
 Terminer le lot **2.1** : extraire le raster mondial ETOPO 2022 Ice Surface via le téléchargement GeoTIFF NOAA ou l'endpoint ERDDAP 60 secondes (avec décimation contrôlée), normaliser l'ordre des longitudes, exécuter `scripts/build-etopo-overview.sh`, puis vérifier l'en-tête ENVI, la couverture mondiale, les valeurs d'altitude et la taille. Puis intégrer le binaire 10 minutes et tester son chargement hors ligne. Ne pas présenter de relief continu tant que les données NOAA réelles ne sont pas téléchargées et validées.
 
 Après la préparation du MNT, la première navigation 2D est intégrée : zoom jusqu'à 800 %, panoramique par glisser-déposer, zoom à la molette centré sur le pointeur et recentrage. Les labels progressifs sont maintenant intégrés selon le choix C : continents/océans à l'échelle mondiale, villes historiques à partir de 2×, survol et clic pour les coordonnées. Prochaine étape : frontières politiques et noms historiques (sans plaquer les frontières actuelles sur 1444), puis relief ombré réel à partir du raster NOAA et niveaux de détail régionaux. Ne pas passer aux systèmes de gameplay tant que la carte de base n'est pas assez solide pour supporter l'exploration et les territoires.
+
+
+### Mise à jour du lot 2.1 — 20 novembre 2026
+- Le NetCDF NOAA ERDDAP décimé a été reçu et contrôlé (dimensions, coordonnées, unités, valeurs manquantes, plage altimétrique).
+- Conversion en grille Int16 little-endian 2 160 × 1 080 terminée ; binaire de 4 665 600 octets.
+- La méthode réelle est un échantillonnage par stride 10, pas une moyenne 10×10 : la documentation a été corrigée pour ne pas présenter cette extraction comme une moyenne surfacique.
+- Le moteur n'utilise pas encore le fichier ; relief ombré et couches de terrain restent à faire.
