@@ -2,6 +2,7 @@ import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
+import { createTerrainGrid } from "./world/terrain.js";
 
 let state = createGameState();
 let interval = null;
@@ -11,6 +12,7 @@ let riverFeatures = null;
 let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
+let terrainGrid = null;
 let mapLabelHits = [];
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
@@ -65,11 +67,13 @@ function renderMap() {
     rivers: riverFeatures,
     glaciers: glacierFeatures,
     elevationPoints,
-    labels: mapLabels
+    labels: mapLabels,
+    terrain: terrainGrid
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
-  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief`;
+  const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
+  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}`;
   updateMapControls();
 }
 
@@ -88,6 +92,12 @@ async function loadWorldMap() {
     }
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
+    try {
+      const terrainResponse = await fetch("./data/terrain/etopo_global_10m_i16.bin");
+      if (terrainResponse.ok) terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+    } catch (terrainError) {
+      console.warn("Grille ETOPO non chargée :", terrainError);
+    }
     renderMap();
   } catch (error) {
     $("map-status").textContent = `Carte indisponible : ${error.message}`;
