@@ -37,7 +37,43 @@ function interpolateStops(value, stops) {
   return [...stops.at(-1)[1]];
 }
 
-export function terrainColorForElevation(elevation, shade = 1) {
+export function classifyLandform(elevation, west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
+  if (![elevation, west, east, north, south, latitude, cellSizeDegrees].every(Number.isFinite) || cellSizeDegrees <= 0) return "lowlands";
+  if (elevation < 0) return "ocean";
+  const metersPerDegree = 111320;
+  const cellWidth = metersPerDegree * Math.max(0.15, Math.cos(latitude * Math.PI / 180)) * cellSizeDegrees;
+  const cellHeight = metersPerDegree * cellSizeDegrees;
+  const slopeEast = (east - west) / (2 * cellWidth);
+  const slopeNorth = (north - south) / (2 * cellHeight);
+  const slope = Math.hypot(slopeEast, slopeNorth);
+  const neighbourMean = (west + east + north + south) / 4;
+  const relativeHeight = elevation - neighbourMean;
+
+  // Classes heuristiques dérivées du MNT : elles décrivent la forme locale,
+  // pas une cartographie géomorphologique scientifique indépendante.
+  if (elevation >= 1800 && slope >= 0.08) return "mountains";
+  if (elevation >= 700 && slope < 0.055) return "plateaus";
+  if (relativeHeight <= -90 && elevation < 1800) return "valleys";
+  if (slope < 0.025 && elevation < 450) return "plains";
+  if (slope >= 0.055 || elevation >= 1200) return "hills";
+  return "lowlands";
+}
+
+function applyLandformTint(color, landform) {
+  const tints = {
+    mountains: [190, 174, 157],
+    plateaus: [183, 158, 121],
+    valleys: [91, 116, 80],
+    plains: [137, 151, 103],
+    hills: [163, 143, 113]
+  };
+  const tint = tints[landform];
+  if (!tint) return color;
+  const strength = landform === "mountains" ? 0.075 : 0.065;
+  return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
+}
+
+export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands") {
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
     // local des fosses/dorsales qui surchargerait la lecture stratégique.
@@ -61,7 +97,7 @@ export function terrainColorForElevation(elevation, shade = 1) {
     [4000, [179, 165, 143]],
     [6500, [224, 222, 210]]
   ]);
-  return land.map(channel => Math.round(clamp(channel * shade, 0, 255)));
+  return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
 }
 
 export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
@@ -118,8 +154,13 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
         const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
         const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
+        const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
+        const color = terrainColorForElevation(e, shade, landform);
+        const i = (py * renderWidth + px) * 4;
+        pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
+        continue;
       }
-      const color = terrainColorForElevation(e, shade), i = (py * renderWidth + px) * 4;
+      const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
     }
   }
