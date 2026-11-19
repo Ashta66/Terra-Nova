@@ -10,7 +10,44 @@ let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
 let elevationPoints = null;
+const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
+let mapDrag = null;
+const MIN_MAP_ZOOM = 1;
+const MAX_MAP_ZOOM = 8;
 const $ = (id) => document.getElementById(id);
+
+function updateMapControls() {
+  $("map-zoom-level").textContent = Math.round(mapViewport.zoom * 100) + " %";
+  $("map-zoom-out").disabled = mapViewport.zoom <= MIN_MAP_ZOOM;
+  $("map-zoom-in").disabled = mapViewport.zoom >= MAX_MAP_ZOOM;
+}
+
+function zoomMap(factor, anchorX, anchorY) {
+  const canvas = $("world-map");
+  const rect = canvas.getBoundingClientRect();
+  const x = anchorX ?? rect.width / 2;
+  const y = anchorY ?? rect.height / 2;
+  const ratioX = rect.width ? x / rect.width - 0.5 : 0;
+  const ratioY = rect.height ? y / rect.height - 0.5 : 0;
+  const oldZoom = mapViewport.zoom;
+  const newZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, oldZoom * factor));
+  if (newZoom === oldZoom) return;
+  const longitudeAtAnchor = mapViewport.centerLongitude + ratioX * 360 / oldZoom;
+  const latitudeAtAnchor = mapViewport.centerLatitude - ratioY * 180 / oldZoom;
+  mapViewport.zoom = newZoom;
+  mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
+  mapViewport.centerLatitude = Math.max(-80, Math.min(80, latitudeAtAnchor + ratioY * 180 / newZoom));
+  renderMap();
+  updateMapControls();
+}
+
+function resetMapView() {
+  mapViewport.zoom = 1;
+  mapViewport.centerLongitude = 0;
+  mapViewport.centerLatitude = 0;
+  renderMap();
+  updateMapControls();
+}
 
 function renderMap() {
   if (!worldFeatures) return;
@@ -20,6 +57,7 @@ function renderMap() {
   const result = renderWorldMap(canvas, worldFeatures, {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
+    viewport: mapViewport,
     lakes: lakeFeatures,
     rivers: riverFeatures,
     glaciers: glacierFeatures,
@@ -27,6 +65,7 @@ function renderMap() {
   });
   $("map-era").textContent = result.theme.label;
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief`;
+  updateMapControls();
 }
 
 async function loadWorldMap() {
@@ -108,7 +147,40 @@ $("load-game").addEventListener("click", () => {
   }
 });
 
+const mapCanvas = $("world-map");
+$("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
+$("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
+$("map-reset").addEventListener("click", resetMapView);
+
+mapCanvas.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
+  mapCanvas.classList.add("is-dragging");
+  mapCanvas.setPointerCapture?.(event.pointerId);
+});
+mapCanvas.addEventListener("pointermove", (event) => {
+  if (!mapDrag) return;
+  const rect = mapCanvas.getBoundingClientRect();
+  const dx = event.clientX - mapDrag.x;
+  const dy = event.clientY - mapDrag.y;
+  mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
+  mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
+  renderMap();
+});
+function stopMapDrag() {
+  mapDrag = null;
+  mapCanvas.classList.remove("is-dragging");
+}
+mapCanvas.addEventListener("pointerup", stopMapDrag);
+mapCanvas.addEventListener("pointercancel", stopMapDrag);
+mapCanvas.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  const rect = mapCanvas.getBoundingClientRect();
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, event.clientX - rect.left, event.clientY - rect.top);
+}, { passive: false });
+
 state.clock = createClock();
 render();
+updateMapControls();
 loadWorldMap();
 window.addEventListener("resize", () => renderMap());
