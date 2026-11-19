@@ -44,3 +44,7 @@ Puis ouvrir `http://localhost:8080`.
 
 ## CI et publication
 GitHub Actions vérifie la syntaxe et les tests sur `dev`, `staging`, `main` et les pull requests. Aucun déploiement Pages automatique n'est activé tant que la version jouable n'a pas été validée.
+
+## Préparation du relief ETOPO
+
+Le modèle de terrain cible est ETOPO 2022. Le premier rendu mondial utilisera un aperçu raster compact 2160 × 1080 à 10 minutes d'arc, encodé en Int16 little-endian (mètres). Les données sont préparées hors ligne par GDAL via `scripts/build-etopo-overview.sh`. Le navigateur ne doit recevoir que le raster léger prétraité et les métadonnées ; aucune dépendance GDAL ne doit être nécessaire en jeu. Les niveaux de détail régionaux seront fournis ultérieurement par tuiles. Voir `docs/DATA_SOURCES.md`.
