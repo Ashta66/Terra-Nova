@@ -12,7 +12,7 @@ export function projectMercator(longitude, latitude, width, height) {
   const safeLatitude = clamp(latitude, -85.05112878, 85.05112878);
   const phi = safeLatitude * DEG;
   const mercatorY = Math.log(Math.tan(Math.PI / 4 + phi / 2));
-  const worldY = (1 - mercatorY / Math.PI) / 2;
+  const worldY = clamp((1 - mercatorY / Math.PI) / 2, 0, 1);
   return {
     x: ((longitude + 180) / 360) * width,
     y: worldY * height
