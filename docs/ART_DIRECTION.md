@@ -83,3 +83,16 @@ Le niveau D (simulation géologique et planétaire exhaustive) n'est pas une exi
 - Chargement progressif, niveaux de détail et simplification géométrique pour préserver les performances.
 - Accessibilité : contrastes, légendes, modes de couleur et informations qui ne reposent pas uniquement sur la couleur.
 - Les effets visuels ne doivent jamais masquer les frontières, les informations ou les actions du joueur.
+
+## Interface de jeu — disposition plein écran
+
+L'interface de stratégie privilégie une vue plein écran sans défilement sur ordinateur :
+- barre supérieure compacte ;
+- panneau chronologique et commandes de temps à gauche ;
+- carte mondiale comme surface centrale dominante ;
+- assistant « Le Monde en devenir » à droite ;
+- sauvegarde et chargement accessibles depuis la barre supérieure.
+
+Les panneaux latéraux peuvent défiler indépendamment si leur contenu dépasse la hauteur disponible. Sur mobile et petits écrans, l'interface repasse en colonne et le défilement vertical redevient possible. Le canevas conserve son rapport cartographique pour éviter de déformer les continents.
+
+Le panneau IA constitue pour l'instant une structure d'interface : aucune conversation ni génération d'événement n'est encore connectée à un modèle.
