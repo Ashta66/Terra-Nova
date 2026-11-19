@@ -192,7 +192,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
-  const terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport);
+  const terrainEnabled = drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
 
   context.save();
   context.strokeStyle = theme.colors.grid;
