@@ -59,7 +59,7 @@ La source extraite est décimée par stride 10 : elle n'est pas moyennée par bl
 
 ## Première intégration du relief raster ETOPO
 
-Le module `src/world/terrain.js` lit le raster Int16 little-endian, valide ses dimensions, interpole les altitudes et génère une image de terrain colorisée. Les altitudes émergées utilisent une palette hypsométrique progressive et un ombrage local simplifié ; les altitudes marines utilisent une gamme bleu-gris resserrée, sans ombrage local détaillé. Le renderer superpose ensuite les contours terrestres, côtes, lacs, rivières, glaciers et labels.
+Le module `src/world/terrain.js` lit le raster Int16 little-endian, valide ses dimensions, interpole les altitudes et génère une image de terrain colorisée. Les altitudes émergées utilisent une palette hypsométrique progressive et un hillshade directionnel (lumière nord-ouest à 45°), calculé à partir des gradients d'altitude et corrigé par la latitude ; une surface plane conserve un facteur neutre. Les altitudes marines utilisent une gamme bleu-gris resserrée, sans ombrage local détaillé. Le renderer superpose ensuite les contours terrestres, côtes, lacs, rivières, glaciers et labels.
 
 Le chargement est facultatif et ne bloque pas la carte si le binaire est absent. Chemin attendu : `data/terrain/etopo_global_10m_i16.bin`. Le binaire est désormais versionné dans `data/terrain/` sur `main` et `dev` ; seul ce fichier est lu par le navigateur. Le calcul du raster est plafonné à 1 024 × 512 pixels avant agrandissement pour limiter le coût des redessins.
 
