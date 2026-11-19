@@ -16,3 +16,12 @@ Cette couche sert uniquement de fond physique mondial simplifié. Elle ne repré
 ## World Atlas TopoJSON — source étudiée, non embarquée
 
 Le dépôt https://github.com/topojson/world-atlas redistribue des données dérivées de Natural Earth sous forme TopoJSON. Sa licence ISC couvre le paquet et son code ; les données géographiques Natural Earth conservent leur statut propre de domaine public. Aucun fichier World Atlas n'est embarqué dans le jeu à ce stade.
+
+## Couches hydrographiques Natural Earth 1:110m
+
+- Lacs : `data/ne_110m_lakes.geojson` — 24 entités polygonales.
+  Source : https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_lakes.geojson
+- Grands cours d'eau : `data/ne_110m_rivers.geojson` — 13 entités linéaires.
+  Source : https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_rivers_lake_centerlines.geojson
+
+Ces couches sont également issues de Natural Earth Vector et relèvent du domaine public. À cette échelle, elles ne représentent que les grands éléments hydrographiques utiles à la vue planétaire ; elles ne constituent pas un réseau hydrographique exhaustif.
