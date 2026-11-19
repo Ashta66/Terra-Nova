@@ -189,7 +189,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - CI GitHub Actions : vérification de syntaxe et tests Node.
 
 ### Limites connues
-- Pas encore de modèle numérique de terrain continu embarqué. Le choix ETOPO 2022 NOAA est fait ; un script reproductible prépare un aperçu mondial 2160 × 1080 Int16 à 10 minutes d'arc, mais les données sources doivent encore être téléchargées et validées.
+- Extraction ETOPO 2022 NOAA ERDDAP reçue et validée comme grille mondiale décimée 2160 × 1080 Int16 little-endian (4 665 600 octets), en mètres et référence verticale EGM2008. Le fichier compact est préparé, mais son chargement dans le renderer et l'affichage du relief mesuré restent à implémenter.
 - Pas de véritable relief ombré mesuré, ni de couches régionales haute résolution.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
 - Pas de frontières politiques historiques de 1444. Les labels de villes actuels sont une sélection historique éditoriale et non un référentiel exhaustif ; les noms des pays ne sont pas encore affichés pour éviter l'anachronisme.
@@ -202,7 +202,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - Source : ETOPO 2022 NOAA confirmée, licence CC0-1.0 et DOI documentés.
 - Résolution source retenue pour l'aperçu : 60 secondes d'arc ; sortie cible 10 minutes d'arc, 2160 × 1080, Int16 little-endian en mètres (environ 4,45 Mio).
 - Script de préparation : `scripts/build-etopo-overview.sh` (GDAL hors ligne).
-- Le fichier raster n'est pas encore présent dans le dépôt ; aucun relief mesuré continu ne doit être affiché avant validation du raster.
+- Une extraction NetCDF NOAA ERDDAP a été reçue et validée ; la grille Int16 compacte est générée comme artefact de préparation. Le renderer ne la consomme pas encore, donc aucun relief mesuré continu n'est actuellement affiché.
 - Une voie d'extraction officielle complémentaire est identifiée via NOAA ERDDAP (`ETOPO_2022_v1_60s`, Ice Surface), avec grille latitude/longitude et extraction décimée possible. Le téléchargement, le réordonnancement des longitudes 0–360° et la validation du binaire restent à réaliser.
 
 ## 10. Organisation de développement et règles de reprise
