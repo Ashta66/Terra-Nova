@@ -42,7 +42,7 @@ La prochaine étape de précision nécessitera un véritable raster d'altitude. 
 - Présentation et téléchargements : https://www.ncei.noaa.gov/products/etopo-global-relief-model
 - Référence scientifique et licence CC0 : https://essd.copernicus.org/articles/17/1835/2025/
 
-Le raster ETOPO n'est pas encore embarqué dans le jeu : l'accès direct aux fichiers binaires globaux n'a pas été validé dans l'environnement de développement. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
+Le raster ETOPO n'est pas encore embarqué dans le jeu : le téléchargement binaire n'a pas encore été mené à terme dans l'environnement de développement. Une voie d'accès officielle complémentaire a toutefois été identifiée : le service NOAA ERDDAP griddap pour le jeu global ETOPO_2022_v1_60s (Ice Surface). Il expose les dimensions latitude/longitude et permet des extractions par pas d'échantillonnage ; cette voie doit encore être testée sur un vrai fichier avant d'être considérée comme intégrée. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
 
 ## Choix technique pour le relief global — ETOPO 2022
 
@@ -51,6 +51,8 @@ La source de relief est confirmée : **ETOPO 2022, version Ice Surface**, pour r
 Références officielles :
 - NOAA NCEI : https://www.ncei.noaa.gov/products/etopo-global-relief-model
 - Métadonnées, formats et licence CC0 : https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ngdc.mgg.dem%3Aetopo_2022
+- Service NOAA ERDDAP (grille globale 60 secondes, Ice Surface) : https://oceanwatch.pifsc.noaa.gov/erddap/griddap/ETOPO_2022_v1_60s.html
+- Métadonnées de la grille ERDDAP : latitude 10 800 échantillons, longitude 21 600 échantillons, altitude `z` en mètres, référence verticale EGM2008. Le service accepte les extractions par indices et pas (`stride`) ; une extraction décimée 10×10 correspond à l'ordre de grandeur du raster 10 minutes visé. Les coordonnées de longitude sont exposées sur 0–360° et devront être réordonnées/validées pour le format cartographique du jeu.
 - Article scientifique : https://essd.copernicus.org/articles/17/1835/2025/
 - DOI du jeu de données : https://doi.org/10.25921/fd45-gt74
 
