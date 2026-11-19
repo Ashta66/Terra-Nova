@@ -8,6 +8,8 @@ let interval = null;
 let worldFeatures = null;
 let lakeFeatures = null;
 let riverFeatures = null;
+let glacierFeatures = null;
+let elevationPoints = null;
 const $ = (id) => document.getElementById(id);
 
 function renderMap() {
@@ -19,25 +21,28 @@ function renderMap() {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
     lakes: lakeFeatures,
-    rivers: riverFeatures
+    rivers: riverFeatures,
+    glaciers: glacierFeatures,
+    elevationPoints
   });
   $("map-era").textContent = result.theme.label;
-  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} grands cours d’eau`;
+  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief`;
 }
 
 async function loadWorldMap() {
   try {
-    const [landResponse, lakeResponse, riverResponse] = await Promise.all([
+    const responses = await Promise.all([
       fetch("./data/ne_110m_land.geojson"),
       fetch("./data/ne_110m_lakes.geojson"),
-      fetch("./data/ne_110m_rivers.geojson")
+      fetch("./data/ne_110m_rivers.geojson"),
+      fetch("./data/ne_110m_glaciated_areas.geojson"),
+      fetch("./data/ne_110m_elevation_points.geojson")
     ]);
-    for (const response of [landResponse, lakeResponse, riverResponse]) {
+    for (const response of responses) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
     }
-    [worldFeatures, lakeFeatures, riverFeatures] = await Promise.all([
-      landResponse.json(), lakeResponse.json(), riverResponse.json()
-    ]);
+    [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints] =
+      await Promise.all(responses.map(response => response.json()));
     renderMap();
   } catch (error) {
     $("map-status").textContent = `Carte indisponible : ${error.message}`;
