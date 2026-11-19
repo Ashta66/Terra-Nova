@@ -1,3 +1,11 @@
+## 20 novembre 2026 — premières classes visuelles du relief terrestre
+
+- `src/world/terrain.js`: ajout d'une classification heuristique locale distinguant montagnes, plateaux, vallées, collines, plaines et basses terres à partir de l'altitude et des quatre voisins déjà lus pour le hillshade.
+- Application de teintes très discrètes aux terres ; les océans ne sont pas affectés et conservent leur palette bathymétrique simplifiée.
+- Aucun échantillonnage supplémentaire ni asset externe ; coût ajouté limité à quelques calculs de pente/contraste et à un mélange RGB.
+- Tests ajoutés pour chaque classe principale et pour garantir que la bathymétrie reste inchangée.
+- Limite : les classes sont des heuristiques de rendu, pas une cartographie géomorphologique scientifique ; validation visuelle navigateur encore nécessaire.
+
 ## 20 novembre 2026 — hillshade directionnel terrestre
 
 - `src/world/terrain.js` : remplacement de l'ombrage local heuristique par un calcul directionnel nord-ouest (azimut 315°, hauteur 45°).
