@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
-import { terrainColorForElevation } from "../src/world/terrain.js";
+import { calculateHillshade, terrainColorForElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
   const calls = [];
@@ -143,4 +143,14 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
   assert.ok(Math.max(...deepWithStrongRelief.map((channel, i) => Math.abs(channel - deep[i]))) <= 2);
   assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - shelf[i]))) < 35);
   assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - land[i]))) > 35);
+});
+
+
+test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
+  assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
+  const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
+  const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
+  assert.ok(illuminatedSlope >= 0.72 && illuminatedSlope <= 1.22);
+  assert.ok(oppositeSlope >= 0.72 && oppositeSlope <= 1.22);
+  assert.notEqual(illuminatedSlope, oppositeSlope);
 });
