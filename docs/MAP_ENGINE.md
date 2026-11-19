@@ -34,3 +34,17 @@ Limites connues :
 - les géométries qui traversent l'antiméridien peuvent être coupées pendant le panoramique ;
 - le zoom augmente le grossissement mais n'ajoute pas encore de nouvelles données régionales : le détail est limité par Natural Earth 1:110m ;
 - les limites de déplacement sont volontairement simples et seront revues avec le globe et les niveaux de détail.
+
+
+## Labels cartographiques progressifs — choix C validé
+
+Le joueur a retenu l'option C : un mélange de labels visibles automatiquement et de détails interactifs.
+
+- Monde : noms des continents et océans.
+- Zoom à partir de 2× : sélection de villes historiques importantes, en cohérence éditoriale avec le départ 1444.
+- Survol d'un label : infobulle avec le nom et le type de lieu.
+- Clic : infobulle enrichie des coordonnées géographiques.
+- Le moteur dessine les labels après les couches physiques et renvoie leurs zones de détection pour l'interface.
+- Les collisions entre labels sont filtrées pour limiter la surcharge visuelle.
+
+Données : `data/ne_110m_map_labels.geojson`. Cette première couche est une sélection éditoriale de continents, océans et villes, pas un inventaire exhaustif. Les noms de pays modernes sont volontairement absents : TERRA NOVA commence en 1444, et les frontières/noms politiques doivent être établis avec des sources historiques adaptées avant affichage. Les niveaux de zoom et règles de collision seront affinés avec des données régionales plus détaillées.
