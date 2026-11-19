@@ -6,7 +6,7 @@
 - Dépôt : https://github.com/Ashta66/Terra-Nova
 - Branche de travail : `dev`
 - Branches de référence : `main` (stable), `staging` (intégration), `dev` (développement)
-- Dernière mise à jour : 19 novembre 2026
+- Dernière mise à jour : 20 novembre 2026
 
 ## 1. Vision
 
@@ -228,4 +228,4 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 
 
 ### Première intégration logicielle ETOPO
-Le moteur possède désormais un lecteur raster Int16, une interpolation d'altitude et un rendu hypsométrique ombré facultatif. Le binaire reste un asset séparé à placer dans `data/terrain/etopo_global_10m_i16.bin` ; sans lui, la carte conserve son rendu précédent. Ce jalon logiciel ne signifie pas que l'asset est déjà présent dans le dépôt ou que le rendu navigateur a été visuellement validé.
+Le moteur possède désormais un lecteur raster Int16, une interpolation d'altitude et un rendu hypsométrique ombré facultatif. Le binaire, son en-tête, ses métadonnées et le script de conversion sont présents dans `data/terrain/` sur `main` et `dev`. Le chargement navigateur est branché sur `dev`. Le rendu n'a pas encore été visuellement inspecté dans un navigateur réel.
