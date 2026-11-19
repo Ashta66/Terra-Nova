@@ -20,7 +20,8 @@
 - Les données pays/limites modernes ne sont pas utilisées comme carte politique 1444.
 
 ### Vérification
-- Les tests et la CI de ce lot sont à consulter sur le workflow du commit final ; ne pas considérer ce lot validé avant succès du dernier run.
+- Deux premières exécutions CI ont révélé que le test plaçait Paris hors du canevas après un zoom centré sur l'équateur ; le test a été corrigé pour centrer la vue sur l'Europe, sans changer le moteur.
+- La validation finale doit être confirmée sur le dernier workflow du commit de correction.
 - Limites : pas encore de sélection de territoires, fiche de lieu complète, données de pays historiques, densité de labels régionale ni gestion avancée des collisions.
 
 
