@@ -42,7 +42,7 @@ Légende :
 | Lot | Contenu | Statut |
 |---|---|---|
 | 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — raster Int16 2160 × 1080 (4,45 Mio), métadonnées et script présents sur `main` et `dev` ; chargement facultatif branché ; validation visuelle navigateur restante |
-| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive et ombrage local simplifié ; amélioration du hillshade et validation visuelle à faire |
+| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive et hillshade directionnel tenant compte de la latitude ; validation visuelle et classes géomorphologiques à faire |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | EN COURS — bathymétrie volontairement simplifiée en grandes masses océaniques et plateau continental discret ; classes de relief terrestre et couches géographiques à développer |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
