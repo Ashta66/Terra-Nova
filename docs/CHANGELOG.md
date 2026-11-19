@@ -1,3 +1,14 @@
+## 20 novembre 2026 — bathymétrie simplifiée et allègement du rendu marin
+
+- Choix de lisibilité confirmé : les océans doivent rester visuellement secondaires par rapport aux reliefs terrestres.
+- `src/world/terrain.js` : palette marine progressive et resserrée, en bleu-gris ; grandes masses de profondeur plutôt que détails contrastés ; plateau continental légèrement différencié.
+- Suppression de l'ombrage local détaillé sous le niveau marin : fosses et dorsales ne sont plus accentuées pixel par pixel.
+- Optimisation : les quatre échantillonnages voisins utilisés pour l'ombrage sont désormais réservés aux pixels terrestres ; les pixels marins ne font qu'un échantillonnage d'altitude.
+- Palette terrestre conservée et rendue progressive entre les classes d'altitude.
+- Tests ajoutés pour garantir le contraste marin contenu et l'absence d'influence de l'ombrage local sur les fonds océaniques.
+- Documentation mise à jour : roadmap, cahier des charges maître et moteur cartographique.
+- Validation CI de cette nouvelle modification en attente ; rendu navigateur non inspecté visuellement.
+
 ## 20 novembre 2026 — intégration des données ETOPO dans les branches
 
 - Le pack ETOPO a été ajouté par l'utilisateur à `main`, puis les mêmes objets Git (binaire inclus, 4 665 600 octets) ont été référencés dans `dev` sans retranscodage.
