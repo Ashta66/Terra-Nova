@@ -43,3 +43,25 @@ La prochaine étape de précision nécessitera un véritable raster d'altitude. 
 - Référence scientifique et licence CC0 : https://essd.copernicus.org/articles/17/1835/2025/
 
 Le raster ETOPO n'est pas encore embarqué dans le jeu : l'accès direct aux fichiers binaires globaux n'a pas été validé dans l'environnement de développement. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
+
+## Choix technique pour le relief global — ETOPO 2022
+
+La source de relief est confirmée : **ETOPO 2022, version Ice Surface**, pour représenter l'altitude de la surface actuelle des glaces et des terres, et la bathymétrie des océans. NOAA fournit des formats GeoTIFF et NetCDF en résolutions 15, 30 et 60 secondes d'arc. Les données sont publiées sous CC0-1.0 ; elles sont gratuites pour la plupart des téléchargements. La publication scientifique précise une restriction d'usage pour la navigation : TERRA NOVA utilisera ces données pour la visualisation et la simulation de jeu, jamais comme aide à la navigation réelle.
+
+Références officielles :
+- NOAA NCEI : https://www.ncei.noaa.gov/products/etopo-global-relief-model
+- Métadonnées, formats et licence CC0 : https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ngdc.mgg.dem%3Aetopo_2022
+- Article scientifique : https://essd.copernicus.org/articles/17/1835/2025/
+- DOI du jeu de données : https://doi.org/10.25921/fd45-gt74
+
+### Format retenu pour le premier affichage mondial
+
+Ne pas livrer directement au navigateur les centaines de millions de cellules du raster haute résolution. Le premier niveau de carte utilisera un aperçu global **2160 × 1080 échantillons à 10 minutes d'arc**, dérivé du raster source ETOPO 60 secondes par rééchantillonnage moyen. Stockage cible : entier signé 16 bits, little-endian, en mètres, soit 4 665 600 octets (environ 4,45 Mio) hors petit fichier d'en-tête.
+
+- Script de préparation : `scripts/build-etopo-overview.sh`.
+- Entrée : raster mondial complet ETOPO 2022 60 secondes en GeoTIFF ou VRT.
+- Sorties attendues : `data/terrain/etopo_global_10m_i16.bin`, en-tête ENVI et `data/terrain/etopo_global_10m.json`.
+- Dépendance de préparation uniquement : GDAL (`gdalinfo`, `gdal_translate`). Le jeu final n'a pas besoin de GDAL à l'exécution.
+- Le script vérifie la taille exacte du fichier et demande de contrôler que l'en-tête ENVI indique le little-endian (`byte order = 0`).
+
+Cette préparation est reproductible, mais le raster n'est **pas encore intégré** : aucun fichier d'altitude n'est déclaré présent avant d'avoir téléchargé la source NOAA, exécuté le script et validé les données obtenues. Les tuiles haute résolution seront étudiées ensuite pour les zooms régionaux.
