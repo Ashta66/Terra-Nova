@@ -64,6 +64,26 @@ export function terrainColorForElevation(elevation, shade = 1) {
   return land.map(channel => Math.round(clamp(channel * shade, 0, 255)));
 }
 
+export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
+  if (![west, east, north, south, latitude, cellSizeDegrees].every(Number.isFinite) || cellSizeDegrees <= 0) return 1;
+  const metersPerDegree = 111320;
+  const cellWidth = metersPerDegree * Math.max(0.15, Math.cos(latitude * Math.PI / 180)) * cellSizeDegrees;
+  const cellHeight = metersPerDegree * cellSizeDegrees;
+  const slopeEast = (east - west) / (2 * cellWidth);
+  const slopeNorth = (north - south) / (2 * cellHeight);
+  const normalLength = Math.hypot(slopeEast, slopeNorth, 1);
+  const normalEast = -slopeEast / normalLength;
+  const normalNorth = -slopeNorth / normalLength;
+  const normalUp = 1 / normalLength;
+  const azimuth = 315 * Math.PI / 180;
+  const altitude = 45 * Math.PI / 180;
+  const lightEast = Math.cos(altitude) * Math.sin(azimuth);
+  const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
+  const lightUp = Math.sin(altitude);
+  const illumination = normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp;
+  return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
+}
+
 export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
@@ -97,7 +117,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
       if (e >= 0) {
         const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
         const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
-        shade = clamp(1.04 - (((east ?? e) - (west ?? e)) * 0.000035 + ((south ?? e) - (north ?? e)) * 0.00005), 0.68, 1.28);
+        shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
       }
       const color = terrainColorForElevation(e, shade), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
