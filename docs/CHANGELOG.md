@@ -6,7 +6,8 @@
 - Le raster n'est affiché que sous la projection équirectangulaire ; les projections Mercator et orthographique le masquent, car leur reprojection raster n'est pas encore implémentée.
 - Test ajouté pour vérifier l'activation équirectangulaire et le masquage des autres projections.
 - Documentation mise à jour : cahier des charges maître, roadmap et moteur cartographique.
-- La validation automatisée de cette étape est en attente du workflow GitHub Actions ; aucune inspection visuelle du rendu navigateur n'a encore été réalisée.
+- CI GitHub Actions sur le commit `7bfb28b70b31d62fbc0a8eb390afc846ea9e34d4` : syntaxe et tests réussis, 42 tests réussis, 0 échec ; vérification des scripts shell réussie. Workflow : https://github.com/Ashta66/Terra-Nova/actions/runs/44638233507.
+- Aucune inspection visuelle du rendu navigateur n'a encore été réalisée.
 
 ## 20 novembre 2026 — première intégration du moteur de relief ETOPO
 
