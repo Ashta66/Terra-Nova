@@ -1,3 +1,13 @@
+## 20 novembre 2026 — première intégration du moteur de relief ETOPO
+
+- Ajout de `src/world/terrain.js` : validation de la grille Int16 little-endian, lecture des altitudes, interpolation bilinéaire et génération d'un raster hypsométrique ombré.
+- Mise à jour de `src/world/map-renderer.js` : dessin du terrain sous les couches cartographiques, avec rendu à la résolution réelle du canvas pour respecter les écrans haute densité.
+- Mise à jour de `src/main.js` : chargement facultatif de `data/terrain/etopo_global_10m_i16.bin`, sans bloquer la carte si le fichier est absent.
+- Tests ajoutés pour l'ordre little-endian, les dimensions, l'interpolation et la génération des pixels.
+- Documentation mise à jour : `MAP_ENGINE.md`, `DATA_SOURCES.md`, `ROADMAP.md`, `PROJECT_MASTER.md`.
+- L'asset binaire n'a pas été ajouté au dépôt ; il doit être extrait du pack dans `data/terrain/` pour activer le relief dans une copie locale. Le rendu navigateur n'a pas encore été visuellement inspecté.
+- Validation automatisée à confirmer par GitHub Actions sur le commit de cette étape.
+
 ## 20 novembre 2026 — réception et conversion du relief ETOPO NOAA
 
 ### Données reçues et contrôlées
