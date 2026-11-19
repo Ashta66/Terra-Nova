@@ -198,7 +198,7 @@ function showMapTooltip(label, x, y, selected) {
   tooltip.append(title, subtitle);
   tooltip.hidden = false;
   tooltip.classList.toggle("is-selected", selected);
-  tooltip.style.left = `${Math.min(Math.max(8, x + 14), $("map-frame").clientWidth - 190)}px`;
+  tooltip.style.left = `${Math.min(Math.max(8, x + 14), mapCanvas.parentElement.clientWidth - 190)}px`;
   tooltip.style.top = `${Math.max(8, y + 14)}px`;
 }
 function hideMapTooltip() {
