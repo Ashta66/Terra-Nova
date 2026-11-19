@@ -14,8 +14,9 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 
 ### Vérification et correction
 - Première exécution CI : 37 tests réussis, 1 échec sur une très petite erreur de précision flottante à la limite polaire de Mercator.
-- Correction appliquée : calcul du Mercator à partir de coordonnées mondiales normalisées et bornées, ce qui stabilise exactement les limites nord/sud.
-- Le test de syntaxe et la suite complète sont relancés sur le commit correctif ; consulter le workflow le plus récent sur la branche `dev` pour son résultat final.
+- Correction appliquée dans `src/world/projection.js` : calcul du Mercator à partir de coordonnées mondiales normalisées et bornées, ce qui stabilise exactement les limites nord/sud.
+- Vérification finale du commit `5c8f5ea86b688d773e51708b9fab412fe1f31775` : syntaxe JavaScript OK (16 fichiers), 38 tests réussis, 0 échec ; vérification shell du script ETOPO réussie.
+- Workflow : https://github.com/Ashta66/Terra-Nova/actions/runs/44631637016.
 - Les contrôles shell du script de préparation ETOPO restent intégrés dans la CI.
 
 ### Documentation mise à jour
