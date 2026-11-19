@@ -159,3 +159,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Conversion en grille Int16 little-endian 2 160 × 1 080 terminée ; binaire de 4 665 600 octets.
 - La méthode réelle est un échantillonnage par stride 10, pas une moyenne 10×10 : la documentation a été corrigée pour ne pas présenter cette extraction comme une moyenne surfacique.
 - Le moteur n'utilise pas encore le fichier ; relief ombré et couches de terrain restent à faire.
+
+
+### Étape terrain — 20 novembre 2026
+- Module de lecture Int16 little-endian, interpolation bilinéaire et rendu hypsométrique ombré ajouté.
+- Chargement optionnel du raster au démarrage ; la carte reste fonctionnelle en l'absence du binaire.
+- Tests unitaires du parseur, de l'interpolation et de la génération de pixels ajoutés.
+- Reste à fournir le binaire dans `data/terrain/` pour activer la couche, puis vérifier visuellement le rendu dans le navigateur.
