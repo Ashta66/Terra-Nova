@@ -55,3 +55,12 @@ Données : `data/ne_110m_map_labels.geojson`. Cette première couche est une sé
 Une extraction mondiale NOAA ERDDAP a été convertie en grille brute 2 160 × 1 080, Int16 little-endian, en mètres (4 665 600 octets). Les coordonnées ont été réordonnées du nord vers le sud et de −180° à +180°. Le contrôle a confirmé 1 080 × 2 160 valeurs finies, une plage d'altitude de −10 511 à 6 734 mètres après arrondi et la référence verticale EGM2008.
 
 La source extraite est décimée par stride 10 : elle n'est pas moyennée par blocs. Le fichier de données et ses métadonnées constituent un artefact préparé ; le renderer ne le lit pas encore et aucun ombrage réel n'est encore affiché. Le script reproductible est `scripts/convert-etopo-erddap.py`.
+
+
+## Première intégration du relief raster ETOPO
+
+Le module `src/world/terrain.js` lit le raster Int16 little-endian, valide ses dimensions, interpole les altitudes et génère une image de terrain colorisée avec un ombrage local simplifié. Le renderer superpose ensuite les contours terrestres, côtes, lacs, rivières, glaciers et labels.
+
+Le chargement est facultatif et ne bloque pas la carte si le binaire est absent. Chemin attendu : `data/terrain/etopo_global_10m_i16.bin`. Extraire le pack dans `data/terrain/` pour activer la couche ; seul le binaire est lu par le navigateur.
+
+Limites : palette hypsométrique illustrative, ombrage simplifié, pas de bathymétrie détaillée par couches, pas de rendu WebGL. Le raster est un échantillonnage stride 10. Cette première version reprojette les pixels pour la vue équirectangulaire actuelle ; globe orthographique et transition globe/atlas nécessiteront un pipeline adapté.
