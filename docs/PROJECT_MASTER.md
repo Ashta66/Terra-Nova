@@ -176,18 +176,19 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - État de jeu racine et validation.
 - Sauvegarde/chargement local versionné.
 - Modèle de géographie GeoJSON mutable : création, remodelage, suppression, division/fusion à partir de géométries fournies ; historique des révisions.
-- Projections équirectangulaire, Mercator bornée et orthographique de base.
+- Projections équirectangulaire, Mercator bornée et orthographique de base, avec centre et zoom pour la navigation 2D.
 - Thèmes cartographiques temporels et interpolation de palette.
 - Rendu Canvas mondial.
 - Données locales Natural Earth : terres, grands lacs, grands cours d'eau, zones glaciaires et points de repère d'altitude.
 - Hachures décoratives, clairement distinctes de l'altitude mesurée.
 - Interface ordinateur plein écran à trois colonnes ; carte centrale dominante, temps à gauche, assistant à droite.
+- Navigation 2D de la carte : zoom 1× à 8×, molette avec ancrage sous le pointeur, panoramique pointeur et recentrage.
 - CI GitHub Actions : vérification de syntaxe et tests Node.
 
 ### Limites connues
 - Pas encore de modèle numérique de terrain continu embarqué. Le choix ETOPO 2022 NOAA est fait ; un script reproductible prépare un aperçu mondial 2160 × 1080 Int16 à 10 minutes d'arc, mais les données sources doivent encore être téléchargées et validées.
 - Pas de véritable relief ombré mesuré, ni de couches régionales haute résolution.
-- Pas de rotation interactive du globe, ni de transition animée globe/atlas.
+- Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
 - Pas de frontières politiques historiques de 1444.
 - Pas encore de nations, populations, économie, diplomatie, exploration jouable ou IA de nations.
 - Pas encore d'assistant IA fonctionnel ni d'éditeur d'événements complet.
