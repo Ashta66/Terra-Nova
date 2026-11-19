@@ -15,3 +15,22 @@ Les thèmes constituent une première palette fonctionnelle, pas encore des text
 ## Données et attribution
 
 Le fond terrestre provient de Natural Earth Vector (`ne_110m_land`, échelle 1:110m), fichier GeoJSON issu du dépôt `nvkelso/natural-earth-vector`. Les données Natural Earth sont dans le domaine public, y compris pour un usage commercial et la redistribution. La mention « Made with Natural Earth » est facultative et conservée par transparence. Voir `docs/DATA_SOURCES.md` pour les références.
+
+
+## Navigation interactive de la carte — lot 2.7 (première étape)
+
+La carte équirectangulaire dispose maintenant d'une navigation utilisateur :
+- zoom progressif avec boutons +/−, de 100 % à 800 % ;
+- zoom à la molette autour du pointeur, pour garder la zone visée sous la souris ;
+- déplacement par glisser-déposer à la souris ou au pointeur ;
+- recentrage sur la vue mondiale initiale ;
+- indicateur de zoom et désactivation des commandes aux limites ;
+- gestes pointeur utilisables sur écran tactile.
+
+Le zoom et le centre sont des paramètres de vue transmis au moteur de projection. Ils ne modifient ni les géométries sources, ni les données de simulation, ni les distances du monde. Les projections Mercator et équirectangulaire acceptent un centre et un facteur de zoom ; la vue active de l'interface reste équirectangulaire.
+
+Limites connues :
+- la navigation reste un planisphère 2D ; elle ne constitue pas encore une rotation de globe ;
+- les géométries qui traversent l'antiméridien peuvent être coupées pendant le panoramique ;
+- le zoom augmente le grossissement mais n'ajoute pas encore de nouvelles données régionales : le détail est limité par Natural Earth 1:110m ;
+- les limites de déplacement sont volontairement simples et seront revues avec le globe et les niveaux de détail.
