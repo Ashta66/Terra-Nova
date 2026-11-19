@@ -20,9 +20,11 @@ function traceGeometry(context, geometry, width, height, projection) {
   return true;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1) {
   if (!collection?.features) return 0;
   let drawn = 0;
+  context.save();
+  context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     context.beginPath();
@@ -34,6 +36,7 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     context.stroke();
     drawn++;
   }
+  context.restore();
   return drawn;
 }
 
@@ -88,6 +91,45 @@ function drawLandHachures(context, collection, width, height, projection, color)
   context.restore();
 }
 
+function drawElevationPoints(context, collection, width, height, projection, theme) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  for (const feature of collection.features) {
+    if (feature.geometry?.type !== "Point") continue;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const point = projectCoordinate([longitude, latitude], width, height, projection);
+    if (!point) continue;
+    const elevation = Number(feature.properties?.elevation_m ?? 0);
+    const isMountain = feature.properties?.kind === "mountain";
+    const isDepression = feature.properties?.kind === "depression";
+    context.save();
+    context.fillStyle = isDepression ? "#6f8f9b" : theme.colors.accent;
+    context.strokeStyle = theme.colors.coast;
+    context.lineWidth = 0.8;
+    context.beginPath();
+    if (isMountain) {
+      const size = elevation >= 7000 ? 5 : elevation >= 4000 ? 4 : 3;
+      context.moveTo(point.x, point.y - size);
+      context.lineTo(point.x + size, point.y + size);
+      context.lineTo(point.x - size, point.y + size);
+      context.closePath();
+    } else {
+      context.arc(point.x, point.y, 2.2, 0, Math.PI * 2);
+    }
+    context.fill();
+    context.stroke();
+    if (isMountain && elevation >= 5000 && typeof context.fillText === "function") {
+      context.font = "10px Georgia, serif";
+      context.textAlign = "left";
+      context.fillStyle = theme.colors.text;
+      context.fillText(feature.properties?.name ?? "Sommet", point.x + 6, point.y - 4);
+    }
+    context.restore();
+    drawn++;
+  }
+  return drawn;
+}
+
 export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
@@ -132,12 +174,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, theme.colors.land, theme.colors.coast, 0.85);
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
-
+  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
+  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
 
   return {
     theme, projection, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, width, height
   };
 }
