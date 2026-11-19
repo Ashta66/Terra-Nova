@@ -94,3 +94,7 @@ Un fichier NetCDF extrait depuis NOAA ERDDAP a été fourni et inspecté.
 - Script reproductible : `scripts/convert-etopo-erddap.py`.
 - Dépendances de préparation : Python 3, NumPy, xarray et un backend NetCDF compatible.
 - Le fichier compact est fourni dans un paquet téléchargeable de préparation. Il n'est pas encore chargé par le moteur Canvas : le relief est validé comme donnée, pas encore comme fonctionnalité visible du jeu.
+
+
+### Consommation par le jeu
+Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour activer le relief dans une copie locale, extraire le pack dans `data/terrain/`. Le NetCDF source et le TIFF complet ne sont pas requis au runtime.
