@@ -18,3 +18,10 @@ test("le niveau technologique est borné et la chronologie documentée", () => {
   assert.doesNotThrow(() => getCartographicTheme(1444, 99));
   assert.equal(listCartographicEras().length, 5);
 });
+
+test("la transition de palette est progressive à l'approche d'une nouvelle ère", () => {
+  const before = getCartographicTheme(1599).colors;
+  const boundary = getCartographicTheme(1600).colors;
+  const channel = value => parseInt(value.slice(1, 3), 16);
+  assert.ok(Math.abs(channel(before.land) - channel(boundary.land)) <= 2);
+});
