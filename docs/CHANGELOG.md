@@ -1,3 +1,13 @@
+## 20 novembre 2026 — intégration des données ETOPO dans les branches
+
+- Le pack ETOPO a été ajouté par l'utilisateur à `main`, puis les mêmes objets Git (binaire inclus, 4 665 600 octets) ont été référencés dans `dev` sans retranscodage.
+- Fichiers présents dans `data/terrain/` : `etopo_global_10m_i16.bin`, `etopo_global_10m_i16.hdr`, `etopo_global_10m.json` et `convert-etopo-erddap.py`.
+- Le renderer limite désormais le calcul du raster à 1 024 × 512 pixels au maximum avant agrandissement, afin de réduire le coût des redessins pendant le zoom et le déplacement.
+- Le raster n'est affiché que sous la projection équirectangulaire ; les projections Mercator et orthographique le masquent, car leur reprojection raster n'est pas encore implémentée.
+- Test ajouté pour vérifier l'activation équirectangulaire et le masquage des autres projections.
+- Documentation mise à jour : cahier des charges maître, roadmap et moteur cartographique.
+- La validation automatisée de cette étape est en attente du workflow GitHub Actions ; aucune inspection visuelle du rendu navigateur n'a encore été réalisée.
+
 ## 20 novembre 2026 — première intégration du moteur de relief ETOPO
 
 - Ajout de `src/world/terrain.js` : validation de la grille Int16 little-endian, lecture des altitudes, interpolation bilinéaire et génération d'un raster hypsométrique ombré.
