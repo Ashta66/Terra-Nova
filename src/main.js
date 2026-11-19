@@ -1,15 +1,37 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
+import { renderWorldMap } from "./world/map-renderer.js";
 let state = createGameState();
 let interval = null;
+let worldFeatures = null;
 const $ = (id) => document.getElementById(id);
+function renderMap() {
+  if (!worldFeatures) return;
+  const canvas = $("world-map");
+  const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
+  const year = Number(String(state.clock.date).slice(0, 4));
+  const result = renderWorldMap(canvas, worldFeatures, { width, height: Math.round(width * 0.5), year, projection: "equirectangular" });
+  $("map-era").textContent = result.theme.label;
+  $("map-status").textContent = `${result.featureCount} formes géographiques · Données locales`;
+}
+async function loadWorldMap() {
+  try {
+    const response = await fetch("./data/ne_110m_land.geojson");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    worldFeatures = await response.json();
+    renderMap();
+  } catch (error) {
+    $("map-status").textContent = `Carte indisponible : ${error.message}`;
+  }
+}
 function render() {
   $("current-date").textContent = formatDate(state.clock.date);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
   $("toggle-clock").textContent = state.clock.paused ? "Lancer" : "Pause";
   $("speed").value = String(state.clock.speed);
+  renderMap();
 }
 function stopTimer() { if (interval !== null) clearInterval(interval); interval = null; }
 function schedule() {
@@ -29,3 +51,5 @@ $("load-game").addEventListener("click", () => {
 });
 state.clock = createClock();
 render();
+loadWorldMap();
+window.addEventListener("resize", () => renderMap());
