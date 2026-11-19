@@ -190,7 +190,7 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 
 ### Limites connues
 - Extraction ETOPO 2022 NOAA ERDDAP intégrée comme grille mondiale décimée 2160 × 1080 Int16 little-endian (4 665 600 octets), en mètres et référence verticale EGM2008 ; chargement et première colorisation actifs sur `dev`.
-- Le relief terrestre reste une première interprétation hypsométrique avec ombrage simplifié ; le hillshade calibré, les classes géomorphologiques et les données régionales haute résolution restent à développer.
+- Le relief terrestre utilise une palette hypsométrique progressive et un hillshade directionnel nord-ouest tenant compte de la latitude ; le réglage artistique après inspection visuelle, les classes géomorphologiques et les données régionales haute résolution restent à développer.
 - La bathymétrie est volontairement simplifiée en grandes masses de profondeur, avec contraste réduit et sans ombrage local des fosses/dorsales pour ne pas surcharger la carte.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
 - Pas de frontières politiques historiques de 1444. Les labels de villes actuels sont une sélection historique éditoriale et non un référentiel exhaustif ; les noms des pays ne sont pas encore affichés pour éviter l'anachronisme.
