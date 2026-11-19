@@ -13,6 +13,8 @@ function createCanvas() {
     moveTo: (...args) => calls.push(["moveTo", ...args]),
     lineTo: (...args) => calls.push(["lineTo", ...args]),
     closePath: () => calls.push(["closePath"]),
+    arc: (...args) => calls.push(["arc", ...args]),
+    fillText: (...args) => calls.push(["fillText", ...args]),
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args])
@@ -40,6 +42,20 @@ test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, lakes, rivers });
   assert.equal(result.lakeCount, 1);
   assert.equal(result.riverCount, 1);
+});
+
+test("le moteur dessine les zones glaciaires et les repères de relief", () => {
+  const { canvas, calls } = createCanvas();
+  const glaciers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[1, 1], [2, 1], [2, 2], [1, 1]]] } }] };
+  const elevationPoints = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Everest", kind: "mountain", elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86.9, 28] } },
+    { type: "Feature", properties: { name: "Dépression", kind: "depression", elevation_m: -154 }, geometry: { type: "Point", coordinates: [89, 42] } }
+  ] };
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, glaciers, elevationPoints });
+  assert.equal(result.glacierCount, 1);
+  assert.equal(result.elevationPointCount, 2);
+  assert.ok(calls.some(call => call[0] === "arc"));
+  assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
 });
 
 test("le moteur rejette une entrée qui n'est pas une FeatureCollection", () => {
