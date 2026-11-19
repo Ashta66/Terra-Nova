@@ -42,7 +42,7 @@ La prochaine étape de précision nécessitera un véritable raster d'altitude. 
 - Présentation et téléchargements : https://www.ncei.noaa.gov/products/etopo-global-relief-model
 - Référence scientifique et licence CC0 : https://essd.copernicus.org/articles/17/1835/2025/
 
-Le raster ETOPO n'est pas encore embarqué dans le jeu : le téléchargement binaire n'a pas encore été mené à terme dans l'environnement de développement. Une voie d'accès officielle complémentaire a toutefois été identifiée : le service NOAA ERDDAP griddap pour le jeu global ETOPO_2022_v1_60s (Ice Surface). Il expose les dimensions latitude/longitude et permet des extractions par pas d'échantillonnage ; cette voie doit encore être testée sur un vrai fichier avant d'être considérée comme intégrée. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
+Le fichier source haute résolution n'est pas embarqué dans le jeu. Une extraction NOAA ERDDAP décimée a depuis été reçue et contrôlée : voir la section « Extraction ERDDAP validée » ci-dessous. Le raster compact est préparé comme artefact de travail, mais son branchement dans le rendu de la carte reste à faire. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
 
 ## Choix technique pour le relief global — ETOPO 2022
 
@@ -74,3 +74,23 @@ Cette préparation est reproductible, mais le raster n'est **pas encore intégr�
 Le fichier `data/ne_110m_map_labels.geojson` est une couche éditoriale légère dédiée à la lisibilité de la carte : noms des continents, océans et une sélection de villes importantes existant au début de la partie (1444). Les coordonnées sont des points de placement cartographique ; elles ne définissent ni frontières ni contrôle politique.
 
 Les noms de villes sont affichés à partir du zoom 2×. Les pays modernes ne sont pas affichés, afin de ne pas confondre géographie contemporaine et situation politique historique de 1444. Les labels sont une sélection initiale et devront être étendus/validés lors de l'intégration de données historiques. Pour les fonds et jeux de données physiques/culturels Natural Earth : https://www.naturalearthdata.com/downloads/110m-cultural-vectors/ ; le jeu de données est libre d'utilisation, attribution conseillée « Natural Earth ».
+
+
+## Extraction ERDDAP validée — 20 novembre 2026
+
+Un fichier NetCDF extrait depuis NOAA ERDDAP a été fourni et inspecté.
+
+- Dimensions : 1 080 latitudes × 2 160 longitudes.
+- Variable : `z`, flottants 32 bits, unités mètres.
+- Référence verticale : EGM2008 (EPSG:3855).
+- Valeurs : aucune valeur manquante/non finie détectée ; minimum observé −10 511,002 m, maximum 6 734,173 m.
+- Coordonnées source : latitude ascendante, longitude ascendante sur 0–360°, pas régulier de 1/6°.
+- Conversion : lignes réordonnées du nord vers le sud, colonnes décalées de 180° pour obtenir l'ordre −180° à +180°, valeurs arrondies au mètre et stockées en Int16 little-endian.
+- Sortie : `etopo_global_10m_i16.bin`, 4 665 600 octets, accompagné d'un en-tête ENVI et de métadonnées JSON.
+- Empreinte SHA-256 du binaire préparé : `dfbb54b8bfaf062f2589521ee96d94ba8025e2723bb2e7d2103ff0afcfa79927`.
+
+**Précision méthodologique :** l'extraction reçue utilise un échantillonnage par pas de 10 cellules (stride), et non un rééchantillonnage moyen 10×10. Le fichier est donc un aperçu décimé, pas une moyenne surfacique. Les centres des cellules proviennent des coordonnées NOAA réelles ; les limites d'emprise doivent être respectées lors du géoréférencement.
+
+- Script reproductible : `scripts/convert-etopo-erddap.py`.
+- Dépendances de préparation : Python 3, NumPy, xarray et un backend NetCDF compatible.
+- Le fichier compact est fourni dans un paquet téléchargeable de préparation. Il n'est pas encore chargé par le moteur Canvas : le relief est validé comme donnée, pas encore comme fonctionnalité visible du jeu.
