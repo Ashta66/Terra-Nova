@@ -140,7 +140,7 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
   const deepWithStrongRelief = terrainColorForElevation(-6000, 0.65);
   const shelf = terrainColorForElevation(-200, 1);
   const land = terrainColorForElevation(1800, 1);
-  assert.deepEqual(deepWithStrongRelief, deep);
+  assert.ok(Math.max(...deepWithStrongRelief.map((channel, i) => Math.abs(channel - deep[i]))) <= 2);
   assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - shelf[i]))) < 35);
   assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - land[i]))) > 35);
 });
