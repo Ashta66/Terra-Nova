@@ -7,7 +7,9 @@
 - Palette terrestre conservée et rendue progressive entre les classes d'altitude.
 - Tests ajoutés pour garantir le contraste marin contenu et l'absence d'influence de l'ombrage local sur les fonds océaniques.
 - Documentation mise à jour : roadmap, cahier des charges maître et moteur cartographique.
-- Validation CI de cette nouvelle modification en attente ; rendu navigateur non inspecté visuellement.
+- Une première CI a détecté une assertion trop stricte sur la variation d'arrondi de la palette marine (écart maximal de 2 niveaux RGB) ; le test a été ajusté pour vérifier la faible amplitude plutôt que l'identité exacte.
+- CI finale sur le commit `0a5998845d27da2fe6719e19b6b479c3235a8cb4` : 43 tests réussis, 0 échec ; vérification des scripts shell réussie. Workflow : https://github.com/Ashta66/Terra-Nova/actions/runs/44640643576.
+- Rendu navigateur non inspecté visuellement.
 
 ## 20 novembre 2026 — intégration des données ETOPO dans les branches
 
