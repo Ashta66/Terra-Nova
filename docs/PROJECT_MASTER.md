@@ -189,8 +189,9 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - CI GitHub Actions : vérification de syntaxe et tests Node.
 
 ### Limites connues
-- Extraction ETOPO 2022 NOAA ERDDAP reçue et validée comme grille mondiale décimée 2160 × 1080 Int16 little-endian (4 665 600 octets), en mètres et référence verticale EGM2008. Le fichier compact est préparé, mais son chargement dans le renderer et l'affichage du relief mesuré restent à implémenter.
-- Pas de véritable relief ombré mesuré, ni de couches régionales haute résolution.
+- Extraction ETOPO 2022 NOAA ERDDAP intégrée comme grille mondiale décimée 2160 × 1080 Int16 little-endian (4 665 600 octets), en mètres et référence verticale EGM2008 ; chargement et première colorisation actifs sur `dev`.
+- Le relief terrestre reste une première interprétation hypsométrique avec ombrage simplifié ; le hillshade calibré, les classes géomorphologiques et les données régionales haute résolution restent à développer.
+- La bathymétrie est volontairement simplifiée en grandes masses de profondeur, avec contraste réduit et sans ombrage local des fosses/dorsales pour ne pas surcharger la carte.
 - Pas de rotation interactive du globe, ni de transition animée globe/atlas. La navigation du planisphère 2D est maintenant disponible sur `dev` : zoom 100–800 %, glisser-déposer, zoom à la molette centré sur le pointeur et recentrage ; les données régionales haute résolution ne sont pas encore présentes.
 - Pas de frontières politiques historiques de 1444. Les labels de villes actuels sont une sélection historique éditoriale et non un référentiel exhaustif ; les noms des pays ne sont pas encore affichés pour éviter l'anachronisme.
 - Pas encore de nations, populations, économie, diplomatie, exploration jouable ou IA de nations.
@@ -198,12 +199,13 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 - Les opérations de géométrie physique avancées (booléens, impact, submersion, tectonique) ne sont pas encore implémentées.
 - Ce dépôt est un prototype technique en construction, pas encore un jeu complet.
 
-### Avancement du lot relief au 19 novembre 2026
+### Avancement du lot relief au 20 novembre 2026
 - Source : ETOPO 2022 NOAA confirmée, licence CC0-1.0 et DOI documentés.
 - Résolution source retenue pour l'aperçu : 60 secondes d'arc ; sortie cible 10 minutes d'arc, 2160 × 1080, Int16 little-endian en mètres (environ 4,45 Mio).
 - Script de préparation : `scripts/build-etopo-overview.sh` (GDAL hors ligne).
-- Une extraction NetCDF NOAA ERDDAP a été reçue et validée ; la grille Int16 compacte est générée comme artefact de préparation. Le renderer ne la consomme pas encore, donc aucun relief mesuré continu n'est actuellement affiché.
-- Une voie d'extraction officielle complémentaire est identifiée via NOAA ERDDAP (`ETOPO_2022_v1_60s`, Ice Surface), avec grille latitude/longitude et extraction décimée possible. Le téléchargement, le réordonnancement des longitudes 0–360° et la validation du binaire restent à réaliser.
+- L'extraction NetCDF NOAA ERDDAP a été validée, convertie et intégrée dans `data/terrain/` sur `main` et `dev` ; le renderer de `dev` charge le binaire et le colorise.
+- La mer utilise désormais une palette progressive peu contrastée ; les pixels sous le niveau marin n'effectuent pas les échantillonnages voisins destinés à l'ombrage terrestre, ce qui allège aussi le calcul.
+- La couche raster reste limitée à la projection équirectangulaire et son rendu visuel doit encore être contrôlé dans un navigateur.
 
 ## 10. Organisation de développement et règles de reprise
 
