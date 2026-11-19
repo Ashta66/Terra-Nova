@@ -41,7 +41,7 @@ Légende :
 
 | Lot | Contenu | Statut |
 |---|---|---|
-| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS |
+| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — source, licence et format d'aperçu choisis ; préparation automatisée ajoutée ; raster réel à télécharger et valider |
 | 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | À FAIRE |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | À FAIRE |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
@@ -149,6 +149,6 @@ Légende :
 
 ## Prochaine tâche recommandée
 
-Continuer le lot **2.1** : choisir et préparer une version d'ETOPO 2022 adaptée à un jeu web. Évaluer taille, résolution, découpage en tuiles, conversion en format léger et rendu hors ligne. Commencer par un aperçu global raisonnable et conserver les données sources/attributions. Ne pas intégrer un raster volumineux ou une approximation non mesurée sans test de chargement et de performance.
+Terminer le lot **2.1** : obtenir le raster mondial ETOPO 2022 à 60 secondes, l'assembler en VRT/GeoTIFF si nécessaire, exécuter `scripts/build-etopo-overview.sh`, vérifier l'en-tête ENVI, la couverture mondiale, les valeurs d'altitude et la taille. Puis intégrer le binaire 10 minutes et tester son chargement hors ligne. Ne pas présenter de relief continu tant que les données NOAA réelles ne sont pas téléchargées et validées.
 
 Après le MNT, le prochain objectif visuel est le relief ombré réel, puis la navigation et les niveaux de zoom. Ne pas passer aux systèmes de gameplay tant que la carte de base n'est pas assez solide pour supporter l'exploration et les territoires.
