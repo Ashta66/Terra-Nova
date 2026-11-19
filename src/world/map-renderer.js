@@ -1,5 +1,6 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
+import { drawTerrainRaster } from "./terrain.js";
 
 function traceRing(context, ring, width, height, projection) {
   let started = false;
@@ -191,6 +192,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
+  const terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport);
 
   context.save();
   context.strokeStyle = theme.colors.grid;
@@ -214,7 +216,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   context.restore();
 
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, theme.colors.land, theme.colors.coast, 0.85);
+  const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
+  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85);
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
@@ -224,6 +227,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, width, height
   };
 }
