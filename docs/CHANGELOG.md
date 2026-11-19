@@ -4,7 +4,8 @@
 - `src/world/terrain.js` : palette marine progressive et resserrée, en bleu-gris ; grandes masses de profondeur plutôt que détails contrastés ; plateau continental légèrement différencié.
 - Suppression de l'ombrage local détaillé sous le niveau marin : fosses et dorsales ne sont plus accentuées pixel par pixel.
 - Optimisation : les quatre échantillonnages voisins utilisés pour l'ombrage sont désormais réservés aux pixels terrestres ; les pixels marins ne font qu'un échantillonnage d'altitude.
-- Palette terrestre conservée et rendue progressive entre les classes d'altitude.
+- Palette terrestre progressive conservée ; ajout d'un hillshade directionnel nord-ouest à 45°, tenant compte de la distance réelle des cellules selon la latitude, avec éclairage neutre sur les surfaces planes et facteur borné sur les pentes.
+- Optimisation marine conservée : pas de calcul de gradients locaux sous l'eau.
 - Tests ajoutés pour garantir le contraste marin contenu et l'absence d'influence de l'ombrage local sur les fonds océaniques.
 - Documentation mise à jour : roadmap, cahier des charges maître et moteur cartographique.
 - Une première CI a détecté une assertion trop stricte sur la variation d'arrondi de la palette marine (écart maximal de 2 niveaux RGB) ; le test a été ajusté pour vérifier la faible amplitude plutôt que l'identité exacte.
