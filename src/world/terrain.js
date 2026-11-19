@@ -25,9 +25,43 @@ export function sampleElevation(grid, longitude, latitude) {
   return a * (1 - fy) + b * fy;
 }
 
-function colorForElevation(e, shade) {
-  const stops = e < -5000 ? [13,48,76] : e < -1000 ? [24,76,103] : e < 0 ? [48,111,132] : e < 250 ? [105,126,88] : e < 1000 ? [133,139,91] : e < 2500 ? [151,130,98] : e < 4000 ? [166,151,132] : [222,222,211];
-  return stops.map(c => Math.round(clamp(c * shade, 0, 255)));
+function interpolateStops(value, stops) {
+  for (let i = 1; i < stops.length; i++) {
+    if (value <= stops[i][0]) {
+      const [low, a] = stops[i - 1], [high, b] = stops[i];
+      const t = clamp((value - low) / (high - low), 0, 1);
+      const smooth = t * t * (3 - 2 * t);
+      return a.map((channel, index) => Math.round(channel + (b[index] - channel) * smooth));
+    }
+  }
+  return [...stops.at(-1)[1]];
+}
+
+export function terrainColorForElevation(elevation, shade = 1) {
+  if (elevation < 0) {
+    // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
+    // local des fosses/dorsales qui surchargerait la lecture stratégique.
+    const sea = interpolateStops(elevation, [
+      [-11000, [25, 45, 57]],
+      [-4000, [27, 50, 62]],
+      [-1500, [30, 57, 68]],
+      [-500, [36, 68, 77]],
+      [-50, [46, 80, 87]],
+      [0, [55, 91, 96]]
+    ]);
+    const restrainedShade = clamp(1 + (shade - 1) * 0.12, 0.98, 1.02);
+    return sea.map(channel => Math.round(clamp(channel * restrainedShade, 0, 255)));
+  }
+
+  const land = interpolateStops(elevation, [
+    [0, [105, 126, 88]],
+    [250, [119, 132, 88]],
+    [1000, [139, 139, 91]],
+    [2500, [158, 139, 105]],
+    [4000, [179, 165, 143]],
+    [6500, [224, 222, 210]]
+  ]);
+  return land.map(channel => Math.round(clamp(channel * shade, 0, 255)));
 }
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
@@ -57,10 +91,15 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
     for (let px = 0; px < renderWidth; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
       const e = sampleElevation(grid, lon, lat);
-      const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
-      const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
-      const shade = clamp(1.04 - (((east ?? e) - (west ?? e)) * 0.000035 + ((south ?? e) - (north ?? e)) * 0.00005), 0.68, 1.28);
-      const color = colorForElevation(e, shade), i = (py * renderWidth + px) * 4;
+      // Les océans n'effectuent pas les quatre échantillonnages voisins :
+      // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
+      let shade = 1;
+      if (e >= 0) {
+        const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
+        const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
+        shade = clamp(1.04 - (((east ?? e) - (west ?? e)) * 0.000035 + ((south ?? e) - (north ?? e)) * 0.00005), 0.68, 1.28);
+      }
+      const color = terrainColorForElevation(e, shade), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
     }
   }
