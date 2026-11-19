@@ -25,3 +25,21 @@ Le dépôt https://github.com/topojson/world-atlas redistribue des données dér
   Source : https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_rivers_lake_centerlines.geojson
 
 Ces couches sont également issues de Natural Earth Vector et relèvent du domaine public. À cette échelle, elles ne représentent que les grands éléments hydrographiques utiles à la vue planétaire ; elles ne constituent pas un réseau hydrographique exhaustif.
+
+## Relief de référence — Natural Earth 1:110m
+
+- Repères d'altitude : `data/ne_110m_elevation_points.geojson` — 19 points remarquables (sommets, dépressions et cols) avec altitude en mètres.
+  Source : https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_geography_regions_elevation_points.geojson
+- Zones glaciaires : `data/ne_110m_glaciated_areas.geojson` — 11 polygones de zones glaciaires.
+  Source : https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_glaciated_areas.geojson
+
+Ces couches Natural Earth sont dans le domaine public. Elles sont utiles comme repères visuels à l'échelle planétaire, mais ne remplacent pas un modèle numérique de terrain (MNT) continu.
+
+## Modèle numérique de terrain étudié — NOAA ETOPO 2022
+
+La prochaine étape de précision nécessitera un véritable raster d'altitude. La source retenue pour l'étude est ETOPO 2022 de la NOAA, modèle global topographique et bathymétrique. La NOAA propose des versions globales à 30 et 60 secondes d'arc et des tuiles plus détaillées à 15 secondes d'arc. Les données sont publiées sous CC0 selon la documentation scientifique associée ; la citation NOAA et le DOI 10.25921/fd45-gt74 doivent être conservés.
+
+- Présentation et téléchargements : https://www.ncei.noaa.gov/products/etopo-global-relief-model
+- Référence scientifique et licence CC0 : https://essd.copernicus.org/articles/17/1835/2025/
+
+Le raster ETOPO n'est pas encore embarqué dans le jeu : l'accès direct aux fichiers binaires globaux n'a pas été validé dans l'environnement de développement. Aucun relief continu artificiel ne sera présenté comme une mesure réelle.
