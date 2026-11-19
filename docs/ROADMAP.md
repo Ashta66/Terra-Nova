@@ -8,14 +8,14 @@ Légende :
 - **À FAIRE** : non implémenté.
 - **À VALIDER** : dépend d'un choix ou d'un test de gameplay.
 
-## État synthétique au 19 novembre 2026
+## État synthétique au 20 novembre 2026
 
 - Branche de travail : `dev`
 - Stable : `main` contient les fondations initiales du lot 1, fusionnées par PR #2.
 - PR #1 : brouillon de développement `dev` vers `staging`, à ne pas fusionner automatiquement.
 - Interface plein écran trois colonnes : intégrée sur `dev`.
 - Dernières vérifications GitHub Actions de l'interface : réussies (run 44630008505).
-- Le développement cartographique n'est pas encore fusionné dans `main`.
+- Le développement cartographique n'est pas encore fusionné dans `main`. Le jeu de données ETOPO a toutefois été ajouté séparément à `main` et copié dans `dev` ; le moteur reste développé sur `dev`.
 
 ## Phase 0 — cadrage et fondations
 
@@ -41,8 +41,8 @@ Légende :
 
 | Lot | Contenu | Statut |
 |---|---|---|
-| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — extraction NetCDF ERDDAP reçue et contrôlée ; grille Int16 2160 × 1080 générée (4,45 Mio) ; branchement au moteur et rendu à faire |
-| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | À FAIRE |
+| 2.1 | Étudier/embarquer un véritable MNT global (ETOPO NOAA), format, résolution, poids, licence et attribution | EN COURS — raster Int16 2160 × 1080 (4,45 Mio), métadonnées et script présents sur `main` et `dev` ; chargement facultatif branché ; validation visuelle navigateur restante |
+| 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — première palette hypsométrique et ombrage local simplifié ; hillshade physiquement mieux calibré à faire |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | À FAIRE |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
