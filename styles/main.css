@@ -64,3 +64,11 @@ button,select,textarea{font:inherit}
 .map-frame canvas{cursor:grab;touch-action:none}
 .map-frame canvas.is-dragging{cursor:grabbing}
 @media(max-width:760px){.map-tools{gap:4px}.map-tool{min-width:29px;height:28px;padding:0 7px}.map-reset{font-size:9px}}
+
+/* Labels cartographiques progressifs et infobulle */
+.map-frame{position:relative}
+.map-tooltip{position:absolute;z-index:4;display:flex;flex-direction:column;gap:3px;max-width:210px;padding:8px 10px;background:rgba(13,25,30,.94);border:1px solid #b99a5d;border-radius:5px;color:#f2ead8;box-shadow:0 5px 20px #0008;pointer-events:none;font-size:11px}
+.map-tooltip[hidden]{display:none}
+.map-tooltip strong{font:600 12px Georgia,serif}
+.map-tooltip span{color:#c0c8c3;font-size:10px}
+.map-tooltip.is-selected{background:rgba(28,43,47,.97);border-color:#e1c27c}
