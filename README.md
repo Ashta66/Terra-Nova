@@ -10,7 +10,7 @@ TERRA NOVA est conçu comme une simulation ouverte : les sociétés, les économ
 La carte adoptera une caméra hybride, du globe planétaire à l'atlas détaillé. Son langage visuel évoluera avec l'époque simulée : atlas ancien en 1444, cartographie moderne au fil des siècles, puis visualisations futuristes. Le niveau géographique C est la cible technique ; le premier rendu jouable sera de niveau B, avec relief, hydrographie, végétation et côtes crédibles.
 
 ## État du projet
-Lot 1 — fondations techniques : horloge quotidienne, modèle de géographie mutable séparé des données politiques, sauvegarde locale versionnée et tests automatisés. La carte mondiale réelle et le rendu cartographique sont des étapes suivantes ; le dépôt ne constitue pas encore un jeu complet.
+Lot 1 — fondations techniques : horloge quotidienne, modèle de géographie mutable séparé des données politiques, sauvegarde locale versionnée et tests automatisés. Le prototype intègre un atlas mondial local Natural Earth (terres, grands lacs et principaux cours d’eau), un rendu cartographique évolutif selon l'époque et les fondations de simulation. Le relief altimétrique précis, les frontières historiques et les systèmes de jeu restent à construire ; le dépôt ne constitue pas encore un jeu complet.
 
 ## Lancer localement
 - Installer Node.js 20 ou supérieur.
