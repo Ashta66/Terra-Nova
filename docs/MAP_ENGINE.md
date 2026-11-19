@@ -6,7 +6,7 @@ Ce lot ajoute des briques indépendantes de rendu :
 - rendu Canvas d'une GeoJSON FeatureCollection, grille géographique et polygones ;
 - couche mondiale locale chargée depuis les fichiers du jeu, sans API, CDN ou service cartographique.
 
-Le dépôt embarque `data/ne_110m_land.geojson`, un fond physique mondial Natural Earth à l'échelle 1:110m (127 entités Polygon, 128 anneaux et environ 5 143 positions). Il fournit les continents et grandes côtes, pas le relief, les fleuves détaillés ou les frontières politiques historiques.
+Le dépôt embarque `data/ne_110m_land.geojson`, un fond physique mondial Natural Earth à l'échelle 1:110m (127 entités Polygon, 128 anneaux et environ 5 143 positions). Deux couches physiques complémentaires sont également embarquées : 24 grands lacs et 13 grands cours d'eau. Le moteur les dessine au-dessus des terres avec des styles propres. Des hachures discrètes, limitées aux époques papier, donnent une texture d'atlas ; elles sont purement décoratives et ne prétendent pas représenter une altitude. Le relief altimétrique réel et les frontières politiques historiques restent à intégrer.
 
 L'orthographique est une projection de globe de base ; la rotation interactive, le clipping précis des géométries traversant le limbe et la transition animée globe/atlas restent à réaliser. Les projections d'affichage ne servent jamais aux calculs de simulation.
 
