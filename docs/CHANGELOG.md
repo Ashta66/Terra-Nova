@@ -1,5 +1,22 @@
 # Journal des changements — TERRA NOVA
 
+## 19 novembre 2026 — amélioration du pipeline d'accès ETOPO (recherche de source)
+
+### Recherche et constat
+- Confirmation de la source NOAA NCEI ETOPO 2022 Ice Surface et de ses formats GeoTIFF/NetCDF à 60 secondes d'arc.
+- Identification du service officiel NOAA ERDDAP `ETOPO_2022_v1_60s`, qui expose une grille globale de 10 800 latitudes × 21 600 longitudes, avec altitude `z` en mètres et référence verticale EGM2008.
+- Le service permet des extractions par indices et pas d'échantillonnage ; une extraction décimée peut fournir un aperçu de résolution proche de la cible 10 minutes, sous réserve de validation des coordonnées et du réordonnancement des longitudes 0–360°.
+
+### Documentation
+- `docs/DATA_SOURCES.md` : ajout du point d'accès NOAA ERDDAP, des dimensions et des précautions sur les coordonnées.
+- `docs/PROJECT_MASTER.md` : mise à jour de l'état du pipeline ETOPO et des étapes restantes.
+- `docs/ROADMAP.md` : lot 2.1 précisé avec la voie d'extraction ERDDAP en alternative au GeoTIFF direct.
+
+### Limites et vérification
+- Aucun raster n'a encore été téléchargé, ajouté ou affiché ; le relief continu reste donc absent du jeu.
+- Le format et l'orientation du fichier extrait devront être contrôlés sur les données binaires réelles avant intégration.
+- Cette étape est une amélioration de la documentation et de la stratégie d'accès aux données, pas une validation du MNT.
+
 ## 19 novembre 2026 — labels géographiques progressifs (choix joueur C)
 
 ### Décision de conception
