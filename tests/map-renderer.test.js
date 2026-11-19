@@ -85,3 +85,34 @@ test("les labels géographiques apparaissent selon le niveau de zoom", () => {
   assert.ok(regional.labelHits.some(label => label.name === "Paris"));
   assert.ok(calls.some(call => call[0] === "strokeText" && call[1] === "Europe"));
 });
+
+
+import { createTerrainGrid, sampleElevation, drawTerrainRaster } from "../src/world/terrain.js";
+
+test("la grille ETOPO lit les entiers signés little-endian et interpole les coordonnées", () => {
+  const bytes = new Uint8Array(8);
+  const view = new DataView(bytes.buffer);
+  [10, 20, 30, 40].forEach((value, index) => view.setInt16(index * 2, value, true));
+  const grid = createTerrainGrid(bytes, 2, 2);
+  assert.equal(grid.min, 10);
+  assert.equal(grid.max, 40);
+  assert.equal(sampleElevation(grid, -90, 45), 10);
+  assert.equal(sampleElevation(grid, 90, -45), 40);
+  assert.throws(() => createTerrainGrid(bytes, 3, 2), /taille du raster/);
+});
+
+test("le raster de terrain produit des pixels sans dépendre du DOM", () => {
+  const bytes = new Uint8Array(8);
+  const view = new DataView(bytes.buffer);
+  [-1000, 500, 1200, 3200].forEach((value, index) => view.setInt16(index * 2, value, true));
+  const grid = createTerrainGrid(bytes, 2, 2);
+  let image = null, placed = false;
+  const context = {
+    createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
+    putImageData(value, x, y) { placed = value === image && x === 0 && y === 0; }
+  };
+  assert.equal(drawTerrainRaster(context, 4, 2, grid), true);
+  assert.equal(placed, true);
+  assert.equal(image.data.length, 32);
+  assert.ok([...image.data].some(value => value > 0));
+});
