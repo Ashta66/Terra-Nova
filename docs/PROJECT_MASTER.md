@@ -216,7 +216,8 @@ L'interface plein écran en trois colonnes est intégrée sur `dev`. Le panneau 
 ### Instructions pour une nouvelle conversation
 1. Ouvrir le dépôt et lire ce fichier en entier.
 2. Lire `docs/ROADMAP.md` pour connaître le lot actif, les lots terminés et les prochains.
-3. Lire les documents techniques liés au lot en cours.
-4. Vérifier l'état réel de `dev`, les PR et les dernières GitHub Actions.
-5. Continuer depuis la prochaine tâche non terminée sans redemander les choix déjà validés.
-6. Si le contexte conversationnel est absent, ce document et la roadmap sont la source de vérité du projet.
+3. Lire `docs/CHANGELOG.md` pour comprendre les changements récents et les corrections.
+4. Lire les documents techniques liés au lot en cours.
+5. Vérifier l'état réel de `dev`, les PR et les dernières GitHub Actions.
+6. Continuer depuis la prochaine tâche non terminée sans redemander les choix déjà validés.
+7. Si le contexte conversationnel est absent, ce document et la roadmap sont la source de vérité du projet.
