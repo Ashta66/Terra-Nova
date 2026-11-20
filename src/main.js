@@ -16,6 +16,7 @@ import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
+import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
@@ -38,6 +39,7 @@ let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
+let terrainTileStore = null;
 let regionalLandFeatures = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
@@ -665,6 +667,8 @@ function renderMapFrame() {
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
+    terrainTileStore,
+    onTerrainTileReady: () => renderMap(),
     terrainEnabled: true,
     terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
     terrainMode: $("terrain-mode")?.value ?? "political",
@@ -737,6 +741,7 @@ async function loadWorldMap() {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) {
         terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96, maxBytes: 48 * 1024 * 1024 });
         prepareTerrainHillshade(terrainGrid).then(ready => { if (ready) { lastRenderedMapSignature = null; renderMap(); } });
         if (!state.physicalWorld?.currentCells?.length) {
           const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
