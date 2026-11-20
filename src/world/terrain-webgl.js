@@ -389,7 +389,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
  function evict(protectedKeys=new Set()){for(const [k,e] of entries){if(free.length)break;if(!protectedKeys.has(k))release(k,e);}}
  function get(tile,protectedKeys=new Set()){
-  if(!tile)return null;const k=key(tile),hit=entries.get(k);
+  if(!tile)return null;const k=key(tile);pending.delete(k);const hit=entries.get(k);
   if(hit){hits++;entries.delete(k);entries.set(k,hit);return hit;}misses++;
   const prefix=`${tile.level}/${tile.x}/${tile.y}@`;
   for(const [old,e] of entries)if(old.startsWith(prefix))release(old,e);
@@ -404,10 +404,11 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  }
  function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k))get(item.tile,item.protectedKeys);schedulePump();}
  function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
+ function retainPending(keys){const keep=keys instanceof Set?keys:new Set();for(const k of pending.keys())if(!keep.has(k))pending.delete(k);}
  function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
- return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,enqueue,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
+ return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,enqueue,retainPending,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
 }
 
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
@@ -789,6 +790,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   if(drawFinishedAt-renderer.lastPreloadAt>=120) {
     renderer.lastPreloadAt=drawFinishedAt;
     const predictive=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,8);
+    cache.retainPending(new Set(predictive.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
     for(const {tile} of predictive) {
       if(cache.enqueue(tile,protectedKeys)) renderer.lastPreloadedTiles++;
     }
