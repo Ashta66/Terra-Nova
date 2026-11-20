@@ -478,8 +478,8 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     const collection = { type: "FeatureCollection", features: Array.from({ length: 540 }, (_, index) => ({
       type: "Feature",
       geometry: { type: "Polygon", coordinates: [[
-        [index % 360 - 180, 0], [index % 360 - 179.5, 0],
-        [index % 360 - 179.5, 0.5], [index % 360 - 180, 0]
+        [index % 360 - 180, 0], [index % 360 - 178.5, 0],
+        [index % 360 - 178.5, 1.5], [index % 360 - 180, 0]
       ]] }
     })) };
     const { canvas } = createCanvas();
