@@ -380,7 +380,28 @@ test("le magasin de tuiles expose une révision globale pour invalider le cache 
 });
 
 
-import { calculateViewportTransform, getViewportPreviewWrapCopies } from "../src/world/map-renderer.js";
+import { calculateViewportTransform, getViewportPreviewWrapCopies, calculateExposedRegions } from "../src/world/map-renderer.js";
+
+test("les bandes exposées d'un pan pur sont calculées sans chevauchement", () => {
+  const regions = calculateExposedRegions(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 1, centerLongitude: 18, centerLatitude: 9 },
+    360, 180
+  );
+  assert.deepEqual(regions, [
+    { x: 0, y: 0, width: 18, height: 180 },
+    { x: 18, y: 0, width: 342, height: 9 }
+  ]);
+});
+
+test("les bandes exposées refusent zooms et grands déplacements", () => {
+  assert.equal(calculateExposedRegions({ zoom: 1 }, { zoom: 2 }, 360, 180), null);
+  assert.equal(calculateExposedRegions(
+    { zoom: 1, centerLongitude: 0 }, { zoom: 1, centerLongitude: 180 }, 360, 180
+  ), null);
+  assert.deepEqual(calculateExposedRegions({}, {}, 360, 180), []);
+});
+
 
 test("la prévisualisation bitmap traduit correctement un déplacement du viewport", () => {
   const transform = calculateViewportTransform(
