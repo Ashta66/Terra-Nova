@@ -609,3 +609,15 @@ test("les frontières politiques et administratives sont rendues comme deux couc
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 0));
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
 });
+
+test("les frontières historiques ne conservent que les segments partagés entre territoires", () => {
+  const source = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { NAME: "Ouest", BORDERPRECISION: 3 }, geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] } },
+    { type: "Feature", properties: { NAME: "Est", BORDERPRECISION: 2 }, geometry: { type: "Polygon", coordinates: [[[1, 0], [2, 0], [2, 1], [1, 1], [1, 0]]] } }
+  ] };
+  const result = historicalPolygonsToBoundaries(source);
+  assert.equal(result.features.length, 1);
+  assert.equal(result.features[0].properties.NAME, "Ouest");
+  assert.equal(result.features[0].geometry.coordinates.length, 1);
+  assert.deepEqual(result.features[0].geometry.coordinates[0], [[1, 0], [1, 1]]);
+});

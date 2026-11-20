@@ -30,23 +30,56 @@ export function historicalPolygonsToBoundaries(collection) {
   if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) {
     throw new TypeError("Une FeatureCollection historique est requise.");
   }
-  const features = [];
-  for (const feature of collection.features) {
+  const polygonFeatures = collection.features.map(feature => {
     const geometry = feature?.geometry;
-    if (!geometry) continue;
-    const polygons = geometry.type === "Polygon" ? [geometry.coordinates]
-      : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
-    const lines = [];
-    for (const polygon of polygons) {
-      for (const ring of polygon) if (Array.isArray(ring) && ring.length > 1) lines.push(ring);
+    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
+      : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
+    return { feature, polygons };
+  });
+  const edgeOwners = new Map();
+  const edgeKey = (a, b) => {
+    const pointKey = point => Number(point[0]).toFixed(5) + "," + Number(point[1]).toFixed(5);
+    return [pointKey(a), pointKey(b)].sort().join("|");
+  };
+  polygonFeatures.forEach(({ polygons }, featureIndex) => {
+    for (const polygon of polygons) for (const ring of polygon) {
+      if (!Array.isArray(ring) || ring.length < 2) continue;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const key = edgeKey(ring[i], ring[i + 1]);
+        if (!edgeOwners.has(key)) edgeOwners.set(key, new Set());
+        edgeOwners.get(key).add(featureIndex);
+      }
     }
-    if (!lines.length) continue;
+  });
+  const features = [];
+  polygonFeatures.forEach(({ feature, polygons }, featureIndex) => {
+    const sharedLines = [];
+    for (const polygon of polygons) for (const ring of polygon) {
+      if (!Array.isArray(ring) || ring.length < 2) continue;
+      let line = [];
+      const flush = () => {
+        if (line.length > 1) sharedLines.push(line);
+        line = [];
+      };
+      for (let i = 0; i < ring.length - 1; i++) {
+        const start = ring[i], finish = ring[i + 1];
+        const owners = edgeOwners.get(edgeKey(start, finish));
+        const isSharedPoliticalEdge = owners?.size > 1;
+        const isCanonicalOwner = isSharedPoliticalEdge && featureIndex === Math.min(...owners);
+        if (isCanonicalOwner) {
+          if (!line.length) line.push(start);
+          line.push(finish);
+        } else flush();
+      }
+      flush();
+    }
+    if (!sharedLines.length) return;
     features.push({
       type: "Feature",
       properties: { ...(feature.properties ?? {}), boundaryLayer: "political-historical" },
-      geometry: { type: "MultiLineString", coordinates: lines }
+      geometry: { type: "MultiLineString", coordinates: sharedLines }
     });
-  }
+  });
   return { type: "FeatureCollection", features };
 }
 
