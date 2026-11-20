@@ -716,7 +716,7 @@ function createTileRenderer(tileStore) {
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:8});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -751,6 +751,11 @@ export function getTerrainTileTransitionOpacity(progress) {
   return Math.min(1, Math.max(0, value));
 }
 
+export function terrainTileSetFitsAtlas(visibleCount,previousCount,capacity) {
+  if(!Number.isInteger(visibleCount)||!Number.isInteger(previousCount)||!Number.isInteger(capacity)||visibleCount<0||previousCount<0||capacity<1)return false;
+  return visibleCount+previousCount<=capacity;
+}
+
 export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},options={}) {
   if(!tileStore?.getTileAtLevel||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1) return null;
   let renderer=tileRenderers.get(tileStore);
@@ -779,10 +784,24 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     }
     renderer.lastLevel=level;
   }
-  const transitionFrom=renderer.transitionFromLevel;
+  let transitionFrom=renderer.transitionFromLevel;
   let transitionProgress=transitionFrom===null?1:getTerrainTileTransitionOpacity((now-renderer.transitionStartedAt)/220);
   const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
-  const previousVisible=transitionFrom!==null?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
+  let previousVisible=transitionFrom!==null?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
+  if(!terrainTileSetFitsAtlas(visible.length,previousVisible.length,cache.capacity)) {
+    if(transitionFrom!==null&&transitionProgress>=1) {
+      renderer.transitionFromLevel=null;
+      transitionFrom=null;
+      previousVisible=[];
+    } else {
+      renderer.lastFallbackReason="atlas-capacity";
+      renderer.waitingForTiles=false;
+      renderer.readyChildTiles=0;
+      renderer.pendingChildTiles=0;
+      return null;
+    }
+  }
+  renderer.lastFallbackReason=null;
   const missingChildren=transitionFrom!==null?visible.filter(({tile})=>!cache.peek(tile)): [];
   renderer.waitingForTiles=missingChildren.length>0;
   renderer.readyChildTiles=visible.length-missingChildren.length;
@@ -855,5 +874,5 @@ export function cancelTerrainWebGLPending(tileStore) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,waitingForTiles:renderer.waitingForTiles,readyChildTiles:renderer.readyChildTiles,pendingChildTiles:renderer.pendingChildTiles,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,fallbackReason:renderer.lastFallbackReason,waitingForTiles:renderer.waitingForTiles,readyChildTiles:renderer.readyChildTiles,pendingChildTiles:renderer.pendingChildTiles,maxTextureSize:renderer.maxTextureSize};
 }
