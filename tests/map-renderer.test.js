@@ -111,7 +111,10 @@ test("le raster de terrain produit des pixels sans dépendre du DOM", () => {
   const bytes = new Uint8Array(8);
   const view = new DataView(bytes.buffer);
   [-1000, 500, 1200, 3200].forEach((value, index) => view.setInt16(index * 2, value, true));
-  const grid = createTerrainGrid(bytes, 2, 2);
+  const expanded = new Uint8Array(16);
+  const expandedView = new DataView(expanded.buffer);
+  [-1000, 500, 1200, 3200, -1000, 500, 1200, 3200].forEach((value, index) => expandedView.setInt16(index * 2, value, true));
+  const grid = createTerrainGrid(expanded, 4, 2);
   let image = null, placed = false;
   const context = {
     createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
@@ -194,7 +197,7 @@ test("les classes terrestres modulent discrètement la palette sans toucher la b
 
 
 test("la qualité du raster peut être réduite pendant le glissement pour préserver la fluidité", () => {
-  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  const grid = createTerrainGrid(new Uint8Array(1200 * 600 * 2), 1200, 600);
   let dimensions = null;
   const context = {
     createImageData(width, height) {
@@ -208,7 +211,7 @@ test("la qualité du raster peut être réduite pendant le glissement pour prés
 });
 
 test("le rendu du terrain courant augmente la résolution sans dépasser 1024 × 512", () => {
-  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  const grid = createTerrainGrid(new Uint8Array(1200 * 600 * 2), 1200, 600);
   let dimensions = null;
   const context = {
     createImageData(width, height) {

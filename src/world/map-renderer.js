@@ -838,7 +838,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
   const coastProfile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
   // Un unique Path2D de terres sert aux deux passes de relief.
-  const landPath = typeof Path2D === "function" ? new Path2D() : null;
+  const shouldRenderTerrain = options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length && options.terrain?.values;
+  const landPath = shouldRenderTerrain && typeof Path2D === "function" ? new Path2D() : null;
   if (landPath) {
     for (const feature of visibleLand.features) {
       if (feature?.geometry) traceGeometry(landPath, feature.geometry, width, height, projection, coastProfile);
@@ -854,7 +855,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       context.clip("evenodd");
     }
   };
-  if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+  if (shouldRenderTerrain) {
     context.save();
     clipLand();
     terrainEnabled = measureLayer("relief-teinte-altitude", () => drawTerrainRaster(

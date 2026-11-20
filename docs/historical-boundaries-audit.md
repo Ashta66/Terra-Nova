@@ -176,3 +176,8 @@ L’opacité politique par défaut passe à 0,45 (45 %) afin de laisser davantag
 ## Réglages visuels du relief (étape 6)
 
 Deux curseurs permettent d’ajuster l’exagération verticale (1 à 30, valeur initiale 14) et la force de la passe d’ombrage (0 à 100 %, valeur initiale 85 %). Les changements redessinent la carte ; à la validation du curseur d’exagération, le Worker recalcule aussi sa variante pré-calculée. Aucun champ de sauvegarde n’est ajouté ou modifié.
+
+
+## Correctif de validation du relief
+
+Le Path2D terrestre n’est désormais construit que si une grille de terrain est effectivement disponible et que la projection équirectangulaire autorise les passes de relief. Les tests de résolution utilisent des dimensions de grille réalistes ou adaptées au viewport, tout en conservant un cas de grille plus petite pour vérifier le plafonnement.
