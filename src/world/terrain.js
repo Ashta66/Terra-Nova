@@ -111,13 +111,24 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   const normalEast = -slopeEast / normalLength;
   const normalNorth = -slopeNorth / normalLength;
   const normalUp = 1 / normalLength;
-  const azimuth = 315 * Math.PI / 180;
-  const altitude = 45 * Math.PI / 180;
-  const lightEast = Math.cos(altitude) * Math.sin(azimuth);
-  const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
+  const altitude = 38 * Math.PI / 180;
   const lightUp = Math.sin(altitude);
-  const illumination = normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp;
-  return clamp(1 + (illumination - lightUp) * 0.9, 0.68, 1.32);
+  // Quatre sources lumineuses croisées : le relief reste lisible quelle que
+  // soit son orientation, au lieu de disparaître sur les versants mal éclairés.
+  const lights = [
+    { azimuth: 315, weight: 0.40 },
+    { azimuth: 45, weight: 0.30 },
+    { azimuth: 135, weight: 0.20 },
+    { azimuth: 225, weight: 0.10 }
+  ];
+  let illumination = 0;
+  for (const light of lights) {
+    const azimuth = light.azimuth * Math.PI / 180;
+    const lightEast = Math.cos(altitude) * Math.sin(azimuth);
+    const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
+    illumination += Math.max(0, normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp) * light.weight;
+  }
+  return clamp(1 + (illumination - lightUp) * 1.65, 0.48, 1.52);
 }
 
 const physicalLookupCache = new WeakMap();
@@ -147,10 +158,9 @@ export function samplePhysicalElevation(grid,lon,lat,lookup){
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false) {
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false, hillshadeOnly = false) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
-  // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
+  // Raster compact : l'ombrage multidirectionnel donne le détail, pas une haute résolution brute.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
   const scale = Math.min(1, (384 * qualityScale) / width, (192 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
@@ -158,7 +168,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), physicalWorld?.revision ?? 0].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", physicalWorld?.revision ?? 0].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -204,7 +214,9 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const north = samplePhysicalElevation(grid, lon, lat + dy, physical), south = samplePhysicalElevation(grid, lon, lat - dy, physical);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
-        const color = terrainColorForElevation(e, shade, landform);
+        const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
+        const gray = Math.round(28 + relief * 214);
+        const color = hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, shade, landform);
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;

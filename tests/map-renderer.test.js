@@ -153,9 +153,10 @@ test("le hillshade directionnel est neutre sur une surface plane et borné sur l
   assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
   const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
   const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
-  assert.ok(illuminatedSlope >= 0.84 && illuminatedSlope <= 1.16);
-  assert.ok(oppositeSlope >= 0.84 && oppositeSlope <= 1.16);
-  assert.notEqual(illuminatedSlope, oppositeSlope);
+  assert.ok(illuminatedSlope < 0.9 || illuminatedSlope > 1.1);
+  assert.ok(oppositeSlope < 0.9 || oppositeSlope > 1.1);
+  assert.ok(illuminatedSlope >= 0.48 && illuminatedSlope <= 1.52);
+  assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
 });
 
 

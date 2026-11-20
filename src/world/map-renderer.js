@@ -877,11 +877,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     context.beginPath();
     for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
     context.clip("evenodd");
-    // Fusion directe du relief dans les aplats nationaux : ombres et crêtes
-    // renforcées sans masquer les couleurs politiques.
-    context.globalCompositeOperation = "soft-light";
-    context.globalAlpha = 0.92;
-    drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
+    // Ombres multidirectionnelles en niveaux de gris : le mode overlay creuse
+    // fortement les vallées et éclaire les crêtes sans recolorer les nations.
+    context.globalCompositeOperation = "overlay";
+    context.globalAlpha = 0.88;
+    drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true);
     context.restore();
   }
   const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection, options.terrain);

@@ -497,9 +497,10 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
   mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
   Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
-  // Rendu léger coalescé à l’écran : le canvas reste aligné avec son viewport.
+  // Déplacement GPU du dernier rendu : aucun recalcul GeoJSON pendant le drag.
   mapInteractionActive = true;
-  renderMap();
+  mapCanvas.style.willChange = "transform";
+  mapCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
 });
 function playDisasterSound(type) {
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
@@ -565,6 +566,7 @@ function stopMapDrag() {
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
   mapCanvas.style.transform = "";
+  mapCanvas.style.willChange = "";
   mapInteractionActive = false;
   lastRenderedMapSignature = null;
   if (lastDragMoved) renderMap();
@@ -608,18 +610,25 @@ mapCanvas.addEventListener("wheel", (event) => {
     wheelZoomState = {
       anchorX: event.clientX - rect.left,
       anchorY: event.clientY - rect.top,
-      rect: { width: rect.width, height: rect.height }
+      rect: { width: rect.width, height: rect.height },
+      startZoom: mapViewport.zoom
     };
   }
   const anchor = wheelZoomState;
   mapInteractionActive = true;
-  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, true, anchor.rect);
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
+  mapCanvas.style.willChange = "transform";
+  mapCanvas.style.transformOrigin = `${anchor.anchorX}px ${anchor.anchorY}px`;
+  mapCanvas.style.transform = `scale(${mapViewport.zoom / anchor.startZoom})`;
+  updateMapControls();
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = setTimeout(() => {
     if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
     wheelZoomTimer = null;
     wheelZoomState = null;
     mapCanvas.style.transform = "";
+    mapCanvas.style.transformOrigin = "";
+    mapCanvas.style.willChange = "";
     mapInteractionActive = false;
     lastRenderedMapSignature = null;
     renderMap();
