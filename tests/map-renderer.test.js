@@ -1378,10 +1378,10 @@ test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () 
 
 test("les frontières administratives secondaires sont envoyées au renderer WebGL", () => {
   const { canvas, calls } = createCanvas();
-  const administrativeBoundaries = { type: "FeatureCollection", features: [{
-    type: "Feature",
-    geometry: { type: "LineString", coordinates: [[1, 1], [4, 4]] }
-  }] };
+  const administrativeBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "MultiLineString", coordinates: [[[1, 1], [4, 4]]] } },
+    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[5, 5], [8, 5], [8, 8], [5, 5]]] } }
+  ] };
   let submittedLayers = [];
   const geographicWebGLRenderer = {
     canvas: {},
@@ -1392,7 +1392,8 @@ test("les frontières administratives secondaires sont envoyées au renderer Web
         cacheHit: false, bufferUploads: 2, uploadedBytes: 32,
         layers: {
           land: { drawnFeatures: 1 },
-          "administrative-boundaries": { drawnFeatures: 1 }
+          "administrative-boundary-lines": { drawnFeatures: 1 },
+          "administrative-boundary-polygons": { drawnFeatures: 1 }
         }
       };
     },
@@ -1404,10 +1405,14 @@ test("les frontières administratives secondaires sont envoyées au renderer Web
     width: 640, height: 320, pixelRatio: 1,
     administrativeBoundaries, geographicWebGLRenderer
   });
-  const boundaryLayer = submittedLayers.find(layer => layer.key === "administrative-boundaries");
-  assert.ok(boundaryLayer);
-  assert.equal(boundaryLayer.type, "boundaries");
-  assert.equal(boundaryLayer.features, administrativeBoundaries.features);
+  const lineLayer = submittedLayers.find(layer => layer.key === "administrative-boundary-lines");
+  const polygonLayer = submittedLayers.find(layer => layer.key === "administrative-boundary-polygons");
+  assert.ok(lineLayer);
+  assert.ok(polygonLayer);
+  assert.equal(lineLayer.type, "lines");
+  assert.equal(polygonLayer.type, "boundaries");
+  assert.equal(lineLayer.features[0], administrativeBoundaries.features[0]);
+  assert.equal(polygonLayer.features[0], administrativeBoundaries.features[1]);
   assert.equal(result.geographicWebGLStats.drawCalls, 2);
   assert.ok(calls.some(call => call[0] === "drawImage"));
 });
@@ -1426,7 +1431,7 @@ test("les frontières administratives non compatibles WebGL conservent le fallba
         cacheHit: false, bufferUploads: 1, uploadedBytes: 16,
         layers: {
           land: { drawnFeatures: 1 },
-          "administrative-boundaries": { drawnFeatures: 0 }
+          "administrative-boundary-polygons": { drawnFeatures: 0 }
         }
       };
     },
