@@ -1231,7 +1231,7 @@ test("le renderer géographique conserve un cache GPU indépendant pour chaque c
     createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
     getAttribLocation: () => 0, getUniformLocation: () => ({}),
     viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
-    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    useProgram() {}, uniform2f() {}, uniform1f(location, value) { calls.push(["uniform1f", value]); }, uniform4fv() {},
     bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
     bufferData(target, data) { uploads.push({ target, bytes: data.byteLength }); },
     drawElements() {}
@@ -1319,14 +1319,16 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   const renderer = createGeographicWebGLRenderer(gl);
   const ordinary = { type: "Feature", geometry: { type: "LineString", coordinates: [[10, 2], [11, 3]] } };
   const dateline = { type: "Feature", geometry: { type: "LineString", coordinates: [[179, 2], [-179, 3]] } };
-  const layers = [{ key: "rivers", type: "lines", features: [ordinary, dateline], color: [0.2, 0.4, 0.8, 1] }];
+  const layers = [{ key: "rivers", type: "lines", features: [ordinary, dateline], color: [0.2, 0.4, 0.8, 1], lineWidth: 1.25 }];
   const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
   assert.equal(first.drawnFeatures, 1);
   assert.equal(first.skippedFeatures, 1);
   assert.equal(first.drawCalls, 1);
   assert.equal(first.bufferUploads, 1);
   assert.equal(first.layers.rivers.vertices, 6);
+  assert.equal(first.layers.rivers.uploadedBytes, 120);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
+  assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
   assert.equal(renderer.supportsLine(ordinary), true);
   assert.equal(renderer.supportsLine(dateline), false);
   assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
