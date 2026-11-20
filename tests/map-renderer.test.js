@@ -580,16 +580,13 @@ test("la sélection historique choisit le cliché temporel le plus proche sans i
   assert.equal(selectHistoricalSnapshot(1480, years).year, 1500);
 });
 
-test("les polygones historiques deviennent des lignes politiques en conservant leurs métadonnées", () => {
+test("les contours côtiers seuls ne sont pas confondus avec des frontières politiques", () => {
   const source = { type: "FeatureCollection", features: [{
     type: "Feature", properties: { NAME: "Corsica", BORDERPRECISION: 2 },
     geometry: { type: "Polygon", coordinates: [[[8, 41], [9, 41], [9, 43], [8, 41]]] }
   }] };
   const result = historicalPolygonsToBoundaries(source);
-  assert.equal(result.features.length, 1);
-  assert.equal(result.features[0].geometry.type, "MultiLineString");
-  assert.equal(result.features[0].geometry.coordinates.length, 1);
-  assert.equal(result.features[0].properties.NAME, "Corsica");
+  assert.equal(result.features.length, 0);
 });
 
 test("les frontières politiques et administratives sont rendues comme deux couches distinctes", () => {
