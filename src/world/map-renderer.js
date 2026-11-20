@@ -826,8 +826,15 @@ export function getTerritoryFillSimplificationProfile(zoom = 1) {
   return getLandCoastSimplificationProfile(zoom);
 }
 
+// Les contours politiques suivent exactement le littoral du masque terrestre.
+// Cela évite qu'une seconde géométrie plus fine fasse ressortir des micro-îles
+// ou des découpes côtières absentes du fond physique.
+export function getTerritoryOutlineSimplificationProfile(zoom = 1) {
+  return getLandCoastSimplificationProfile(zoom);
+}
+
 function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
- if(!collection?.features)return 0;let drawn=0;const zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),profile=pass==="fill"?getTerritoryFillSimplificationProfile(zoom):getCoastSimplificationProfile(zoom),renderScale=projection.renderScale??1;context.save();
+ if(!collection?.features)return 0;let drawn=0;const zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),profile=pass==="fill"?getTerritoryFillSimplificationProfile(zoom):getTerritoryOutlineSimplificationProfile(zoom),renderScale=projection.renderScale??1;context.save();
  for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
   const paint=path=>{
    const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};

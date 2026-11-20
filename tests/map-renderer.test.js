@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -863,15 +863,13 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
 });
 
-test("les côtes physiques et le masque du relief sont plus simplifiés que les contours territoriaux", () => {
-  const land = getLandCoastSimplificationProfile(1);
-  const country = getCoastSimplificationProfile(1);
-  const closeLand = getLandCoastSimplificationProfile(20);
-  const closeCountry = getCoastSimplificationProfile(20);
-  assert.ok(land.tolerance > country.tolerance);
-  assert.ok(land.minRingArea > country.minRingArea);
-  assert.ok(closeLand.tolerance > closeCountry.tolerance);
-  assert.ok(closeLand.minRingArea > closeCountry.minRingArea);
+test("le littoral physique et les contours territoriaux partagent la même simplification", () => {
+  for (const zoom of [1, 2, 4, 8, 20]) {
+    const land = getLandCoastSimplificationProfile(zoom);
+    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), land);
+    assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
+  }
+  assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
 });
 
 
