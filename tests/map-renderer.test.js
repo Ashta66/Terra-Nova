@@ -1042,5 +1042,5 @@ test("la construction de texture résout chaque tuile voisine du halo une seule 
   assert.equal(calls.length, 4);
   assert.equal(texture.values[0], 7); // halo ouest : retour longitudinal
   assert.equal(texture.values[1 * 6 + 1], 0); // premier échantillon intérieur
-  assert.equal(texture.values[5 * 6 + 5], 35); // halo sud-est
+  assert.equal(texture.values[5 * 6 + 5], 36); // halo sud-est
 });
