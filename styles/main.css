@@ -163,3 +163,11 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 .meteor-test:hover,.meteor-test.is-active{border-color:#f0a16d;color:#ffe0bd;background:linear-gradient(135deg,#78402d,#27383a);box-shadow:0 0 12px #f08a4b45}
 .map-tools{flex-wrap:wrap}
 @media(max-width:760px){.meteor-test{font-size:9px;padding:0 6px}}
+
+
+/* Chute visuelle et onde de choc de la météorite de test */
+.meteor-impact-animation{position:absolute;z-index:6;width:15px;height:15px;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 30%,#fff7cf 0 8%,#ffb35f 24%,#d64d2d 62%,#3b1d22 100%);box-shadow:0 0 12px 5px #f18a4caa;transform:translate(-50%,-150px);animation:meteor-fall .58s cubic-bezier(.55,.02,.82,.42) forwards}
+.meteor-impact-animation:before{content:"";position:absolute;width:5px;height:92px;left:5px;top:-86px;border-radius:50%;background:linear-gradient(to top,rgba(255,211,137,.95),rgba(255,125,65,.55),transparent);filter:blur(2px)}
+.meteor-impact-animation:after{content:"";position:absolute;inset:-5px;border:2px solid #ffe0a0;border-radius:50%;opacity:0;animation:meteor-shock .7s .52s ease-out forwards}
+@keyframes meteor-fall{0%{transform:translate(-50%,-170px) scale(.45);opacity:.2}65%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.25);opacity:1}}
+@keyframes meteor-shock{0%{inset:-5px;opacity:.95}100%{inset:-46px;opacity:0}}

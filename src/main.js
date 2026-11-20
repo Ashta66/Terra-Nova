@@ -500,6 +500,15 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapInteractionActive = true;
   renderMap();
 });
+function animateMeteorImpact(x, y) {
+  const marker = document.createElement("div");
+  marker.className = "meteor-impact-animation";
+  marker.setAttribute("aria-hidden", "true");
+  marker.style.left = (x + (mapCanvas.offsetLeft || 0)) + "px";
+  marker.style.top = (y + (mapCanvas.offsetTop || 0)) + "px";
+  mapCanvas.parentElement.append(marker);
+  setTimeout(() => marker.remove(), 1500);
+}
 function setMeteorPlacementMode(active) {
   meteorPlacementMode = Boolean(active);
   const button = $("meteor-test");
@@ -558,6 +567,7 @@ mapCanvas.addEventListener("click", (event) => {
     const longitude = ((mapViewport.centerLongitude + (x / rect.width - 0.5) * 360 / mapViewport.zoom + 540) % 360) - 180;
     const latitude = Math.max(-89.5, Math.min(89.5, mapViewport.centerLatitude - (y / rect.height - 0.5) * 180 / mapViewport.zoom));
     try {
+      animateMeteorImpact(x, y);
       const event = {
         id: "meteor-" + Date.now() + "-" + (state.physicalWorld?.revision ?? 0),
         type: "meteor-impact",
