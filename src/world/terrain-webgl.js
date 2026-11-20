@@ -240,6 +240,13 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
       entries.set(key, cached);
       return cached;
     }
+    const tilePrefix = `${tile.level}/${tile.x}/${tile.y}@`;
+    for (const [oldKey, oldEntry] of entries) {
+      if (!oldKey.startsWith(tilePrefix)) continue;
+      gl.deleteTexture(oldEntry.texture);
+      entries.delete(oldKey);
+      byteLength -= oldEntry.byteLength;
+    }
     const data = buildTerrainTileTexture(tile, store);
     if (!data) return null;
     const packed = encodeTerrainTexture(data.values);
