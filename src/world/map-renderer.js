@@ -284,6 +284,7 @@ export function calculateExposedRegions(previous, next, width, height) {
 }
 
 const layerCaches = { physical: new Map(), political: new Map() };
+let lastPhysicalFrame = null;
 const objectIds = new WeakMap();
 let nextObjectId = 1;
 
@@ -387,20 +388,51 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
   let physicalHit = false;
   if (terrainEnabled && typeof context.drawImage === "function") {
-    const physical = getCachedLayer("physical", physicalKey, canvas.width, canvas.height, layerContext => {
-      drawTerrainRaster(layerContext, canvas.width, canvas.height, options.terrain, projection.viewport);
-    });
-    if (physical) {
+    const physicalSurface = createLayerSurface(canvas.width, canvas.height);
+    if (physicalSurface) {
+      const previous = lastPhysicalFrame;
+      let dirtyRegions = null;
+      if (previous
+        && previous.terrain === options.terrain
+        && previous.revision === (options.terrain?.revision ?? 0)
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && Number(projection.viewport.zoom ?? 1) > 1
+        && Number(projection.viewport.zoom ?? 1) === Number(previous.viewport.zoom ?? 1)) {
+        dirtyRegions = calculateExposedRegions(previous.viewport, projection.viewport, width, height);
+        const dirtyArea = dirtyRegions?.reduce((sum, rect) => sum + rect.width * rect.height, 0) ?? Infinity;
+        if (dirtyRegions === null || dirtyArea <= 0 || dirtyArea > width * height * 0.45) dirtyRegions = null;
+      }
+      let incremental = false;
+      if (dirtyRegions?.length && previous?.surface) {
+        const transform = calculateViewportTransform(previous.viewport, projection.viewport, width, height);
+        physicalSurface.context.drawImage(previous.surface, transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        for (const rect of dirtyRegions) {
+          drawTerrainRaster(physicalSurface.context, canvas.width, canvas.height, options.terrain,
+            projection.viewport, { x: rect.x * pixelRatio, y: rect.y * pixelRatio,
+              width: rect.width * pixelRatio, height: rect.height * pixelRatio });
+        }
+        incremental = true;
+      } else {
+        drawTerrainRaster(physicalSurface.context, canvas.width, canvas.height, options.terrain, projection.viewport);
+      }
+      lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
+        revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
+        pixelRatio, viewport: { ...projection.viewport } };
       context.save();
       context.setTransform(1, 0, 0, 1, 0, 0);
-      context.drawImage(physical.surface, 0, 0);
+      context.drawImage(physicalSurface.surface, 0, 0);
       context.restore();
-      physicalHit = physical.hit;
+      physicalHit = incremental;
     } else {
+      lastPhysicalFrame = null;
       drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
     }
   } else if (terrainEnabled) {
+    lastPhysicalFrame = null;
     drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
+  } else {
+    lastPhysicalFrame = null;
   }
 
   const politicalKey = [
