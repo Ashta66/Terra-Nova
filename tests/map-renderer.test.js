@@ -1326,7 +1326,7 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(first.drawCalls, 1);
   assert.equal(first.bufferUploads, 1);
   assert.equal(first.layers.rivers.vertices, 6);
-  assert.equal(first.layers.rivers.uploadedBytes, 120);
+  assert.equal(first.layers.rivers.uploadedBytes, 192);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
   assert.equal(renderer.supportsLine(ordinary), true);
@@ -1340,7 +1340,7 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
 });
 
 
-test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () => {
+test("les contours polygonaux sont mis en cache et dessinés en rubans triangulés avec raccords", () => {
   let nextId = 0;
   const calls = [];
   const gl = {
@@ -1367,7 +1367,8 @@ test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () 
   const layers = [{ key: "coast-outline", type: "boundaries", features: [polygon], color: [0.4, 0.5, 0.6, 1] }];
   const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
   assert.equal(first.drawnFeatures, 1);
-  assert.equal(first.layers["coast-outline"].vertices, 24);
+  assert.equal(first.layers["coast-outline"].vertices, 168);
+  assert.equal(first.layers["coast-outline"].uploadedBytes, 5376);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.equal(first.bufferUploads, 1);
   assert.equal(renderer.supportsBoundary(polygon), true);
