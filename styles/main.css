@@ -234,3 +234,75 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 .map-cache-status[data-state=ready]{color:#9fc6a8}
 .map-cache-status[data-state=warning]{color:#c9a77a}
 @media(prefers-reduced-motion:reduce){.loading-atlas-mark,.loading-atlas-mark:before,.loading-atlas-mark:after,.loading-atlas-mark i,.loading-progress-track span:after{animation:none!important}.loading-progress-track span{transition:none!important}}
+
+
+/* Sélecteur de campagne compact : limiter le défilement avant de lancer la partie */
+.campaign-setup{padding:12px 18px}
+.setup-card{width:min(370px,100%);padding:18px 20px;max-height:calc(100dvh - 82px)}
+.setup-card h1{font-size:clamp(30px,3.6vw,42px);margin:7px 0 8px}
+.setup-lead{font-size:11px;line-height:1.45;margin:0 0 7px}
+.setup-map-hint{font-size:9px;margin:5px 0 0}
+.setup-grid{gap:8px 10px;margin:12px 0 10px}
+.setup-grid label{gap:5px;font-size:8px}
+.setup-date strong{font-size:15px}
+.setup-date input[type=range]{margin:2px 0}
+.setup-grid select{min-height:36px;padding:7px 9px;font-size:11px}
+.setup-country>label{margin-bottom:5px}
+.country-search{padding:8px 10px;font-size:11px}
+.country-filter-row{gap:6px;margin-top:5px}
+.country-filter-row select{padding:6px 4px;font-size:9px}
+.country-result-count{padding:5px 2px 3px;font-size:8px}
+.country-results{max-height:126px}
+.country-region-heading{padding:5px 8px;font-size:8px}
+.country-result{gap:2px;padding:6px 9px}
+.country-result-name{font-size:13px}
+.country-result-meta{font-size:8px}
+.map-cache-status{min-height:17px;padding:3px 2px 1px;font-size:8px}
+.country-selected{max-height:142px;padding:7px 9px;margin-top:5px;gap:3px}
+.country-selected strong{font-size:14px}
+.country-selected span{font-size:8px}
+.country-dossier{margin-top:6px;padding-top:6px;max-height:94px;overflow:auto;scrollbar-width:thin}
+.dossier-hero{gap:7px;margin-bottom:6px}
+.dossier-emblem{flex-basis:30px;width:30px;height:30px;font-size:16px}
+.dossier-identity strong{font-size:14px}
+.dossier-metrics{gap:4px}
+.dossier-metric{gap:2px;padding:5px}
+.dossier-metric>span{font-size:7px}
+.dossier-metric strong{font-size:12px}
+.dossier-metric small{font-size:7px}
+.dossier-diplomacy{margin-top:5px;padding:6px}
+.dossier-diplomacy p{font-size:9px;line-height:1.35}
+.dossier-objectives{margin-top:6px}
+.dossier-objectives h4{font-size:11px;margin-bottom:3px}
+.dossier-objective{gap:5px;padding:4px 0}
+.dossier-objective p{font-size:9px;line-height:1.3}
+.dossier-data-note{margin-top:5px;font-size:7px}
+.setup-note{padding:8px 10px;font-size:9px;line-height:1.35}
+.setup-start{margin-top:10px;padding:10px 14px;font-size:11px}
+@media(max-height:850px){
+  .setup-card{padding:14px 17px}
+  .setup-card h1{font-size:32px;margin:5px 0}
+  .setup-lead{font-size:10px}
+  .setup-grid{margin:8px 0}
+  .country-results{max-height:105px}
+  .country-selected{max-height:112px}
+  .country-dossier{max-height:68px}
+  .setup-note{padding:6px 9px}
+  .setup-start{margin-top:8px;padding:9px 12px}
+}
+@media(max-width:760px){
+  .campaign-setup{padding:8px}
+  .setup-card{width:min(390px,calc(100vw - 16px));max-height:calc(100dvh - 70px);padding:14px 15px}
+  .setup-grid{grid-template-columns:1fr 1fr}
+  .setup-country{grid-column:1/-1}
+  .setup-date{grid-column:auto}
+  .country-results{max-height:104px}
+  .country-selected{max-height:112px}
+  .country-dossier{max-height:70px}
+}
+@media(max-width:380px){
+  .setup-card{padding:12px}
+  .setup-card h1{font-size:28px}
+  .country-filter-row{grid-template-columns:1fr}
+  .country-results{max-height:88px}
+}
