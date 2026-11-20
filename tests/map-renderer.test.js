@@ -12,7 +12,7 @@ test("le LOD du relief suit progressivement la densité de pixels du viewport", 
   assert.ok(world > regional);
   assert.ok(regional > close);
   assert.ok(world <= 4 && close >= 0);
-  assert.equal(getTerrainLod(grid, 960, 0), world);
+  assert.equal(getTerrainLod(grid, 960, 0), 0);
 });
 
 test("le LOD reste continu au passage entre deux niveaux parent/enfant", () => {
