@@ -65,8 +65,7 @@ export function createGeographicWebGLRenderer(gl) {
   const meshCache = createGeographicMeshCache();
   const featureIds = new WeakMap();
   let nextFeatureId = 1;
-  let cachedSignature = null;
-  let cachedBatches = null;
+  const layerCaches = new Map();
   let disposed = false;
 
   function featureId(feature) {
@@ -124,24 +123,52 @@ export function createGeographicWebGLRenderer(gl) {
     return { batches: gpuBatches, drawnFeatures, skippedFeatures };
   }
 
-  function render(features, width, height, viewport = {}, color = [0.32, 0.39, 0.31, 1]) {
-    if (disposed) return { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0, cacheHit: false, bufferUploads: 0, uploadedBytes: 0 };
+  function renderLayers(layers, width, height, viewport = {}) {
+    const empty = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
+      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, layers: {} };
+    if (disposed) return empty;
     const zoom = Number(viewport.zoom ?? 1);
     const centerLongitude = Number(viewport.centerLongitude ?? 0);
     const centerLatitude = Number(viewport.centerLatitude ?? 0);
-    if (![width, height, zoom, centerLongitude, centerLatitude].every(Number.isFinite) || width <= 0 || height <= 0 || zoom <= 0) {
-      return { drawnFeatures: 0, skippedFeatures: features?.length ?? 0, drawCalls: 0, triangles: 0, cacheHit: false, bufferUploads: 0, uploadedBytes: 0 };
+    if (![width, height, zoom, centerLongitude, centerLatitude].every(Number.isFinite)
+      || width <= 0 || height <= 0 || zoom <= 0) return empty;
+    const layerList = layers ?? [];
+    const seenKeys = new Set();
+    const prepared = [];
+    let drawnFeatures = 0, skippedFeatures = 0, drawCalls = 0, triangles = 0;
+    let bufferUploads = 0, uploadedBytes = 0, allCacheHits = layerList.length > 0;
+    for (let index = 0; index < layerList.length; index++) {
+      const layer = layerList[index] ?? {};
+      const key = String(layer.key ?? index);
+      if (seenKeys.has(key)) throw new Error("Chaque couche WebGL doit avoir une clé unique.");
+      seenKeys.add(key);
+      const features = layer.features ?? [];
+      const signature = features.map(featureId).join(",");
+      let cached = layerCaches.get(key);
+      const cacheHit = Boolean(cached && cached.signature === signature);
+      if (!cacheHit) {
+        const next = buildBatches(features);
+        releaseBatches(cached?.batches);
+        cached = { signature, ...next };
+        layerCaches.set(key, cached);
+      }
+      allCacheHits = allCacheHits && cacheHit;
+      const layerDrawCalls = cached.batches.length;
+      const layerTriangles = cached.batches.reduce((sum, batch) => sum + batch.triangles, 0);
+      const layerBytes = cacheHit ? 0 : cached.batches.reduce(
+        (sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
+      const layerUploads = cacheHit ? 0 : cached.batches.length * 2;
+      prepared.push({ key, color: layer.color ?? [0.32, 0.39, 0.31, 1], cached });
+      drawnFeatures += cached.drawnFeatures;
+      skippedFeatures += cached.skippedFeatures;
+      drawCalls += layerDrawCalls;
+      triangles += layerTriangles;
+      bufferUploads += layerUploads;
+      uploadedBytes += layerBytes;
+      empty.layers[key] = { drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
+        drawCalls: layerDrawCalls, triangles: layerTriangles, cacheHit, bufferUploads: layerUploads,
+        uploadedBytes: layerBytes };
     }
-    const featureList = features ?? [];
-    const signature = featureList.map(featureId).join(",");
-    const cacheHit = signature === cachedSignature && cachedBatches !== null;
-    if (!cacheHit) {
-      const next = buildBatches(featureList);
-      releaseBatches(cachedBatches?.batches);
-      cachedBatches = next;
-      cachedSignature = signature;
-    }
-    const batches = cachedBatches.batches;
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
       gl.canvas.height = Math.round(height);
@@ -154,33 +181,34 @@ export function createGeographicWebGLRenderer(gl) {
     gl.useProgram(program);
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
-    gl.uniform4fv(colorLocation, color);
-    let drawCalls = 0;
-    let triangles = 0;
-    for (const batch of batches) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
-      gl.enableVertexAttribArray(positionLocation);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.elementBuffer);
-      gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
-      drawCalls++;
-      triangles += batch.triangles;
+    for (const layer of prepared) {
+      gl.uniform4fv(colorLocation, layer.color);
+      for (const batch of layer.cached.batches) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.elementBuffer);
+        gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
+      }
     }
-    const bufferUploads = cacheHit ? 0 : batches.length * 2;
-    const uploadedBytes = cacheHit ? 0 : batches.reduce((total, batch) => total + batch.positions.byteLength + batch.indices.byteLength, 0);
-    return { drawnFeatures: cachedBatches.drawnFeatures, skippedFeatures: cachedBatches.skippedFeatures, drawCalls, triangles, cacheHit, bufferUploads, uploadedBytes };
+    return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
+      bufferUploads, uploadedBytes, layers: empty.layers };
+  }
+
+  function render(features, width, height, viewport = {}, color = [0.32, 0.39, 0.31, 1]) {
+    return renderLayers([{ key: "default", features, color }], width, height, viewport);
   }
 
   return {
     canvas: gl.canvas ?? null,
     supports(feature) { return Boolean(meshCache.get(feature)?.supported); },
     render,
+    renderLayers,
     dispose() {
       if (disposed) return;
       disposed = true;
-      releaseBatches(cachedBatches?.batches);
-      cachedBatches = null;
-      cachedSignature = null;
+      for (const cached of layerCaches.values()) releaseBatches(cached.batches);
+      layerCaches.clear();
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
