@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -53,6 +53,29 @@ test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, lakes, rivers });
   assert.equal(result.lakeCount, 1);
   assert.equal(result.riverCount, 1);
+});
+
+
+test("la couche des lacs conserve au maximum 12 grands lacs, quel que soit le zoom", () => {
+  const features = Array.from({ length: 30 }, (_, index) => ({
+    type: "Feature",
+    properties: { name: "Lac " + index, scalerank: index < 20 ? 0 : 2 },
+    bbox: [0, 0, 30 - index, 20 - index * 0.4],
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }
+  }));
+  const selected = selectMajorLakeFeatures({ type: "FeatureCollection", features }, 1, 12);
+  assert.equal(selected.length, 12);
+  assert.ok(selected.every(feature => feature.properties.scalerank === 0));
+  assert.ok(selected[0].properties.name === "Lac 0");
+  assert.equal(getSecondaryDetailProfile(1).lakesRank, 1);
+  assert.equal(getSecondaryDetailProfile(35).lakesRank, 1);
+});
+
+test("la sélection des lacs privilégie les grands bassins et ignore les géométries non surfaciques", () => {
+  const small = { type: "Feature", properties: { scalerank: 0, name: "petit" }, bbox: [0, 0, 1, 1], geometry: { type: "Polygon", coordinates: [] } };
+  const large = { type: "Feature", properties: { scalerank: 0, name: "grand" }, bbox: [0, 0, 10, 10], geometry: { type: "MultiPolygon", coordinates: [] } };
+  const line = { type: "Feature", properties: { scalerank: 0 }, geometry: { type: "LineString", coordinates: [] } };
+  assert.deepEqual(selectMajorLakeFeatures({ features: [small, line, large] }, 1, 2), [large, small]);
 });
 
 test("le moteur dessine les zones glaciaires et les repères de relief", () => {

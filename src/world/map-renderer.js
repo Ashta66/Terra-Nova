@@ -52,6 +52,55 @@ export function getLakeCoastSimplificationProfile(zoom = 1) {
   return getLandCoastSimplificationProfile(zoom);
 }
 
+const lakeAreaScores = new WeakMap();
+const MAX_VISIBLE_LAKES = 12;
+
+function lakeGeographicArea(feature) {
+  if (lakeAreaScores.has(feature)) return lakeAreaScores.get(feature);
+  const bbox = feature?.bbox ?? feature?.geometry?.bbox;
+  let area = 0;
+  if (Array.isArray(bbox) && bbox.length >= 4) {
+    const meanLatitude = (Number(bbox[1]) + Number(bbox[3])) / 2;
+    area = Math.abs((Number(bbox[2]) - Number(bbox[0])) * (Number(bbox[3]) - Number(bbox[1])) * Math.cos(meanLatitude * Math.PI / 180));
+  } else {
+    const coordinates = [];
+    const collect = value => {
+      if (!Array.isArray(value)) return;
+      if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) coordinates.push(value);
+      else for (const child of value) collect(child);
+    };
+    collect(feature?.geometry?.coordinates);
+    if (coordinates.length) {
+      const longitudes = coordinates.map(point => point[0]);
+      const latitudes = coordinates.map(point => point[1]);
+      const meanLatitude = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+      area = Math.abs((Math.max(...longitudes) - Math.min(...longitudes)) * (Math.max(...latitudes) - Math.min(...latitudes)) * Math.cos(meanLatitude * Math.PI / 180));
+    }
+  }
+  lakeAreaScores.set(feature, area);
+  return area;
+}
+
+/** Ne conserve que les 12 lacs les plus importants parmi les entités visibles. */
+export function selectMajorLakeFeatures(collection, maxRank = 1, maxFeatures = MAX_VISIBLE_LAKES) {
+  if (!collection?.features) return [];
+  return collection.features
+    .filter(feature => {
+      if (!["Polygon", "MultiPolygon"].includes(feature?.geometry?.type)) return false;
+      const rawRank = feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM;
+      const rank = Number(rawRank);
+      return (Number.isFinite(rank) ? rank : 1) <= maxRank;
+    })
+    .sort((a, b) => {
+      const rankOf = feature => {
+        const value = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM);
+        return Number.isFinite(value) ? value : 1;
+      };
+      return rankOf(a) - rankOf(b) || lakeGeographicArea(b) - lakeGeographicArea(a);
+    })
+    .slice(0, Math.max(0, maxFeatures));
+}
+
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
 // constante visuellement : en zoomant, les détails géographiques réapparaissent.
 export function simplifyClosedRing(points, tolerance = 0.55) {
@@ -442,7 +491,7 @@ export function getSecondaryDetailProfile(zoom = 1) {
   return {
     riversRank: 1,
     riversMax: 18,
-    lakesRank: level < 2.5 ? 1 : level < 4 ? 2 : level < 7 ? 4 : 8,
+    lakesRank: 1,
     glaciers: level >= 2.5,
     elevationMax: level < 2.5 ? 8 : level < 4 ? 16 : level < 7 ? 32 : 64
   };
@@ -1102,7 +1151,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     }
     const detailProfile = getSecondaryDetailProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     const glacierCount = measureLayer("glaciers", () => detailProfile.glaciers ? drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, false, 4) : 0);
-    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)));
+    const majorLakes = { type: "FeatureCollection", features: selectMajorLakeFeatures(visibleLakes, detailProfile.lakesRank, MAX_VISIBLE_LAKES) };
+    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, majorLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)));
     const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, getBoundarySimplificationProfile(projection.lodZoom ?? 1), detailProfile.riversRank, detailProfile.riversMax));
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
     return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
