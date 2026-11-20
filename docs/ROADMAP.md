@@ -271,3 +271,11 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 - [x] Borner le cache statique à 48 Mio et trois surfaces par canvas.
 - [x] Exposer les octets retenus dans les diagnostics et tester le plafond statique.
 - [ ] Vérifier l'utilisation mémoire réelle dans les outils de développement du navigateur sur une session longue.
+
+
+### Seconde vague LOD / fluidité — 20 novembre 2026
+- [x] Réduire la résolution ETOPO à 32/64/96 px selon le zoom et supprimer les passes de relief décoratives à petite échelle.
+- [x] Simplifier et filtrer les frontières administratives secondaires ; repousser le niveau régional à 7×.
+- [x] Limiter les labels et repères secondaires selon le niveau de zoom.
+- [x] Charger séparément les couches régionales au besoin plutôt que précharger les quatre couches au démarrage.
+- [ ] Mesurer le temps de rendu par couche et la fluidité réelle du zoom/panoramique sur le navigateur cible ; ajuster les seuils après inspection visuelle.

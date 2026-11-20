@@ -210,8 +210,9 @@ export function samplePhysicalElevation(grid,lon,lat,lookup){
 
 export function terrainTileSizeForZoom(zoom = 1, quality = 1) {
  const level=Math.max(1,Number(zoom)||1),qualityScale=clamp(Number(quality)||1,.25,1);
- const base=level<2.5?48:level<8?96:144;
- return Math.max(32,Math.min(192,Math.round(base*qualityScale)));
+ // À petite échelle, 32 px suffisent ; les niveaux régionaux utilisent 64/96 px.
+ const base=level<2.5?32:level<8?64:96;
+ return Math.max(24,Math.min(128,Math.round(base*qualityScale)));
 }
 
 const terrainTileCache = new WeakMap();

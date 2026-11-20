@@ -329,16 +329,18 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
-function getBoundarySimplificationProfile(zoom = 1) {
+export function getBoundarySimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 0.75 };
-  if (level <= 4) return { tolerance: 0.5 };
-  if (level <= 10) return { tolerance: 0.28 };
-  return { tolerance: 0.12 };
+  if (level <= 1.5) return { tolerance: 1.8 };
+  if (level <= 4) return { tolerance: 1.1 };
+  if (level <= 10) return { tolerance: 0.55 };
+  return { tolerance: 0.2 };
 }
 
-function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false) {
+function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false, administrative = false) {
   if (!collection?.features) return 0;
+  const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+  if (administrative && zoom < 2) return 0;
   let count = 0;
   context.save();
   const renderScale = projection.renderScale ?? 1;
@@ -346,9 +348,12 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
   context.lineWidth = lineWidth * renderScale;
   context.globalAlpha = 0.92;
   const scaledDash = dash.map(value => value * renderScale);
-  const simplifyProfile = getBoundarySimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+  const simplifyProfile = getBoundarySimplificationProfile(zoom);
   for (const feature of collection.features) {
-    const precision = Number(feature?.properties?.BORDERPRECISION ?? feature?.properties?.borderPrecision ?? 3);
+    const properties = feature?.properties ?? {};
+    const precision = Number(properties.BORDERPRECISION ?? properties.borderPrecision ?? 3);
+    const rank = Number(properties.scalerank ?? properties.SCALERANK ?? properties.min_zoom ?? properties.MIN_ZOOM ?? 0);
+    if (administrative && zoom < 4 && rank > 3) continue;
     context.setLineDash?.(precisionAware && precision < 3 ? [3 * renderScale, 2 * renderScale] : scaledDash);
     count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth, simplifyProfile);
   }
@@ -390,14 +395,17 @@ function drawElevationPoints(context, collection, width, height, projection, the
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
+  const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   for (const feature of collection.features) {
     if (feature.geometry?.type !== "Point") continue;
-    const [longitude, latitude] = feature.geometry.coordinates;
-    const point = projectCoordinate([longitude, latitude], width, height, projection);
-    if (!point) continue;
     const elevation = Number(feature.properties?.elevation_m ?? 0);
     const isMountain = feature.properties?.kind === "mountain";
     const isDepression = feature.properties?.kind === "depression";
+    if (zoom < 2.5 && !(isMountain && elevation >= 7000)) continue;
+    if (zoom < 4 && isDepression && elevation > -400) continue;
+    const [longitude, latitude] = feature.geometry.coordinates;
+    const point = projectCoordinate([longitude, latitude], width, height, projection);
+    if (!point) continue;
     context.save();
     context.fillStyle = isDepression ? "#6f8f9b" : theme.colors.accent;
     context.strokeStyle = theme.colors.coast;
@@ -784,14 +792,18 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   const collisionCellSize = LABEL_COLLISION_CELL_SIZE * renderScale;
   // L'ordre de priorité est calculé une seule fois par collection ; le seuil de zoom
   // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
-  for (const feature of getSortedLabelCandidates(collection)) {
+  const candidateLimit = zoom < 1.5 ? 48 : zoom < 3 ? 90 : zoom < 6 ? 180 : Infinity;
+  const candidates = getSortedLabelCandidates(collection);
+  for (let candidateIndex = 0; candidateIndex < Math.min(candidates.length, candidateLimit); candidateIndex++) {
+    const feature = candidates[candidateIndex];
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
+    const kind = feature.properties?.kind ?? "place";
+    if (zoom < 3 && (kind === "province" || kind === "city")) continue;
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
     if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
-    const kind = feature.properties?.kind ?? "place";
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = (kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10) * renderScale;
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
@@ -986,7 +998,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
-    if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+    if (terrainEnabled && (projection.lodZoom ?? 1) >= 2.5 && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
       target.beginPath();
       for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
@@ -996,7 +1008,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
       target.restore();
     }
-    if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) {
+    if (!options.interactive && (projection.lodZoom ?? 1) >= 2.5 && ["parchment", "paper"].includes(theme.texture)) {
       measureLayer("hachures", () => drawLandHachures(target, visibleLand, width, height, projection, theme.colors.coast));
     }
     const glacierCount = measureLayer("glaciers", () => drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88));
@@ -1060,7 +1072,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const politicalBoundaryCount = measureLayer("frontieres-politiques", () =>
     drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
     + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
-  const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]));
+  const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true));
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
 
   return {

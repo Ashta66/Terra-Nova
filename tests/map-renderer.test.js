@@ -60,7 +60,7 @@ test("le moteur dessine les zones glaciaires et les repères de relief", () => {
     { type: "Feature", properties: { name: "Everest", kind: "mountain", elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86.9, 28] } },
     { type: "Feature", properties: { name: "Dépression", kind: "depression", elevation_m: -154 }, geometry: { type: "Point", coordinates: [89, 42] } }
   ] };
-  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, glaciers, elevationPoints });
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, glaciers, elevationPoints, viewport: { zoom: 4, centerLatitude: 35, centerLongitude: 88 } });
   assert.equal(result.glacierCount, 1);
   assert.equal(result.elevationPointCount, 2);
   assert.ok(calls.some(call => call[0] === "arc"));
@@ -605,7 +605,7 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [6, 5]] } }
   ] };
   const result = renderWorldMap(canvas, land, {
-    width: 640, height: 320, pixelRatio: 1,
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2.5 },
     politicalBoundaries, administrativeBoundaries
   });
   assert.equal(result.politicalBoundaryCount, 2);
@@ -765,12 +765,12 @@ test("le rendu expose des mesures de temps par couche et un temps total", () => 
 
 
 test("la résolution des tuiles de relief utilise trois paliers stables au lieu de varier à chaque zoom", () => {
-  assert.equal(terrainTileSizeForZoom(1), 48);
-  assert.equal(terrainTileSizeForZoom(2.49), 48);
-  assert.equal(terrainTileSizeForZoom(2.5), 96);
-  assert.equal(terrainTileSizeForZoom(7.99), 96);
-  assert.equal(terrainTileSizeForZoom(8), 144);
-  assert.equal(terrainTileSizeForZoom(8, 0.5), 72);
+  assert.equal(terrainTileSizeForZoom(1), 32);
+  assert.equal(terrainTileSizeForZoom(2.49), 32);
+  assert.equal(terrainTileSizeForZoom(2.5), 64);
+  assert.equal(terrainTileSizeForZoom(7.99), 64);
+  assert.equal(terrainTileSizeForZoom(8), 96);
+  assert.equal(terrainTileSizeForZoom(8, 0.5), 48);
 });
 
 test("les labels de villes vérifient la submersion avec un index spatial local", () => {

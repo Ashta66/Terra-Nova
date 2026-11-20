@@ -175,8 +175,8 @@ export function buildRegionalCityLabels(places) {
   return { type: "FeatureCollection", features };
 }
 
-export function selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures = null) {
-  const useRegional = Number.isFinite(zoom) && zoom >= REGIONAL_ZOOM_THRESHOLD
+export function selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
+  const useRegional = Number.isFinite(zoom) && zoom >= threshold
     && regionalFeatures && regionalFeatures.type === "FeatureCollection"
     && Array.isArray(regionalFeatures.features);
   return {
@@ -199,11 +199,15 @@ export async function loadOptionalGeoJson(url, fetcher = globalThis.fetch) {
   } catch (error) {
     if (globalThis.indexedDB) console.warn("Cache cartographique indisponible :", error);
   }
+  const asset = REGIONAL_ASSETS.find(item => item.key === key);
+  const sourceUrl = asset ? NATURAL_EARTH_BASE + asset.source : url;
   try {
-    const response = await fetcher(url);
+    const response = await fetcher(sourceUrl);
     if (!response || !response.ok) return null;
-    const collection = await response.json();
+    let collection = await response.json();
     if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) return null;
+    if (asset?.key === "ne_10m_map_labels.geojson") collection = buildRegionalCityLabels(collection);
+    try { await writeCachedText(key, JSON.stringify(collection)); } catch { /* cache facultatif */ }
     return collection;
   } catch {
     return null;

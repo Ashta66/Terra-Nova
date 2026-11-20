@@ -266,3 +266,12 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Le cache des surfaces statiques est limité à trois scènes et 48 Mio par canvas. Une scène plus grande que le budget n'est pas conservée en cache.
 - Les caches utilisent un LRU et évacuent les surfaces les plus anciennes dès que le budget est dépassé.
 - Les diagnostics exposent le nombre d'entrées et les octets retenus pour le cache statique ; tests ajoutés sur le budget.
+
+
+## 20 novembre 2026 — seconde vague d'optimisation LOD
+- Relief ETOPO : résolution des tuiles abaissée à 32/64/96 px selon le zoom, avec qualité adaptative ; l'overlay hillshade et les hachures sont omis à très faible zoom pour éviter une seconde passe coûteuse.
+- Frontières administratives : forte simplification à faible zoom, masquage sous 2× et filtrage des entités de rang secondaire jusqu'à 4× ; le chargement 1:10m est repoussé à 7×.
+- Labels et repères : plafond de candidats selon le zoom, suppression des provinces/villes secondaires à petite échelle et conservation des sommets majeurs avant 2,5×.
+- Données régionales : abandon du préchargement automatique des quatre GeoJSON 1:10m ; chaque famille est téléchargée, transformée et mise en cache séparément à son seuil d'utilisation (terres 6×, lacs 7×, rivières 8×, villes 4×).
+- Le téléchargement volontaire du pack complet reste disponible. Les tests couvrent les seuils LOD, les nouvelles résolutions et le chargement régional à la demande.
+- Les performances réelles restent à mesurer dans le navigateur cible ; aucun gain FPS n'est annoncé sans mesure.

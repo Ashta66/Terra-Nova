@@ -306,3 +306,7 @@ Le fond statique (océan, grille, relief, terres, remplissages territoriaux, hyd
 
 ### Budgets mémoire cartographiques — 20 novembre 2026
 Les caches de rendu sont strictement bornés : 64 Mio maximum pour les tuiles ETOPO et 48 Mio maximum / trois surfaces pour le fond statique par canvas. Les entrées les plus anciennes sont évacuées en LRU. Une surface statique individuelle qui dépasse le budget n'est pas mise en cache. Les limites sont des plafonds, pas une promesse de consommation constante : le navigateur peut conserver temporairement d'autres ressources graphiques.
+
+
+### Optimisation LOD de la navigation — 20 novembre 2026
+La seconde vague réduit le travail proportionnel à la densité cartographique : le relief utilise des tuiles 32/64/96 px selon le zoom, sans seconde passe hillshade ni hachures à très faible échelle ; les frontières administratives secondaires sont simplifiées et masquées à l'échelle mondiale ; les labels et repères de relief sont hiérarchisés par zoom. Les quatre couches régionales 1:10m ne sont plus préchargées automatiquement : elles sont chargées et mises en cache séparément au seuil utile (villes 4×, terres 6×, lacs 7×, rivières 8×). Le téléchargement volontaire du pack complet reste disponible. Ces seuils sont des compromis de rendu et devront être ajustés après inspection visuelle et mesure sur le navigateur cible.
