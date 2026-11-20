@@ -244,6 +244,33 @@ export function collectTerrainPredictiveTiles(tileStore, viewport, width, height
   return candidates.slice(0, limit).map(({ tile, rects }) => ({ tile, rects }));
 }
 
+export function collectTerrainPredictiveLodTiles(tileStore,viewport,width,height,level,preferredLevel=null,limit=8) {
+ if(!Number.isInteger(limit)||limit<=0||!Number.isInteger(level))return [];
+ const levels=[level-1,level+1].filter(value=>value>=0&&value<=4);
+ levels.sort((a,b)=>{
+  if(preferredLevel===null)return Math.abs(a-level)-Math.abs(b-level);
+  return (a===preferredLevel?-1:0)-(b===preferredLevel?-1:0);
+ });
+ const expanded={...viewport,zoom:Math.max(0.0001,Number(viewport?.zoom??1)*0.84)};
+ const candidates=new Map();
+ for(let priority=0;priority<levels.length;priority++){
+  const targetLevel=levels[priority];
+  const items=[...collectTerrainViewportTiles(tileStore,viewport,width,height,targetLevel),
+   ...collectTerrainViewportTiles(tileStore,expanded,width,height,targetLevel)];
+  for(const item of items){
+   const {tile}=item,key=`${tile.level}/${tile.x}/${tile.y}`;
+   if(candidates.has(key))continue;
+   const bounds=getTerrainTileGeoBounds(tile,tileStore);
+   const longitude=(bounds.west+bounds.east)*0.5,latitude=(bounds.north+bounds.south)*0.5;
+   const dx=Math.abs((((longitude-Number(viewport?.centerLongitude??0)+540)%360)+360)%360-180);
+   const dy=Math.abs(latitude-Number(viewport?.centerLatitude??0));
+   candidates.set(key,{...item,priority,distance:dx+dy*2});
+  }
+ }
+ return Array.from(candidates.values()).sort((a,b)=>a.priority-b.priority||a.distance-b.distance)
+  .slice(0,limit).map(({tile,rects})=>({tile,rects}));
+}
+
 export function buildTerrainTileTexture(tile, tileStore) {
   if (!tile || !tileStore?.getTileAtLevel || !Number.isInteger(tile.level)
     || !Number.isInteger(tile.x) || !Number.isInteger(tile.y)
@@ -687,7 +714,7 @@ function createTileRenderer(tileStore) {
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:8});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -789,11 +816,16 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   renderer.lastPreloadedTiles=0;
   if(drawFinishedAt-renderer.lastPreloadAt>=120) {
     renderer.lastPreloadAt=drawFinishedAt;
-    const predictive=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,8);
-    cache.retainPending(new Set(predictive.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
-    for(const {tile} of predictive) {
+    const zoom=Math.max(0.0001,Number(viewport?.zoom??1));
+    const preferredLevel=renderer.lastZoom===null?null:(zoom>renderer.lastZoom?level-1:zoom<renderer.lastZoom?level+1:null);
+    const spatial=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,6);
+    const adjacent=collectTerrainPredictiveLodTiles(tileStore,viewport,width,height,level,preferredLevel,8);
+    const combined=[...adjacent,...spatial].filter((item,index,all)=>all.findIndex(other=>other.tile.level===item.tile.level&&other.tile.x===item.tile.x&&other.tile.y===item.tile.y)===index).slice(0,12);
+    cache.retainPending(new Set(combined.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
+    for(const {tile} of combined) {
       if(cache.enqueue(tile,protectedKeys)) renderer.lastPreloadedTiles++;
     }
+    renderer.lastZoom=zoom;
   }
   gl.disable(gl.BLEND);
   gl.viewport(0,0,width,height);
