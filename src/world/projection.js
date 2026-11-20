@@ -2,7 +2,7 @@ const DEG = Math.PI / 180;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export function projectEquirectangular(longitude, latitude, width, height, viewport = {}) {
-  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 24);
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 35);
   const centerLongitude = Number(viewport.centerLongitude ?? 0);
   const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85, 85);
   const wrappedLongitude = viewport.wrapLongitude === false ? longitude : (Math.abs(centerLongitude - longitude) <= 180 ? longitude : longitude + 360 * Math.round((centerLongitude - longitude) / 360));
@@ -23,7 +23,7 @@ export function projectMercator(longitude, latitude, width, height, viewport = {
   const centerY = Math.log(Math.tan(Math.PI / 4 + centerPhi / 2));
   const worldY = clamp((1 - mercatorY / Math.PI) / 2, 0, 1);
   const centerWorldY = clamp((1 - centerY / Math.PI) / 2, 0, 1);
-  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 24);
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 35);
   return {
     x: width / 2 + ((wrappedLongitude - centerLongitude) / 360) * width * zoom,
     y: height / 2 + (worldY - centerWorldY) * height * zoom
@@ -58,7 +58,7 @@ export function projectCoordinate(coordinate, width, height, projection = "equir
 
 // La longitude est cyclique : elle peut dépasser ±180° pendant le déplacement.
 // Au zoom mondial, recentrer conserve une seule vue de la planète.
-export function constrainEquirectangularViewport(viewport = {}, maxZoom = 24) {
+export function constrainEquirectangularViewport(viewport = {}, maxZoom = 35) {
   const zoom = clamp(Number(viewport.zoom ?? 1), 1, maxZoom);
   const centerLongitude = zoom <= 1.001 ? 0 : Number(viewport.centerLongitude ?? 0);
   const maxLatitude = Math.max(0, 90 - 90 / zoom);

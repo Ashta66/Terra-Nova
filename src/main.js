@@ -36,7 +36,7 @@ let mapInteractionActive = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 const MIN_MAP_ZOOM = 1;
-const MAX_MAP_ZOOM = 24;
+const MAX_MAP_ZOOM = 35;
 const $ = (id) => document.getElementById(id);
 
 function updateMapControls() {
