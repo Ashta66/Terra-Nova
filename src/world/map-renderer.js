@@ -1,4 +1,4 @@
-import { renderTerrainWebGL } from "./terrain-webgl.js";
+import { renderTerrainWebGL, getTerrainWebGLStats } from "./terrain-webgl.js";
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
@@ -440,6 +440,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
   const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
   let terrainRenderer = "canvas2d";
+  let terrainWebGLStats = null;
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
   let physicalHit = false;
@@ -594,6 +595,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
+    terrainWebGLStats: terrainRenderer === "webgl" ? getTerrainWebGLStats(webglTerrainGrid) : null,
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
