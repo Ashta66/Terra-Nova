@@ -7,7 +7,8 @@ const datasets = [
   ["lacs", new URL("../data/ne_110m_lakes.geojson", import.meta.url), ["Polygon", "MultiPolygon"], 10],
   ["rivières", new URL("../data/ne_110m_rivers.geojson", import.meta.url), ["LineString", "MultiLineString"], 5],
   ["glaciers", new URL("../data/ne_110m_glaciated_areas.geojson", import.meta.url), ["Polygon", "MultiPolygon"], 5],
-  ["repères d'altitude", new URL("../data/ne_110m_elevation_points.geojson", import.meta.url), ["Point"], 10]
+  ["repères d'altitude", new URL("../data/ne_110m_elevation_points.geojson", import.meta.url), ["Point"], 10],
+  ["frontières administratives de premier niveau", new URL("../data/ne_50m_admin_1_states_provinces_lines.geojson", import.meta.url), ["LineString", "MultiLineString"], 500]
 ];
 
 for (const [label, url, geometryTypes, minimum] of datasets) {
@@ -40,4 +41,11 @@ test("les points d'altitude disposent de valeurs numériques plausibles", async 
     assert.ok(Number.isFinite(feature.properties.elevation_m));
     assert.ok(feature.properties.elevation_m >= -500 && feature.properties.elevation_m <= 9000);
   }
+});
+
+test("les frontières administratives portent un seuil MIN_ZOOM exploitable", async () => {
+  const collection = JSON.parse(await readFile(datasets[5][1], "utf8"));
+  const minimumZooms = collection.features.map(feature => feature.properties?.MIN_ZOOM);
+  assert.ok(minimumZooms.every(value => Number.isFinite(value) && value >= 0));
+  assert.ok(minimumZooms.some(value => value > 2));
 });
