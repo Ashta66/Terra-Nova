@@ -1,3 +1,10 @@
+## Optimisation cartographique — 20 novembre 2026
+- Littoral physique et masque du relief simplifiés davantage que les frontières territoriales ; les micro-îles et détails côtiers secondaires sont écartés à toutes les échelles.
+- Hillshade superposé allégé : qualité raster plafonnée à 0,62 et opacité réduite (0,52 en mode politique ; 0,66 en mode relief).
+- Les villes sont strictement plafonnées à cinq labels, quel que soit le zoom.
+- Le réseau hydrographique conserve les rangs 0 et 1, au maximum 18 grands cours d'eau, triés par rang puis longueur géométrique.
+- La composition utilise une interpolation basse qualité pendant le geste et haute qualité au repos ; le registre de références du Worker est réinitialisé lors de chaque redémarrage.
+
 # TERRA NOVA — cahier des charges maître
 
 > Document de référence du projet. À lire avant toute nouvelle session de développement. En cas de divergence entre un échange ancien et ce document, les décisions validées les plus récentes consignées ici prévalent.

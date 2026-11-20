@@ -274,6 +274,8 @@ function getMapRenderWorker() {
   if (mapRenderWorker) return mapRenderWorker;
   try {
     mapRenderWorker = new Worker(new URL("./world/map-render-worker.js", import.meta.url), { type: "module" });
+    // Un Worker neuf ne possède aucun des objets précédemment mémorisés.
+    mapRenderWorkerLayerRefs = Object.create(null);
     mapRenderWorker.addEventListener("message", event => {
       const active = mapRenderWorkerActive;
       mapRenderWorkerActive = null;
@@ -283,6 +285,7 @@ function getMapRenderWorker() {
         mapRenderWorkerDisabled = true;
         mapRenderWorker?.terminate();
         mapRenderWorker = null;
+        mapRenderWorkerLayerRefs = Object.create(null);
         const latest = mapRenderWorkerPending ?? active;
         mapRenderWorkerPending = null;
         if (latest) latest.onFallback();
@@ -316,6 +319,7 @@ function getMapRenderWorker() {
       mapRenderWorker?.terminate();
       mapRenderWorker = null;
       mapRenderWorkerBusy = false;
+      mapRenderWorkerLayerRefs = Object.create(null);
       const latest = mapRenderWorkerPending ?? mapRenderWorkerActive;
       mapRenderWorkerPending = null;
       mapRenderWorkerActive = null;
@@ -353,6 +357,7 @@ function dispatchMapWorkerRender(job) {
     mapRenderWorkerDisabled = true;
     mapRenderWorker.terminate();
     mapRenderWorker = null;
+    mapRenderWorkerLayerRefs = Object.create(null);
     job.onFallback();
   }
 }
@@ -869,7 +874,7 @@ function composeScene() {
   context.fillStyle = sceneOcean;
   context.fillRect(0, 0, width, height);
   context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "low";
+  context.imageSmoothingQuality = mapInteractionActive ? "low" : "high";
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
