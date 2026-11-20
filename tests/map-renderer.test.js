@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -591,4 +591,16 @@ test("le shader WebGL reprend l'éclairage directionnel et les dimensions réell
 test("les statistiques GPU restent indisponibles sans renderer initialisé", () => {
   assert.equal(getTerrainWebGLStats(null), null);
   assert.equal(getTerrainWebGLStats({ width: 2, height: 2, values: new Int16Array(4) }), null);
+});
+
+
+test("la surface WebGL n'est redimensionnée que lorsque ses dimensions changent", () => {
+  const surface = { width: 800, height: 600 };
+  assert.equal(resizeTerrainWebGLSurface(surface, 800, 600), false);
+  assert.deepEqual(surface, { width: 800, height: 600 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 1024, 600), true);
+  assert.deepEqual(surface, { width: 1024, height: 600 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 1024, 768), true);
+  assert.deepEqual(surface, { width: 1024, height: 768 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 0, 768), false);
 });
