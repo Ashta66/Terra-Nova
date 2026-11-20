@@ -405,6 +405,8 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   let landCount;
   let glacierCount;
   let lakeCount;
+  let riverGpuRendered = false;
+  let riverCount = 0;
   const gpuLayers = geographicRenderer?.renderLayers ? [
     { key: "land", collection: featureCollection, features: landFeatures,
       fill: landFill, stroke: theme.colors.coast, lineWidth: 0.85, alpha: 1,
@@ -414,7 +416,9 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       color: [220 / 255, 232 / 255, 229 / 255, 0.88] },
     { key: "lakes", collection: options.lakes, features: lakeFeatures,
       fill: theme.colors.ocean, stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1,
-      color: parseWebGLColor(theme.colors.ocean) }
+      color: parseWebGLColor(theme.colors.ocean) },
+    { key: "rivers", type: "lines", collection: options.rivers, features: riverFeatures,
+      color: parseWebGLColor(theme.colors.accent) }
   ] : null;
   if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
     try {
@@ -422,7 +426,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
         cacheHit: true, bufferUploads: 0, uploadedBytes: 0, layers: {} };
       const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
-        key: layer.key, features: layer.features, color: layer.color
+        key: layer.key, type: layer.type, features: layer.features, color: layer.color
       })), Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
       projection.viewport);
       aggregate.drawnFeatures = gpuStats.drawnFeatures;
