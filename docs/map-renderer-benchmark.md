@@ -62,3 +62,10 @@ Comparer Canvas 2D et WebGL sur les mêmes scénarios, lorsque le mode de rendu 
 - mémoire GPU si le navigateur fournit une mesure fiable.
 
 Ne pas conclure à un gain de performances sur la seule base du temps de soumission CPU. Un résultat n'est validé qu'après vérification visuelle et répétition sur au moins deux classes de GPU.
+
+
+## Contrôle des contours WebGL
+- Les lignes et frontières sont dessinées comme rubans triangulés, pas avec `gl.LINES`.
+- La largeur est fournie en pixels de la surface GPU (largeur CSS multipliée par le ratio de rendu).
+- Vérifier les épaisseurs à plusieurs densités d'écran, aux angles aigus, aux jonctions de segments et autour de l'antiméridien.
+- Les rubans actuels utilisent des extrémités carrées et des segments indépendants ; les jonctions très aiguës peuvent encore présenter des irrégularités visuelles. Le contrôle visuel réel reste obligatoire.
