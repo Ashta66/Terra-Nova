@@ -42,3 +42,12 @@ test("tile fallback stack draws cached ancestors before detailed children", () =
   assert.equal(stack[0].fallback, true);
   assert.equal(stack[2].fallback, false);
 });
+
+import { normalizeMapRenderFamilies } from "../src/world/map-renderer.js";
+
+test("map render families default to all layers and can isolate each family", () => {
+  assert.deepEqual(normalizeMapRenderFamilies(), { physical: true, political: true, dynamic: true });
+  assert.deepEqual(normalizeMapRenderFamilies({ physical: true, political: false, dynamic: false }), { physical: true, political: false, dynamic: false });
+  assert.deepEqual(normalizeMapRenderFamilies({ physical: false, political: true, dynamic: false }), { physical: false, political: true, dynamic: false });
+  assert.deepEqual(normalizeMapRenderFamilies({ physical: false, political: false, dynamic: true }), { physical: false, political: false, dynamic: true });
+});

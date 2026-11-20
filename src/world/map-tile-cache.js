@@ -26,7 +26,6 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
     }
   };
   return {
-    has(key) { return entries.has(String(key)); },
     get(key) {
       const entry = entries.get(String(key));
       if (!entry) { misses++; return null; }

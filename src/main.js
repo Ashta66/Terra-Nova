@@ -58,6 +58,8 @@ let interactionRenderAllowed = false;
 let lastDragMoved = false;
 let mapInteractionActive = false;
 const sceneCanvas = document.createElement("canvas");
+const scenePoliticalCanvas = document.createElement("canvas");
+const sceneDynamicCanvas = document.createElement("canvas");
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
@@ -458,7 +460,7 @@ function getMapRenderWorker() {
       }
       const pending = mapRenderWorkerPending;
       if (pending) {
-        message.bitmap?.close?.();
+        for (const bitmap of Object.values(message.bitmaps ?? {})) bitmap?.close?.();
         mapRenderWorkerPending = null;
         dispatchMapWorkerRender(pending);
         return;
@@ -467,16 +469,21 @@ function getMapRenderWorker() {
         message.bitmap?.close?.();
         return;
       }
-      const bitmap = message.bitmap;
-      if (!bitmap) {
+      const bitmaps = message.bitmaps;
+      if (!bitmaps?.physical || !bitmaps?.political || !bitmaps?.dynamic) {
+        for (const bitmap of Object.values(bitmaps ?? {})) bitmap?.close?.();
         active.onFallback();
         return;
       }
-      sceneCanvas.width = bitmap.width;
-      sceneCanvas.height = bitmap.height;
-      const context = sceneCanvas.getContext("2d");
-      context?.drawImage(bitmap, 0, 0);
-      bitmap.close?.();
+      const targets = { physical: sceneCanvas, political: scenePoliticalCanvas, dynamic: sceneDynamicCanvas };
+      for (const [family, bitmap] of Object.entries(bitmaps)) {
+        const target = targets[family];
+        if (!target || !bitmap) { bitmap?.close?.(); continue; }
+        target.width = bitmap.width;
+        target.height = bitmap.height;
+        target.getContext("2d")?.drawImage(bitmap, 0, 0);
+        bitmap.close?.();
+      }
       active.onDone(message.result);
     });
     mapRenderWorker.addEventListener("error", () => {
@@ -678,7 +685,11 @@ function renderMapFrame() {
     sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail
   };
   const fallback = () => {
-    try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
+    try {
+      scenePoliticalCanvas.width = sceneDynamicCanvas.width = 1;
+      scenePoliticalCanvas.height = sceneDynamicCanvas.height = 1;
+      completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext);
+    }
     catch (error) { console.error("Échec du rendu cartographique local :", error); }
   };
   if (!renderMapOffThread(landDetail.features, renderOptions, result => completeMapRender(result, completionContext), fallback)) fallback();
@@ -1046,6 +1057,8 @@ function composeScene() {
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    context.drawImage(scenePoliticalCanvas, rect.x, rect.y, rect.w, rect.h);
+    context.drawImage(sceneDynamicCanvas, rect.x, rect.y, rect.w, rect.h);
   }
   drawMapTileFallbacks(context, width, height, composition);
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
