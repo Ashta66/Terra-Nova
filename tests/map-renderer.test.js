@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -659,4 +659,47 @@ test("la bordure GPU des tuiles raccorde correctement l'antiméridien", () => {
   const texture = buildTerrainTileTexture(tile, store);
   assert.equal(texture.values[1 * texture.width], 11);
   assert.equal(texture.values[1 * texture.width + tile.width + 1], 4);
+});
+
+
+test("les bornes géographiques des tuiles parent respectent leur pas de résolution", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(1, 1, 0);
+  assert.deepEqual(getTerrainTileGeoBounds(tile, store), {
+    west: 60, east: 180, north: 90, south: 0
+  });
+});
+
+test("le plan d'affichage GPU découpe les tuiles à la fenêtre visible", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const rects = getTerrainTileScreenRects(tile, store,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 360, 180);
+  assert.equal(rects.length, 1);
+  assert.deepEqual(rects[0], {
+    x: 60, y: 0, width: 240, height: 90,
+    u0: 0, u1: 1, v0: 0.5, v1: 1, longitudeShift: 0
+  });
+});
+
+test("le plan d'affichage GPU répète la tuile qui traverse l'antiméridien", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(0, 0, 0);
+  const rects = getTerrainTileScreenRects(tile, store,
+    { zoom: 2, centerLongitude: 179, centerLatitude: 0 }, 180, 90);
+  assert.equal(rects.length, 1);
+  assert.equal(rects[0].longitudeShift, 360);
+  assert.equal(rects[0].x, 91);
+  assert.equal(rects[0].width, 89);
+  assert.equal(rects[0].u0, 0);
+  assert.ok(Math.abs(rects[0].u1 - 89 / 120) < 1e-12);
 });
