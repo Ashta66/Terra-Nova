@@ -136,6 +136,7 @@ function renderMap() {
       canvas.dataset.terrainWebglTileSubmitMs = result.terrainWebGLTileStats.drawSubmitMs.toFixed(3);
       canvas.dataset.terrainWebglTileDrawCalls = String(result.terrainWebGLTileStats.drawCalls);
       canvas.dataset.terrainWebglTileVisible = String(result.terrainWebGLTileStats.visibleTiles);
+      canvas.dataset.terrainWebglTilePreloaded = String(result.terrainWebGLTileStats.preloadedTiles);
       canvas.dataset.terrainWebglTileLod = String(result.terrainWebGLTileStats.lod);
       canvas.dataset.terrainWebglTileHits = String(result.terrainWebGLTileStats.hits);
       canvas.dataset.terrainWebglTileMisses = String(result.terrainWebGLTileStats.misses);
@@ -150,6 +151,7 @@ function renderMap() {
       delete canvas.dataset.terrainWebglTileSubmitMs;
       delete canvas.dataset.terrainWebglTileDrawCalls;
       delete canvas.dataset.terrainWebglTileVisible;
+      delete canvas.dataset.terrainWebglTilePreloaded;
       delete canvas.dataset.terrainWebglTileLod;
       delete canvas.dataset.terrainWebglTileHits;
       delete canvas.dataset.terrainWebglTileMisses;
