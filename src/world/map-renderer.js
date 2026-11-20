@@ -421,6 +421,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
         null, theme.colors.coast, 0.85, 1, landFeatures);
       landCount = gpuStats.drawnFeatures + fallbackCount;
     } catch {
+      geographicWebGLStats = null;
       landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
         landFill, theme.colors.coast, 0.85, 1, landFeatures);
     }
