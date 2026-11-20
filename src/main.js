@@ -10,7 +10,7 @@ import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewport
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, warmRegionalMapCache, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -113,19 +113,10 @@ function setMapCacheStatus(message,kind="loading"){
   node.textContent=message;node.dataset.state=kind;
 }
 function startMapWarmup(){
+  // Les couches 1:10m sont chargées individuellement au seuil de zoom utile.
   if(mapWarmupPromise)return mapWarmupPromise;
-  setMapCacheStatus("Préchargement des atlas régionaux en arrière-plan…");
-  mapWarmupPromise=warmRegionalMapCache(progress=>{
-    const pct=Math.round(progress.current/progress.total*100);
-    setMapCacheStatus("Atlas régionaux · "+progress.current+"/"+progress.total+" · "+progress.label+(progress.cached?" déjà en local":" enregistré")+" ("+pct+" %)");
-  }).then(result=>{
-    setMapCacheStatus("Atlas régionaux prêts en stockage local · "+result.count+" couches", "ready");
-    return result;
-  }).catch(error=>{
-    setMapCacheStatus("Préchargement régional différé : "+error.message,"warning");
-    mapWarmupPromise=null;
-    return null;
-  });
+  setMapCacheStatus("Atlas régionaux chargés à la demande pour préserver la fluidité.","ready");
+  mapWarmupPromise=Promise.resolve(null);
   return mapWarmupPromise;
 }
 function scheduleMapIndexWarmup(){
@@ -258,7 +249,7 @@ function renderMapFrame() {
   // Un chargement régional ou une invalidation asynchrone ne doit jamais
   // lancer un rendu complet pendant que le joueur manipule la carte.
   if (!worldFeatures || mapInteractionActive) return;
-  if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
+  if (mapViewport.zoom >= 6 && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
       regionalLandFeatures = features;
@@ -278,11 +269,11 @@ function renderMapFrame() {
     lastRenderedMapSignature = null;
     renderMap();
   }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
-  if (mapViewport.zoom >= 3 && !regionalLabelLoadAttempted) {
+  if (mapViewport.zoom >= 4 && !regionalLabelLoadAttempted) {
     regionalLabelLoadAttempted = true;
     activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
   }
-  if (mapViewport.zoom >= 5 && !regionalHydroLoadAttempted) {
+  if (mapViewport.zoom >= 7 && !regionalHydroLoadAttempted) {
     regionalHydroLoadAttempted = true;
     Promise.all([
       activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH), features => { regionalHydroFeatures = features; }, "lacs"),
@@ -295,7 +286,7 @@ function renderMapFrame() {
   renderViewport.centerLongitude = snappedSceneViewport.centerLongitude;
   renderViewport.centerLatitude = snappedSceneViewport.centerLatitude;
   const year = Number(String(state.clock.date).slice(0, 4));
-  const administrativeDetail = mapViewport.zoom >= 4 ? "regional" : "world";
+  const administrativeDetail = mapViewport.zoom >= 7 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
     boundaryRequestedKey = boundaryRequestKey;
@@ -335,10 +326,10 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
-  const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures);
-  const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures);
-  const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures);
+  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures, 7);
+  const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
+  const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
   const renderOptions = {
     width: Ws, height: Hs, year,
     projection: "equirectangular",
@@ -357,7 +348,7 @@ function renderMapFrame() {
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
     terrainEnabled: true,
-    terrainQuality: 1,
+    terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: MAP_PIXEL_RATIO,

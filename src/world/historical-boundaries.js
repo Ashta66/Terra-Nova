@@ -206,7 +206,7 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
 
 export async function loadAdministrativeBoundaries(year, zoom = 1, fetcher = globalThis.fetch) {
   if (Number(year) < 2026) return null;
-  if (Number(zoom) >= 4) {
+  if (Number(zoom) >= 7) {
     if (!regionalAdminPromise) regionalAdminPromise = readCollection(REGIONAL_ADMIN_URL, "Frontières administratives régionales 1:10m", fetcher);
     return regionalAdminPromise;
   }

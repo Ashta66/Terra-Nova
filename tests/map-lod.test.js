@@ -35,6 +35,16 @@ test("le chargement facultatif accepte une FeatureCollection valide", async () =
   assert.equal(loaded, regional);
 });
 
+test("une couche Natural Earth régionale peut être chargée directement à la demande", async () => {
+  let requested = "";
+  const loaded = await loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH, async url => {
+    requested = url;
+    return { ok: true, json: async () => regional };
+  });
+  assert.match(requested, /ne_10m_lakes\.geojson$/);
+  assert.equal(loaded, regional);
+});
+
 test("le chargement facultatif ignore erreurs HTTP, JSON et réseau", async () => {
   assert.equal(await loadOptionalGeoJson("./missing.geojson", async () => ({ ok: false })), null);
   assert.equal(await loadOptionalGeoJson("./invalid.geojson", async () => ({
@@ -59,6 +69,12 @@ test("les couches régionales restent inutilisées avant le seuil", () => {
   const selected = selectMapLayerDetailLevel(3.99, world, regional);
   assert.equal(selected.features, world);
   assert.equal(selected.isFallback, false);
+});
+
+test("chaque famille de couche peut avoir son propre seuil de détail régional", () => {
+  assert.equal(selectMapLayerDetailLevel(5.9, world, regional, 6).features, world);
+  assert.equal(selectMapLayerDetailLevel(6, world, regional, 6).features, regional);
+  assert.equal(selectMapLayerDetailLevel(7, world, regional, 8).features, world);
 });
 
 
