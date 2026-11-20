@@ -835,6 +835,7 @@ const renderObjectIds = new WeakMap();
 let nextRenderObjectId = 1;
 const staticLayerCache = new WeakMap();
 const STATIC_LAYER_CACHE_LIMIT = 3;
+const STATIC_LAYER_CACHE_MAX_BYTES = 48 * 1024 * 1024;
 const STATIC_LAYER_TIMING_KEYS = [
   "relief-base", "terres-et-cotes", "territoires-couleurs",
   "ombrage-multidirectionnel", "hachures", "glaciers", "lacs", "rivières", "repères-altitude"
@@ -883,7 +884,12 @@ function createStaticSurface(width, height) {
 
 export function getStaticLayerCacheStats(canvas) {
   const cache = canvas && staticLayerCache.get(canvas);
-  return { entries: cache?.size ?? 0, maxEntries: STATIC_LAYER_CACHE_LIMIT };
+  return {
+    entries: cache?.size ?? 0,
+    maxEntries: STATIC_LAYER_CACHE_LIMIT,
+    bytes: cache?.bytes ?? 0,
+    maxBytes: STATIC_LAYER_CACHE_MAX_BYTES
+  };
 }
 
 export function renderWorldMap(canvas, featureCollection, options = {}) {
@@ -1019,9 +1025,18 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         surfaceContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         staticStats = drawStaticLayers(surfaceContext);
         context.drawImage(surface, 0, 0, width, height);
-        record = { surface, stats: staticStats };
-        cache.set(cacheSignature, record);
-        while (cache.size > STATIC_LAYER_CACHE_LIMIT) cache.delete(cache.keys().next().value);
+        const surfaceBytes = surface.width * surface.height * 4;
+        record = { surface, stats: staticStats, bytes: surfaceBytes };
+        if (surfaceBytes <= STATIC_LAYER_CACHE_MAX_BYTES) {
+          cache.set(cacheSignature, record);
+          cache.bytes = (cache.bytes ?? 0) + surfaceBytes;
+          while (cache.size > STATIC_LAYER_CACHE_LIMIT || cache.bytes > STATIC_LAYER_CACHE_MAX_BYTES) {
+            const oldestKey = cache.keys().next().value;
+            const oldest = cache.get(oldestKey);
+            cache.delete(oldestKey);
+            cache.bytes -= Math.max(0, oldest?.bytes ?? 0);
+          }
+        }
       } else {
         staticStats = drawStaticLayers(context);
       }
