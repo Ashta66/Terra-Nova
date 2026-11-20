@@ -140,7 +140,9 @@ function scheduleMapPreview() {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (terrainTileStore && now - lastPreviewPreloadAt >= 100) {
       const previous = lastPreviewPreloadViewport ?? previewBaseViewport;
-      const elapsed = Math.max(0.1, (now - lastPreviewPreloadAt) / 1000);
+      const elapsed = Number.isFinite(lastPreviewPreloadAt)
+        ? Math.max(0.1, (now - lastPreviewPreloadAt) / 1000)
+        : 0.1;
       const longitudeDelta = mapViewport.centerLongitude - previous.centerLongitude;
       const latitudeDelta = mapViewport.centerLatitude - previous.centerLatitude;
       const movementFraction = Math.max(
@@ -149,9 +151,8 @@ function scheduleMapPreview() {
       );
       // Une exploration rapide reçoit une avance plus longue; à faible
       // vitesse, on réduit les tuiles anticipées pour limiter le travail.
-      const lookAhead = movementFraction > 0
-        ? Math.min(0.9, Math.max(0.2, 0.2 + movementFraction * 1.8 * Math.min(1, elapsed / 0.1)))
-        : 0;
+      const speedFactor = Math.min(1, movementFraction * 0.1 / elapsed);
+      const lookAhead = speedFactor > 0 ? 0.2 + speedFactor * 0.7 : 0;
       terrainTileStore.preloadViewport(mapViewport, {
         padding: 0.45,
         retainExisting: true,
