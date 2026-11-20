@@ -202,6 +202,30 @@ export function getViewportPreviewWrapCopies(previous, next) {
   return atWorldScale(previous) && atWorldScale(next) ? [-1, 0, 1] : [0];
 }
 
+/**
+ * Détermine les bandes révélées par une translation pure du viewport.
+ * Les rectangles sont en pixels CSS et ne se chevauchent pas.
+ * Un zoom, un grand déplacement ou un changement de monde impose un rendu complet.
+ */
+export function calculateExposedRegions(previous, next, width, height) {
+  if (![width, height].every(value => Number.isFinite(value) && value > 0)) return null;
+  const transform = calculateViewportTransform(previous, next, width, height);
+  const longitudeDelta = Math.abs(Number(next?.centerLongitude ?? 0) - Number(previous?.centerLongitude ?? 0));
+  if (Math.abs(transform.scale - 1) > 1e-6 || longitudeDelta >= 180) return null;
+  const dx = Math.round(transform.translateX);
+  const dy = Math.round(transform.translateY);
+  if (Math.abs(dx) >= width || Math.abs(dy) >= height) return null;
+  if (dx === 0 && dy === 0) return [];
+  const regions = [];
+  if (dx > 0) regions.push({ x::0, y: 0, width: dx, height });
+  if (dx < 0) regions.push({ x: width + dx, y: 0, width: -dx, height });
+  const remainingX = dx > 0 ? dx : 0;
+  const remainingWidth = width - Math.abs(dx);
+  if (dy > 0 && remainingWidth > 0) regions.push({ x: remainingX, y: 0, width: remainingWidth, height: dy });
+  if (dy < 0 && remainingWidth > 0) regions.push({ x: remainingX, y: height + dy, width: remainingWidth, height: -dy });
+  return regions;
+}
+
 const layerCaches = { physical: new Map(), political: new Map() };
 const objectIds = new WeakMap();
 let nextObjectId = 1;
