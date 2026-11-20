@@ -476,3 +476,20 @@ test("l'index spatial filtre aussi les repères de relief et les labels hors vie
  assert.deepEqual(result.labelHits.map(item=>item.name),["Centre"]);
  assert.ok(!calls.some(call=>call[0]==="fillText" && call[1]==="Lointain"));
 });
+
+test("le raster de relief ne calcule et ne place que la région sale demandée",()=>{
+ const bytes=new Uint8Array(16);
+ const view=new DataView(bytes.buffer);
+ for(let i=0;i<8;i++) view.setInt16(i*2,100+i,true);
+ const grid=createTerrainGrid(bytes,4,2);
+ let image=null, placement=null;
+ const context={
+  createImageData(width,height){image={width,height,data:new Uint8ClampedArray(width*height*4)};return image;},
+  putImageData(value,x,y){placement={value,x,y};}
+ };
+ assert.equal(drawTerrainRaster(context,4,2,grid,{zoom:1,centerLongitude:0,centerLatitude:0},{x:1,y:0,width:2,height:2}),true);
+ assert.deepEqual({width:image.width,height:image.height},{width:2,height:2});
+ assert.equal(placement.x,1);
+ assert.equal(placement.y,0);
+ assert.equal(image.data.length,16);
+});
