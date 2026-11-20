@@ -399,7 +399,11 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const landFeatures = select(featureCollection), glacierFeatures = select(options.glaciers);
   const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
   const elevationFeatures = select(options.elevationPoints);
-  const administrativeBoundaryFeatures = select(options.administrativeBoundaries);
+  const administrativeZoom = Number(options.viewport?.zoom ?? 1);
+  const administrativeBoundaryFeatures = select(options.administrativeBoundaries).filter(feature => {
+    const minimumZoom = Number(feature?.properties?.MIN_ZOOM ?? feature?.properties?.min_zoom ?? 0);
+    return !Number.isFinite(minimumZoom) || minimumZoom <= administrativeZoom;
+  });
   const administrativeLineFeatures = administrativeBoundaryFeatures.filter(feature =>
     ["LineString", "MultiLineString"].includes(feature?.geometry?.type));
   const administrativePolygonFeatures = administrativeBoundaryFeatures.filter(feature =>
