@@ -241,7 +241,7 @@ function cancelMapPrefetch() {
 }
 function scheduleMapPrefetch(collections) {
   cancelMapPrefetch();
-  if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
+  if (mapInteractionActive) return;
   const previous = lastMapPrefetchViewport;
   const zoomDirection = previous ? Math.sign(mapViewport.zoom - previous.zoom) : 0;
   const direction = previous ? {
@@ -257,6 +257,7 @@ function scheduleMapPrefetch(collections) {
   const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: 48 });
   lastMapTilePlan = tilePlan;
   requestMapPhysicalTiles(tilePlan, { land: collections[0], lakes: collections[1], rivers: collections[2], glaciers: glacierFeatures, elevationPoints, terrain: terrainGrid });
+  if (mapViewport.zoom <= 1.001) return;
   let index = 0;
   const prepareNext = () => {
     mapPrefetchHandle = null;
