@@ -132,6 +132,8 @@ function renderMap() {
     if (result.terrainWebGLStats) {
       canvas.dataset.terrainWebglUploadMs = result.terrainWebGLStats.textureUploadMs.toFixed(2);
       canvas.dataset.terrainWebglTextureBytes = String(result.terrainWebGLStats.textureBytes);
+      canvas.dataset.terrainWebglTextureSize = `${result.terrainWebGLStats.textureWidth}x${result.terrainWebGLStats.textureHeight}`;
+      canvas.dataset.terrainWebglSourceSize = `${result.terrainWebGLStats.sourceWidth}x${result.terrainWebGLStats.sourceHeight}`;
       canvas.dataset.terrainWebglSubmitMs = result.terrainWebGLStats.drawSubmitMs.toFixed(3);
       canvas.dataset.terrainWebglGpuMs = result.terrainWebGLStats.gpuMs === null
         ? "pending" : result.terrainWebGLStats.gpuMs.toFixed(3);
@@ -139,6 +141,8 @@ function renderMap() {
     } else {
       delete canvas.dataset.terrainWebglUploadMs;
       delete canvas.dataset.terrainWebglTextureBytes;
+      delete canvas.dataset.terrainWebglTextureSize;
+      delete canvas.dataset.terrainWebglSourceSize;
       delete canvas.dataset.terrainWebglSubmitMs;
       delete canvas.dataset.terrainWebglGpuMs;
       delete canvas.dataset.terrainWebglTimerQueries;
