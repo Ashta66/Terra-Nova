@@ -641,6 +641,9 @@ export function classifyHistoricalTerritoryStyle(feature){
 }
 export function classifyPhysicalCellVisual(c){
  if(!c)return null;
+ // Les impacts sont rendus en une forme continue à partir de l'événement,
+ // jamais comme une mosaïque de cellules bleues/oranges.
+ if(["crater","impact-zone"].includes(c.surfaceState))return null;
  // Ne jamais peindre l'océan de base : seule une terre réellement submergée
  // par un événement doit recevoir le voile bleu.
  const crossedSeaLevel=Number.isFinite(c.baseElevationM)&&c.baseElevationM>=0&&Number.isFinite(c.currentElevationM)&&c.currentElevationM<0;
@@ -653,13 +656,27 @@ export function classifyPhysicalCellVisual(c){
  return null;
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection){
- if(!world?.currentCells?.length)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
- for(const c of world.currentCells){const style=classifyPhysicalCellVisual(c);if(!style)continue;
+ if(!world)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
+ for(const c of world.currentCells??[]){const style=classifyPhysicalCellVisual(c);if(!style)continue;
   const dx=Number(c.gridStep??12)*360/2160/2,dy=Number(c.gridStep??12)*180/1080/2;
   const pts=[[c.longitude-dx,c.latitude-dy],[c.longitude+dx,c.latitude-dy],[c.longitude+dx,c.latitude+dy],[c.longitude-dx,c.latitude+dy]].map(p=>projectCoordinate(p,w,h,projection));
   if(pts.some(p=>!p))continue;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();
   ctx.fillStyle=style.fill;ctx.fill();ctx.strokeStyle=style.stroke;ctx.globalAlpha=.85;ctx.lineWidth=Math.max(.35,Math.min(1.4,.55*Math.sqrt(zoom)));ctx.stroke();ctx.globalAlpha=1;count++;
- }ctx.restore();return count;
+ }
+ // Un cratère est suggéré par des anneaux continus, indépendants de la grille
+ // de calcul qui ne sert qu'à modifier l'altitude réelle du terrain.
+ for(const event of world.events??[]){
+  if(event.type!=="meteor-impact")continue;
+  const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
+  const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+(Number(event.radiusKm)||100)/111.32)],w,h,projection);
+  const east=projectCoordinate([event.longitude+(Number(event.radiusKm)||100)/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
+  if(!center||(!north&&!east))continue;
+  const radius=Math.max(3,Math.min(500,Math.hypot((east?.x??center.x)-center.x,(east?.y??center.y)-center.y,(north?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));
+  ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.48)";ctx.lineWidth=Math.max(1,Math.min(3,1.4*Math.sqrt(zoom)));ctx.stroke();
+  ctx.beginPath();ctx.arc(center.x,center.y,radius*.42,0,Math.PI*2);ctx.strokeStyle="rgba(232,177,119,.5)";ctx.lineWidth=Math.max(.8,Math.min(2,1.1*Math.sqrt(zoom)));ctx.stroke();
+  count++;
+ }
+ ctx.restore();return count;
 }
 function drawTerritoryLayer(context, collection, width, height, projection, selectedCountry = "") {
   if (!collection?.features) return 0;
