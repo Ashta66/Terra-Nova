@@ -380,7 +380,7 @@ test("le magasin de tuiles expose une révision globale pour invalider le cache 
 });
 
 
-import { calculateViewportTransform } from "../src/world/map-renderer.js";
+import { calculateViewportTransform, getViewportPreviewWrapCopies } from "../src/world/map-renderer.js";
 
 test("la prévisualisation bitmap traduit correctement un déplacement du viewport", () => {
   const transform = calculateViewportTransform(
@@ -407,4 +407,19 @@ test("la prévisualisation bitmap met à l'échelle autour du centre et suit le 
 test("la transformation bitmap reste finie pour des viewports incomplets", () => {
   const transform = calculateViewportTransform({}, {}, 640, 320);
   assert.deepEqual(transform, { scale: 1, translateX: 0, translateY: 0 });
+});
+
+
+test("la prévisualisation prolonge horizontalement le monde au zoom global", () => {
+  assert.deepEqual(
+    getViewportPreviewWrapCopies({ zoom: 1 }, { zoom: 1 }),
+    [-1, 0, 1]
+  );
+});
+
+test("la prévisualisation ne boucle pas les bords à un zoom rapproché", () => {
+  assert.deepEqual(
+    getViewportPreviewWrapCopies({ zoom: 1.5 }, { zoom: 2 }),
+    [0]
+  );
 });
