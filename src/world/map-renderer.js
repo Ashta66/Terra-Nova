@@ -521,7 +521,7 @@ export function territoryColor(feature) {
   const properties = feature?.properties ?? {};
   const name = territoryName(properties) || "terra";
   const identity = String(properties.ADM0_A3 ?? properties.SOV_A3 ?? properties.ISO_A3 ?? name).toUpperCase();
-  const normalized = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+  const normalized = name.normalize("NFD").replace(/\\p{M}/gu, "").toLowerCase();
   // Traditional historical heraldic associations; deliberately muted for atlas readability.
   if (identity === "FRA" || /^(france|french republic)$/.test(normalized)) return "#3159A6"; // France: bleu roi
   if (["england", "english territory", "kingdom of england", "great britain"].includes(normalized)) return "#B83A43"; // England: red
