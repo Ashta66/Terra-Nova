@@ -60,6 +60,7 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
+  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 0.6 });
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
