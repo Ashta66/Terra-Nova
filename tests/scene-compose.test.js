@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sceneRenderParams, composeRects } from "../src/world/scene-compose.js";
+import { sceneRenderParams, composeRects, snapSceneViewportCenter } from "../src/world/scene-compose.js";
 
 const close = (actual, expected, epsilon = 1e-6) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `attendu ${expected}, reçu ${actual}`);
@@ -115,4 +115,15 @@ test("une scène incomplète est recalculée dès que le geste est terminé", as
   const { shouldRecenterScene } = await import("../src/world/scene-compose.js");
   assert.equal(shouldRecenterScene(false, false), true);
   assert.equal(shouldRecenterScene(true, false), false);
+});
+
+
+test("le centre de scène est quantifié pour réutiliser le même rendu pendant les micro-déplacements", () => {
+  const first = snapSceneViewportCenter({ zoom: 4, centerLongitude: 12.10, centerLatitude: 48.10 }, 2);
+  const nearby = snapSceneViewportCenter({ zoom: 4, centerLongitude: 12.20, centerLatitude: 48.20 }, 2);
+  const nextCell = snapSceneViewportCenter({ zoom: 4, centerLongitude: 12.30, centerLatitude: 48.30 }, 2);
+  assert.deepEqual(first, nearby);
+  assert.notDeepEqual(first, nextCell);
+  assert.ok(Math.abs(first.centerLongitude - 12.10) <= 0.25);
+  assert.ok(Math.abs(first.centerLatitude - 48.10) <= 0.25);
 });
