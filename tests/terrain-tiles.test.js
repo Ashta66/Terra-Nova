@@ -35,7 +35,7 @@ test("le préchargement en mouvement conserve les tuiles déjà chaudes", () => 
 test("le préchargement directionnel anticipe le côté vers lequel la carte avance", () => {
   const forward = createStore();
   const backward = createStore();
-  const viewport = { zoom: 4, centerLongitude: 80, centerLatitude: 0 };
+  const viewport = { zoom: 4, centerLongitude: 40, centerLatitude: 0 };
   const options = { padding: 0.2, lookAhead: 0.6 };
 
   forward.preloadViewport(viewport, { ...options, directionLongitude: 1 });
