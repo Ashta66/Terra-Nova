@@ -62,7 +62,7 @@ export function calculateZoomTilePlan(input = {}) {
   return [...ordered];
 }
 
-if (typeof self !== "undefined" && typeof self.postMessage === "function") {
+if (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope) {
   self.addEventListener("message", event => {
     const { requestId, input } = event.data ?? {};
     self.postMessage({ requestId, tileIds: calculateZoomTilePlan(input) });
