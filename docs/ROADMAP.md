@@ -1,4 +1,4 @@
-## Harmonisation des rives intérieures — 20 novembre 2026
+\n\n## 20 novembre 2026 — réduction du coût de l'hydrographie lacustre\n- La carte ne dessine désormais que les 12 plus grands lacs de rang 0 ou 1 parmi les entités visibles, à tous les niveaux de zoom.\n- Les lacs secondaires ne réapparaissent plus au zoom rapproché ; les grands bassins sont prioritaires selon leur rang Natural Earth puis leur emprise géographique corrigée par la latitude.\n- Le filtrage intervient avant la construction des chemins Canvas/Path2D, ce qui évite de simplifier et dessiner inutilement des centaines de contours régionaux. Les données sources restent intactes.\n- Tests ajoutés sur le plafond, le rang, le classement par taille et les géométries admissibles.\n## Harmonisation des rives intérieures — 20 novembre 2026
 - Les contours des lacs et mers intérieures utilisent le même profil de simplification géométrique que les côtes marines.
 - Le filtrage progressif par rang des lacs est conservé ; les grands plans d'eau restent visibles, mais leurs micro-découpes et petites îles sont allégées.
 - Test dédié aux zooms 1×, 2×, 4×, 8× et 20×.
