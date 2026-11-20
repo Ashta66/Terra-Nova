@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
@@ -54,7 +54,7 @@ test("le chargement facultatif ignore erreurs HTTP, JSON et réseau", async () =
 });
 
 test("le même sélecteur LOD commute les lacs, rivières et labels régionaux", () => {
-  for (const path of [REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH]) {
+  for (const path of [REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH]) {
     assert.match(path, /^\.\/data\/ne_10m_/);
   }
   const regional = selectMapLayerDetailLevel(4, world, { ...world, features: [{ id: "regional-hydro" }] });
@@ -92,8 +92,9 @@ test("les labels régionaux filtrent les villes et calculent leur seuil de zoom"
 });
 
 
-test("le pack cartographique comprend les six couches mondiales et le relief ETOPO", () => {
-  assert.equal(MAP_PACK_CORE_ASSETS.length, 7);
+test("le pack cartographique exclut les fichiers lacustres bruts du cache navigateur", () => {
+  assert.equal(MAP_PACK_CORE_ASSETS.length, 6);
+  assert.ok(!MAP_PACK_CORE_ASSETS.some(asset => asset.url.endsWith("ne_110m_lakes.geojson")));
   assert.ok(MAP_PACK_CORE_ASSETS.some(asset => asset.url.endsWith("etopo_global_10m_i16.bin")));
   assert.ok(MAP_PACK_CORE_ASSETS.some(asset => asset.url.endsWith("ne_110m_glaciated_areas.geojson")));
 });

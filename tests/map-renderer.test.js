@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -78,6 +78,18 @@ test("la sélection des lacs privilégie les grands bassins et ignore les géom�
   assert.deepEqual(selectMajorLakeFeatures({ features: [small, line, large] }, 1, 2), [large, small]);
 });
 
+
+test("les petites îles sont retirées avant indexation sans effacer le principal territoire insulaire",()=>{
+ const ring=size=>[[0,0],[size,0],[size,size],[0,size],[0,0]];
+ const source={type:"FeatureCollection",features:[{type:"Feature",properties:{name:"continent"},geometry:{type:"MultiPolygon",coordinates:[[ring(10)],[ring(0.01)]]}},{type:"Feature",properties:{name:"micro-île isolée"},geometry:{type:"Polygon",coordinates:[ring(0.01)]}}]};
+ const land=filterSmallIslandComponents(source,100,false);assert.equal(land.features.length,1);assert.equal(land.features[0].geometry.coordinates.length,1);
+ const territories=filterSmallIslandComponents(source,100,true);assert.equal(territories.features.length,2);assert.equal(territories.features[1].geometry.type,"Polygon");
+});
+test("les lacs secondaires et trop petits sont exclus de la collection active",()=>{
+ const lake=(name,size,rank=1)=>({type:"Feature",properties:{name,scalerank:rank},geometry:{type:"Polygon",coordinates:[[[0,0],[size,0],[size,size],[0,size],[0,0]]]}});
+ const source={type:"FeatureCollection",features:[lake("grand",10),lake("petit",0.1),lake("rang secondaire",10,3)]};
+ const filtered=filterMajorLakeFeatures(source,500);assert.deepEqual(filtered.features.map(x=>x.properties.name),["grand"]);assert.equal(source.features.length,3);
+});
 test("le moteur dessine les zones glaciaires et les repères de relief", () => {
   const { canvas, calls } = createCanvas();
   const glaciers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[86, 27], [88, 27], [88, 29], [86, 27]]] } }] };

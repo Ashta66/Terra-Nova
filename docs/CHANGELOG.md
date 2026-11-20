@@ -1,4 +1,8 @@
-
+## 20 novembre 2026 — filtrage physique des petites îles et des lacs secondaires
+- Les petites composantes insulaires sous 100 km² sont retirées des couches terrestres mondiales et régionales avant la création des index spatiaux ; pour les territoires politiques, la plus grande composante de chaque territoire est conservée afin de ne pas effacer un petit État insulaire.
+- Les lacs de rang secondaire et les lacs de moins de 500 km² sont exclus de la collection active dès le chargement ; les 12 plus grands lacs visibles restent dessinés au maximum.
+- Le chargement régional 1:10m des lacs est désactivé et les anciennes entrées mondiales/régionales de lacs sont purgées des caches du navigateur et d'IndexedDB. Les fichiers GeoJSON sources restent intacts dans le dépôt.
+- Le pack cartographique passe à 6 ressources de base et 3 couches régionales. Tests couvrant le filtrage et la conservation des territoires insulaires.
 
 ## 20 novembre 2026 — réduction du coût de l'hydrographie lacustre
 - La carte ne dessine désormais que les 12 plus grands lacs de rang 0 ou 1 parmi les entités visibles, à tous les niveaux de zoom.

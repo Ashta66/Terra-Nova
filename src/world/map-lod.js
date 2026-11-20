@@ -3,7 +3,6 @@ const CACHE_NAME = "terra-nova-regional-map";
 const CACHE_VERSION = 1;
 const REGIONAL_ASSETS = [
   { key: "ne_10m_land.geojson", source: "ne_10m_land.geojson", label: "Côtes et terres" },
-  { key: "ne_10m_lakes.geojson", source: "ne_10m_lakes.geojson", label: "Lacs" },
   { key: "ne_10m_rivers.geojson", source: "ne_10m_rivers_lake_centerlines.geojson", label: "Rivières" },
   { key: "ne_10m_map_labels.geojson", source: "ne_10m_populated_places_simple.geojson", label: "Villes et repères" }
 ];
@@ -11,7 +10,6 @@ const NATURAL_EARTH_BASE = "https://raw.githubusercontent.com/nvkelso/natural-ea
 const MAP_ASSET_CACHE = "terra-nova-map-assets-v1";
 export const MAP_PACK_CORE_ASSETS = [
   { url: "./data/ne_110m_land.geojson", label: "Terres mondiales" },
-  { url: "./data/ne_110m_lakes.geojson", label: "Lacs mondiaux" },
   { url: "./data/ne_110m_rivers.geojson", label: "Rivières mondiales" },
   { url: "./data/ne_110m_glaciated_areas.geojson", label: "Zones glaciaires" },
   { url: "./data/ne_110m_elevation_points.geojson", label: "Repères de relief" },
@@ -45,7 +43,11 @@ export async function fetchMapAsset(url, fetcher = globalThis.fetch) {
   return response;
 }
 
-export async function getMapPackStatus() {
+export async function purgeObsoleteLakeCaches(){
+ try{if(globalThis.caches){const cache=await caches.open(MAP_ASSET_CACHE);await cache.delete(absoluteCacheKey("./data/ne_110m_lakes.geojson"));}}catch(error){console.info("Nettoyage du cache des anciens lacs différé :",error);}
+ try{const db=await openCache();await new Promise((resolve,reject)=>{const request=db.transaction("assets","readwrite").objectStore("assets").delete("ne_10m_lakes.geojson");request.onsuccess=()=>resolve();request.onerror=()=>reject(request.error);});db.close();}catch(error){console.info("Nettoyage IndexedDB des anciens lacs ignoré :",error);}
+}
+export async function getMapPackStatus(){
   let coreCount = 0;
   if (globalThis.caches) {
     try {
@@ -57,7 +59,7 @@ export async function getMapPackStatus() {
     }
   }
   const regional = await getRegionalCacheStatus();
-  return { coreCount, coreTotal: MAP_PACK_CORE_ASSETS.length, regionalCount: regional.count, regionalTotal: 4, ready: coreCount === MAP_PACK_CORE_ASSETS.length && regional.ready };
+  return { coreCount, coreTotal: MAP_PACK_CORE_ASSETS.length, regionalCount: regional.count, regionalTotal: 3, ready: coreCount === MAP_PACK_CORE_ASSETS.length && regional.ready };
 }
 
 export async function downloadFullMapPack(onProgress = () => {}, fetcher = globalThis.fetch) {

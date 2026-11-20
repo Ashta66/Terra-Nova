@@ -3,14 +3,14 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
-import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -33,10 +33,9 @@ let terrainGrid = null;
 let regionalLandFeatures = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
-let regionalHydroFeatures = null;
 let regionalRiverFeatures = null;
 let regionalLabelFeatures = null;
-let regionalHydroLoadAttempted = false;
+let regionalRiverLoadAttempted = false;
 let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
@@ -389,10 +388,10 @@ function completeMapRender(result, context) {
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  const regionalLayerCount = [context.landDetail, context.lakeDetail, context.riverDetail, context.labelDetail].filter(layer => layer.level === "regional-10m").length;
-  const fallbackLayerCount = [context.landDetail, context.lakeDetail, context.riverDetail, context.labelDetail].filter(layer => layer.isFallback).length;
+  const regionalLayerCount = [context.landDetail, context.riverDetail, context.labelDetail].filter(layer => layer.level === "regional-10m").length;
+  const fallbackLayerCount = [context.landDetail, context.riverDetail, context.labelDetail].filter(layer => layer.isFallback).length;
   const detailStatus = regionalLayerCount
-    ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
+    ? ` · ${regionalLayerCount}/3 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
   $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
   updateMapControls();
@@ -406,7 +405,7 @@ function renderMapFrame() {
   if (mapViewport.zoom >= 6 && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
-      regionalLandFeatures = features;
+      regionalLandFeatures = filterSmallIslandComponents(features,100,false);
       if (features) {
         lastRenderedMapSignature = null;
         renderMap();
@@ -427,12 +426,9 @@ function renderMapFrame() {
     regionalLabelLoadAttempted = true;
     activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
   }
-  if (mapViewport.zoom >= 7 && !regionalHydroLoadAttempted) {
-    regionalHydroLoadAttempted = true;
-    Promise.all([
-      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH), features => { regionalHydroFeatures = features; }, "lacs"),
-      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières")
-    ]);
+  if (mapViewport.zoom >= 8 && !regionalRiverLoadAttempted) {
+    regionalRiverLoadAttempted = true;
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières");
   }
   const { width, height } = viewSize();
   const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
@@ -453,7 +449,7 @@ function renderMapFrame() {
       })
     ]).then(([political, administrative, administrativeRegions]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
-      territoryFeatures = political?.territories ?? null;
+      territoryFeatures = filterSmallIslandComponents(political?.territories ?? null,100,true);
       populateCampaignCountries();
       administrativeBoundaryFeatures = administrative;
       territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
@@ -481,7 +477,7 @@ function renderMapFrame() {
   }
   lastRenderedMapSignature = signature;
   const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
-  const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures, 7);
+  const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, null, Infinity);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
   const renderOptions = {
@@ -529,15 +525,14 @@ async function installFullMapPack() {
       status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
     regionalLandFeatures = null;
-    regionalHydroFeatures = null;
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
-    regionalHydroLoadAttempted = false;
+    regionalRiverLoadAttempted = false;
     regionalLabelLoadAttempted = false;
     lastRenderedMapSignature = null;
     button.textContent = "Pack cartographique installé";
-    status.textContent = "Pack complet prêt : 7 ressources de base et 4 couches régionales. Les détails se chargeront à la demande pour préserver la fluidité.";
+    status.textContent = "Pack complet prêt : 6 ressources de base et 3 couches régionales. Les détails se chargeront à la demande pour préserver la fluidité.";
     renderMap();
   } catch (error) {
     status.textContent = "Installation interrompue : " + error.message;
@@ -550,9 +545,10 @@ async function installFullMapPack() {
 async function loadWorldMap() {
   setInitialLoading(1,"Lecture des données géographiques…");
   try {
+    await purgeObsoleteLakeCaches();
     const responses = await Promise.all([
       fetchMapAsset("./data/ne_110m_land.geojson"),
-      fetchMapAsset("./data/ne_110m_lakes.geojson"),
+      fetch("./data/ne_110m_lakes.geojson"),
       fetchMapAsset("./data/ne_110m_rivers.geojson"),
       fetchMapAsset("./data/ne_110m_glaciated_areas.geojson"),
       fetchMapAsset("./data/ne_110m_elevation_points.geojson"),
@@ -563,6 +559,8 @@ async function loadWorldMap() {
     }
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
+    worldFeatures = filterSmallIslandComponents(worldFeatures,100,false);
+    lakeFeatures = filterMajorLakeFeatures(lakeFeatures,500);
     setInitialLoading(2,"Atlas mondial assemblé · préparation du relief…");
     if(typeof requestIdleCallback==="function")requestIdleCallback(()=>{void startMapWarmup();},{timeout:1400});else setTimeout(()=>{void startMapWarmup();},350);
     try {
@@ -585,7 +583,7 @@ async function loadWorldMap() {
       $("install-map-pack").textContent = "Pack cartographique installé";
       $("map-pack-status").textContent = "Pack cartographique déjà enregistré dans ce navigateur : données mondiales, relief et détails régionaux.";
     } else {
-      $("map-pack-status").textContent = cacheStatus.coreCount + "/" + cacheStatus.coreTotal + " ressources de base en cache · " + cacheStatus.regionalCount + "/4 couches régionales installées.";
+      $("map-pack-status").textContent = cacheStatus.coreCount + "/" + cacheStatus.coreTotal + " ressources de base en cache · " + cacheStatus.regionalCount + "/3 couches régionales installées.";
       if (cacheStatus.regionalCount > 0) $("install-map-pack").textContent = "Reprendre le téléchargement du pack";
     }
     setInitialLoading(4,"Dernière étape : construction de l’atlas jouable…");
