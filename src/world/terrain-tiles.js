@@ -241,6 +241,19 @@ export function createTerrainTileStore(grid, options = {}) {
       return result;
     }
 
+    // Prépare aussi les tuiles couvertes par les prochains crans de zoom.
+    // Les zooms sortants apportent surtout de nouvelles tuiles périphériques;
+    // les zooms entrants réchauffent le sous-ensemble qui sera immédiatement visible.
+    const requestedZooms = [...new Set((preloadOptions.zoomLevels ?? [])
+      .map(value => Number(value))
+      .filter(value => Number.isFinite(value) && value > 0 && value !== zoom))];
+    const zoomAhead = requestedZooms
+      .sort((a, b) => Math.abs(Math.log2(b / zoom)) - Math.abs(Math.log2(a / zoom)))
+      .flatMap(targetZoom => collect(
+        centerLongitude, centerLatitude,
+        180 / targetZoom * (1 + padding),
+        90 / targetZoom * (1 + padding)
+      ));
     const predictive = lookAhead > 0 && (directionLongitude || directionLatitude)
       ? collect(
         centerLongitude + directionLongitude * primaryLon * (1.15 + lookAhead * 0.4),
@@ -251,6 +264,7 @@ export function createTerrainTileStore(grid, options = {}) {
       : [];
     const current = collect(centerLongitude, centerLatitude, primaryLon, primaryLat);
     const ordered = new Map();
+    for (const item of zoomAhead) ordered.set(tileId(item.x, item.y), item);
     for (const item of predictive) ordered.set(tileId(item.x, item.y), item);
     for (const item of current) {
       const id = tileId(item.x, item.y);
