@@ -665,7 +665,7 @@ test("les sociétés sans État ne sont pas colorées comme des pays souverains"
   ] };
   assert.equal(isNonStateHistoricalRegion(collection.features[1]), true);
   assert.equal(isNonStateHistoricalRegion(collection.features[2]), true);
-  assert.deepEqual(selectHistoricalPoliticalTerritories(collection).features.map(feature => feature.properties.NAME), ["France", "Castile"]);
+  const selected = selectHistoricalPoliticalTerritories(collection);\n  assert.deepEqual(selected.features.map(feature => feature.properties.NAME), ["France", "Amazon hunter-gatherers", "North American Pacific foraging, hunting and fishing peoples", "Castile"]);\n  assert.deepEqual(selected.features.map(feature => feature.properties.historicalStatus), ["sovereign", "influence", "influence", "sovereign"]);
 });
 
 test("les couleurs héraldiques historiques sont reconnaissables", () => {
