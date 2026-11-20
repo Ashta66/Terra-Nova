@@ -6,6 +6,7 @@ import { createTerrainGrid } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
+import { cancelTerrainWebGLPending } from "./world/terrain-webgl.js";
 
 let state = createGameState();
 let interval = null;
@@ -311,6 +312,8 @@ function scheduleMapPreview() {
   if (!previewBaseViewport) return;
   // Toute nouvelle position rend les plans d'anticipation précédents obsolètes.
   terrainPreloadRequestId++;
+  // Annule immédiatement les uploads GPU prédictifs de l’ancienne position.
+  if (terrainTileStore) cancelTerrainWebGLPending(terrainTileStore);
   if (pendingPreviewFrame !== null) return;
   pendingPreviewFrame = window.requestAnimationFrame(() => {
     pendingPreviewFrame = null;
