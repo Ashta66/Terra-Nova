@@ -561,6 +561,7 @@ test("le rendu WebGL se désactive proprement si aucune grille exploitable n'est
   const shaders = getTerrainWebGLShaders();
   assert.match(shaders.vertex, /gl_Position/);
   assert.match(shaders.fragment, /elevationAt/);
+  assert.match(shaders.fragment, /sampleA\.a/);
   assert.match(shaders.fragment, /fract\(p00.x\)/);
 });
 
