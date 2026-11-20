@@ -69,3 +69,12 @@ Choix de lisibilité : les profondeurs océaniques sont regroupées en grandes m
 ## Classes visuelles du relief terrestre
 
 Le raster ETOPO est maintenant interprété avec des classes locales légères dérivées de l'altitude et des quatre voisins déjà échantillonnés pour le hillshade : montagnes, plateaux, vallées, collines, plaines et basses terres. Les classes modulent très légèrement la palette hypsométrique pour rendre les formes terrestres plus lisibles sans ajouter de pictogrammes ni de couche vectorielle artificielle. Les seuils sont des heuristiques visuelles adaptées à l'aperçu global 10 minutes d'arc ; ils ne constituent pas un jeu de données géomorphologiques sourcé ni une classification scientifique. Les glaciers et les grands sommets restent rendus par leurs couches de référence dédiées. La bathymétrie reste volontairement sobre et n'est pas classifiée en micro-reliefs.
+
+
+## Fluidité de navigation — optimisation initiale
+
+- Les événements de déplacement et de molette sont regroupés sur une seule image via `requestAnimationFrame` : plusieurs événements reçus entre deux images ne déclenchent plus plusieurs rendus complets.
+- Pendant un glisser-déposer, le raster ETOPO est calculé à une qualité réduite (plafond 384 × 192), puis redessiné à la qualité normale à la fin du geste (plafond 768 px de large / 384 px de haut).
+- Le relief est généré sur une surface hors écran lorsque le navigateur le permet, puis composé dans le canvas à l'échelle logique CSS. Cela évite de mélanger les coordonnées physiques du canvas haute densité et les coordonnées logiques du moteur.
+- Les géométries vectorielles et les labels restent rendus à chaque image affichée ; une mise en cache des couches statiques et un vrai niveau de détail régional restent des optimisations ultérieures.
+- Limite : le gain doit encore être mesuré dans un navigateur réel sur plusieurs configurations ; la CI ne mesure pas les FPS.
