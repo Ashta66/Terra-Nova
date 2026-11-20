@@ -2,7 +2,7 @@ const DEG = Math.PI / 180;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export function projectEquirectangular(longitude, latitude, width, height, viewport = {}) {
-  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 12);
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 24);
   const centerLongitude = Number(viewport.centerLongitude ?? 0);
   const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85, 85);
   return {
