@@ -90,6 +90,29 @@ export function createTerrainTileStore(grid, options = {}) {
     return tile.values[position.localY * tile.width + position.localX];
   }
 
+  function sampleBilinear(longitude, latitude) {
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+    const normalized = normalizeLongitude(longitude);
+    const sampleX = normalized / 360 * grid.width - 0.5;
+    const sampleY = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
+    const rawX = Math.floor(sampleX);
+    const x0 = ((rawX % grid.width) + grid.width) % grid.width;
+    const x1 = (x0 + 1) % grid.width;
+    const y0 = clamp(Math.floor(sampleY), 0, grid.height - 1);
+    const y1 = Math.min(grid.height - 1, y0 + 1);
+    const fx = sampleX - rawX;
+    const fy = sampleY - Math.floor(sampleY);
+    const at = (column, row) => {
+      const tile = getTile(Math.floor(column / tileSize), Math.floor(row / tileSize));
+      const localX = column - tile.originX;
+      const localY = row - tile.originY;
+      return tile.values[localY * tile.width + localX];
+    };
+    const a = at(x0, y0) * (1 - fx) + at(x1, y0) * fx;
+    const b = at(x0, y1) * (1 - fx) + at(x1, y1) * fx;
+    return a * (1 - fy) + b * fy;
+  }
+
   function setElevation(longitude, latitude, elevation) {
     if (!Number.isFinite(elevation) || elevation < -32768 || elevation > 32767) {
       throw new RangeError("L'altitude doit être un entier signé sur 16 bits.");
