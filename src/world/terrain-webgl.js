@@ -130,6 +130,43 @@ export function encodeTerrainTexture(values) {
   return packed;
 }
 
+export function buildTerrainTileTexture(tile, tileStore) {
+  if (!tile || !tileStore?.getTileAtLevel || !Number.isInteger(tile.level)
+    || !Number.isInteger(tile.x) || !Number.isInteger(tile.y)
+    || !Number.isInteger(tile.width) || !Number.isInteger(tile.height)
+    || tile.width < 1 || tile.height < 1
+    || !Number.isInteger(tileStore.width) || !Number.isInteger(tileStore.height)
+    || !Number.isInteger(tileStore.tileSize) || tileStore.tileSize < 2) return null;
+  const stride = 2 ** tile.level;
+  const levelWidth = Math.ceil(tileStore.width / stride);
+  const levelHeight = Math.ceil(tileStore.height / stride);
+  const columns = Math.ceil(levelWidth / tileStore.tileSize);
+  const rows = Math.ceil(levelHeight / tileStore.tileSize);
+  const width = tile.width + 2;
+  const height = tile.height + 2;
+  const values = new Int16Array(width * height);
+  for (let y = -1; y <= tile.height; y++) {
+    const sourceY = Math.max(0, Math.min(levelHeight - 1, tile.originY + y));
+    const tileY = Math.floor(sourceY / tileStore.tileSize);
+    for (let x = -1; x <= tile.width; x++) {
+      const sourceX = ((tile.originX + x) % levelWidth + levelWidth) % levelWidth;
+      const tileX = Math.floor(sourceX / tileStore.tileSize);
+      const neighbor = tileStore.getTileAtLevel(tile.level, tileX, tileY);
+      if (!neighbor) return null;
+      const localX = sourceX - neighbor.originX;
+      const localY = sourceY - neighbor.originY;
+      values[(y + 1) * width + x + 1] = neighbor.values[localY * neighbor.width + localX];
+    }
+  }
+  return {
+    width, height, values,
+    level: tile.level, tileX: tile.x, tileY: tile.y,
+    originX: tile.originX, originY: tile.originY,
+    sourceWidth: tileStore.width, sourceHeight: tileStore.height,
+    stride, revision: tileStore.revision ?? 0
+  };
+}
+
 export function prepareTerrainTextureGrid(grid, maxTextureSize) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)
     || grid.width < 2 || grid.height < 2 || grid.values.length < grid.width * grid.height
