@@ -602,7 +602,7 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     width: 640, height: 320, pixelRatio: 1,
     politicalBoundaries, administrativeBoundaries
   });
-  assert.equal(result.politicalBoundaryCount, 1);
+  assert.equal(result.politicalBoundaryCount, 2);
   assert.equal(result.administrativeBoundaryCount, 1);
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 0));
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 2));

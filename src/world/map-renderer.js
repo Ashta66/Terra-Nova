@@ -524,9 +524,9 @@ export function territoryColor(feature) {
   const normalized = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
   // Traditional historical heraldic associations; deliberately muted for atlas readability.
   if (identity === "FRA" || /^(france|french republic)$/.test(normalized)) return "#3159A6"; // France: bleu roi
-  if (/^(england|english territory|kingdom of england|great britain)$/.test(normalized)) return "#B83A43"; // England: red
-  if (/^(castile|aragon|granada|spain|crown of castile)$/.test(normalized)) return "#D9A52B"; // Iberian crowns: gold / ochre
-  if (/^(portugal|kingdom of portugal)$/.test(normalized)) return "#3D805B";
+  if (/^(england|english territory|kingdom of england|great britain)$/i.test(normalized)) return "#B83A43"; // England: red
+  if (/^(castile|aragon|granada|spain|crown of castile)$/i.test(normalized)) return "#D9A52B"; // Iberian crowns: gold / ochre
+  if (/^(portugal|kingdom of portugal)$/i.test(normalized)) return "#3D805B";
   if (/^(scotland|kingdom of scotland)$/.test(normalized)) return "#456C9C";
   if (/^(ireland|lordship of ireland)$/.test(normalized)) return "#47815E";
   if (/ottoman empire|ottoman/.test(normalized)) return "#A63C42";
