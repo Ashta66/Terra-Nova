@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey, getTerrainEvictionKey } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 
@@ -1071,4 +1071,21 @@ test("la file GPU traite les tuiles visibles avant le préchargement prédictif"
   pending.delete("parent-b");
   assert.equal(getTerrainPendingNextKey(pending), "predictive-a");
   assert.equal(getTerrainPendingNextKey(new Map()), null);
+});
+
+
+test("les évictions GPU choisissent la plus ancienne tuile non protégée", () => {
+  const entries = new Map([
+    ["parent-visible", { slot: 0 }],
+    ["child-visible", { slot: 1 }],
+    ["old-predictive", { slot: 2 }],
+    ["recent-predictive", { slot: 3 }]
+  ]);
+  const protectedKeys = new Set(["parent-visible", "child-visible"]);
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), "old-predictive");
+  entries.delete("old-predictive");
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), "recent-predictive");
+  entries.delete("recent-predictive");
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), null);
+  assert.equal(getTerrainEvictionKey(null, protectedKeys), null);
 });
