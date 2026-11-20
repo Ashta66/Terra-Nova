@@ -753,9 +753,31 @@ test("le cache GPU des tuiles respecte le LRU et son budget mémoire", () => {
   assert.deepEqual(gl.deleted, [first.texture.id]);
   assert.equal(cache.stats.overBudget, false);
   assert.equal(cache.memoryBytes, gl.uploads.slice(-2).reduce((sum, upload) => sum + upload.bytes, 0));
+  assert.equal(cache.stats.hits, 1);
+  assert.equal(cache.stats.misses, 3);
+  assert.equal(cache.stats.uploads, 3);
+  assert.equal(cache.stats.evictions, 1);
+  assert.equal(cache.stats.uploadedBytes, gl.uploads.reduce((sum, upload) => sum + upload.bytes, 0));
+  assert.ok(cache.stats.buildMs >= 0);
+  assert.ok(cache.stats.uploadMs >= 0);
   cache.clear();
   assert.equal(cache.size, 0);
   assert.equal(cache.memoryBytes, 0);
+});
+
+test("le cache GPU expose les transferts et réutilisations sans recompter un hit", () => {
+  const values = new Int16Array(8 * 8);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl);
+  const tile = store.getTileAtLevel(0, 0, 0);
+  cache.get(tile, store);
+  cache.get(tile, store);
+  assert.equal(cache.stats.hits, 1);
+  assert.equal(cache.stats.misses, 1);
+  assert.equal(cache.stats.uploads, 1);
+  assert.equal(cache.stats.uploadedBytes, gl.uploads[0].bytes);
+  assert.equal(cache.stats.tileCount, 1);
 });
 
 test("le cache GPU invalide une texture lorsque la révision du terrain change", () => {
