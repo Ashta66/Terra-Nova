@@ -2,6 +2,9 @@ import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
+import { createMapTileCache } from "./world/map-tile-cache.js";
+import { findAvailableTile } from "./world/map-tile-system.js";
+import { getMapTileScreenRect } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
@@ -67,6 +70,13 @@ let mapRenderWorkerPending = null;
 let mapRenderWorkerActive = null;
 let mapRenderWorkerSequence = 0;
 let mapRenderWorkerLayerRefs = Object.create(null);
+let mapTileWorker = null;
+let mapTileWorkerReady = false;
+let mapTileWorkerLayers = null;
+let mapTileWorkerQueue = [];
+let mapTileWorkerPending = new Map();
+let mapTileWorkerSequence = 0;
+const mapTileCache = createMapTileCache({ maxBytes: 64 * 1024 * 1024, maxEntries: 192 });
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
@@ -231,7 +241,7 @@ function cancelMapPrefetch() {
 }
 function scheduleMapPrefetch(collections) {
   cancelMapPrefetch();
-  if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
+  if (mapInteractionActive) return;
   const previous = lastMapPrefetchViewport;
   const zoomDirection = previous ? Math.sign(mapViewport.zoom - previous.zoom) : 0;
   const direction = previous ? {
@@ -246,6 +256,8 @@ function scheduleMapPrefetch(collections) {
   // existants restent le moteur de sélection pendant cette étape de transition.
   const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: 48 });
   lastMapTilePlan = tilePlan;
+  requestMapPhysicalTiles(tilePlan, { land: collections[0], lakes: collections[1], rivers: collections[2], glaciers: glacierFeatures, elevationPoints, terrain: terrainGrid });
+  if (mapViewport.zoom <= 1.001) return;
   let index = 0;
   const prepareNext = () => {
     mapPrefetchHandle = null;
@@ -273,6 +285,107 @@ function scheduleMapPrefetch(collections) {
     mapPrefetchUsesIdleCallback = false;
     mapPrefetchHandle = setTimeout(prepareNext, 90);
   }
+}
+
+function pumpMapTileWorkerQueue() {
+  if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
+  while (mapTileWorkerQueue.length) {
+    const tile = mapTileWorkerQueue.shift();
+    const key = tile.key;
+    if (mapTileCache.get(key) || mapTileWorkerPending.has(key)) continue;
+    const requestId = ++mapTileWorkerSequence;
+    mapTileWorkerPending.set(key, requestId);
+    try {
+      mapTileWorker.postMessage({ type: "render-tile", requestId, tile });
+    } catch (error) {
+      mapTileWorkerPending.delete(key);
+      console.warn("Préparation de tuile impossible :", error);
+    }
+    if (mapTileWorkerPending.size >= 2) break;
+  }
+}
+
+function requestMapPhysicalTiles(plan, layers) {
+  if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || !layers?.land?.features) return;
+  try {
+    if (!mapTileWorker) {
+      mapTileWorker = new Worker(new URL("./world/map-tile-worker.js", import.meta.url), { type: "module" });
+      mapTileWorker.addEventListener("message", event => {
+        const message = event.data ?? {};
+        if (message.type === "ready") {
+          mapTileWorkerReady = true;
+          pumpMapTileWorkerQueue();
+          return;
+        }
+        if (message.type === "tile-ready") {
+          mapTileWorkerPending.delete(message.tile?.key);
+          if (message.bitmap) {
+            mapTileCache.set(message.tile.key, message.bitmap);
+            requestCompose();
+          }
+          pumpMapTileWorkerQueue();
+          return;
+        }
+        if (message.type === "tile-error") {
+          mapTileWorkerPending.delete(message.tile?.key);
+          console.info("Tuile physique non disponible :", message.error);
+          pumpMapTileWorkerQueue();
+        }
+      });
+      mapTileWorker.addEventListener("error", error => {
+        console.warn("Worker de tuiles indisponible ; le rendu de scène classique reste actif.", error);
+        mapTileWorker.terminate();
+        mapTileWorker = null;
+        mapTileWorkerReady = false;
+        mapTileWorkerPending.clear();
+        mapTileWorkerQueue = [];
+      });
+    }
+    const nextLayers = {
+      land: layers.land,
+      lakes: layers.lakes,
+      rivers: layers.rivers,
+      glaciers: layers.glaciers,
+      elevationPoints: layers.elevationPoints,
+      terrain: layers.terrain
+    };
+    const changed = !mapTileWorkerLayers || Object.keys(nextLayers).some(key => mapTileWorkerLayers[key] !== nextLayers[key]);
+    if (changed) {
+      mapTileWorkerLayers = nextLayers;
+      mapTileWorker.postMessage({ type: "init", layers: nextLayers });
+    }
+    mapTileWorkerQueue = (plan?.tiles ?? []).filter(tile => !mapTileCache.get(tile.key) && !mapTileWorkerPending.has(tile.key));
+    pumpMapTileWorkerQueue();
+  } catch (error) {
+    console.warn("Initialisation du moteur de tuiles impossible :", error);
+  }
+}
+
+function drawMapTileFallbacks(context, width, height, composition) {
+  if (!lastMapTilePlan?.tiles?.length) return;
+  // Les tuiles physiques ne remplissent que les zones non couvertes par la
+  // scène complète : elles servent d'aperçu immédiat pendant le déplacement.
+  context.save();
+  context.beginPath();
+  context.rect(0, 0, width, height);
+  for (const rect of composition.rects) context.rect(rect.x, rect.y, rect.w, rect.h);
+  context.clip("evenodd");
+  const drawn = new Set();
+  for (const requested of lastMapTilePlan.tiles) {
+    const available = findAvailableTile(requested, key => Boolean(mapTileCache.get(key)));
+    if (!available || drawn.has(available.key)) continue;
+    drawn.add(available.key);
+    const bitmap = mapTileCache.get(available.key);
+    if (!bitmap) continue;
+    const rect = getMapTileScreenRect(available, mapViewport, width, height);
+    const period = width * mapViewport.zoom;
+    for (const offset of [-period, 0, period]) {
+      const x = rect.x + offset;
+      if (x + rect.width < 0 || x > width) continue;
+      context.drawImage(bitmap, x, rect.y, rect.width, rect.height);
+    }
+  }
+  context.restore();
 }
 
 function updateMapDiagnostics(result) {
@@ -908,6 +1021,7 @@ function composeScene() {
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
   }
+  drawMapTileFallbacks(context, width, height, composition);
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
   mapLabelHits = [];

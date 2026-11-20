@@ -1,0 +1,22 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { getMapTileGeographicBounds, createPhysicalTileRenderOptions, getMapTileScreenRect } from "../src/world/map-tile-renderer.js";
+
+test("physical tiles have stable geographic extents and centers", () => {
+  const bounds = getMapTileGeographicBounds({ z: 2, x: 0, y: 0 });
+  assert.deepEqual(bounds, { west: -180, east: -90, north: 90, south: 45, centerLongitude: -135, centerLatitude: 67.5, longitudeSpan: 90, latitudeSpan: 45 });
+});
+test("physical tile rendering is independent of political and dynamic overlays", () => {
+  const layers = { land: { features: [] }, lakes: { features: [] }, territories: { features: [{ id: 1 }] }, physicalWorld: { revision: 4 } };
+  const options = createPhysicalTileRenderOptions({ z: 3, x: 4, y: 2 }, layers);
+  assert.equal(options.width, 512); assert.equal(options.height, 256);
+  assert.equal(options.viewport.zoom, 8);
+  assert.equal(options.viewport.centerLongitude, 22.5);
+  assert.equal(options.viewport.centerLatitude, 33.75);
+  assert.equal("territories" in options, false); assert.equal("physicalWorld" in options, false);
+});
+test("tile screen rectangles use the current viewport scale", () => {
+  const rect = getMapTileScreenRect({ z: 2, x: 2, y: 1 }, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 1000, 500);
+  assert.equal(rect.width, 500); assert.equal(rect.height, 250);
+  assert.equal(rect.x, 500); assert.equal(rect.y, 0);
+});

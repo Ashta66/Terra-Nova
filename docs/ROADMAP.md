@@ -1,3 +1,11 @@
+## 20 novembre 2026 — première génération de tuiles physiques autonomes
+- Ajout d'un Worker dédié qui prépare des bitmaps physiques 512×256 indépendants, à partir des terres, de l'hydrographie, des glaciers, des repères d'altitude et du relief ETOPO.
+- Chaque tuile possède une emprise géographique stable calculée depuis ses coordonnées z/x/y ; le rendu ne contient ni frontières politiques, ni labels politiques, ni événements dynamiques.
+- Les bitmaps sont mis en cache dans un LRU plafonné à 64 Mio et 192 entrées. Les ImageBitmap sont fermés lors de leur éviction pour libérer leurs ressources graphiques.
+- Le moteur demande les tuiles visibles et anticipées depuis le planificateur existant, avec deux tâches maximum en vol. Les requêtes en attente sont remplacées par le plan le plus récent après un déplacement.
+- Les tuiles disponibles, y compris leurs ancêtres moins détaillés, peuvent remplir les zones qui sortent de la scène surdimensionnée pendant un panoramique. Le rendu complet existant reste au-dessus et continue d'assurer la compatibilité.
+- Cette tranche crée et exploite les tuiles physiques comme couche de secours ; l'étape suivante déplacera la composition physique normale vers cette pyramide et séparera les overlays politiques et dynamiques de façon visible.
+
 ## 20 novembre 2026 — architecture cartographique par tuiles et familles de données
 - Ajout d'un planificateur de tuiles équirectangulaires à niveaux de zoom discrets, avec coordonnées stables, marge de préchargement, priorité dans le sens du déplacement et liste des tuiles parentes utilisables en repli.
 - Le planificateur est branché au préchargement inactif existant ; les index GeoJSON et le rendu Canvas/Worker restent le chemin de rendu de référence pendant cette première étape. Les tuiles ne sont pas encore des bitmaps vectoriels indépendants.

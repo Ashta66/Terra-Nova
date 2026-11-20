@@ -12,6 +12,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
   const byteLength = value => {
     if (Number.isFinite(value?.byteLength)) return value.byteLength;
     if (Number.isFinite(value?.size)) return value.size;
+    if (Number.isFinite(value?.width) && Number.isFinite(value?.height)) return value.width * value.height * 4;
     return 0;
   };
   const touch = (key, entry) => { entries.delete(key); entries.set(key, entry); };
@@ -21,6 +22,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       if (!oldest) break;
       entries.delete(oldest[0]);
       bytes -= oldest[1].bytes;
+      oldest[1].value?.close?.();
     }
   };
   return {
@@ -36,7 +38,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       const size = byteLength(value);
       if (!id || !value || size > budget) return false;
       const previous = entries.get(id);
-      if (previous) { bytes -= previous.bytes; entries.delete(id); }
+      if (previous) { bytes -= previous.bytes; entries.delete(id); if (previous.value !== value) previous.value?.close?.(); }
       entries.set(id, { value, bytes: size, touchedAt: Date.now() });
       bytes += size;
       evict();
@@ -45,9 +47,9 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
     delete(key) {
       const id = String(key), entry = entries.get(id);
       if (!entry) return false;
-      entries.delete(id); bytes -= entry.bytes; return true;
+      entries.delete(id); bytes -= entry.bytes; entry.value?.close?.(); return true;
     },
-    clear() { entries.clear(); bytes = 0; hits = 0; misses = 0; },
+    clear() { for (const entry of entries.values()) entry.value?.close?.(); entries.clear(); bytes = 0; hits = 0; misses = 0; },
     stats() { return { entries: entries.size, bytes, maxBytes: budget, maxEntries: limit, hits, misses }; }
   };
 }
