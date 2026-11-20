@@ -4,7 +4,7 @@ import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { getSceneTransform, composeSceneCanvas } from "./world/canvas-compositor.js";
+import { sceneRenderParams, composeRects } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
@@ -47,7 +47,14 @@ let lastDragMoved = false;
 let mapInteractionActive = false;
 const sceneCanvas = document.createElement("canvas");
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
+let sceneSize = { w: 0, h: 0, f: 1 };
+let sceneOcean = "#10232c";
+let sceneLabelHits = [];
 let sceneReady = false;
+let sceneRecenterPending = false;
+let lastSceneRecenterAt = 0;
+const OVERSCAN = 1.4;
+const MAP_PIXEL_RATIO = Math.min(1.5, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -62,7 +69,13 @@ let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 let mapCanvas = null;
-const dpr = () => Math.min(2, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
+function viewSize() {
+  const frame = mapCanvas?.parentElement;
+  const availableWidth = frame?.clientWidth || mapCanvas?.clientWidth || 960;
+  const availableHeight = frame?.clientHeight || availableWidth * 0.5;
+  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
+  return { width, height: Math.max(1, Math.round(width * 0.5)) };
+}
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 35;
 const $ = (id) => document.getElementById(id);
@@ -188,15 +201,8 @@ function renderMapFrame() {
       activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières")
     ]);
   }
-  const canvas = mapCanvas;
-  const frame = canvas.parentElement;
-  const availableWidth = frame?.clientWidth || canvas.clientWidth || 960;
-  const availableHeight = frame?.clientHeight || availableWidth * 0.5;
-  // Ratio géographique 2:1, ajusté à la largeur ET à la hauteur réellement visibles.
-  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
-  const height = Math.max(1, Math.round(width * 0.5));
-  canvas.style.width = width + "px";
-  canvas.style.height = height + "px";
+  const { width, height } = viewSize();
+  const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
   const year = Number(String(state.clock.date).slice(0, 4));
   const administrativeDetail = mapViewport.zoom >= 4 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
@@ -233,9 +239,9 @@ function renderMapFrame() {
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures);
   const renderOptions = {
-    width, height, year,
+    width: Ws, height: Hs, year,
     projection: "equirectangular",
-    viewport: { ...mapViewport },
+    viewport: renderViewport,
     lakes: lakeDetail.features,
     rivers: riverDetail.features,
     glaciers: glacierFeatures,
@@ -251,15 +257,20 @@ function renderMapFrame() {
     terrainQuality: 1,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
-    pixelRatio: dpr(),
+    pixelRatio: MAP_PIXEL_RATIO,
     interactive: false,
     physicalOverlayContext: null,
   };
+  const renderStartedAt = globalThis.performance?.now?.() ?? Date.now();
   const result = renderWorldMap(sceneCanvas, landDetail.features, renderOptions);
+  const fullRenderMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt);
   sceneViewport = { ...mapViewport };
+  sceneSize = { w: Ws, h: Hs, f };
+  sceneOcean = result.theme.colors.ocean;
+  sceneLabelHits = result.labelHits ?? [];
   sceneReady = true;
+  sceneRecenterPending = false;
   composeScene();
-  mapLabelHits = result.labelHits ?? [];
   updateMapDiagnostics(result);
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
@@ -608,12 +619,32 @@ function hideMapTooltip() {
 }
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
-  const rect = mapCanvas.getBoundingClientRect();
-  const width = rect.width || mapCanvas.clientWidth || 1;
-  const height = rect.height || mapCanvas.clientHeight || width / 2;
-  const transform = getSceneTransform(sceneViewport, mapViewport, width, height);
-  const pixelRatio = sceneCanvas.width / width || dpr();
-  composeSceneCanvas(mapCanvas, sceneCanvas, transform, pixelRatio);
+  const { width, height } = viewSize();
+  const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
+  const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
+  if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
+  if (mapCanvas.height !== backingHeight) mapCanvas.height = backingHeight;
+  const context = mapCanvas.getContext("2d");
+  if (!context) return;
+  context.setTransform(MAP_PIXEL_RATIO, 0, 0, MAP_PIXEL_RATIO, 0, 0);
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = sceneOcean;
+  context.fillRect(0, 0, width, height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "low";
+  const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
+  for (const rect of composition.rects) {
+    context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+  }
+  if (!composition.covered) {
+    const now = globalThis.performance?.now?.() ?? Date.now();
+    if (!sceneRecenterPending && now - lastSceneRecenterAt > 250) {
+      sceneRecenterPending = true;
+      lastSceneRecenterAt = now;
+      lastRenderedMapSignature = null;
+      renderMap();
+    }
+  }
 }
 function requestCompose() {
   if (composeFrame !== null) return;

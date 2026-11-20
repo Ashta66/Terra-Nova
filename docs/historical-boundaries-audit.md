@@ -151,3 +151,8 @@ Le raster ETOPO est désormais précalculé et mis en cache par tuiles géograph
 ## Scène cartographique surdimensionnée — calculs purs (étape 1)
 
 Le module `src/world/scene-compose.js` isole les paramètres de rendu d'une scène avec surdimensionnement et le calcul des rectangles de composition. Il gère la répétition horizontale du monde lorsque la scène couvre déjà la planète entière, la normalisation de l'antiméridien et la détection de couverture complète de l'écran. Les fonctions sont pures et couvertes par des tests unitaires dédiés.
+
+
+## Scène cartographique surdimensionnée (étape 2)
+
+Le canvas hors écran est rendu avec un facteur `OVERSCAN = 1.4`, limité à `min(1.4, zoom)` afin de respecter le zoom minimal 1 de la projection. Le bitmap de scène utilise un ratio de pixels fixe plafonné à 1,5 pendant les gestes. Le canvas visible garde une taille CSS indépendante (100 %, ratio 2:1) ; seul son bitmap est redimensionné dans `composeScene`. La composition remplit d'abord le fond avec la couleur océan du thème puis dessine les rectangles calculés en coordonnées CSS, avec lissage bas. Lorsque la scène ne couvre plus tout l'écran, un seul recentrage est demandé après un délai de garde de 250 ms ; un verrou empêche les demandes en boucle.
