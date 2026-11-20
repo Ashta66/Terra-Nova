@@ -1231,7 +1231,7 @@ test("le renderer géographique conserve un cache GPU indépendant pour chaque c
     createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
     getAttribLocation: () => 0, getUniformLocation: () => ({}),
     viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
-    useProgram() {}, uniform2f() {}, uniform1f(location, value) { calls.push(["uniform1f", value]); }, uniform4fv() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
     bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
     bufferData(target, data) { uploads.push({ target, bytes: data.byteLength }); },
     drawElements() {}
