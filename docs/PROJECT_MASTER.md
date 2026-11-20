@@ -1,3 +1,9 @@
+## Correction des couches de relief et territoires — 20 novembre 2026
+- Suppression des triangles symbolisant les sommets montagneux ; les noms des sommets majeurs (≥ 5 000 m) sont conservés.
+- Les aplats colorés des territoires historiques utilisent désormais le même profil de simplification du littoral que le fond terrestre, afin d'éviter les petites îles qui semblent flotter hors du masque physique.
+- Les contours territoriaux conservent leur profil plus détaillé : la hiérarchie des frontières n'est pas sacrifiée pour corriger les aplats.
+- Les repères de dépressions restent inchangés.
+
 ## Optimisation cartographique — 20 novembre 2026
 - Littoral physique et masque du relief simplifiés davantage que les frontières territoriales ; les micro-îles et détails côtiers secondaires sont écartés à toutes les échelles.
 - Hillshade superposé allégé : qualité raster plafonnée à 0,62 et opacité réduite (0,52 en mode politique ; 0,66 en mode relief).

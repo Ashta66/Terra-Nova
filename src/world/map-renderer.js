@@ -459,24 +459,23 @@ function drawElevationPoints(context, collection, width, height, projection, the
     context.fillStyle = isDepression ? "#6f8f9b" : theme.colors.accent;
     context.strokeStyle = theme.colors.coast;
     context.lineWidth = 0.8 * renderScale;
-    context.beginPath();
     if (isMountain) {
-      const size = (elevation >= 7000 ? 5 : elevation >= 4000 ? 4 : 3) * renderScale;
-      context.moveTo(point.x, point.y - size);
-      context.lineTo(point.x + size, point.y + size);
-      context.lineTo(point.x - size, point.y + size);
-      context.closePath();
-    } else {
-      context.arc(point.x, point.y, 2.2 * renderScale, 0, Math.PI * 2);
+      // Les triangles de sommets sont supprimés : le relief ETOPO suffit à
+      // lire les montagnes. On conserve uniquement le nom des très hauts sommets.
+      if (elevation >= 5000 && typeof context.fillText === "function") {
+        context.font = `${10 * renderScale}px Georgia, serif`;
+        context.textAlign = "left";
+        context.fillStyle = theme.colors.text;
+        context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
+      }
+      context.restore();
+      drawn++;
+      continue;
     }
+    context.beginPath();
+    context.arc(point.x, point.y, 2.2 * renderScale, 0, Math.PI * 2);
     context.fill();
     context.stroke();
-    if (isMountain && elevation >= 5000 && typeof context.fillText === "function") {
-      context.font = `${10 * renderScale}px Georgia, serif`;
-      context.textAlign = "left";
-      context.fillStyle = theme.colors.text;
-      context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
-    }
     context.restore();
     drawn++;
   }
@@ -823,8 +822,12 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  }
  ctx.restore();return count;
 }
+export function getTerritoryFillSimplificationProfile(zoom = 1) {
+  return getLandCoastSimplificationProfile(zoom);
+}
+
 function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
- if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.lodZoom??projection.viewport?.zoom??1),zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),renderScale=projection.renderScale??1;context.save();
+ if(!collection?.features)return 0;let drawn=0;const zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),profile=pass==="fill"?getTerritoryFillSimplificationProfile(zoom):getCoastSimplificationProfile(zoom),renderScale=projection.renderScale??1;context.save();
  for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
   const paint=path=>{
    const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};
