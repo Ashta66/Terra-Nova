@@ -101,11 +101,22 @@ export function encodeTerrainTexture(values) {
 
 function createRenderer(grid) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)) return null;
-  const canvas = typeof OffscreenCanvas !== "undefined"
-    ? new OffscreenCanvas(1, 1)
-    : typeof document !== "undefined" ? document.createElement("canvas") : null;
-  const gl = canvas?.getContext?.("webgl", { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true });
-  if (!gl || grid.width > gl.getParameter(gl.MAX_TEXTURE_SIZE) || grid.height > gl.getParameter(gl.MAX_TEXTURE_SIZE)) return null;
+  const candidates = [];
+  if (typeof OffscreenCanvas !== "undefined") candidates.push(new OffscreenCanvas(1, 1));
+  if (typeof document !== "undefined") candidates.push(document.createElement("canvas"));
+  let canvas = null, gl = null;
+  for (const candidate of candidates) {
+    const context = candidate.getContext?.("webgl", {
+      alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
+    });
+    if (context && grid.width <= context.getParameter(context.MAX_TEXTURE_SIZE)
+      && grid.height <= context.getParameter(context.MAX_TEXTURE_SIZE)) {
+      canvas = candidate;
+      gl = context;
+      break;
+    }
+  }
+  if (!gl) return null;
   const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
   const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
   if (!vertex || !fragment) return null;
@@ -158,6 +169,7 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
     Number(viewport.centerLongitude ?? 0), Number(viewport.centerLatitude ?? 0));
   gl.uniform1f(gl.getUniformLocation(program, "u_zoom"), Math.max(0.0001, Number(viewport.zoom ?? 1)));
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (gl.isContextLost?.()) return null;
   return canvas;
 }
 
