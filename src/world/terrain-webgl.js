@@ -130,6 +130,25 @@ export function encodeTerrainTexture(values) {
   return packed;
 }
 
+export function prepareTerrainTextureGrid(grid, maxTextureSize) {
+  if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)
+    || grid.width < 2 || grid.height < 2 || grid.values.length < grid.width * grid.height
+    || !Number.isInteger(maxTextureSize) || maxTextureSize < 2) return null;
+  const scale = Math.min(1, maxTextureSize / grid.width, maxTextureSize / grid.height);
+  if (scale >= 1) return grid;
+  const width = Math.max(2, Math.floor((grid.width - 1) * scale) + 1);
+  const height = Math.max(2, Math.floor((grid.height - 1) * scale) + 1);
+  const values = new Int16Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const sourceY = Math.min(grid.height - 1, Math.round(y * (grid.height - 1) / (height - 1)));
+    for (let x = 0; x < width; x++) {
+      const sourceX = Math.min(grid.width - 1, Math.round(x * (grid.width - 1) / (width - 1)));
+      values[y * width + x] = grid.values[sourceY * grid.width + sourceX];
+    }
+  }
+  return { width, height, values, sourceWidth: grid.width, sourceHeight: grid.height };
+}
+
 function createRenderer(grid) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)) return null;
   const candidates = [];
@@ -140,8 +159,7 @@ function createRenderer(grid) {
     const context = candidate.getContext?.("webgl", {
       alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
     });
-    if (context && grid.width <= context.getParameter(context.MAX_TEXTURE_SIZE)
-      && grid.height <= context.getParameter(context.MAX_TEXTURE_SIZE)) {
+    if (context) {
       canvas = candidate;
       gl = context;
       break;
@@ -157,8 +175,10 @@ function createRenderer(grid) {
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
 
+  const textureGrid = prepareTerrainTextureGrid(grid, gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  if (!textureGrid) return null;
   const uploadStartedAt = globalThis.performance?.now?.() ?? Date.now();
-  const packed = encodeTerrainTexture(grid.values);
+  const packed = encodeTerrainTexture(textureGrid.values);
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -168,7 +188,7 @@ function createRenderer(grid) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, grid.width, grid.height, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, textureGrid.width, textureGrid.height, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
   const textureUploadMs = (globalThis.performance?.now?.() ?? Date.now()) - uploadStartedAt;
   const timerExtension = gl.getExtension("EXT_disjoint_timer_query");
 
@@ -180,9 +200,9 @@ function createRenderer(grid) {
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
   gl.uniform1i(gl.getUniformLocation(program, "u_elevation"), 0);
-  gl.uniform2f(gl.getUniformLocation(program, "u_gridSize"), grid.width, grid.height);
+  gl.uniform2f(gl.getUniformLocation(program, "u_gridSize"), textureGrid.width, textureGrid.height);
   const renderer = {
-    canvas, gl, program, grid, texture, timerExtension,
+    canvas, gl, program, grid, texture, textureGrid, timerExtension,
     textureUploadMs, textureBytes: packed.byteLength,
     pendingQueries: [], lastGpuMs: null, lastSubmitMs: 0,
     contextLost: false
