@@ -343,8 +343,8 @@ function applyMapPreviewTransform(origin = mapPreviewOrigin) {
   const deltaLongitude = mapViewport.centerLongitude - origin.centerLongitude;
   const deltaLatitude = mapViewport.centerLatitude - origin.centerLatitude;
   const tx = width * (1 - scale) / 2 - deltaLongitude / 360 * width * mapViewport.zoom;
-  const ty = height * (1 - scale) / 2 + deltaLatitude / 180 * height * mapViewport.zoom;
-  mapCanvas.style.transform = "matrix(" + [scale,0,0,scale,tx,ty].join(",") + ")";
+  const ty = deltaLatitude / 180 * height * mapViewport.zoom;
+  mapCanvas.style.transform = "translateY(-50%) matrix(" + [scale,0,0,scale,tx,ty].join(",") + ")";
 }
 function clearWheelZoomPreview() {
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
