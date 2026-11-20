@@ -1,0 +1,108 @@
+const MIN_TILE_ZOOM = 2;
+const MAX_TILE_ZOOM = 7;
+const DEFAULT_TILE_BUDGET = 64;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const wrap = value => ((value % 1) + 1) % 1;
+
+export function getMapTileLevel(zoom = 1) {
+  const level = Math.floor(Math.log2(Math.max(1, Number(zoom) || 1))) + MIN_TILE_ZOOM;
+  return clamp(level, MIN_TILE_ZOOM, MAX_TILE_ZOOM);
+}
+
+export function getMapTileKey(z, x, y) {
+  const level = clamp(Math.floor(Number(z) || 0), 0, MAX_TILE_ZOOM);
+  const count = 2 ** level;
+  const column = ((Math.floor(Number(x) || 0) % count) + count) % count;
+  const row = clamp(Math.floor(Number(y) || 0), 0, count - 1);
+  return level + "/" + column + "/" + row;
+}
+
+export function getMapTileAncestors(tile) {
+  if (!tile || !Number.isInteger(tile.z) || tile.z < 1) return [];
+  const ancestors = [];
+  for (let z = tile.z - 1; z >= 0; z--) {
+    const shift = tile.z - z;
+    ancestors.push({ z, x: Math.floor(tile.x / (2 ** shift)), y: Math.floor(tile.y / (2 ** shift)), key: getMapTileKey(z, Math.floor(tile.x / (2 ** shift)), Math.floor(tile.y / (2 ** shift))) });
+  }
+  return ancestors;
+}
+
+function viewportTileBounds(viewport, overscan) {
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const centerLon = Number(viewport.centerLongitude) || 0;
+  const centerLat = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
+  const halfLon = Math.min(180, 180 / zoom * overscan);
+  const halfLat = Math.min(90, 90 / zoom * overscan);
+  return {
+    west: (centerLon - halfLon + 180) / 360,
+    east: (centerLon + halfLon + 180) / 360,
+    north: (90 - Math.min(90, centerLat + halfLat)) / 180,
+    south: (90 - Math.max(-90, centerLat - halfLat)) / 180
+  };
+}
+
+/**
+ * Planificateur de tuiles équirectangulaires. Le niveau suit le zoom par
+ * puissances de deux ; les coordonnées restent stables entre les vues.
+ * Les tuiles parentes sont listées pour afficher un aperçu tant que les
+ * enfants détaillés ne sont pas disponibles.
+ */
+export function getMapTilePyramidPlan(viewport = {}, options = {}) {
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const z = getMapTileLevel(zoom);
+  const count = 2 ** z;
+  const overscan = clamp(Number(options.overscan) || 1.5, 1, 2.5);
+  const maxTiles = clamp(Math.floor(Number(options.maxTiles) || DEFAULT_TILE_BUDGET), 1, 256);
+  const bounds = viewportTileBounds(viewport, overscan);
+  const xStart = Math.floor(bounds.west * count);
+  const xEnd = Math.floor(bounds.east * count);
+  const yStart = clamp(Math.floor(bounds.north * count), 0, count - 1);
+  const yEnd = clamp(Math.floor(bounds.south * count), 0, count - 1);
+  const centerX = wrap((Number(viewport.centerLongitude) + 180) / 360) * count;
+  const centerY = clamp((90 - (Number(viewport.centerLatitude) || 0)) / 180, 0, 1) * count;
+  const previous = options.previousViewport;
+  let dx = previous ? Number(viewport.centerLongitude) - Number(previous.centerLongitude) : 0;
+  if (dx > 180) dx -= 360;
+  if (dx < -180) dx += 360;
+  const dy = previous ? Number(previous.centerLatitude) - Number(viewport.centerLatitude) : 0;
+  const magnitude = Math.hypot(dx, dy) || 1;
+  const nx = dx / magnitude, ny = dy / magnitude;
+  const candidates = [];
+  const seen = new Set();
+  for (let rawX = xStart; rawX <= xEnd; rawX++) {
+    const x = ((rawX % count) + count) % count;
+    for (let y = yStart; y <= yEnd; y++) {
+      const key = getMapTileKey(z, x, y);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const ox = rawX + 0.5 - centerX;
+      const oy = y + 0.5 - centerY;
+      const distance = Math.hypot(ox, oy);
+      const forward = ox * nx + oy * ny;
+      candidates.push({ z, x, y, key, ancestors: getMapTileAncestors({ z, x, y }), priority: distance - forward * 0.65 });
+    }
+  }
+  candidates.sort((a, b) => a.priority - b.priority);
+  const tiles = candidates.slice(0, maxTiles).map(({ priority, ...tile }) => tile);
+  return {
+    zoom,
+    z,
+    nextZ: Math.min(MAX_TILE_ZOOM, z + 1),
+    previousZ: Math.max(0, z - 1),
+    fractionalZoom: Math.log2(zoom) - Math.floor(Math.log2(zoom)),
+    tiles,
+    requestedTileCount: candidates.length,
+    truncated: candidates.length > tiles.length,
+    overscan
+  };
+}
+
+export function findAvailableTile(tile, hasTile) {
+  if (!tile || typeof hasTile !== "function") return null;
+  if (hasTile(tile.key)) return { ...tile, fallback: false };
+  for (const parent of tile.ancestors ?? getMapTileAncestors(tile)) {
+    if (hasTile(parent.key)) return { ...parent, fallback: true, childKey: tile.key };
+  }
+  return null;
+}
