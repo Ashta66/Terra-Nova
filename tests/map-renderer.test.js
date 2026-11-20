@@ -1434,6 +1434,7 @@ test("les frontières administratives secondaires sont envoyées au renderer Web
       return {
         drawnFeatures: 2, skippedFeatures: 0, drawCalls: 2, triangles: 1,
         cacheHit: false, bufferUploads: 2, uploadedBytes: 32,
+        cacheBuildMs: 3.25, drawSubmitMs: 1.5, totalMs: 5.1,
         layers: {
           land: { drawnFeatures: 1 },
           "administrative-boundary-lines": { drawnFeatures: 1 },
@@ -1458,6 +1459,9 @@ test("les frontières administratives secondaires sont envoyées au renderer Web
   assert.equal(lineLayer.features[0], administrativeBoundaries.features[0]);
   assert.equal(polygonLayer.features[0], administrativeBoundaries.features[1]);
   assert.equal(result.geographicWebGLStats.drawCalls, 2);
+  assert.equal(result.geographicWebGLStats.cacheBuildMs, 3.25);
+  assert.equal(result.geographicWebGLStats.drawSubmitMs, 1.5);
+  assert.equal(result.geographicWebGLStats.totalMs, 5.1);
   assert.ok(calls.some(call => call[0] === "drawImage"));
 });
 
