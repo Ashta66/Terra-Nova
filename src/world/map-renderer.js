@@ -455,7 +455,8 @@ function getPhysicalLabelIndex(world) {
 
 export function isCityPermanentlySubmerged(feature, world) {
   const coordinates = feature?.geometry?.coordinates;
-  if (!Array.isArray(coordinates) || !world?.currentCells?.length) return false;
+  // Le monde physique initial est neutre : aucun index de cellules à construire.
+  if (Number(world?.revision ?? 0) <= 0 || !Array.isArray(coordinates) || !world?.currentCells?.length) return false;
   const longitude = Number(coordinates[0]), latitude = Number(coordinates[1]);
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false;
   const index = getPhysicalLabelIndex(world);
