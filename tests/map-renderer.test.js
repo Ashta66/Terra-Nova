@@ -817,6 +817,8 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
     assert.equal(second.staticCacheHit, true);
     assert.equal(getStaticLayerCacheStats(canvas).entries, 1);
     assert.equal(getStaticLayerCacheStats(canvas).maxEntries, 3);
+    assert.ok(getStaticLayerCacheStats(canvas).bytes > 0);
+    assert.equal(getStaticLayerCacheStats(canvas).maxBytes, 48 * 1024 * 1024);
   } finally {
     if (previous === undefined) delete globalThis.OffscreenCanvas;
     else globalThis.OffscreenCanvas = previous;
