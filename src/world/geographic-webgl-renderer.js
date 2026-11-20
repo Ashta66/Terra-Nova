@@ -92,20 +92,29 @@ function buildRibbonBuffer(segments, gl, message) {
     appendVertex(ax, ay, bx, by, 1);
     appendVertex(bx, by, ax, ay, 1);
   }
-  // Small screen-space disks close gaps at shared endpoints and line intersections.
+  // Disks in screen space close shared joins and round genuine open-line caps.
   const joined = new Set();
+  const capped = new Set();
   const steps = 12;
+  const appendDisk = (x, y) => {
+    for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
+      const a = stepIndex * Math.PI * 2 / steps;
+      const b = (stepIndex + 1) * Math.PI * 2 / steps;
+      appendVertex(x, y, x, y, 0, 0, 0, 1);
+      appendVertex(x, y, x, y, 0, Math.cos(a), Math.sin(a), 1);
+      appendVertex(x, y, x, y, 0, Math.cos(b), Math.sin(b), 1);
+    }
+  };
   for (let index = 0; index < segments.length; index += 4) {
     for (const [x, y] of [[segments[index], segments[index + 1]], [segments[index + 2], segments[index + 3]]]) {
       const key = endpointKey(x, y);
-      if ((endpointCounts.get(key) ?? 0) < 2 || joined.has(key)) continue;
-      joined.add(key);
-      for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
-        const a = stepIndex * Math.PI * 2 / steps;
-        const b = (stepIndex + 1) * Math.PI * 2 / steps;
-        appendVertex(x, y, x, y, 0, 0, 0, 1);
-        appendVertex(x, y, x, y, 0, Math.cos(a), Math.sin(a), 1);
-        appendVertex(x, y, x, y, 0, Math.cos(b), Math.sin(b), 1);
+      const degree = endpointCounts.get(key) ?? 0;
+      if (degree >= 2 && !joined.has(key)) {
+        joined.add(key);
+        appendDisk(x, y);
+      } else if (degree === 1 && !capped.has(key)) {
+        capped.add(key);
+        appendDisk(x, y);
       }
     }
   }
