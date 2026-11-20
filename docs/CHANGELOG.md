@@ -210,3 +210,14 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Ajout d'une fiche dynamique à la sélection : capitale, population et richesse lorsque les données source le permettent, indice de potentiel militaire estimatif, statut diplomatique et objectifs contextualisés.
 - Les statistiques modernes ne sont pas réinjectées dans les années historiques. Les valeurs manquantes sont indiquées plutôt qu'inventées.
 - Ajout de tests unitaires pour les cas historiques, contemporains, vassaux et données incomplètes.
+
+
+## 20 novembre 2026 — fusion des fiches et préchauffage de la carte
+
+- PR #13 fusionnée dans `main` : encyclopédie stratégique des nations, fiche de campagne et tests associés.
+- `src/world/map-lod.js` : ajout d'un préchauffage réutilisable des quatre couches régionales 1:10m vers IndexedDB.
+- `src/main.js` : démarrage différé du préchargement régional après réception des données mondiales ; statut visible dans le sélecteur de nations ; préparation en tranches inactives des index spatiaux des couches mondiales et des territoires.
+- Les six GeoJSON mondiaux et le raster ETOPO restent servis par Cache Storage via `fetchMapAsset`, ce qui réutilise les ressources déjà téléchargées au prochain lancement.
+- Écran d'ouverture : animation orbitale de l'emblème, reflet animé de la barre et progression numérique interpolée par `requestAnimationFrame`. Les préférences de mouvement réduit sont respectées.
+- Les couches régionales sont facultatives : un échec de téléchargement ou l'absence d'IndexedDB ne bloque pas le démarrage ni le fond mondial.
+- Validation navigateur visuelle et mesure FPS sur la machine cible à effectuer ; le préchargement ne promet pas un mode hors ligne complet.

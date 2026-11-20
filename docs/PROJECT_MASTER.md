@@ -273,3 +273,13 @@ Les PR #10 (overscan) et #11 (hillshade ETOPO, exagération 18) sont fusionnées
 ## Fiches des nations jouables — novembre 2026
 
 Chaque sélection ouvre une fiche de campagne : capitale lorsqu'elle est documentée, indicateurs démographiques/économiques uniquement lorsqu'une source contemporaine les fournit, potentiel militaire présenté comme indice de jeu et non comme effectifs historiques, situation diplomatique basée sur le statut de souveraineté/contestation et les liens de suzeraineté explicitement présents dans les données, puis objectifs adaptés au rang, à la difficulté et à la région. Les clichés historiques ne contenant pas de statistiques ne sont pas complétés par des chiffres modernes. Les capitales et emblèmes non sourcés restent explicitement indicatifs.
+
+
+## Fusion stable et optimisation du démarrage — 20 novembre 2026
+
+- PR #13 fusionnée dans `main` : fiches stratégiques des nations et objectifs de campagne indicatifs.
+- Au démarrage, les six couches vectorielles mondiales et le raster ETOPO sont lus via Cache Storage (`terra-nova-map-assets-v1`) lorsqu'ils y sont présents ; les ressources principales téléchargées sont conservées pour les ouvertures suivantes.
+- Pendant l'écran de chargement puis la sélection du pays, les quatre couches régionales Natural Earth 1:10m sont préchargées en arrière-plan et stockées dans IndexedDB. Ce préchargement n'interrompt pas la carte mondiale et peut être différé si le navigateur ou le stockage local ne le permet pas.
+- Les index spatiaux et secteurs voisins des couches mondiales sont préparés par tranches de travail inactif pendant la sélection du pays, afin de réduire le coût du premier zoom sans monopoliser le thread d'interface.
+- La progression initiale et son pourcentage sont interpolés sur animation frame ; l'emblème du démarrage reçoit une animation orbitale légère. Le respect de `prefers-reduced-motion` désactive ces animations.
+- Limite : le cache navigateur accélère les chargements ultérieurs sur le même navigateur/origine, mais ne garantit ni fonctionnement hors ligne complet, ni FPS constants, ni persistance après effacement des données du site. Le parsing JSON et la préparation des index consomment toujours du CPU.
