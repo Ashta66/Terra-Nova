@@ -203,3 +203,5 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
   will-change: auto !important;
 }
 .map-frame .map-physical-overlay { display: none !important; }
+
+.map-perf-comparison{padding-top:7px;color:#d9c79e;font-variant-numeric:tabular-nums}

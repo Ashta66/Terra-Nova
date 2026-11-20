@@ -257,11 +257,12 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false) {
   if (!collection?.features) return 0;
   let drawn = 0;
+  const renderScale = projection.renderScale ?? 1;
   context.save();
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
-    const coastProfile = simplifyCoast ? getCoastSimplificationProfile(projection.viewport?.zoom ?? 1) : null;
+    const coastProfile = simplifyCoast ? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1) : null;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
       context.beginPath();
@@ -269,7 +270,7 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     }
     context.fillStyle = fill;
     context.strokeStyle = stroke;
-    context.lineWidth = lineWidth;
+    context.lineWidth = lineWidth * renderScale;
     // CanvasRenderingContext2D accepts either a cached Path2D or the current path.
     if (cachedPath) {
       context.fill(cachedPath, "evenodd");
@@ -287,12 +288,13 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
 function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null) {
   if (!collection?.features) return 0;
   let drawn = 0;
+  const renderScale = projection.renderScale ?? 1;
   for (const feature of collection.features) {
     const geometry = feature?.geometry;
     if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
-    context.lineWidth = lineWidth;
+    context.lineWidth = lineWidth * renderScale;
     const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
     if (cachedPath) {
       context.stroke(cachedPath);
@@ -339,13 +341,15 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
   if (!collection?.features) return 0;
   let count = 0;
   context.save();
+  const renderScale = projection.renderScale ?? 1;
   context.strokeStyle = color;
-  context.lineWidth = lineWidth;
+  context.lineWidth = lineWidth * renderScale;
   context.globalAlpha = 0.92;
-  const simplifyProfile = getBoundarySimplificationProfile(projection.viewport?.zoom ?? 1);
+  const scaledDash = dash.map(value => value * renderScale);
+  const simplifyProfile = getBoundarySimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   for (const feature of collection.features) {
     const precision = Number(feature?.properties?.BORDERPRECISION ?? feature?.properties?.borderPrecision ?? 3);
-    context.setLineDash?.(precisionAware && precision < 3 ? [3, 2] : dash);
+    context.setLineDash?.(precisionAware && precision < 3 ? [3 * renderScale, 2 * renderScale] : scaledDash);
     count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth, simplifyProfile);
   }
   context.restore();
@@ -355,9 +359,10 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
 function drawLandHachures(context, collection, width, height, projection, color) {
   if (!collection?.features || typeof context.clip !== "function") return;
   context.save();
+  const renderScale = projection.renderScale ?? 1;
   context.globalAlpha = 0.12;
   context.strokeStyle = color;
-  context.lineWidth = 0.45;
+  context.lineWidth = 0.45 * renderScale;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     context.save();
@@ -369,7 +374,7 @@ function drawLandHachures(context, collection, width, height, projection, color)
       if (traceGeometry(context, feature.geometry, width, height, projection)) context.clip("evenodd");
     }
     if (cachedPath || typeof Path2D === "undefined") {
-      for (let offset = -height; offset < width; offset += 13) {
+      for (let offset = -height; offset < width; offset += 13 * renderScale) {
         context.beginPath();
         context.moveTo(offset, height);
         context.lineTo(offset + height, 0);
@@ -384,6 +389,7 @@ function drawLandHachures(context, collection, width, height, projection, color)
 function drawElevationPoints(context, collection, width, height, projection, theme) {
   if (!collection?.features) return 0;
   let drawn = 0;
+  const renderScale = projection.renderScale ?? 1;
   for (const feature of collection.features) {
     if (feature.geometry?.type !== "Point") continue;
     const [longitude, latitude] = feature.geometry.coordinates;
@@ -395,24 +401,24 @@ function drawElevationPoints(context, collection, width, height, projection, the
     context.save();
     context.fillStyle = isDepression ? "#6f8f9b" : theme.colors.accent;
     context.strokeStyle = theme.colors.coast;
-    context.lineWidth = 0.8;
+    context.lineWidth = 0.8 * renderScale;
     context.beginPath();
     if (isMountain) {
-      const size = elevation >= 7000 ? 5 : elevation >= 4000 ? 4 : 3;
+      const size = (elevation >= 7000 ? 5 : elevation >= 4000 ? 4 : 3) * renderScale;
       context.moveTo(point.x, point.y - size);
       context.lineTo(point.x + size, point.y + size);
       context.lineTo(point.x - size, point.y + size);
       context.closePath();
     } else {
-      context.arc(point.x, point.y, 2.2, 0, Math.PI * 2);
+      context.arc(point.x, point.y, 2.2 * renderScale, 0, Math.PI * 2);
     }
     context.fill();
     context.stroke();
     if (isMountain && elevation >= 5000 && typeof context.fillText === "function") {
-      context.font = "10px Georgia, serif";
+      context.font = `${10 * renderScale}px Georgia, serif`;
       context.textAlign = "left";
       context.fillStyle = theme.colors.text;
-      context.fillText(feature.properties?.name ?? "Sommet", point.x + 6, point.y - 4);
+      context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
     }
     context.restore();
     drawn++;
@@ -436,11 +442,11 @@ function getSortedLabelCandidates(collection) {
   return candidates;
 }
 
-function labelBoxCollides(box, occupiedCells) {
-  const minX = Math.floor(box.left / LABEL_COLLISION_CELL_SIZE);
-  const maxX = Math.floor(box.right / LABEL_COLLISION_CELL_SIZE);
-  const minY = Math.floor(box.top / LABEL_COLLISION_CELL_SIZE);
-  const maxY = Math.floor(box.bottom / LABEL_COLLISION_CELL_SIZE);
+function labelBoxCollides(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SIZE) {
+  const minX = Math.floor(box.left / cellSize);
+  const maxX = Math.floor(box.right / cellSize);
+  const minY = Math.floor(box.top / cellSize);
+  const maxY = Math.floor(box.bottom / cellSize);
   const checked = new Set();
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -454,11 +460,11 @@ function labelBoxCollides(box, occupiedCells) {
   return false;
 }
 
-function addLabelBox(box, occupiedCells) {
-  const minX = Math.floor(box.left / LABEL_COLLISION_CELL_SIZE);
-  const maxX = Math.floor(box.right / LABEL_COLLISION_CELL_SIZE);
-  const minY = Math.floor(box.top / LABEL_COLLISION_CELL_SIZE);
-  const maxY = Math.floor(box.bottom / LABEL_COLLISION_CELL_SIZE);
+function addLabelBox(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SIZE) {
+  const minX = Math.floor(box.left / cellSize);
+  const maxX = Math.floor(box.right / cellSize);
+  const minY = Math.floor(box.top / cellSize);
+  const maxY = Math.floor(box.bottom / cellSize);
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       const key = `${x}:${y}`;
@@ -661,19 +667,19 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(terrainGrid&&projection.type==="equirectangular"&&(world.events??[]).some(e=>["tsunami","meteor-impact","earthquake"].includes(e.type))){
   drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);
  }
- const zoom=Number(projection.viewport?.zoom??1);
+ const zoom=Number(projection.lodZoom??projection.viewport?.zoom??1);
  for(const event of world.events??[]){
   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
    if(center&&radius>1&&!event.visualExpired){
-   ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)));
+   ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)))*(projection.renderScale??1);
    ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
-   ctx.setLineDash?.(event.type==="earthquake"?[5,4]:[2,3]);
+   ctx.setLineDash?.((event.type==="earthquake"?[5,4]:[2,3]).map(value=>value*(projection.renderScale??1)));
    for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
    if(event.type==="earthquake"){
-    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,1)";ctx.lineWidth=Math.max(3,2.4*Math.sqrt(zoom));
+    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,1)";ctx.lineWidth=Math.max(3,2.4*Math.sqrt(zoom))*(projection.renderScale??1);
     const angle=(event.ruptureBearingDeg??35)*Math.PI/180;
     for(const sign of [-1,1]){const dx=Math.cos(angle+Math.PI/2)*radius*.8*sign,dy=Math.sin(angle+Math.PI/2)*radius*.8*sign;ctx.beginPath();ctx.moveTo(center.x-dx,center.y-dy);ctx.lineTo(center.x-dx*.28+Math.cos(angle)*3,center.y-dy*.28+Math.sin(angle)*3);ctx.lineTo(center.x+dx*.18-Math.cos(angle)*2,center.y+dy*.18-Math.sin(angle)*2);ctx.lineTo(center.x+dx*.72,center.y+dy*.72);ctx.stroke();}
    }
@@ -698,14 +704,14 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  ctx.restore();return count;
 }
 function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
- if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.viewport?.zoom??1),zoom=Number(projection.viewport?.zoom??1);context.save();
+ if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.lodZoom??projection.viewport?.zoom??1),zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),renderScale=projection.renderScale??1;context.save();
  for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
   const paint=path=>{
    const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};
    const strokePath=()=>{if(path)context.stroke(path);else context.stroke();};
    if(pass!=="outlines"){const statusOpacity=status==="influence"?.28:status==="contested"?.72:status==="unclaimed"?.12:1;context.globalCompositeOperation="source-over";context.globalAlpha=fillOpacity*statusOpacity;context.fillStyle=nationalColor;fillPath();}
-   if(pass!=="fill"){context.globalCompositeOperation="source-over";context.globalAlpha=status==="influence"?.42:.78;context.setLineDash?.(status==="influence"?[3,3]:status==="contested"?[2,2]:[]);context.strokeStyle=nationalColor;context.lineWidth=Math.max(.72,Math.min(1.45,.88*Math.sqrt(zoom)));context.lineJoin="round";strokePath();context.setLineDash?.([]);context.globalAlpha=.46;context.strokeStyle="#14232c";context.lineWidth=Math.max(.45,Math.min(.85,.55*Math.sqrt(zoom)));strokePath();
-    if(selected){context.globalAlpha=.96;context.strokeStyle="#fff0b4";context.lineWidth=Math.max(1.5,Math.min(2.8,1.7*Math.sqrt(zoom)));strokePath();context.globalAlpha=.9;context.strokeStyle="#fff";context.lineWidth=.65;strokePath();}
+   if(pass!=="fill"){context.globalCompositeOperation="source-over";context.globalAlpha=status==="influence"?.42:.78;context.setLineDash?.((status==="influence"?[3,3]:status==="contested"?[2,2]:[]).map(value=>value*renderScale));context.strokeStyle=nationalColor;context.lineWidth=Math.max(.72,Math.min(1.45,.88*Math.sqrt(zoom)))*renderScale;context.lineJoin="round";strokePath();context.setLineDash?.([]);context.globalAlpha=.46;context.strokeStyle="#14232c";context.lineWidth=Math.max(.45,Math.min(.85,.55*Math.sqrt(zoom)))*renderScale;strokePath();
+    if(selected){context.globalAlpha=.96;context.strokeStyle="#fff0b4";context.lineWidth=Math.max(1.5,Math.min(2.8,1.7*Math.sqrt(zoom)))*renderScale;strokePath();context.globalAlpha=.9;context.strokeStyle="#fff";context.lineWidth=.65*renderScale;strokePath();}
    }
   };
   const path=getProjectedPath(feature,width,height,projection,profile);if(path)paint(path);else{context.beginPath();if(!traceGeometry(context,feature.geometry,width,height,projection,profile))continue;paint(null);}
@@ -719,13 +725,15 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   if (!collection?.features) return [];
   const hits = [];
   const occupiedCells = new Map();
+  const renderScale = projection.renderScale ?? 1;
+  const collisionCellSize = LABEL_COLLISION_CELL_SIZE * renderScale;
   // L'ordre de priorité est calculé une seule fois par collection ; le seuil de zoom
   // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
   for (const feature of getSortedLabelCandidates(collection)) {
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
-    if (!point || point.x < 12 || point.x > width - 12 || point.y < 12 || point.y > height - 12) continue;
+    if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
@@ -740,40 +748,40 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
       }
       permanentlySubmerged=Boolean(nearest&&(nearest.inundated||nearest.permanentlySubmerged)&&best<2.2);
     }
-    const fontSize = kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10;
+    const fontSize = (kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10) * renderScale;
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
     context.save();
     context.font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
     const textWidth = context.measureText(displayName).width;
     const x = point.x - textWidth / 2;
-    const y = point.y + (kind === "city" ? 5 : 0);
-    const box = { left: x - (kind === "country" ? 7 : 4), right: x + textWidth + (kind === "country" ? 7 : 4), top: y - fontSize - (kind === "country" ? 6 : 3), bottom: y + (kind === "city" ? 7 : 4) };
-    if (labelBoxCollides(box, occupiedCells)) { context.restore(); continue; }
-    addLabelBox(box, occupiedCells);
+    const y = point.y + (kind === "city" ? 5 * renderScale : 0);
+    const box = { left: x - (kind === "country" ? 7 : 4) * renderScale, right: x + textWidth + (kind === "country" ? 7 : 4) * renderScale, top: y - fontSize - (kind === "country" ? 6 : 3) * renderScale, bottom: y + (kind === "city" ? 7 : 4) * renderScale };
+    if (labelBoxCollides(box, occupiedCells, collisionCellSize)) { context.restore(); continue; }
+    addLabelBox(box, occupiedCells, collisionCellSize);
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
-    context.lineWidth = kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4;
+    context.lineWidth = (kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4) * renderScale;
     context.lineJoin = "round";
     context.strokeStyle = kind === "country" ? "rgba(17,35,47,0.96)" : "rgba(12,29,39,0.94)";
     context.fillStyle = permanentlySubmerged ? "#92999d" : kind === "country" ? "#fff0c8" : kind === "city" ? "#ffffff" : kind === "ocean" ? "#a9c6cf" : theme.colors.text;
     context.globalAlpha = kind === "city" || kind === "country" ? 1 : kind === "province" ? 0.86 : 0.78;
     if (kind === "country") {
       context.shadowColor = "rgba(0,0,0,0.65)";
-      context.shadowBlur = 4;
+      context.shadowBlur = 4 * renderScale;
     }
     context.strokeText(displayName, x, y);
     context.fillText(displayName, x, y);
     if (kind === "city") {
       context.beginPath();
-      context.arc(point.x, point.y - 1, 2.2, 0, Math.PI * 2);
+      context.arc(point.x, point.y - 1 * renderScale, 2.2 * renderScale, 0, Math.PI * 2);
       context.fillStyle = permanentlySubmerged ? "#7f898e" : "#f5d58e";
       context.fill();
       context.strokeStyle = "rgba(12,29,39,0.95)";
-      context.lineWidth = 1.2;
+      context.lineWidth = 1.2 * renderScale;
       context.stroke();
     }
     context.restore();
-    hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5, right: x + textWidth + 5, top: y - fontSize - 5, bottom: y + 6 }, coordinates: feature.geometry.coordinates });
+    hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5 * renderScale, right: x + textWidth + 5 * renderScale, top: y - fontSize - 5 * renderScale, bottom: y + 6 * renderScale }, coordinates: feature.geometry.coordinates });
   }
   return hits;
 }
@@ -798,7 +806,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const year = options.year ?? 1444;
   const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
-  const projection = { type: options.projection ?? "equirectangular", viewport: options.viewport ?? {} };
+  const projection = {
+    type: options.projection ?? "equirectangular",
+    viewport: options.viewport ?? {},
+    lodZoom: Number(options.lodZoom ?? options.viewport?.zoom ?? 1),
+    renderScale: Math.max(0.1, Number(options.renderScale ?? 1))
+  };
   const renderStartedAt = globalThis.performance?.now?.() ?? Date.now();
   const renderTimings = {};
   const measureLayer = (name, draw) => {
@@ -816,7 +829,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.save();
   context.strokeStyle = theme.colors.grid;
   context.globalAlpha = 0.10;
-  context.lineWidth = 0.35;
+  context.lineWidth = 0.35 * projection.renderScale;
   for (let longitude = -150; longitude <= 180; longitude += 30) {
     const a = projectCoordinate([longitude, -85], width, height, projection);
     const b = projectCoordinate([longitude, 85], width, height, projection);
@@ -836,7 +849,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.restore();
 
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
-  const coastProfile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
+  const coastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   // Le raster ETOPO est limité à la géométrie terrestre effectivement affichée.
   // Ainsi, le trait de côte, le remplissage et le relief partagent le même contour
   // simplifié : la côte du raster ne peut plus apparaître décalée sous le trait orange.
@@ -895,7 +908,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
     + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true);
   const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]));
-  const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1, options.physicalWorld));
+  const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
