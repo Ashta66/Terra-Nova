@@ -95,3 +95,13 @@ Le raster ETOPO est maintenant interprété avec des classes locales légères d
 - L'ombrage terrestre est moins contrasté (facteur limité à 0,84–1,16) et les teintes des classes de relief sont plus discrètes. Les formes principales — chaînes montagneuses, hauts plateaux et plaines — restent perceptibles sans micro-contraste excessif.
 - Le zoom interactif maximal passe de **8× à 24×**. Les projections équirectangulaire et Mercator acceptent maintenant la même plage.
 - Attention : 24× agrandit les données mondiales actuelles, mais ne crée pas de précision géographique absente du fond Natural Earth 1:110m. Les côtes et frontières peuvent donc paraître simplifiées au zoom élevé ; les véritables détails locaux dépendront des futures données régionales.
+
+
+## Niveaux de détail géographique progressifs
+
+Le rendu du fond terrestre dispose maintenant d'un sélecteur LOD :
+- zoom inférieur à 4× : fond mondial Natural Earth 1:110m ;
+- zoom à partir de 4× : remplacement par Natural Earth 1:10m si le fichier régional est présent ;
+- si le fichier est absent ou invalide : maintien du fond mondial, sans bloquer la carte.
+
+Le fichier régional est chargé à la demande, uniquement au premier passage du seuil. Il n'est pas encore embarqué par défaut afin de ne pas augmenter le poids initial du jeu. Pour le préparer, exécuter `bash scripts/prepare-natural-earth-lod.sh` avec `curl`, `unzip` et GDAL/ogr2ogr installés. Le résultat attendu est `data/ne_10m_land.geojson`. Le script utilise le jeu Natural Earth 1:10m « Land », libre d'utilisation. Les autres couches (lacs, rivières, glaciers et labels) restent actuellement au niveau 1:110m ; leur déclinaison régionale sera traitée séparément.
