@@ -220,9 +220,16 @@ function scheduleMapPreview() {
       // vitesse, on réduit les tuiles anticipées pour limiter le travail.
       const speedFactor = Math.min(1, movementFraction * 0.1 / elapsed);
       const lookAhead = speedFactor > 0 ? 0.2 + speedFactor * 0.7 : 0;
+      // Actualise d'abord le jeu strictement visible, puis anticipe le
+      // mouvement sans exposer ces tuiles visibles à l'éviction LRU.
       terrainVisibleTileIds = terrainTileStore.preloadViewport(mapViewport, {
         padding: 0.45,
+        retainExisting: true
+      });
+      terrainTileStore.preloadViewport(mapViewport, {
+        padding: 0.45,
         retainExisting: true,
+        protectedIds: terrainVisibleTileIds,
         lookAhead,
         directionLongitude: Math.sign(longitudeDelta),
         directionLatitude: Math.sign(latitudeDelta)
