@@ -525,8 +525,8 @@ test("le cache des tuiles vectorielles reste borné et peut être vidé", async 
   const collection = { type: "FeatureCollection", features: Array.from({ length: 180 }, (_, i) => ({
     type: "Feature", properties: { id: i }, geometry: { type: "Point", coordinates: [-179 + i * 2, -80 + (i % 30) * 5] }
   })) };
-  const index = buildGeoSpatialIndex(collection, 10);
-  queryGeoSpatialIndex(index, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  const { selectGeoSpatialFeatures } = await import("../src/world/geo-spatial-index.js");
+  selectGeoSpatialFeatures(collection, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
   const stats = getGeoSpatialIndexStats(collection);
   assert.ok(stats.cachedTiles <= 96);
   assert.ok(stats.cachedQueries <= 48);
