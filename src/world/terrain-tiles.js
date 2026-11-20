@@ -204,43 +204,63 @@ export function createTerrainTileStore(grid, options = {}) {
     const centerLongitude = Number(viewport.centerLongitude) || 0;
     const centerLatitude = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
     const padding = clamp(Number(preloadOptions.padding ?? 0.5), 0, 2);
-    const baseLongitudeHalfSpan = 180 / zoom;
-    const baseLatitudeHalfSpan = 90 / zoom;
-    const longitudeHalfSpan = baseLongitudeHalfSpan * (1 + padding);
-    const latitudeHalfSpan = baseLatitudeHalfSpan * (1 + padding);
-    // Décale la fenêtre de préchargement vers le mouvement sans abandonner
-    // la couverture du viewport courant.
     const lookAhead = clamp(Number(preloadOptions.lookAhead ?? 0), 0, 1);
     const directionLongitude = Math.sign(Number(preloadOptions.directionLongitude) || 0);
     const directionLatitude = Math.sign(Number(preloadOptions.directionLatitude) || 0);
-    const preloadCenterLongitude = centerLongitude + directionLongitude * baseLongitudeHalfSpan * lookAhead;
-    const preloadCenterLatitude = clamp(
-      centerLatitude + directionLatitude * baseLatitudeHalfSpan * lookAhead, -90, 90
-    );
-    const firstColumn = Math.floor((preloadCenterLongitude - longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
-    const lastColumn = Math.ceil((preloadCenterLongitude + longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
-    const firstRow = clamp(Math.floor((90 - Math.min(90, preloadCenterLatitude + latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
-    const lastRow = clamp(Math.ceil((90 - Math.max(-90, preloadCenterLatitude - latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
-    const tileXs = new Set();
-    if (lastColumn - firstColumn + 1 >= grid.width) {
-      for (let x = 0; x < columns; x++) tileXs.add(x);
-    } else {
-      for (let column = firstColumn; column <= lastColumn; column++) {
-        const wrappedColumn = ((column % grid.width) + grid.width) % grid.width;
-        tileXs.add(Math.floor(wrappedColumn / tileSize));
+    const baseLon = 180 / zoom;
+    const baseLat = 90 / zoom;
+    const primaryLon = baseLon * (1 + padding);
+    const primaryLat = baseLat * (1 + padding);
+
+    // Le viewport courant est prioritaire : les tuiles prédictives sont
+    // chargées d'abord afin que la limite LRU ne puisse pas évincer le visible.
+    function collect(centerLon, centerLat, halfLon, halfLat) {
+      const firstColumn = Math.floor((centerLon - halfLon + 180) / 360 * grid.width - 0.5);
+      const lastColumn = Math.ceil((centerLon + halfLon + 180) / 360 * grid.width - 0.5);
+      const firstRow = clamp(Math.floor((90 - Math.min(90, centerLat + halfLat)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+      const lastRow = clamp(Math.ceil((90 - Math.max(-90, centerLat - halfLat)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+      const tileXs = new Set();
+      if (lastColumn - firstColumn + 1 >= grid.width) {
+        for (let x = 0; x < columns; x++) tileXs.add(x);
+      } else {
+        for (let column = firstColumn; column <= lastColumn; column++) {
+          const wrapped = ((column % grid.width) + grid.width) % grid.width;
+          tileXs.add(Math.floor(wrapped / tileSize));
+        }
       }
-    }
-    const firstTileY = Math.floor(firstRow / tileSize);
-    const lastTileY = Math.floor(lastRow / tileSize);
-    const keepIds = [];
-    for (let y = firstTileY; y <= lastTileY; y++) {
-      for (const x of tileXs) {
-        const tile = getTile(x, y);
-        if (tile) keepIds.push(tile.id);
+      const result = [];
+      for (let y = Math.floor(firstRow / tileSize); y <= Math.floor(lastRow / tileSize); y++) {
+        for (const x of tileXs) {
+          const dx = Math.min(Math.abs(x * tileSize + tileSize / 2 - ((normalizeLongitude(centerLon) / 360) * grid.width)),
+            grid.width - Math.abs(x * tileSize + tileSize / 2 - ((normalizeLongitude(centerLon) / 360) * grid.width)));
+          const dy = Math.abs(y * tileSize + tileSize / 2 - ((90 - centerLat) / 180 * grid.height));
+          result.push({ x, y, distance: dx * dx + dy * dy });
+        }
       }
+      result.sort((a, b) => a.distance - b.distance);
+      return result;
     }
-    if (!preloadOptions.retainExisting) evictUnused(keepIds);
-    return keepIds;
+
+    const predictive = lookAhead > 0 && (directionLongitude || directionLatitude)
+      ? collect(
+        centerLongitude + directionLongitude * primaryLon * lookAhead,
+        clamp(centerLatitude + directionLatitude * primaryLat * lookAhead, -90, 90),
+        primaryLon * 0.55,
+        primaryLat * 0.55
+      )
+      : [];
+    const current = collect(centerLongitude, centerLatitude, primaryLon, primaryLat);
+    const ordered = new Map();
+    for (const item of predictive) ordered.set(tileId(item.x, item.y), item);
+    for (const item of current) ordered.set(tileId(item.x, item.y), item);
+    const requestedIds = [...ordered.keys()];
+    for (const id of requestedIds) {
+      const [, x, y] = id.split("/").map(Number);
+      getTile(x, y);
+    }
+    if (!preloadOptions.retainExisting) evictUnused(requestedIds);
+    const loaded = new Set(cache.keys());
+    return requestedIds.filter(id => loaded.has(id));
   }
 
   return {
