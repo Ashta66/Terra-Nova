@@ -8,6 +8,84 @@ const REGIONAL_ASSETS = [
   { key: "ne_10m_map_labels.geojson", source: "ne_10m_populated_places_simple.geojson", label: "Villes et repères" }
 ];
 const NATURAL_EARTH_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/";
+const MAP_ASSET_CACHE = "terra-nova-map-assets-v1";
+export const MAP_PACK_CORE_ASSETS = [
+  { url: "./data/ne_110m_land.geojson", label: "Terres mondiales" },
+  { url: "./data/ne_110m_lakes.geojson", label: "Lacs mondiaux" },
+  { url: "./data/ne_110m_rivers.geojson", label: "Rivières mondiales" },
+  { url: "./data/ne_110m_glaciated_areas.geojson", label: "Zones glaciaires" },
+  { url: "./data/ne_110m_elevation_points.geojson", label: "Repères de relief" },
+  { url: "./data/ne_110m_map_labels.geojson", label: "Noms géographiques" },
+  { url: "./data/terrain/etopo_global_10m_i16.bin", label: "Relief ETOPO" }
+];
+
+
+function absoluteCacheKey(url) {
+  return globalThis.location ? new URL(url, globalThis.location.href).href : url;
+}
+
+export async function fetchMapAsset(url, fetcher = globalThis.fetch) {
+  if (typeof fetcher !== "function") throw new Error("Le navigateur ne permet pas les téléchargements.");
+  let cache = null;
+  const key = absoluteCacheKey(url);
+  try {
+    if (globalThis.caches) {
+      cache = await caches.open(MAP_ASSET_CACHE);
+      const cached = await cache.match(key);
+      if (cached) return cached;
+    }
+  } catch (error) {
+    console.warn("Cache cartographique indisponible :", error);
+  }
+  const response = await fetcher(url);
+  if (response && response.ok && cache) {
+    try { await cache.put(key, response.clone()); }
+    catch (error) { console.warn("Impossible de conserver la ressource cartographique :", error); }
+  }
+  return response;
+}
+
+export async function getMapPackStatus() {
+  let coreCount = 0;
+  if (globalThis.caches) {
+    try {
+      const cache = await caches.open(MAP_ASSET_CACHE);
+      const checks = await Promise.all(MAP_PACK_CORE_ASSETS.map(asset => cache.match(absoluteCacheKey(asset.url))));
+      coreCount = checks.filter(Boolean).length;
+    } catch (error) {
+      console.warn("État du cache cartographique indisponible :", error);
+    }
+  }
+  const regional = await getRegionalCacheStatus();
+  return { coreCount, coreTotal: MAP_PACK_CORE_ASSETS.length, regionalCount: regional.count, regionalTotal: 4, ready: coreCount === MAP_PACK_CORE_ASSETS.length && regional.ready };
+}
+
+export async function downloadFullMapPack(onProgress = () => {}, fetcher = globalThis.fetch) {
+  if (!globalThis.caches) throw new Error("Le stockage durable du navigateur n’est pas disponible. Ouvre le jeu avec HTTPS ou un serveur local récent.");
+  const cache = await caches.open(MAP_ASSET_CACHE);
+  const coreTotal = MAP_PACK_CORE_ASSETS.length;
+  const regionalTotal = REGIONAL_ASSETS.length;
+  for (let index = 0; index < MAP_PACK_CORE_ASSETS.length; index += 1) {
+    const asset = MAP_PACK_CORE_ASSETS[index];
+    const key = absoluteCacheKey(asset.url);
+    let response = await cache.match(key);
+    const alreadyCached = Boolean(response);
+    if (!response) {
+      response = await fetcher(asset.url);
+      if (!response || !response.ok) throw new Error("Téléchargement impossible pour " + asset.label + " (HTTP " + (response ? response.status : "réseau") + ").");
+      try { await cache.put(key, response.clone()); }
+      catch { throw new Error("Espace de stockage insuffisant pour conserver " + asset.label + ". Libère de l’espace puis réessaie."); }
+    }
+    onProgress({ current: index + 1, total: coreTotal + regionalTotal, label: asset.label, cached: alreadyCached });
+  }
+  await downloadRegionalMapData(progress => onProgress({
+    current: coreTotal + progress.current,
+    total: coreTotal + regionalTotal,
+    label: progress.label,
+    cached: progress.cached
+  }), fetcher);
+  return { coreCount: coreTotal, regionalCount: regionalTotal };
+}
 
 function openCache() {
   if (!globalThis.indexedDB) return Promise.reject(new Error("Ce navigateur ne permet pas le stockage local des données. Utilisez une version récente de Chrome, Edge ou Firefox."));
@@ -142,13 +220,12 @@ export async function getRegionalCacheStatus() {
 export async function downloadRegionalMapData(onProgress = () => {}, fetcher = globalThis.fetch) {
   if (typeof fetcher !== "function") throw new Error("Le navigateur ne permet pas les téléchargements.");
   if (!globalThis.indexedDB) throw new Error("Le stockage local du navigateur est indisponible. Activez les données du site dans les paramètres du navigateur.");
-  const collections = new Map();
   const total = REGIONAL_ASSETS.length;
   for (let index = 0; index < REGIONAL_ASSETS.length; index += 1) {
     const asset = REGIONAL_ASSETS[index];
     let text = await readCachedText(asset.key);
+    const alreadyCached = Boolean(text);
     if (!text) {
-      onProgress({ current: index + 1, total, label: asset.label });
       const response = await fetcher(NATURAL_EARTH_BASE + asset.source);
       if (!response || !response.ok) {
         throw new Error("Téléchargement impossible pour " + asset.label + " (HTTP " + (response ? response.status : "réseau") + ").");
@@ -157,19 +234,15 @@ export async function downloadRegionalMapData(onProgress = () => {}, fetcher = g
       const sourceCollection = parseFeatureCollection(text, asset.label);
       if (asset.key === "ne_10m_map_labels.geojson") {
         text = JSON.stringify(buildRegionalCityLabels(sourceCollection));
+        parseFeatureCollection(text, asset.label);
       }
-      parseFeatureCollection(text, asset.label);
       await writeCachedText(asset.key, text);
+    } else {
+      parseFeatureCollection(text, asset.label);
     }
-    collections.set(asset.key, parseFeatureCollection(text, asset.label));
-    onProgress({ current: index + 1, total, label: asset.label });
+    onProgress({ current: index + 1, total, label: asset.label, cached: alreadyCached });
   }
-  return [
-    collections.get("ne_10m_land.geojson"),
-    collections.get("ne_10m_lakes.geojson"),
-    collections.get("ne_10m_rivers.geojson"),
-    collections.get("ne_10m_map_labels.geojson")
-  ];
+  return { count: total };
 }
 
 export const REGIONAL_LAND_DATA_PATH = "./data/ne_10m_land.geojson";

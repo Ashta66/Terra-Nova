@@ -3,7 +3,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { loadOptionalGeoJson, downloadRegionalMapData, getRegionalCacheStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -138,24 +138,27 @@ function renderMapFrame() {
   updateMapControls();
 }
 
-async function installRegionalMapData() {
-  const button = $("install-regional-data");
-  const status = $("regional-data-status");
+async function installFullMapPack() {
+  const button = $("install-map-pack");
+  const status = $("map-pack-status");
   button.disabled = true;
   try {
-    const collections = await downloadRegionalMapData(progress => {
-      status.textContent = "Téléchargement " + progress.current + "/" + progress.total + " : " + progress.label + "…";
+    await downloadFullMapPack(progress => {
+      status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
-    [regionalLandFeatures, regionalHydroFeatures, regionalRiverFeatures, regionalLabelFeatures] = collections;
-    regionalLandLoadAttempted = true;
-    regionalLayersLoadAttempted = true;
+    regionalLandFeatures = null;
+    regionalHydroFeatures = null;
+    regionalRiverFeatures = null;
+    regionalLabelFeatures = null;
+    regionalLandLoadAttempted = false;
+    regionalLayersLoadAttempted = false;
     lastRenderedMapSignature = null;
-    button.textContent = "Données régionales installées";
-    status.textContent = "Données enregistrées dans ce navigateur. Elles seront réutilisées automatiquement.";
+    button.textContent = "Pack cartographique installé";
+    status.textContent = "Pack complet prêt : 7 ressources de base et 4 couches régionales. Les détails se chargeront à la demande pour préserver la fluidité.";
     renderMap();
   } catch (error) {
     status.textContent = "Installation interrompue : " + error.message;
-    button.textContent = "Reprendre le téléchargement";
+    button.textContent = "Reprendre le téléchargement du pack";
   } finally {
     button.disabled = false;
   }
@@ -164,12 +167,12 @@ async function installRegionalMapData() {
 async function loadWorldMap() {
   try {
     const responses = await Promise.all([
-      fetch("./data/ne_110m_land.geojson"),
-      fetch("./data/ne_110m_lakes.geojson"),
-      fetch("./data/ne_110m_rivers.geojson"),
-      fetch("./data/ne_110m_glaciated_areas.geojson"),
-      fetch("./data/ne_110m_elevation_points.geojson"),
-      fetch("./data/ne_110m_map_labels.geojson")
+      fetchMapAsset("./data/ne_110m_land.geojson"),
+      fetchMapAsset("./data/ne_110m_lakes.geojson"),
+      fetchMapAsset("./data/ne_110m_rivers.geojson"),
+      fetchMapAsset("./data/ne_110m_glaciated_areas.geojson"),
+      fetchMapAsset("./data/ne_110m_elevation_points.geojson"),
+      fetchMapAsset("./data/ne_110m_map_labels.geojson")
     ]);
     for (const response of responses) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -177,18 +180,18 @@ async function loadWorldMap() {
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
     try {
-      const terrainResponse = await fetch("./data/terrain/etopo_global_10m_i16.bin");
+      const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
     }
-    const cacheStatus = await getRegionalCacheStatus();
+    const cacheStatus = await getMapPackStatus();
     if (cacheStatus.ready) {
-      $("install-regional-data").textContent = "Données régionales installées";
-      $("regional-data-status").textContent = "Données déjà enregistrées dans ce navigateur.";
-    } else if (cacheStatus.count > 0) {
-      $("install-regional-data").textContent = "Reprendre le téléchargement";
-      $("regional-data-status").textContent = cacheStatus.count + "/4 fichiers déjà téléchargés.";
+      $("install-map-pack").textContent = "Pack cartographique installé";
+      $("map-pack-status").textContent = "Pack complet disponible hors connexion : données mondiales, relief et détails régionaux.";
+    } else {
+      $("map-pack-status").textContent = cacheStatus.coreCount + "/" + cacheStatus.coreTotal + " ressources de base en cache · " + cacheStatus.regionalCount + "/4 couches régionales installées.";
+      if (cacheStatus.regionalCount > 0) $("install-map-pack").textContent = "Reprendre le téléchargement du pack";
     }
     renderMap();
   } catch (error) {
@@ -255,7 +258,7 @@ $("load-game").addEventListener("click", () => {
   }
 });
 
-$("install-regional-data").addEventListener("click", installRegionalMapData);
+$("install-map-pack").addEventListener("click", installFullMapPack);
 
 const mapCanvas = $("world-map");
 $("map-zoom-in").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1.5); });

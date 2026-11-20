@@ -114,3 +114,8 @@ Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour
 ## Couches régionales Natural Earth 1:10m — téléchargement à la demande
 
 Le jeu télécharge depuis le dépôt officiel `nvkelso/natural-earth-vector` les terres, lacs, cours d’eau et lieux peuplés à l’échelle 1:10m. Les trois premières couches sont conservées en GeoJSON ; la couche des lieux peuplés est réduite à des labels de villes avec nom, population et seuil de zoom. Le bouton de la carte stocke les GeoJSON dans IndexedDB, sans écrire dans le système de fichiers de l’utilisateur. Les données restent locales au profil du navigateur et peuvent être supprimées en effaçant les données du site. Source et licence : Natural Earth Vector, domaine public.
+
+
+## Pack cartographique complet
+
+Le pack optionnel regroupe les six couches mondiales Natural Earth 1:110m, la grille ETOPO binaire déjà préparée (4 665 600 octets) et les quatre couches régionales Natural Earth 1:10m. Les couches mondiales et ETOPO sont mises en cache avec Cache Storage ; les couches régionales sont stockées dans IndexedDB. Le joueur peut continuer à jouer avec les couches mondiales légères sans télécharger le pack. Le cache est local à l’origine du site et peut être supprimé depuis les paramètres de stockage du navigateur.

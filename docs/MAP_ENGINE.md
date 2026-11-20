@@ -104,16 +104,21 @@ Le rendu du fond terrestre dispose maintenant d'un sélecteur LOD :
 - zoom à partir de 4× : remplacement par Natural Earth 1:10m si le fichier régional est présent ;
 - si le fichier est absent ou invalide : maintien du fond mondial, sans bloquer la carte.
 
-Le fichier régional est chargé à la demande, uniquement au premier passage du seuil. Il n'est pas encore embarqué par défaut afin de ne pas augmenter le poids initial du jeu. Pour le préparer, exécuter `bash scripts/prepare-natural-earth-lod.sh` avec `curl` et Python 3 installés. Le résultat attendu est `data/ne_10m_land.geojson`. Le script utilise le jeu Natural Earth 1:10m « Land », libre d'utilisation. Les autres couches (lacs, rivières, glaciers et labels) restent actuellement au niveau 1:110m ; leur déclinaison régionale sera traitée séparément.
+Les données régionales ne sont pas téléchargées au démarrage afin de conserver une première ouverture légère. Le joueur peut installer le pack cartographique complet directement depuis l'interface, sans script ni déplacement de fichiers.
 
 
 ## LOD régional multi-couches — lot 2.8
 
 À partir de 4×, le moteur tente de charger séparément les couches Natural Earth 1:10m pour les terres, les lacs, les rivières et les labels de villes. Chaque couche conserve son propre repli sur les données mondiales 1:110m : une donnée régionale absente n'empêche pas les autres couches de gagner en précision. Les labels de villes sont filtrés selon le rang et la population puis révélés progressivement à 4×, 6× et 8×. Les téléchargements sont déclenchés une seule fois au premier franchissement du seuil et ne bloquent pas le premier affichage de la carte.
 
-Installation simplifiée : le bouton « Télécharger le détail régional » dans l’interface récupère ces quatre couches depuis Natural Earth et les conserve dans IndexedDB (stockage du navigateur). Elles sont réutilisées automatiquement aux prochaines visites sur le même navigateur. Aucune installation de Python, Bash ou WSL, aucun fichier à déplacer et aucun ajout volumineux au dépôt Git ne sont nécessaires. Une connexion Internet est requise uniquement lors du premier téléchargement.
+Installation simplifiée : le bouton « Télécharger le pack cartographique complet » récupère les couches régionales Natural Earth et précharge aussi les couches mondiales et la grille ETOPO. Les ressources sont conservées dans le stockage local du navigateur et réutilisées automatiquement.
 
 
 ## Installation des données régionales depuis le navigateur
 
-La carte propose un bouton « Télécharger le détail régional ». Il récupère les couches Natural Earth 1:10m à la demande, valide chaque FeatureCollection et les stocke dans IndexedDB. Les labels de villes sont dérivés de la couche Natural Earth des lieux peuplés. Les données déjà enregistrées sont réutilisées automatiquement ; un téléchargement interrompu peut être repris sans recommencer les fichiers déjà mis en cache. Le stockage est propre au navigateur et à l’origine du site : les données ne sont pas écrites dans le dossier du dépôt ni synchronisées entre appareils. La vue mondiale 1:110m reste disponible si le navigateur ne prend pas en charge IndexedDB ou si les données ne peuvent pas être téléchargées.
+La carte propose un bouton « Télécharger le pack cartographique complet ». Il prépare sept ressources mondiales (six GeoJSON et le relief ETOPO) dans Cache Storage et les quatre couches régionales Natural Earth 1:10m dans IndexedDB. Les labels de villes sont dérivés de la couche Natural Earth des lieux peuplés. Les ressources déjà présentes sont conservées ; un téléchargement interrompu peut être repris sans recommencer les fichiers déjà installés. Le stockage est propre au navigateur et à l’origine du site. Les couches régionales sont chargées en mémoire uniquement lorsque le joueur zoome suffisamment, pour éviter un pic de mémoire au téléchargement.
+
+
+## Pack cartographique complet et cache local
+
+Le jeu démarre immédiatement avec les couches mondiales légères 1:110m. Le joueur peut ensuite télécharger le pack cartographique complet depuis le bouton sous la carte : six couches mondiales, la grille de relief ETOPO et les quatre couches régionales Natural Earth 1:10m. Les ressources locales sont conservées dans Cache Storage ; les couches régionales sont conservées dans IndexedDB. Les téléchargements déjà présents sont détectés et ignorés lors d’une reprise. Les couches régionales restent chargées à la demande au franchissement du zoom 4× : le pack prépare les données en local sans forcer le chargement de toute la géométrie en mémoire, afin de limiter les pics de mémoire et préserver la fluidité. Les données cartographiques restent disponibles après actualisation et peuvent être utilisées sans réseau tant que le navigateur conserve le stockage du site. Cette installation ne garantit pas une hausse des FPS : elle réduit surtout les attentes réseau et les chargements répétés.

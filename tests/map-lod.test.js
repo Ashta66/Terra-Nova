@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 
 const world = { type: "FeatureCollection", features: [{ id: "world" }] };
 const regional = { type: "FeatureCollection", features: [{ id: "regional" }] };
@@ -70,4 +70,11 @@ test("les labels régionaux filtrent les villes et calculent leur seuil de zoom"
   assert.equal(labels.features.length, 2);
   assert.equal(labels.features[0].properties.minZoom, 4);
   assert.equal(labels.features[1].properties.minZoom, 6);
+});
+
+
+test("le pack cartographique comprend les six couches mondiales et le relief ETOPO", () => {
+  assert.equal(MAP_PACK_CORE_ASSETS.length, 7);
+  assert.ok(MAP_PACK_CORE_ASSETS.some(asset => asset.url.endsWith("etopo_global_10m_i16.bin")));
+  assert.ok(MAP_PACK_CORE_ASSETS.some(asset => asset.url.endsWith("ne_110m_glaciated_areas.geojson")));
 });
