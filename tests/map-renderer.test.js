@@ -173,3 +173,48 @@ test("les classes terrestres modulent discrètement la palette sans toucher la b
   assert.notDeepEqual(mountain, terrainColorForElevation(3000, 1));
   assert.deepEqual(sea, terrainColorForElevation(-3000, 1));
 });
+
+
+import { createTerrainTileStore } from "../src/world/terrain-tiles.js";
+
+test("les tuiles physiques ont des identifiants stables et des dimensions de bord correctes", () => {
+  const values = Int16Array.from({ length: 30 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 6, height: 5, values }, { tileSize: 4, maxTiles: 8 });
+  const tile = store.getTile(1, 1);
+  assert.equal(tile.id, "0/1/1");
+  assert.equal(tile.width, 2);
+  assert.equal(tile.height, 1);
+  assert.deepEqual([...tile.values], [28, 29]);
+  assert.equal(store.getTile(1, 1), tile);
+});
+
+test("une modification physique reste isolée dans sa tuile et incrémente sa révision", () => {
+  const values = Int16Array.from({ length: 16 }, (_, index) => index);
+  const grid = { width: 4, height: 4, values };
+  const store = createTerrainTileStore(grid, { tileSize: 2 });
+  const tile = store.getTileAt(-90, 45);
+  const before = store.sample(-90, 45);
+  assert.equal(store.setElevation(-90, 45, 1234), true);
+  assert.equal(store.sample(-90, 45), 1234);
+  assert.equal(tile.revision, 1);
+  assert.equal(tile.dirty, true);
+  assert.equal(grid.values[0], before);
+});
+
+test("le magasin borne sa mémoire et peut libérer les tuiles hors zone utile", () => {
+  const values = new Int16Array(64);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 2 });
+  store.getTile(0, 0);
+  store.getTile(1, 0);
+  store.getTile(2, 0);
+  assert.equal(store.size, 2);
+  assert.equal(store.evictUnused([store.getTileId(2, 0)]), 1);
+  assert.deepEqual(store.loadedIds, ["0/2/0"]);
+});
+
+test("les coordonnées invalides et les altitudes hors plage sont rejetées proprement", () => {
+  const store = createTerrainTileStore({ width: 4, height: 4, values: new Int16Array(16) });
+  assert.equal(store.sample(Number.NaN, 0), null);
+  assert.equal(store.getTile(-1, 0), null);
+  assert.throws(() => store.setElevation(0, 0, 40000), /16 bits/);
+});
