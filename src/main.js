@@ -148,6 +148,16 @@ function renderMap() {
       canvas.dataset.geographicWebglCacheBuildMs = result.geographicWebGLStats.cacheBuildMs.toFixed(3);
       canvas.dataset.geographicWebglDrawSubmitMs = result.geographicWebGLStats.drawSubmitMs.toFixed(3);
       canvas.dataset.geographicWebglTotalMs = result.geographicWebGLStats.totalMs.toFixed(3);
+      for (const [layerKey, layerStats] of Object.entries(result.geographicWebGLStats.layers ?? {})) {
+        const safeLayerKey = layerKey.replace(/[^a-zA-Z0-9]+(.)?/g, (_, next) => next ? next.toUpperCase() : "");
+        const datasetPrefix = `geographicWebglLayer${safeLayerKey[0]?.toUpperCase() ?? ""}${safeLayerKey.slice(1)}`;
+        canvas.dataset[`${datasetPrefix}BuildMs`] = Number(layerStats.cacheBuildMs ?? 0).toFixed(3);
+        canvas.dataset[`${datasetPrefix}DrawSubmitMs`] = Number(layerStats.drawSubmitMs ?? 0).toFixed(3);
+        canvas.dataset[`${datasetPrefix}TotalMs`] = (Number(layerStats.cacheBuildMs ?? 0) + Number(layerStats.drawSubmitMs ?? 0)).toFixed(3);
+        canvas.dataset[`${datasetPrefix}Triangles`] = String(layerStats.triangles ?? 0);
+        canvas.dataset[`${datasetPrefix}Uploads`] = String(layerStats.bufferUploads ?? 0);
+        canvas.dataset[`${datasetPrefix}UploadedBytes`] = String(layerStats.uploadedBytes ?? 0);
+      }
       for (const layerKey of ["land", "glaciers", "lakes"]) {
         const layerStats = result.geographicWebGLStats.layers?.[layerKey];
         const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
