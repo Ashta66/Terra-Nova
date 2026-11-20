@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
+import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
 const world = { type: "FeatureCollection", features: [{ id: "world" }] };
 const regional = { type: "FeatureCollection", features: [{ id: "regional" }] };
@@ -89,4 +91,32 @@ test("la navigation reste bornée à une seule copie du monde aux limites de zoo
   assert.ok(regional.centerLongitude <= 172.5);
   assert.ok(regional.centerLatitude >= -86.25);
   assert.equal(regional.zoom, 24);
+});
+
+
+test("la projection rapproche Alaska et Russie au voisinage de l'antiméridien", () => {
+  const viewport = { zoom: 4, centerLongitude: 180, centerLatitude: 60 };
+  const alaska = projectEquirectangular(-170, 60, 800, 400, viewport);
+  const russia = projectEquirectangular(170, 60, 800, 400, viewport);
+  assert.ok(Math.abs(alaska.x - 400) < 100);
+  assert.ok(Math.abs(russia.x - 400) < 100);
+  assert.ok(alaska.x > russia.x);
+});
+
+test("la caméra traverse ±180° sans borner la longitude et revient au centre au zoom mondial", () => {
+  const regional = constrainEquirectangularViewport({ zoom: 5, centerLongitude: 545, centerLatitude: 0 });
+  assert.equal(regional.centerLongitude, 545);
+  const world = constrainEquirectangularViewport({ zoom: 1, centerLongitude: 545, centerLatitude: 0 });
+  assert.equal(world.centerLongitude, 0);
+});
+
+test("l'index spatial sélectionne les deux côtés de l'antiméridien sans dupliquer les entités", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Alaska" }, geometry: { type: "Point", coordinates: [-170, 60] } },
+    { type: "Feature", properties: { name: "Russie orientale" }, geometry: { type: "Point", coordinates: [170, 60] } },
+    { type: "Feature", properties: { name: "Europe" }, geometry: { type: "Point", coordinates: [10, 50] } }
+  ] };
+  const selected = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), { zoom: 4, centerLongitude: 180, centerLatitude: 60 });
+  assert.deepEqual(selected.features.map(feature => feature.properties.name).sort(), ["Alaska", "Russie orientale"]);
+  assert.equal(new Set(selected.features).size, selected.features.length);
 });

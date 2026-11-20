@@ -211,3 +211,12 @@ Le préchargement ne s'exécute qu'après le rendu complet et est remplacé lors
 ## Validation des limites de navigation — étape 5/5
 
 Les tests de régression couvrent maintenant aussi les limites du planisphère : au zoom mondial, le centre reste au milieu du monde ; au zoom maximal, le centre est contraint pour empêcher l'apparition de copies supplémentaires au-delà des bords. Les tests vérifient en parallèle le préchargement voisin sans mutation des GeoJSON et le plafonnement/vidage du cache spatial. La validation CI reste nécessaire pour confirmer l'ensemble des suites.
+
+
+## Navigation cyclique est-ouest — étape 1 à 5
+
+La longitude de la caméra est désormais cyclique pendant le déplacement : elle peut dépasser +180° ou -180° sans être rabattue brutalement. La projection choisit pour chaque coordonnée sa copie longitudinale la plus proche du centre de caméra. Les coordonnées GeoJSON originales ne sont jamais dupliquées ni modifiées.
+
+L'index spatial découpe les fenêtres qui traversent l'antiméridien en deux plages de longitude (est et ouest), puis fusionne les identifiants avec un `Set`. Alaska et Russie orientale peuvent donc être sélectionnés ensemble autour de 180°, sans doubler les entités ni les collections. Le cache spatial reste plafonné à 48 fenêtres.
+
+Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un seul planisphère. Au zoom régional, elle peut poursuivre indéfiniment vers l'est ou l'ouest. Les latitudes restent contraintes pour éviter de sortir des limites utiles de la projection.
