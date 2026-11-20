@@ -333,6 +333,9 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
     assert.equal(constructions, 1);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
     assert.equal(constructions, 1);
+    // Une boucle complète de 360° présente exactement le même cadrage.
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
+    assert.equal(constructions, 1);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
     assert.equal(constructions, 2);
   } finally {
