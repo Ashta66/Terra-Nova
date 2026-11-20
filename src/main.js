@@ -122,6 +122,20 @@ function renderMap() {
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
     canvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
+    if (result.terrainWebGLStats) {
+      canvas.dataset.terrainWebglUploadMs = result.terrainWebGLStats.textureUploadMs.toFixed(2);
+      canvas.dataset.terrainWebglTextureBytes = String(result.terrainWebGLStats.textureBytes);
+      canvas.dataset.terrainWebglSubmitMs = result.terrainWebGLStats.drawSubmitMs.toFixed(3);
+      canvas.dataset.terrainWebglGpuMs = result.terrainWebGLStats.gpuMs === null
+        ? "pending" : result.terrainWebGLStats.gpuMs.toFixed(3);
+      canvas.dataset.terrainWebglTimerQueries = String(result.terrainWebGLStats.timerQueriesSupported);
+    } else {
+      delete canvas.dataset.terrainWebglUploadMs;
+      delete canvas.dataset.terrainWebglTextureBytes;
+      delete canvas.dataset.terrainWebglSubmitMs;
+      delete canvas.dataset.terrainWebglGpuMs;
+      delete canvas.dataset.terrainWebglTimerQueries;
+    }
     if (terrainTileStore) {
       const cacheStats = terrainTileStore.cacheStats;
       canvas.dataset.terrainCacheBytes = String(cacheStats.byteLength);
