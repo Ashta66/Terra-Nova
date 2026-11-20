@@ -65,3 +65,21 @@ export function getMapTileScreenRect(tile, viewport, width, height) {
   const y = height / 2 - ((bounds.north - centerLatitude) / 180) * height * zoom;
   return { x: baseX, y, width: tileWidth, height: tileHeight };
 }
+
+/**
+ * Retourne la pile des tuiles déjà disponibles, ancêtres compris.
+ * Les parents sont dessinés avant les enfants afin que le détail remplace
+ * progressivement le niveau de zoom précédent sans trou de couverture.
+ */
+export function collectMapTileRenderStack(plan, hasTile) {
+  if (!Array.isArray(plan?.tiles) || typeof hasTile !== "function") return [];
+  const stack = new Map();
+  for (const requested of plan.tiles) {
+    const ancestors = requested.ancestors ?? [];
+    for (const parent of [...ancestors].reverse()) {
+      if (hasTile(parent.key)) stack.set(parent.key, { ...parent, fallback: true, ancestors });
+    }
+    if (hasTile(requested.key)) stack.set(requested.key, { ...requested, fallback: false });
+  }
+  return [...stack.values()].sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x);
+}
