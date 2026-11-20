@@ -88,11 +88,15 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     if (!feature?.geometry) continue;
     context.beginPath();
     if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
-    context.fillStyle = fill;
-    context.strokeStyle = stroke;
-    context.lineWidth = lineWidth;
-    context.fill("evenodd");
-    context.stroke();
+    if (fill) {
+      context.fillStyle = fill;
+      context.fill("evenodd");
+    }
+    if (stroke) {
+      context.strokeStyle = stroke;
+      context.lineWidth = lineWidth;
+      context.stroke();
+    }
     drawn++;
   }
   context.restore();
@@ -350,6 +354,11 @@ function featuresInScreenRect(collection, rect, width, height, projection) {
   return index.query({ west, east: west + span, south, north });
 }
 
+function parseWebGLColor(value) {
+  if (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value)) return [0.32, 0.39, 0.31, 1];
+  return [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16) / 255).concat(1);
+}
+
 function drawPoliticalLayers(context, width, height, projection, theme, featureCollection, options, dirtyRect = null) {
   if (dirtyRect && context.rect && context.clip) {
     context.save();
@@ -384,7 +393,33 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const landFeatures = select(featureCollection), glacierFeatures = select(options.glaciers);
   const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
   const elevationFeatures = select(options.elevationPoints);
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85, 1, landFeatures);
+  const geographicRenderer = !dirtyRect && projection.type === "equirectangular"
+    ? options.geographicWebGLRenderer : null;
+  let landCount;
+  if (geographicRenderer?.canvas && typeof context.drawImage === "function") {
+    try {
+      const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
+      const gpuStats = geographicRenderer.render(landFeatures,
+        Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
+        projection.viewport, parseWebGLColor(landFill));
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(geographicRenderer.canvas, 0, 0);
+      context.restore();
+      const fallbackFeatures = landFeatures.filter(feature => !geographicRenderer.supports(feature));
+      const fallbackCount = drawPolygonLayer(context, featureCollection, width, height, projection,
+        landFill, null, 0.85, 1, fallbackFeatures);
+      drawPolygonLayer(context, featureCollection, width, height, projection,
+        null, theme.colors.coast, 0.85, 1, landFeatures);
+      landCount = gpuStats.drawnFeatures + fallbackCount;
+    } catch {
+      landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
+        landFill, theme.colors.coast, 0.85, 1, landFeatures);
+    }
+  } else {
+    landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
+      landFill, theme.colors.coast, 0.85, 1, landFeatures);
+  }
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
   const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, glacierFeatures);
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
