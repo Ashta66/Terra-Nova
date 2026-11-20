@@ -1,8 +1,8 @@
 const DEFAULT_CELL_SIZE = 10;
 const MAX_CELLS_PER_FEATURE = 120;
 const indexCache = new WeakMap();
-const MAX_QUERY_CACHE_ENTRIES = 48;
-const MAX_TILE_CACHE_ENTRIES = 96;
+const MAX_QUERY_CACHE_ENTRIES = 64;
+const MAX_TILE_CACHE_ENTRIES = 256;
 const MAX_PREFETCH_RADIUS = 1;
 
 function getBounds(feature) {

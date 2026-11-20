@@ -372,3 +372,11 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Chargement anticipé des labels à ×3,2, terres à ×5,2, rivières à ×7,2 ; seuils d'affichage inchangés à ×4, ×6, ×8.
 - En cas de dézoom, emprise préchargée élargie (zoom cible ×0,78).
 - Tests dédiés aux seuils de préchauffage et de rendu.
+
+
+## Navigation et mémoire des zones — réalisée, 20 novembre 2026
+- Limite de zoom ×20 (2 000 %) cohérente entre commandes, caméra et projections.
+- Cache spatial LRU élargi (256 tuiles, 64 vues) pour retrouver plus vite les secteurs récemment visités.
+- Interpolation continue des tailles de labels et réduction des ruptures typographiques.
+- Côtes terrestres un peu moins simplifiées aux faibles zooms pour limiter les espaces visuellement trop vides.
+- À valider dans le navigateur : fluidité à ×20, mémoire consommée et rendu des petits archipels.

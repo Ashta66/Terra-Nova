@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -461,7 +461,7 @@ test("le préchargement prépare les sélections des secteurs voisins sans modif
 });
 
 
-test("le cache spatial LRU reste borné à 48 requêtes et peut être vidé", async () => {
+test("le cache spatial LRU reste borné à 64 requêtes et peut être vidé", async () => {
   const { selectGeoSpatialFeatures, getGeoSpatialIndexStats, clearGeoSpatialQueryCache } =
     await import("../src/world/geo-spatial-index.js");
   const collection = { type: "FeatureCollection", features: Array.from({ length: 30 }, (_, index) => ({
@@ -472,8 +472,8 @@ test("le cache spatial LRU reste borné à 48 requêtes et peut être vidé", as
   }
   const stats = getGeoSpatialIndexStats(collection);
   assert.equal(stats.indexed, true);
-  assert.equal(stats.maxCachedQueries, 48);
-  assert.ok(stats.cachedQueries <= 48);
+  assert.equal(stats.maxCachedQueries, 64);
+  assert.ok(stats.cachedQueries <= 64);
   assert.equal(clearGeoSpatialQueryCache(collection), true);
   assert.equal(getGeoSpatialIndexStats(collection).cachedQueries, 0);
 });
@@ -563,7 +563,7 @@ test("les tuiles vectorielles sont stables, dédupliquées et cycliques à l'ant
   const stats = getGeoSpatialIndexStats(collection);
   assert.ok(stats.cachedTiles > 0);
   assert.ok(stats.cachedTiles <= stats.maxCachedTiles);
-  assert.equal(stats.maxCachedTiles, 96);
+  assert.equal(stats.maxCachedTiles, 256);
 });
 
 test("le cache des tuiles vectorielles reste borné et peut être vidé", async () => {
@@ -574,7 +574,7 @@ test("le cache des tuiles vectorielles reste borné et peut être vidé", async 
   const { selectGeoSpatialFeatures } = await import("../src/world/geo-spatial-index.js");
   selectGeoSpatialFeatures(collection, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
   const stats = getGeoSpatialIndexStats(collection);
-  assert.ok(stats.cachedTiles <= 96);
+  assert.ok(stats.cachedTiles <= 256);
   assert.ok(stats.cachedQueries <= 48);
   assert.equal(clearGeoSpatialQueryCache(collection), true);
   assert.equal(getGeoSpatialIndexStats(collection).cachedTiles, 0);
@@ -900,10 +900,10 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
 
 test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
   const expected = [
-    [1, { tolerance: 3.3, minRingArea: 25 }],
-    [3, { tolerance: 3.75, minRingArea: 38 }],
-    [8, { tolerance: 4.15, minRingArea: 55 }],
-    [20, { tolerance: 4.6, minRingArea: 78 }]
+    [1, { tolerance: 2.8, minRingArea: 14 }],
+    [3, { tolerance: 3.4, minRingArea: 24 }],
+    [8, { tolerance: 3.9, minRingArea: 40 }],
+    [20, { tolerance: 4.4, minRingArea: 60 }]
   ];
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
@@ -950,4 +950,13 @@ test("le fond terrestre sous les pays utilise des tons neutres et non la palette
   renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1, terrainEnabled: false });
   assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "#53665f"));
   assert.ok(!calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
+});
+
+
+test("la taille des textes évolue progressivement sans saut au seuil de zoom",()=>{
+  const before=getMapLabelFontSize("country",2.99,1);
+  const after=getMapLabelFontSize("country",3.01,1);
+  assert.ok(Math.abs(after-before)<0.03);
+  assert.ok(getMapLabelFontSize("country",4,1)>getMapLabelFontSize("country",1,1));
+  assert.ok(getMapLabelFontSize("city",20,1)>getMapLabelFontSize("city",1,1));
 });

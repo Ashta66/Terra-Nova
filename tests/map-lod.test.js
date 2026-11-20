@@ -102,13 +102,13 @@ test("le pack cartographique exclut les fichiers lacustres bruts du cache naviga
 
 test("la navigation mondiale se recentre et la caméra régionale conserve sa longitude cyclique", async () => {
   const { constrainEquirectangularViewport } = await import("../src/world/projection.js");
-  const world = constrainEquirectangularViewport({ zoom: 1, centerLongitude: 999, centerLatitude: -999 }, 24);
+  const world = constrainEquirectangularViewport({ zoom: 1, centerLongitude: 999, centerLatitude: -999 }, 20);
   assert.equal(Math.abs(world.centerLongitude), 0);
   assert.equal(Math.abs(world.centerLatitude), 0);
-  const regional = constrainEquirectangularViewport({ zoom: 24, centerLongitude: 999, centerLatitude: -999 }, 24);
+  const regional = constrainEquirectangularViewport({ zoom: 20, centerLongitude: 999, centerLatitude: -999 }, 20);
   assert.equal(regional.centerLongitude, 999);
-  assert.ok(regional.centerLatitude >= -86.25);
-  assert.equal(regional.zoom, 24);
+  assert.ok(regional.centerLatitude >= -85.5);
+  assert.equal(regional.zoom, 20);
 });
 
 
