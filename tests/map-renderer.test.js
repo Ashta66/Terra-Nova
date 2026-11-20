@@ -1,7 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
+
+
+test("le LOD du relief suit progressivement la densité de pixels du viewport", () => {
+  const grid = { width: 2160 };
+  const world = getTerrainLod(grid, 960, 1);
+  const regional = getTerrainLod(grid, 960, 2);
+  const close = getTerrainLod(grid, 960, 4);
+  assert.ok(world > regional);
+  assert.ok(regional > close);
+  assert.ok(world <= 4 && close >= 0);
+  assert.equal(getTerrainLod(grid, 960, 0), world);
+});
+
+test("le LOD reste continu au passage entre deux niveaux parent/enfant", () => {
+  const grid = { width: 2048 };
+  const thresholdZoom = 2;
+  const before = getTerrainLod(grid, 1024, thresholdZoom - 1e-6);
+  const after = getTerrainLod(grid, 1024, thresholdZoom + 1e-6);
+  assert.ok(Math.abs(before - after) < 1e-5);
+  assert.equal(getTerrainLod(grid, 1024, Number.NaN), 0);
+});
 
 function createCanvas() {
   const calls = [];
