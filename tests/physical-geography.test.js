@@ -56,3 +56,8 @@ test("la submersion d'un tsunami se retire après deux jours",()=>{
  const recovered=expirePhysicalSurfaceEffects(flooded,"1900-01-03");
  assert.equal(recovered.currentCells[0].tsunamiWaterDepthM,0);
 });
+
+test("les marqueurs visuels des catastrophes expirent sans effacer les déformations",()=>{
+ const w=applyPhysicalEvent(createPhysicalWorld([{id:"c",longitude:0,latitude:0,elevationM:100,coastalDistanceKm:0}]),{id:"ring-expiry",type:"earthquake",date:"1900-01-01",longitude:0,latitude:0,radiusKm:100,magnitude:8,ruptureOffsetM:2}).world;
+ const next=expirePhysicalSurfaceEffects(w,"1900-01-04");assert.equal(next.events[0].visualExpired,true);assert.ok(next.currentCells[0].elevationDeltaM>0);
+});

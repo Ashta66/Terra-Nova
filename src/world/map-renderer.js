@@ -646,18 +646,16 @@ export function classifyPhysicalCellVisual(c){
   return null;
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
- if(!world)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
+ if(!world)return 0;let count=0;ctx.save();
  for(const event of world.events??[]){
-  const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);if(!center)continue;
-  const radiusFor=km=>{const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);if(!north&&!east)return 0;return Math.max(2,Math.min(600,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));};
-  const radius=radiusFor(Number(event.radiusKm)||100);
-  if(terrainGrid&&projection.type==="equirectangular"&&radius>1){ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world);ctx.restore();}
-  if(event.type==="meteor-impact"){
-   if(!event.surfaceExpired){const ex=radiusFor(Number(event.noManLandRadiusKm)||55),lava=radiusFor(Number(event.lavaRadiusKm)||8);if(ex>0){ctx.beginPath();ctx.arc(center.x,center.y,ex,0,Math.PI*2);ctx.fillStyle="rgba(75,48,39,.2)";ctx.fill();ctx.strokeStyle="rgba(202,151,111,.8)";ctx.setLineDash([5,4]);ctx.lineWidth=1.3;ctx.stroke();ctx.setLineDash([]);}if(lava>0){ctx.beginPath();ctx.arc(center.x,center.y,lava,0,Math.PI*2);ctx.fillStyle="rgba(223,65,25,.5)";ctx.fill();ctx.strokeStyle="rgba(255,190,104,.9)";ctx.lineWidth=1.5;ctx.stroke();}}
-   if(radius>0){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.7)";ctx.lineWidth=Math.max(1,1.2*Math.sqrt(zoom));ctx.stroke();}
-  }else if(event.type==="tsunami"){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(76,190,224,.8)";ctx.lineWidth=Math.max(1.5,2*Math.sqrt(zoom));ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc(center.x,center.y,radius*.68,0,Math.PI*2);ctx.strokeStyle="rgba(76,190,224,.42)";ctx.lineWidth=1.2;ctx.stroke();}
-  else if(event.type==="earthquake"){for(const factor of [.35,.65,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*factor,0,Math.PI*2);ctx.strokeStyle="rgba(238,160,91,"+(0.72-factor*.35)+")";ctx.lineWidth=Math.max(1,1.6*Math.sqrt(zoom));ctx.stroke();}}
-  count++;
+  if(terrainGrid&&projection.type==="equirectangular"&&event.radiusKm){
+   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
+   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
+   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
+   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
+   if(center&&radius>1){ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();}
+  }
+  if(!event.visualExpired)count++;
  }
  ctx.restore();return count;
 }

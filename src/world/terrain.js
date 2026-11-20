@@ -130,32 +130,31 @@ function physicalLookup(world) {
 export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
- let c=null;
- if(lookup.levels instanceof Map){for(const step of lookup.steps??[...lookup.levels.keys()].sort((a,b)=>a-b)){const level=lookup.levels.get(step);c=level?.get(Math.floor(y/step)+":"+Math.floor(x/step));if(c)break;}}
- else c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));
- if(!c)return base;
- if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);
- // Unchanged cells keep the full-resolution ETOPO sample; the coarse simulation
- // grid must never flatten the underlying mountain ranges.
- if(Math.abs(Number(c.elevationDeltaM)||0)<.01)return base;
- return Number.isFinite(c.currentElevationM)?c.currentElevationM:base;
+ if(!(lookup.levels instanceof Map)){const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);return base+(Number(c.elevationDeltaM)||0);}
+ const step=lookup.steps?.[0]??12,level=lookup.levels.get(step);if(!level)return base;
+ const gx=x/step-.5,gy=y/step-.5,x0=Math.floor(gx),y0=Math.floor(gy),fx=gx-x0,fy=gy-y0,nx=Math.ceil(grid.width/step);
+ const at=(ix,iy)=>level.get(Math.max(0,iy)+":"+(((ix%nx)+nx)%nx));
+ const c00=at(x0,y0),c10=at(x0+1,y0),c01=at(x0,y0+1),c11=at(x0+1,y0+1);
+ const mix=k=>{const a=(Number(c00?.[k])||0)*(1-fx)+(Number(c10?.[k])||0)*fx,b=(Number(c01?.[k])||0)*(1-fx)+(Number(c11?.[k])||0)*fx;return a*(1-fy)+b*fy;};
+ const flood=mix("tsunamiWaterDepthM");if(flood>.01)return -Math.max(.1,flood);
+ return base+mix("elevationDeltaM");
 }
 
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null) {
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
   // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
-  const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
+  const scale = Math.min(1, (1200 * qualityScale) / width, (600 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", physicalWorld?.revision ?? 0].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", changedOnly ? "changed" : "all", physicalWorld?.revision ?? 0].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -190,6 +189,9 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
     for (let px = 0; px < renderWidth; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
       const e = samplePhysicalElevation(grid, lon, lat, physical);
+      const baseElevation = sampleElevation(grid,lon,lat);
+      const changedCoast = changedOnly && baseElevation !== null && ((baseElevation >= 0) !== (e >= 0));
+      if(changedOnly && !changedCoast) { const i=(py*renderWidth+px)*4;pixels[i+3]=0;continue; }
       // Les océans n'effectuent pas les quatre échantillonnages voisins :
       // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
       let shade = 1;
@@ -204,7 +206,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         continue;
       }
       const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
-      pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = landOnly ? 0 : 255;
+      pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = (landOnly && !changedOnly) ? 0 : 255;
     }
   }
   renderContext.putImageData(image, 0, 0);

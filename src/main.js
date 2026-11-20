@@ -501,6 +501,16 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapInteractionActive = true;
   renderMap();
 });
+function playDisasterSound(type) {
+  const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+  try{const ctx=new Audio(),now=ctx.currentTime;
+   const tone=(f0,f1,delay,duration,volume,wave)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=wave;o.frequency.setValueAtTime(f0,now+delay);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+delay+duration);g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(volume,now+delay+.025);g.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);o.connect(g);g.connect(ctx.destination);o.start(now+delay);o.stop(now+delay+duration+.04);};
+   if(type==="meteor-impact"){tone(105,28,0,.9,.22,"sawtooth");tone(880,55,0,.48,.09,"triangle");tone(48,24,.16,1.15,.25,"sine");}
+   else if(type==="tsunami"){tone(95,42,0,1.6,.17,"sine");tone(210,70,.18,1.35,.1,"triangle");tone(620,180,.05,1.1,.045,"sawtooth");}
+   else{tone(52,25,0,1.35,.24,"sawtooth");tone(78,32,.12,1.05,.16,"triangle");tone(190,60,.04,.65,.07,"sine");}
+   setTimeout(()=>ctx.close().catch(()=>{}),2200);
+  }catch(error){console.info("Audio catastrophe indisponible",error);}
+}
 function animateMeteorImpact(x, y) {
   const marker = document.createElement("div");
   marker.className = "meteor-impact-animation";
@@ -569,6 +579,7 @@ mapCanvas.addEventListener("click", (event) => {
     const latitude=Math.max(-89.5,Math.min(89.5,mapViewport.centerLatitude-(y/rect.height-.5)*180/mapViewport.zoom));
     const type=activeGeoEventMode;
     try {
+      playDisasterSound(type);
       if(type==="meteor-impact")animateMeteorImpact(x,y);
       const event={id:type+"-"+Date.now()+"-"+(state.physicalWorld?.revision??0),type,date:state.clock.date,longitude,latitude,
        ...(type==="meteor-impact"?{radiusKm:320,craterRadiusKm:125,craterDepthM:2200,rimHeightM:520,lavaRadiusKm:22,noManLandRadiusKm:65,surfaceDurationMonths:1+Math.floor(Math.random()*6)}:{}),

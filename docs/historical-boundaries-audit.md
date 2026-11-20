@@ -44,3 +44,8 @@ Les impacts comprennent une cuvette et un bourrelet périphérique d'éjectas. L
 Les noms de pays utilisent les codes ISO-3/ISO-2 disponibles dans les propriétés GeoJSON pour obtenir une traduction française via Intl.DisplayNames, avec le dictionnaire historique en priorité. Les entités historiques sans code ISO restent à compléter au cas par cas.
 
 Les vagues de tsunami peuvent désormais submerger temporairement les basses terres côtières selon la hauteur de vague et l'altitude ETOPO ; l'eau se retire après deux jours de simulation. Les zones réellement submergées changent temporairement la limite terre/mer dans le raster de terrain, sans laisser une mer permanente après le retrait.
+
+
+## Rendu des catastrophes : côtes continues, submersion et audio
+Les anneaux graphiques ne sont plus permanents : ils expirent après trois jours de simulation, sans annuler les conséquences physiques. Les altitudes modifiées sont interpolées bilinéairement entre cellules ETOPO et rendues à la résolution du canvas. Une passe locale ne peint que les pixels dont le statut terre/mer a changé : elle peut ainsi afficher une zone submergée ou une terre émergée sans mosaïque ni repeindre les frontières politiques inchangées.
+La profondeur d'eau du tsunami intervient dans l'échantillonnage physique du terrain et disparaît après deux jours. Les trois catastrophes ont des signatures audio synthétisées localement avec Web Audio, sans fichier externe.
