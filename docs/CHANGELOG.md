@@ -198,3 +198,9 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Documentation NOAA/ETOPO, licence, DOI et limites mises à jour dans `docs/DATA_SOURCES.md` et `docs/ARCHITECTURE.md`.
 - CI enrichie avec une vérification de syntaxe shell.
 - Raster source ETOPO non encore téléchargé ni intégré ; le relief mesuré continu n'est pas encore actif dans le jeu.
+
+
+## 20 novembre 2026 — Fusions et campagne
+- PR #10 fusionnée : scène overscan, labels recalés, traits et LOD cohérents.
+- PR #11 fusionnée : hillshade ETOPO renforcé, lumière NW dominante et palette progressive.
+- Refonte de l'écran de chargement et du sélecteur de nations en cours.

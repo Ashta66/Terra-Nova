@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body class="game-screen">
+  <section id="initial-loading" class="initial-loading" role="status" aria-live="polite"><div class="loading-atlas-mark"><span>TN</span><i></i><i></i></div><p class="eyebrow">TERRA NOVA · SIMULATION MONDIALE</p><h1>Le monde prend forme.</h1><p id="loading-message" class="loading-message">Préparation de l’atlas et des données historiques…</p><div class="loading-progress-track"><span id="loading-progress"></span></div><div class="loading-progress-meta"><span id="loading-stage">Initialisation du monde</span><strong id="loading-percent">5%</strong></div><span id="loading-status" class="loading-status">ÉTAPE 1 / 5</span><button id="loading-retry" class="button button-small" type="button" hidden>Réessayer</button><div class="loading-world-grid" aria-hidden="true"></div></section>
   <header class="topbar">
     <a class="brand" href="./" aria-label="Terra Nova accueil"><span class="brand-mark">TN</span><span>TERRA <b>NOVA</b></span></a>
     <div class="topbar-center"><span class="status-dot"></span> SIMULATION MONDIALE <span class="topbar-separator">/</span> <span id="map-era">Atlas manuscrit</span></div>
@@ -32,9 +33,7 @@
             <option value="sandbox">Sandbox · Temps et nations libres</option>
           </select>
         </label>
-        <label class="setup-country">NATION À DIRIGER
-          <select id="player-country"><option value="">Chargement des nations historiques…</option></select>
-        </label>
+        <div class="setup-country country-picker"><label for="country-search">NATION À DIRIGER</label><input id="country-search" class="country-search" type="search" placeholder="Rechercher une nation…" autocomplete="off"><div class="country-filter-row"><select id="country-region-filter" aria-label="Filtrer par région"><option value="all">Toutes les régions</option><option>Europe</option><option>Asie</option><option>Afrique</option><option>Amérique du Nord</option><option>Amérique du Sud</option><option>Océanie</option></select><select id="country-difficulty-filter" aria-label="Filtrer par difficulté"><option value="all">Toutes difficultés</option><option value="1">Très accessible</option><option value="2">Accessible</option><option value="3">Intermédiaire</option><option value="4">Difficile</option><option value="5">Extrême</option></select></div><div id="country-result-count" class="country-result-count">Chargement des nations historiques…</div><div id="country-results" class="country-results" role="listbox" aria-label="Nations jouables"></div><div class="country-selected"><strong id="country-selected-name">Sélectionnez une nation</strong><span id="country-selected-detail">Classement stratégique · difficulté</span></div><select id="player-country" class="visually-hidden" aria-label="Nation à diriger"><option value="">Chargement des nations historiques…</option></select></div>
       </div>
       <div class="setup-note"><span>✦</span> En sandbox, vous pourrez changer librement de date et de nation pendant la partie.</div>
       <button id="begin-campaign" class="button button-primary setup-start" type="button">Entrer dans l'Histoire <span>→</span></button>

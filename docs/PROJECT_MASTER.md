@@ -259,3 +259,12 @@ Le rendu ETOPO est allégé à 512 × 256 pixels en qualité normale, avec un hi
 
 ### Refonte du relief ETOPO — 20 novembre 2026
 Le hillshade utilise désormais une exagération verticale par défaut de 18×, paramétrable, et un éclairage cohérent dominé par le nord-ouest avec appoint nord-est. La sortie reste normalisée entre 0,48 et 1,52 pour rester compatible avec le worker. La palette terrestre évolue progressivement des teintes de terrain vers les roches claires puis la neige en altitude, sans frontière artificielle à 2 000 m. Le contraste de la couleur de base est limité à 35 % de l'écart du hillshade, tandis que la passe overlay est légèrement adoucie. Les tests automatisés couvrent la neutralité, les orientations et les bornes ; le rendu doit encore être inspecté dans un navigateur.
+
+
+## Sélection de campagne et ouverture du monde — novembre 2026
+
+L'écran d'ouverture attend les ressources mondiales, l'initialisation du relief et le chargement des frontières/nations avant de laisser apparaître la campagne. La barre reflète des étapes terminées, pas un pourcentage artificiellement animé. En cas d'échec réseau, un message et une action de nouvelle tentative restent accessibles.
+
+La sélection de nation est une liste filtrable et recherchable, groupée par région, avec une difficulté de 1 à 5 et un classement de départ. Les zones d'influence, terres non revendiquées et peuples non étatiques sont écartés du choix. Les évaluations sont heuristiques et ne prétendent pas représenter un équilibrage économique complet.
+
+Les PR #10 (overscan) et #11 (hillshade ETOPO, exagération 18) sont fusionnées dans la branche stable.

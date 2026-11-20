@@ -200,3 +200,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Palette altimétrique progressive vers les roches claires et la neige en altitude, sans seuil neige uniforme à 2 000 m.
 - Couleur de base adoucie à 35 % du contraste de hillshade et passe overlay moins agressive.
 - Tests unitaires ajoutés ; inspection visuelle réelle à effectuer après mise à disposition de la branche.
+
+
+## Expérience de démarrage et sélection des nations
+- [x] Écran de chargement initial avec étapes fondées sur les ressources prêtes et reprise après erreur.
+- [x] Liste recherchable, groupée par région, avec difficulté et classement stratégique heuristique.
+- [ ] Vérifier visuellement les régions et noms pour plusieurs années historiques.
+- [ ] Affiner la difficulté par scénario après définition des systèmes économiques et militaires.
