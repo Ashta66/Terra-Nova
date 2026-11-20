@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey, getTerrainEvictionKey } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
+import { buildGeographicPolygonMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
 
 
 test("le LOD du relief suit progressivement la densité de pixels du viewport", () => {
@@ -1088,4 +1089,55 @@ test("les évictions GPU choisissent la plus ancienne tuile non protégée", () 
   entries.delete("recent-predictive");
   assert.equal(getTerrainEvictionKey(entries, protectedKeys), null);
   assert.equal(getTerrainEvictionKey(null, protectedKeys), null);
+});
+
+
+test("la triangulation géographique prépare un polygone concave sans trous", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [0, 0], [4, 0], [4, 4], [2, 2], [0, 4], [0, 0]
+    ]] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.vertexCount, 5);
+  assert.equal(mesh.triangleCount, 3);
+  assert.equal(mesh.indices.length, 9);
+  for (const index of mesh.indices) assert.ok(index < mesh.vertexCount);
+});
+
+test("la triangulation géographique déplie l'antiméridien sans grand triangle parasite", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [179, 10], [-179, 10], [-179, 12], [179, 12], [179, 10]
+    ]] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, true);
+  const longitudes = Array.from(mesh.positions).filter((_, index) => index % 2 === 0);
+  assert.ok(Math.max(...longitudes) - Math.min(...longitudes) <= 2);
+});
+
+test("les polygones avec trous restent explicitement au fallback Canvas", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [
+      [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+      [[2, 2], [2, 4], [4, 4], [4, 2], [2, 2]]
+    ] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, false);
+  assert.equal(mesh.reason, "polygon-holes-require-canvas");
+});
+
+test("le cache de maillages réutilise la triangulation d'une même feature", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] }
+  };
+  const cache = createGeographicMeshCache();
+  assert.equal(cache.get(feature), cache.get(feature));
 });
