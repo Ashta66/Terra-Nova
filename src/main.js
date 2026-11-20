@@ -74,7 +74,13 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
-  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 0.45 });
+  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, {
+    padding: 0.45,
+    zoomLevels: [
+      Math.max(MIN_MAP_ZOOM, mapViewport.zoom * 0.5),
+      Math.min(MAX_MAP_ZOOM, mapViewport.zoom * 2)
+    ]
+  });
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
