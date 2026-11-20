@@ -136,7 +136,13 @@ function scheduleMapPreview() {
     // Le bitmap reste la seule chose dessinée pendant le geste.
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (terrainTileStore && now - lastPreviewPreloadAt >= 100) {
-      terrainTileStore.preloadViewport(mapViewport, { padding: 1.0 });
+      terrainTileStore.preloadViewport(mapViewport, {
+        padding: 1.0,
+        retainExisting: true,
+        lookAhead: 0.45,
+        directionLongitude: Math.sign(mapViewport.centerLongitude - previewBaseViewport.centerLongitude),
+        directionLatitude: Math.sign(mapViewport.centerLatitude - previewBaseViewport.centerLatitude)
+      });
       lastPreviewPreloadAt = now;
     }
     drawMapPreview();
