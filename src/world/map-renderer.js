@@ -96,7 +96,6 @@ function traceRing(context, ring, width, height, projection) {
     if (point) projected.push(point);
   }
   if (projected.length < 4) return 0;
-  const zoom = Math.max(1, Number(projection.viewport?.zoom ?? 1));
   const simplified = simplifyClosedRing(projected, 0.55);
   // Les îlots plus petits qu'un pixel carré n'apportent pas de silhouette
   // lisible à cette échelle. Ils réapparaissent automatiquement en zoomant.
