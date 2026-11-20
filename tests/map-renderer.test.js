@@ -396,3 +396,17 @@ test("un MultiLineString conserve le nombre de segments hydrographiques avec Pat
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("le préchargement prépare les sélections des secteurs voisins sans modifier la collection", async () => {
+  const { prefetchGeoSpatialFeatures } = await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: Array.from({ length: 12 }, (_, index) => ({
+    type: "Feature", properties: { id: index },
+    geometry: { type: "Point", coordinates: [-150 + index * 25, 0] }
+  })) };
+  const originalFeatures = collection.features;
+  const prepared = prefetchGeoSpatialFeatures(collection, { zoom: 3, centerLongitude: 0, centerLatitude: 0 }, 1);
+  assert.ok(prepared > 0);
+  assert.equal(collection.features, originalFeatures);
+  assert.equal(prefetchGeoSpatialFeatures(collection, { zoom: 1, centerLongitude: 0, centerLatitude: 0 }), 0);
+});

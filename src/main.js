@@ -2,6 +2,7 @@ import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
+import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
@@ -24,6 +25,8 @@ let regionalLabelFeatures = null;
 let regionalLayersLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
+let mapPrefetchHandle = null;
+let mapPrefetchUsesIdleCallback = false;
 let lastRenderedMapSignature = null;
 let wheelZoomState = null;
 let wheelZoomTimer = null;
@@ -76,6 +79,29 @@ function renderMap() {
     mapRenderFrame = null;
     renderMapFrame();
   });
+}
+
+function scheduleMapPrefetch(collections) {
+  if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
+  if (mapPrefetchHandle !== null) {
+    if (mapPrefetchUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(mapPrefetchHandle);
+    else clearTimeout(mapPrefetchHandle);
+    mapPrefetchHandle = null;
+  }
+  const prepare = () => {
+    mapPrefetchHandle = null;
+    if (mapInteractionActive) return;
+    for (const collection of collections) {
+      if (collection?.features) prefetchGeoSpatialFeatures(collection, mapViewport, 1);
+    }
+  };
+  if (typeof requestIdleCallback === "function") {
+    mapPrefetchUsesIdleCallback = true;
+    mapPrefetchHandle = requestIdleCallback(prepare, { timeout: 700 });
+  } else {
+    mapPrefetchUsesIdleCallback = false;
+    mapPrefetchHandle = setTimeout(prepare, 90);
+  }
 }
 
 function renderMapFrame() {
@@ -144,6 +170,9 @@ function renderMapFrame() {
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}${detailStatus}`;
   updateMapControls();
+  if (!mapInteractionActive) {
+    scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
+  }
 }
 
 async function installFullMapPack() {

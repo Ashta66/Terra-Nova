@@ -115,3 +115,34 @@ export function selectGeoSpatialFeatures(collection, viewport = {}) {
   }
   return queryGeoSpatialIndex(index, viewport);
 }
+
+
+/**
+ * Prépare les sélections des cellules voisines pendant les périodes calmes.
+ * Le résultat courant reste prioritaire ; les voisins ne sont que des entrées
+ * de cache et ne modifient jamais les données géographiques sources.
+ */
+export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1) {
+  if (!collection?.features || !Number.isFinite(Number(viewport.zoom)) || Number(viewport.zoom) <= 1.001) return 0;
+  let index = indexCache.get(collection);
+  if (!index) {
+    index = buildGeoSpatialIndex(collection);
+    indexCache.set(collection, index);
+  }
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const lonSpan = 360 / zoom;
+  const latSpan = 180 / zoom;
+  const steps = Math.max(0, Math.min(1, Math.floor(Number(radius) || 0)));
+  let prepared = 0;
+  for (let y = -steps; y <= steps; y++) {
+    for (let x = -steps; x <= steps; x++) {
+      if (x === 0 && y === 0) continue;
+      const centerLongitude = Number(viewport.centerLongitude ?? 0) + x * lonSpan;
+      const centerLatitude = Math.max(-90, Math.min(90, Number(viewport.centerLatitude ?? 0) + y * latSpan));
+      if (centerLongitude < -180 || centerLongitude > 180) continue;
+      queryGeoSpatialIndex(index, { zoom, centerLongitude, centerLatitude });
+      prepared++;
+    }
+  }
+  return prepared;
+}

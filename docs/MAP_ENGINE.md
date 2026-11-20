@@ -174,3 +174,8 @@ Les cours d'eau (LineString et MultiLineString) utilisent désormais le même ca
 ## Compatibilité du comptage hydrographique — 20 novembre 2026
 
 Le cache `Path2D` regroupe les sous-lignes d'un `MultiLineString` dans un seul chemin graphique pour réduire les appels Canvas. Le compteur de rendu conserve toutefois le nombre de lignes individuelles, comme avant l'optimisation, afin que les statistiques de couches restent comparables. Un test couvre explicitement les entités hydrographiques multi-segments.
+
+
+## Préchargement des secteurs voisins — étape 1/5
+
+Après un rendu complet, le navigateur prépare au repos les sélections spatiales des secteurs adjacents au cadrage. Le travail est reporté via `requestIdleCallback` (ou un court délai de repli) et annulé/remplacé si un nouveau cadrage arrive. Il ne télécharge aucune donnée supplémentaire, ne duplique pas la carte et ne modifie pas les collections GeoJSON : il préchauffe uniquement le cache borné de requêtes spatiales. Au zoom mondial, le préchargement est désactivé car la vue couvre déjà l'ensemble du monde.
