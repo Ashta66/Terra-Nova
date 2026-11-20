@@ -1,7 +1,7 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
-import { calculateViewportTransform, renderWorldMap } from "./world/map-renderer.js";
+import { calculateViewportTransform, getViewportPreviewWrapCopies, renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
@@ -29,6 +29,7 @@ let pendingPreviewFrame = null;
 let previewCanvas = null;
 let previewBaseViewport = null;
 let previewIdleTimer = null;
+let lastPreviewPreloadAt = -Infinity;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 8;
 const $ = (id) => document.getElementById(id);
@@ -72,7 +73,7 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
-  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 0.6 });
+  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 1.0 });
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
@@ -121,13 +122,23 @@ function drawMapPreview() {
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.setTransform(transform.scale, 0, 0, transform.scale, transform.translateX * ratio, transform.translateY * ratio);
-  context.drawImage(previewCanvas, 0, 0);
+  const wrapCopies = getViewportPreviewWrapCopies(previewBaseViewport, mapViewport);
+  for (const copy of wrapCopies) {
+    context.drawImage(previewCanvas, copy * previewCanvas.width, 0);
+  }
 }
 
 function scheduleMapPreview() {
   if (!previewBaseViewport || pendingPreviewFrame !== null) return;
   pendingPreviewFrame = window.requestAnimationFrame(() => {
     pendingPreviewFrame = null;
+    // Réchauffe les tuiles autour du nouveau centre au plus 10 fois/seconde.
+    // Le bitmap reste la seule chose dessinée pendant le geste.
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (terrainTileStore && now - lastPreviewPreloadAt >= 100) {
+      terrainTileStore.preloadViewport(mapViewport, { padding: 1.0 });
+      lastPreviewPreloadAt = now;
+    }
     drawMapPreview();
   });
 }
