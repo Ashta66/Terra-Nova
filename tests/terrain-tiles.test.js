@@ -175,3 +175,39 @@ test("les anciennes tuiles visibles restent protégées pendant le préchargemen
   assert.ok(previousVisible.every(id => store.loadedIds.includes(id)));
   assert.ok(nextVisible.every(id => store.loadedIds.includes(id)));
 });
+
+
+test("les niveaux parent disposent de tuiles indépendantes en cache", () => {
+  const values = Int16Array.from({ length: 64 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 24 });
+  const child = store.getTile(0, 0);
+  const parent = store.getTileAtLevel(1, 0, 0);
+  const coarse = store.getTileAtLevel(2, 0, 0);
+  assert.equal(child.level, 0);
+  assert.equal(parent.level, 1);
+  assert.equal(coarse.level, 2);
+  assert.equal(parent.sourceStride, 2);
+  assert.equal(coarse.sourceStride, 4);
+  assert.notEqual(parent.id, child.id);
+  assert.deepEqual([...parent.values], [0, 2, 16, 18]);
+  assert.deepEqual([...coarse.values], [0, 4, 32, 36]);
+  assert.equal(store.getTileAtLevel(1, 0, 0), parent);
+});
+
+test("les tuiles parent reflètent les modifications apportées aux données source", () => {
+  const values = Int16Array.from({ length: 64 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 24 });
+  assert.equal(store.setElevation(-157.5, 67.5, 2400), true);
+  const parent = store.getTileAtLevel(1, 0, 0);
+  assert.equal(parent.values[0], 2400);
+});
+
+test("les identifiants et le préchargement asynchrone acceptent les niveaux parent", async () => {
+  const store = createTerrainTileStore({ width: 16, height: 16, values: new Int16Array(256) }, { tileSize: 4, maxTiles: 24 });
+  assert.equal(store.getTileId(0, 0, 2), "2/0/0");
+  assert.equal(store.getTileId(9, 0, 2), null);
+  const result = await store.preloadTileIds(["2/0/0", "1/1/1"], { batchSize: 1 });
+  assert.equal(result.cancelled, false);
+  assert.ok(store.loadedIds.includes("2/0/0"));
+  assert.ok(store.loadedIds.includes("1/1/1"));
+});
