@@ -359,7 +359,7 @@ function parseWebGLColor(value) {
   if (/^#[0-9a-f]{6}$/i.test(value)) {
     return [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16) / 255).concat(1);
   }
-  const rgba = value.match(/^rgba?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*,\\s*([\\d.]+)(?:\\s*,\\s*([\\d.]+))?\\s*\\)$/i);
+  const rgba = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
   if (rgba) return [Number(rgba[1]) / 255, Number(rgba[2]) / 255,
     Number(rgba[3]) / 255, rgba[4] === undefined ? 1 : Number(rgba[4])];
   return [0.32, 0.39, 0.31, 1];
