@@ -672,14 +672,14 @@ function createTileRenderer(tileStore) {
   gl.useProgram(program);
   const position=gl.getAttribLocation(program,"a_position"),atlasUv=gl.getAttribLocation(program,"a_atlasUv");
   const atlasStep=gl.getAttribLocation(program,"a_atlasStep"),tileStep=gl.getAttribLocation(program,"a_tileStep"),atlasBounds=gl.getAttribLocation(program,"a_atlasBounds");
-  gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,32,0);
-  gl.enableVertexAttribArray(atlasUv);gl.vertexAttribPointer(atlasUv,2,gl.FLOAT,false,32,8);
-  gl.enableVertexAttribArray(atlasStep);gl.vertexAttribPointer(atlasStep,2,gl.FLOAT,false,32,16);
+  gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,48,0);
+  gl.enableVertexAttribArray(atlasUv);gl.vertexAttribPointer(atlasUv,2,gl.FLOAT,false,48,8);
+  gl.enableVertexAttribArray(atlasStep);gl.vertexAttribPointer(atlasStep,2,gl.FLOAT,false,48,16);
   gl.enableVertexAttribArray(tileStep);gl.vertexAttribPointer(tileStep,2,gl.FLOAT,false,48,24);
   gl.enableVertexAttribArray(atlasBounds);gl.vertexAttribPointer(atlasBounds,4,gl.FLOAT,false,48,32);
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
-  const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:4});
+  const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:8});
   if(!cache)return null;
   const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
