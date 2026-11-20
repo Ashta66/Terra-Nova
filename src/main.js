@@ -33,6 +33,7 @@ let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 let pendingMapFrame = null;
+let lastMapRenderAt = null;
 let pendingPreviewFrame = null;
 let previewCanvas = null;
 let previewBaseViewport = null;
@@ -89,6 +90,8 @@ function renderMap() {
     lastTerrainPreloadViewportKey = viewportKey;
   }
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const frameIntervalMs = lastMapRenderAt === null ? null : now - lastMapRenderAt;
+  lastMapRenderAt = now;
   if (lastTerrainRenderZoom !== null && mapViewport.zoom !== lastTerrainRenderZoom) {
     terrainTransitionStartAt = now;
     terrainTransitionZoom = mapViewport.zoom;
@@ -117,6 +120,10 @@ function renderMap() {
   mapLabelHits = result.labelHits ?? [];
   if (canvas.dataset && result.performance) {
     canvas.dataset.renderTotalMs = result.performance.totalMs.toFixed(2);
+    if (frameIntervalMs !== null && frameIntervalMs > 0) {
+      canvas.dataset.mapFrameIntervalMs = frameIntervalMs.toFixed(2);
+      canvas.dataset.mapFrameFps = (1000 / frameIntervalMs).toFixed(1);
+    }
     canvas.dataset.renderTerrainMs = result.performance.terrainMs.toFixed(2);
     canvas.dataset.renderPoliticalMs = result.performance.politicalMs.toFixed(2);
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
