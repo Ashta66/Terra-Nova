@@ -29,12 +29,21 @@ function compile(gl, type, source) {
 
 function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
+function hasSupportedLineCoordinates(mesh) {
+  if (!mesh?.supported) return false;
+  const positions = mesh.positions;
+  for (let index = 0; index < positions.length; index += 2) {
+    if (positions[index] < -180 || positions[index] > 180) return false;
+  }
+  return true;
+}
+
 function buildLineBatch(features, gl) {
   const positions = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
     const mesh = buildGeographicLineMesh(feature);
-    if (!mesh.supported || Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180))) { skippedFeatures++; continue; }
+    if (!hasSupportedLineCoordinates(mesh)) { skippedFeatures++; continue; }
     for (const value of mesh.positions) positions.push(value);
     drawnFeatures++;
   }
@@ -63,7 +72,7 @@ function buildBoundaryLineBatch(features, gl) {
     let valid = true;
     for (const polygon of polygons) for (const ring of polygon ?? []) {
       const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
-      if (!mesh.supported || Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180))) { valid = false; break; }
+      if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
       for (const value of mesh.positions) featurePositions.push(value);
     }
     if (!valid || !featurePositions.length) { skippedFeatures++; continue; }
@@ -113,6 +122,8 @@ export function createGeographicWebGLRenderer(gl) {
   const colorLocation = gl.getUniformLocation(program, "u_color");
   const meshCache = createGeographicMeshCache();
   const featureIds = new WeakMap();
+  const lineSupportCache = new WeakMap();
+  const boundarySupportCache = new WeakMap();
   let nextFeatureId = 1;
   const layerCaches = new Map();
   let disposed = false;
@@ -263,20 +274,30 @@ export function createGeographicWebGLRenderer(gl) {
     canvas: gl.canvas ?? null,
     supports(feature) { return Boolean(meshCache.get(feature)?.supported); },
     supportsBoundary(feature) {
-      const geometry = feature?.geometry;
+      if (!feature || typeof feature !== "object") return false;
+      const cached = boundarySupportCache.get(feature);
+      if (cached !== undefined) return cached;
+      const geometry = feature.geometry;
       const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
         geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-      if (!polygons?.length) return false;
-      for (const polygon of polygons) for (const ring of polygon ?? []) {
-        const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
-        if (!mesh.supported || Array.from(mesh.positions).some((value, index) =>
-          index % 2 === 0 && (value < -180 || value > 180))) return false;
+      let supported = Boolean(polygons?.length);
+      if (supported) for (const polygon of polygons) {
+        for (const ring of polygon ?? []) {
+          const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
+          if (!hasSupportedLineCoordinates(mesh)) { supported = false; break; }
+        }
+        if (!supported) break;
       }
-      return true;
+      boundarySupportCache.set(feature, supported);
+      return supported;
     },
     supportsLine(feature) {
-      const mesh = buildGeographicLineMesh(feature);
-      return Boolean(mesh.supported && !Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180)));
+      if (!feature || typeof feature !== "object") return false;
+      const cached = lineSupportCache.get(feature);
+      if (cached !== undefined) return cached;
+      const supported = hasSupportedLineCoordinates(buildGeographicLineMesh(feature));
+      lineSupportCache.set(feature, supported);
+      return supported;
     },
     render,
     renderLayers,
