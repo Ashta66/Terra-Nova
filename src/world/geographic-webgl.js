@@ -146,8 +146,23 @@ export function buildGeographicLineMesh(feature) {
   }
   const positions = [];
   for (const line of lines) {
-    const points = unwrapRing(line);
-    if (!points) return { supported: false, reason: "invalid-line", positions: new Float32Array(), vertexCount: 0 };
+    if (!Array.isArray(line) || line.length < 2) return { supported: false, reason: "invalid-line", positions: new Float32Array(), vertexCount: 0 };
+    const points = [];
+    for (const coordinate of line) {
+      const longitude = Number(coordinate?.[0]), latitude = Number(coordinate?.[1]);
+      if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || longitude < -540 || longitude > 540 || latitude < -90 || latitude > 90) {
+        return { supported: false, reason: "invalid-line", positions: new Float32Array(), vertexCount: 0 };
+      }
+      let x = longitude;
+      if (points.length) {
+        const previous = points[points.length - 1][0];
+        while (x - previous > 180) x -= 360;
+        while (x - previous < -180) x += 360;
+      }
+      const previousPoint = points[points.length - 1];
+      if (!previousPoint || Math.abs(previousPoint[0] - x) > EPSILON || Math.abs(previousPoint[1] - latitude) > EPSILON) points.push([x, latitude]);
+    }
+    if (points.length < 2) return { supported: false, reason: "invalid-line", positions: new Float32Array(), vertexCount: 0 };
     for (let index = 1; index < points.length; index++) {
       positions.push(points[index - 1][0], points[index - 1][1], points[index][0], points[index][1]);
     }
