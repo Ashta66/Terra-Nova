@@ -281,19 +281,25 @@ export function buildTerrainTileTexture(tile, tileStore) {
   const stride = 2 ** tile.level;
   const levelWidth = Math.ceil(tileStore.width / stride);
   const levelHeight = Math.ceil(tileStore.height / stride);
-  const columns = Math.ceil(levelWidth / tileStore.tileSize);
-  const rows = Math.ceil(levelHeight / tileStore.tileSize);
   const width = tile.width + 2;
   const height = tile.height + 2;
   const values = new Int16Array(width * height);
+  // Les pixels de bord ne croisent que quelques tuiles voisines. Résoudre
+  // chaque tuile une seule fois évite un accès LRU/Map par pixel du halo.
+  const neighbors = new Map();
   for (let y = -1; y <= tile.height; y++) {
     const sourceY = Math.max(0, Math.min(levelHeight - 1, tile.originY + y));
     const tileY = Math.floor(sourceY / tileStore.tileSize);
     for (let x = -1; x <= tile.width; x++) {
       const sourceX = ((tile.originX + x) % levelWidth + levelWidth) % levelWidth;
       const tileX = Math.floor(sourceX / tileStore.tileSize);
-      const neighbor = tileStore.getTileAtLevel(tile.level, tileX, tileY);
-      if (!neighbor) return null;
+      const neighborKey = `${tileX}/${tileY}`;
+      let neighbor = neighbors.get(neighborKey);
+      if (neighbor === undefined) {
+        neighbor = tileStore.getTileAtLevel(tile.level, tileX, tileY);
+        if (!neighbor) return null;
+        neighbors.set(neighborKey, neighbor);
+      }
       const localX = sourceX - neighbor.originX;
       const localY = sourceY - neighbor.originY;
       values[(y + 1) * width + x + 1] = neighbor.values[localY * neighbor.width + localX];
