@@ -582,6 +582,9 @@ test("le shader WebGL reprend l'éclairage directionnel et les dimensions réell
   assert.match(shader, /radians\(315\.0\)/);
   assert.match(shader, /radians\(45\.0\)/);
   assert.match(shader, /0\.65/);
+  assert.match(shader, /relativeHeight/);
+  assert.match(shader, /190\.0,174\.0,157\.0/);
+  assert.match(shader, /tintStrength = 0\.0/);
 });
 
 test("les statistiques GPU restent indisponibles sans renderer initialisé", () => {
