@@ -235,3 +235,8 @@ Le moteur possède désormais un lecteur raster Int16, une interpolation d'altit
 
 ### Complément relief terrestre — 20 novembre 2026
 Le renderer utilise désormais les quatre échantillons voisins déjà nécessaires au hillshade pour différencier discrètement les formes de relief. Les classes sont heuristiques et purement visuelles. La bathymétrie reste volontairement simplifiée, à faible contraste, sans ombrage détaillé des fosses et dorsales. Aucun nouveau fichier de données n'est nécessaire.
+
+
+## Mise à jour technique — fluidité de la carte (20 novembre 2026)
+
+Le moteur regroupe désormais les demandes de rendu sur `requestAnimationFrame`. Pendant un glissement, le raster ETOPO est temporairement calculé à résolution réduite, puis une image plus détaillée est rendue à la fin du geste. Le rendu raster utilise les dimensions logiques du canvas et une surface hors écran lorsque disponible afin de respecter le facteur de densité de pixels. Ces optimisations sont un premier palier ; les performances réelles doivent encore être mesurées dans un navigateur et la mise en cache des couches statiques reste une piste.
