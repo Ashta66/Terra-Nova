@@ -449,7 +449,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const terrainStartedAt = performanceNow();
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
-  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;\n  const webglTerrainTileStore = options.terrainTileStore?.getTileAtLevel ? options.terrainTileStore : null;
+  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
+  const webglTerrainTileStore = options.terrainTileStore?.getTileAtLevel ? options.terrainTileStore : null;
   let terrainRenderer = "canvas2d";
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
@@ -529,7 +530,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   } else if (terrainEnabled) {
     lastPhysicalFrame = null;
     terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
-      options.terrain, projection.viewport, webglTerrainGrid);
+      options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
   } else {
     lastPhysicalFrame = null;
   }
