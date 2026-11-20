@@ -641,12 +641,16 @@ export function classifyHistoricalTerritoryStyle(feature){
 }
 export function classifyPhysicalCellVisual(c){
  if(!c)return null;
- if(c.inundated||(Number.isFinite(c.currentElevationM)&&c.currentElevationM<0))return {fill:"rgba(44,145,190,.72)",stroke:"#69c5e8",kind:"submerged"};
- if(c.surfaceState==="lava-flow")return {fill:"rgba(210,55,35,.78)",stroke:"#ff9b63",kind:"lava"};
- if(["crater","impact-zone"].includes(c.surfaceState))return {fill:"rgba(91,61,51,.68)",stroke:"#e6a36d",kind:"impact"};
- if(Number(c.ashLoad)>.05)return {fill:"rgba(112,105,102,.42)",stroke:"#d1c6bc",kind:"ash"};
- if(Number(c.damage)>.08)return {fill:"rgba(224,151,58,.42)",stroke:"#ffd18a",kind:"damage"};
- if(Number(c.elevationDeltaM)>.5)return {fill:"rgba(174,139,84,.38)",stroke:"#e5c18b",kind:"uplift"};return null;
+ // Ne jamais peindre l'océan de base : seule une terre réellement submergée
+ // par un événement doit recevoir le voile bleu.
+ const crossedSeaLevel=Number.isFinite(c.baseElevationM)&&c.baseElevationM>=0&&Number.isFinite(c.currentElevationM)&&c.currentElevationM<0;
+ if(c.inundated||crossedSeaLevel)return {fill:"rgba(44,145,190,.58)",stroke:"#69c5e8",kind:"submerged"};
+ if(c.surfaceState==="lava-flow")return {fill:"rgba(210,55,35,.72)",stroke:"#ff9b63",kind:"lava"};
+ if(["crater","impact-zone"].includes(c.surfaceState))return {fill:"rgba(91,61,51,.52)",stroke:"#e6a36d",kind:"impact"};
+ if(Number(c.ashLoad)>.05)return {fill:"rgba(112,105,102,.32)",stroke:"#d1c6bc",kind:"ash"};
+ if(Number(c.damage)>.08)return {fill:"rgba(224,151,58,.32)",stroke:"#ffd18a",kind:"damage"};
+ if(Number(c.elevationDeltaM)>.5)return {fill:"rgba(174,139,84,.3)",stroke:"#e5c18b",kind:"uplift"};
+ return null;
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection){
  if(!world?.currentCells?.length)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();

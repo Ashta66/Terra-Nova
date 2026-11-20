@@ -698,6 +698,9 @@ test("les colonies peuvent hériter de la puissance souveraine sans perdre leur 
 });
 test("les changements géophysiques disposent d'un rendu distinct",()=>{
  assert.equal(classifyPhysicalCellVisual({inundated:true,waterDepthM:3}).kind,"submerged");
+ // L'océan naturel est déjà bleu dans le fond : il ne doit jamais être repeint en carrés.
+ assert.equal(classifyPhysicalCellVisual({baseElevationM:-4200,currentElevationM:-4200,elevationDeltaM:0}),null);
+ assert.equal(classifyPhysicalCellVisual({baseElevationM:120,currentElevationM:-2,elevationDeltaM:-122}).kind,"submerged");
  assert.equal(classifyPhysicalCellVisual({surfaceState:"lava-flow"}).kind,"lava");
  assert.equal(classifyPhysicalCellVisual({surfaceState:"crater"}).kind,"impact");
  assert.equal(classifyPhysicalCellVisual({ashLoad:.7}).kind,"ash");
