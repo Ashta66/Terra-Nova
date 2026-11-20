@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey, getTerrainEvictionKey } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
-import { buildGeographicPolygonMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
+import { buildGeographicPolygonMesh, buildGeographicLineMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
 import { createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
 
 
@@ -1268,4 +1268,26 @@ test("le renderer géographique conserve un cache GPU indépendant pour chaque c
   assert.equal(changed.bufferUploads, 2);
   assert.equal(uploads.length, 8);
   renderer.dispose();
+});
+
+
+test("les lignes géographiques sont converties en segments GPU avec ruptures et antiméridien", () => {
+  const line = { type: "Feature", geometry: { type: "MultiLineString", coordinates: [
+    [[179, 4], [-179, 5], [-178, 6]],
+    [[20, 0], [21, 1]]
+  ] } };
+  const mesh = buildGeographicLineMesh(line);
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.vertexCount, 6);
+  assert.deepEqual(Array.from(mesh.positions), [
+    179, 4, 181, 5,
+    181, 5, 182, 6,
+    20, 0, 21, 1
+  ]);
+  assert.equal(buildGeographicLineMesh({ type: "Feature", geometry: {
+    type: "Polygon", coordinates: []
+  } }).supported, false);
+  assert.equal(buildGeographicLineMesh({ type: "Feature", geometry: {
+    type: "LineString", coordinates: [[0, 0], [Number.NaN, 2]]
+  } }).supported, false);
 });
