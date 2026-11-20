@@ -144,6 +144,9 @@ function renderMap() {
       canvas.dataset.terrainWebglTilePending = String(result.terrainWebGLTileStats.pendingCount);
       canvas.dataset.terrainWebglTileLod = String(result.terrainWebGLTileStats.lod);
       canvas.dataset.terrainWebglTileTransition = result.terrainWebGLTileStats.transitionProgress.toFixed(3);
+      canvas.dataset.terrainWebglTileWaiting = String(result.terrainWebGLTileStats.waitingForTiles);
+      canvas.dataset.terrainWebglTileReadyChildren = String(result.terrainWebGLTileStats.readyChildTiles);
+      canvas.dataset.terrainWebglTilePendingChildren = String(result.terrainWebGLTileStats.pendingChildTiles);
       canvas.dataset.terrainWebglTileHits = String(result.terrainWebGLTileStats.hits);
       canvas.dataset.terrainWebglTileMisses = String(result.terrainWebGLTileStats.misses);
       canvas.dataset.terrainWebglTileUploads = String(result.terrainWebGLTileStats.uploads);
