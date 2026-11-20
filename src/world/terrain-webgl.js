@@ -221,6 +221,29 @@ export function collectTerrainViewportTiles(tileStore, viewport, width, height, 
   return result;
 }
 
+export function collectTerrainPredictiveTiles(tileStore, viewport, width, height, level = 0, limit = 8) {
+  if (!Number.isInteger(limit) || limit <= 0) return [];
+  const zoom = Math.max(0.0001, Number(viewport?.zoom ?? 1));
+  const expandedViewport = {
+    ...viewport,
+    zoom: Math.max(0.0001, zoom * 0.72)
+  };
+  const visible = collectTerrainViewportTiles(tileStore, viewport, width, height, level);
+  const visibleIds = new Set(visible.map(({ tile }) => `${tile.level}/${tile.x}/${tile.y}`));
+  const candidates = collectTerrainViewportTiles(tileStore, expandedViewport, width, height, level)
+    .filter(({ tile }) => !visibleIds.has(`${tile.level}/${tile.x}/${tile.y}`))
+    .map(item => {
+      const bounds = getTerrainTileGeoBounds(item.tile, tileStore);
+      const longitude = (bounds.west + bounds.east) * 0.5;
+      const latitude = (bounds.north + bounds.south) * 0.5;
+      const dx = Math.abs((((longitude - Number(viewport?.centerLongitude ?? 0) + 540) % 360) + 360) % 360 - 180);
+      const dy = Math.abs(latitude - Number(viewport?.centerLatitude ?? 0));
+      return { ...item, distance: dx + dy * 2 };
+    });
+  candidates.sort((a, b) => a.distance - b.distance);
+  return candidates.slice(0, limit).map(({ tile, rects }) => ({ tile, rects }));
+}
+
 export function buildTerrainTileTexture(tile, tileStore) {
   if (!tile || !tileStore?.getTileAtLevel || !Number.isInteger(tile.level)
     || !Number.isInteger(tile.x) || !Number.isInteger(tile.y)
@@ -595,7 +618,7 @@ function createTileRenderer(tileStore) {
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
-  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:0};
+  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:0,lastPreloadedTiles:0,lastPreloadAt:0};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -644,7 +667,17 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
       renderer.lastDrawCalls++;
     }
   }
-  renderer.lastSubmitMs=(globalThis.performance?.now?.()??Date.now())-started;
+  const drawFinishedAt=globalThis.performance?.now?.()??Date.now();
+  renderer.lastSubmitMs=drawFinishedAt-started;
+  renderer.lastPreloadedTiles=0;
+  if(drawFinishedAt-renderer.lastPreloadAt>=120) {
+    renderer.lastPreloadAt=drawFinishedAt;
+    const predictive=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,8);
+    for(const {tile} of predictive) {
+      const entry=cache.get(tile,tileStore,protectedKeys);
+      if(entry) renderer.lastPreloadedTiles++;
+    }
+  }
   gl.viewport(0,0,width,height);
   if(gl.isContextLost?.()){renderer.contextLost=true;tileRenderers.delete(tileStore);return null;}
   return canvas;
@@ -653,5 +686,5 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,lod:renderer.lastLevel,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,maxTextureSize:renderer.maxTextureSize};
 }
