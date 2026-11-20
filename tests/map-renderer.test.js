@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -702,4 +702,74 @@ test("le plan d'affichage GPU répète la tuile qui traverse l'antiméridien", (
   assert.equal(rects[0].width, 89);
   assert.equal(rects[0].u0, 0);
   assert.ok(Math.abs(rects[0].u1 - 89 / 120) < 1e-12);
+});
+
+
+function createFakeTerrainGL(maxTextureSize = 64) {
+  let nextTexture = 0;
+  const deleted = [];
+  const uploads = [];
+  return {
+    TEXTURE_2D: 1, TEXTURE_MIN_FILTER: 2, TEXTURE_MAG_FILTER: 3,
+    TEXTURE_WRAP_S: 4, TEXTURE_WRAP_T: 5, LINEAR: 6, CLAMP_TO_EDGE: 7,
+    UNPACK_ALIGNMENT: 8, LUMINANCE_ALPHA: 9, UNSIGNED_BYTE: 10,
+    MAX_TEXTURE_SIZE: 11,
+    deleted, uploads,
+    createTexture() { return { id: ++nextTexture }; },
+    deleteTexture(texture) { deleted.push(texture.id); },
+    bindTexture() {},
+    texParameteri() {},
+    pixelStorei() {},
+    getParameter(parameter) { return parameter === this.MAX_TEXTURE_SIZE ? maxTextureSize : 0; },
+    texImage2D(target, level, internalFormat, width, height, border, format, type, data) {
+      uploads.push({ width, height, bytes: data.byteLength });
+    }
+  };
+}
+
+test("le cache GPU des tuiles respecte le LRU et son budget mémoire", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 2, maxBytes: 1000 });
+  const a = store.getTileAtLevel(0, 0, 0);
+  const b = store.getTileAtLevel(0, 1, 0);
+  const d = store.getTileAtLevel(0, 2, 0);
+  const first = cache.get(a, store);
+  assert.ok(first);
+  assert.equal(cache.get(a, store), first);
+  cache.get(b, store);
+  cache.get(d, store);
+  assert.equal(cache.size, 2);
+  assert.deepEqual(gl.deleted, [first.texture.id]);
+  assert.equal(cache.stats.overBudget, false);
+  assert.equal(cache.memoryBytes, gl.uploads.slice(-2).reduce((sum, upload) => sum + upload.bytes, 0));
+  cache.clear();
+  assert.equal(cache.size, 0);
+  assert.equal(cache.memoryBytes, 0);
+});
+
+test("le cache GPU invalide une texture lorsque la révision du terrain change", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 8, maxBytes: 4096 });
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const oldEntry = cache.get(tile, store);
+  store.setElevation(15, 67.5, 3000);
+  const refreshedTile = store.getTileAtLevel(0, 1, 0);
+  const newEntry = cache.get(refreshedTile, store);
+  assert.notEqual(newEntry.key, oldEntry.key);
+  assert.notEqual(newEntry.texture, oldEntry.texture);
+  assert.ok(gl.deleted.includes(oldEntry.texture.id));
+});
+
+test("le cache GPU refuse une texture qui dépasse les limites matérielles", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(3);
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 8, maxBytes: 4096 });
+  assert.equal(cache.get(store.getTileAtLevel(0, 0, 0), store), null);
+  assert.equal(cache.size, 0);
+  assert.equal(gl.uploads.length, 0);
 });
