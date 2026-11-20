@@ -42,3 +42,15 @@ test("la projection Mercator applique également le zoom et le centre", () => {
   assert.equal(base.x, 225);
   assert.equal(moved.x, 270);
 });
+
+
+test("les projections 2D conservent un zoom élevé jusqu'à 24x", () => {
+  const equatorial = projectCoordinate([30, 0], 360, 180, {
+    type: "equirectangular", viewport: { zoom: 24, centerLongitude: 0, centerLatitude: 0 }
+  });
+  const mercator = projectCoordinate([30, 0], 360, 180, {
+    type: "mercator", viewport: { zoom: 24, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.equal(equatorial.x, 900);
+  assert.equal(mercator.x, 900);
+});
