@@ -131,3 +131,8 @@ Le cache de relief calcule une signature à partir des seules tuiles géographiq
 - La résolution du raster de relief passe à 1024 × 512 pixels au maximum pour une vue mondiale à pleine qualité.
 - Un Web Worker précalcule les ombres multidirectionnelles à la résolution native de la grille ETOPO. En cas d'indisponibilité, le calcul synchrone reste disponible.
 - Les cellules géophysiques distinguent l'océan connecté au bord du monde des plans d'eau intérieurs isolés. Les distances côtières et les impacts marins se fondent sur les eaux connectées à la résolution de la grille géophysique.
+
+
+### Cache raster réellement partitionné en tuiles
+
+Le raster ETOPO est désormais précalculé et mis en cache par tuiles géographiques de 10° × 10°. Chaque tuile est réutilisée lors des déplacements et changements de zoom ; sa clé dépend de sa résolution, du type de passe (couleur, ombrage ou côtes modifiées), de l'état de précalcul Worker et de sa révision physique locale. Le cache LRU conserve jusqu'à 2 200 surfaces, avec une résolution adaptative de 48 à 192 pixels par tuile. Les environnements sans OffscreenCanvas utilisent un canvas DOM ; les contextes de test sans drawImage conservent le chemin raster synchrone de repli.

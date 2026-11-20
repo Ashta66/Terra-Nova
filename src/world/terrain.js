@@ -200,11 +200,62 @@ export function samplePhysicalElevation(grid,lon,lat,lookup){
  return base;
 }
 
+const terrainTileCache = new WeakMap();
+const TERRAIN_TILE_CACHE_LIMIT = 2200;
+function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly){
+ const zoom=Math.max(1,Number(viewport.zoom??1)),cx=Number(viewport.centerLongitude??0),cy=Number(viewport.centerLatitude??0);
+ const qualityScale=clamp(Number(quality)||1,.25,1),tileSize=Math.max(32,Math.min(192,Math.round(48*Math.sqrt(zoom)*qualityScale)));
+ const dx=360/grid.width,dy=180/grid.height,physical=physicalLookup(physicalWorld);
+ let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
+ const revisions=physicalWorld?.tileRevisions,hasLocalRevisions=revisions&&Object.keys(revisions).length>0;
+ const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array;
+ let drawn=false;
+ for(let ty=0;ty<18;ty++){
+  const north=90-ty*10,south=north-10,screenY=height/2-(north-cy)*height*zoom/180,destH=10*height*zoom/180;
+  if(screenY+destH<0||screenY>height)continue;
+  for(let tx=0;tx<36;tx++){
+   const west=-180+tx*10,center=west+5,shift=360*Math.round((cx-center)/360),screenX=width/2+(west+shift-cx)*width*zoom/360,destW=10*width*zoom/360;
+   if(screenX+destW<0||screenX>width)continue;
+   const tileKey=tx+":"+ty,revision=hasLocalRevisions?Number(revisions[tileKey]??0):Number(physicalWorld?.revision??0);
+   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync"].join("|");
+   let surface=cache.get(key);
+   if(!surface){
+    surface=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(tileSize,tileSize):document.createElement("canvas");
+    surface.width=tileSize;surface.height=tileSize;
+    const tileContext=surface.getContext("2d"),image=tileContext.createImageData(tileSize,tileSize),pixels=image.data;
+    for(let py=0;py<tileSize;py++){
+     const lat=north-(py+.5)/tileSize*10;
+     for(let px=0;px<tileSize;px++){
+      const lon=west+(px+.5)/tileSize*10,e=samplePhysicalElevation(grid,lon,lat,physical),base=sampleElevation(grid,lon,lat),index=(py*tileSize+px)*4;
+      const changedCoast=changedOnly&&base!==null&&((base>=0)!==(e>=0));
+      if((changedOnly&&!changedCoast)||(landOnly&&e<0)){pixels[index+3]=0;continue;}
+      let shade=1,color;
+      if(e>=0){
+       const w=samplePhysicalElevation(grid,lon-dx,lat,physical),east=samplePhysicalElevation(grid,lon+dx,lat,physical),n=samplePhysicalElevation(grid,lon,lat+dy,physical),southE=samplePhysicalElevation(grid,lon,lat-dy,physical);
+       shade=samplePreparedHillshade(grid,lon,lat)??calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
+       if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
+       else color=terrainColorForElevation(e,shade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));
+      }else color=terrainColorForElevation(e,1,"ocean");
+      pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
+     }
+    }
+    tileContext.putImageData(image,0,0);cache.set(key,surface);
+    while(cache.size>TERRAIN_TILE_CACHE_LIMIT)cache.delete(cache.keys().next().value);
+   }else{cache.delete(key);cache.set(key,surface);}
+   context.drawImage(surface,screenX,screenY,destW,destH);drawn=true;
+  }
+ }
+ return drawn;
+}
+
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false, hillshadeOnly = false) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
+  if (typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
+    return drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly);
+  }
   // Raster compact : l'ombrage multidirectionnel donne le détail, pas une haute résolution brute.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
   const scale = Math.min(1, (1024 * qualityScale) / width, (512 * qualityScale) / height);
