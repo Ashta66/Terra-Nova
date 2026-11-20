@@ -458,7 +458,8 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
         cacheHit: true, bufferUploads: 0, uploadedBytes: 0, layers: {} };
       const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
-        key: layer.key, type: layer.type, features: layer.features, color: layer.color
+        key: layer.key, type: layer.type, features: layer.features, color: layer.color,
+        lineWidth: (layer.lineWidth ?? (layer.key === "rivers" ? 0.7 : 0.55)) * ratio
       })), Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
       projection.viewport);
       aggregate.drawnFeatures = gpuStats.drawnFeatures;
