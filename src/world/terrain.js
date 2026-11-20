@@ -1,5 +1,7 @@
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
+export const RELIEF_EXAGGERATION = 18;
+
 export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   if (!(buffer instanceof ArrayBuffer) && !ArrayBuffer.isView(buffer)) throw new TypeError("Tampon binaire requis.");
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
@@ -93,42 +95,45 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
     [0, [91, 112, 72]],
     [250, [105, 119, 72]],
     [1000, [132, 128, 77]],
-    [2500, [157, 135, 94]],
-    [4000, [184, 169, 142]],
-    [6500, [235, 232, 218]]
+    [1500, [148, 132, 92]],
+    [2000, [157, 143, 122]],
+    [2600, [183, 177, 164]],
+    [3200, [213, 216, 215]],
+    [4000, [238, 241, 242]],
+    [5000, [250, 251, 252]]
   ]);
   return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
 }
 
-export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
-  if (![west, east, north, south, latitude, cellSizeDegrees].every(Number.isFinite) || cellSizeDegrees <= 0) return 1;
+export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6, exaggeration = RELIEF_EXAGGERATION) {
+  if (![west, east, north, south, latitude, cellSizeDegrees, exaggeration].every(Number.isFinite) || cellSizeDegrees <= 0 || exaggeration < 0) return 1;
   const metersPerDegree = 111320;
   const cellWidth = metersPerDegree * Math.max(0.15, Math.cos(latitude * Math.PI / 180)) * cellSizeDegrees;
   const cellHeight = metersPerDegree * cellSizeDegrees;
-  const slopeEast = (east - west) / (2 * cellWidth);
-  const slopeNorth = (north - south) / (2 * cellHeight);
+  const slopeEast = exaggeration * (east - west) / (2 * cellWidth);
+  const slopeNorth = exaggeration * (north - south) / (2 * cellHeight);
   const normalLength = Math.hypot(slopeEast, slopeNorth, 1);
   const normalEast = -slopeEast / normalLength;
   const normalNorth = -slopeNorth / normalLength;
   const normalUp = 1 / normalLength;
-  const altitude = 38 * Math.PI / 180;
-  const lightUp = Math.sin(altitude);
-  // Quatre sources lumineuses croisées : le relief reste lisible quelle que
-  // soit son orientation, au lieu de disparaître sur les versants mal éclairés.
+  // Éclairage cohérent dominé par le nord-ouest : les versants est-ouest
+  // gardent un contraste perceptible au lieu d'être annulés par quatre sources.
   const lights = [
-    { azimuth: 315, weight: 0.40 },
-    { azimuth: 45, weight: 0.30 },
-    { azimuth: 135, weight: 0.20 },
-    { azimuth: 225, weight: 0.10 }
+    { azimuth: 315, altitude: 35, weight: 0.8 },
+    { azimuth: 45, altitude: 55, weight: 0.2 }
   ];
-  let illumination = 0;
+  let lit = 0, flat = 0;
   for (const light of lights) {
-    const azimuth = light.azimuth * Math.PI / 180;
-    const lightEast = Math.cos(altitude) * Math.sin(azimuth);
-    const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
-    illumination += Math.max(0, normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp) * light.weight;
+    const az = light.azimuth * Math.PI / 180;
+    const alt = light.altitude * Math.PI / 180;
+    const eastLight = Math.cos(alt) * Math.sin(az);
+    const northLight = Math.cos(alt) * Math.cos(az);
+    const upLight = Math.sin(alt);
+    lit += Math.max(0, normalEast * eastLight + normalNorth * northLight + normalUp * upLight) * light.weight;
+    flat += upLight * light.weight;
   }
-  return clamp(1 + (illumination - lightUp) * 1.65, 0.48, 1.52);
+  const steepness = Math.min(1, Math.hypot(slopeEast, slopeNorth));
+  return clamp(1 + (lit - flat) * 1.3 - steepness * 0.12, 0.48, 1.52);
 }
 
 export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
@@ -234,7 +239,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
        const w=samplePhysicalElevation(grid,lon-dx,lat,physical),east=samplePhysicalElevation(grid,lon+dx,lat,physical),n=samplePhysicalElevation(grid,lon,lat+dy,physical),southE=samplePhysicalElevation(grid,lon,lat-dy,physical);
        shade=samplePreparedHillshade(grid,lon,lat)??calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
        if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-       else color=terrainColorForElevation(e,shade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));
+       else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
       }else color=terrainColorForElevation(e,1,"ocean");
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
@@ -312,7 +317,8 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
         const gray = Math.round(28 + relief * 214);
-        const color = hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, shade, landform);
+        const baseShade = 1 + (shade - 1) * 0.35;
+        const color = hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform);
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;

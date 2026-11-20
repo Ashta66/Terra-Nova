@@ -1,3 +1,13 @@
+## 20 novembre 2026 — refonte du relief ETOPO et de l'ombrage
+
+- src/world/terrain.js : ajout de RELIEF_EXAGGERATION = 18 et d'un paramètre d'exagération à calculateHillshade ; remplacement des quatre lumières qui se neutralisaient par une lumière nord-ouest dominante et un appoint nord-est.
+- Conservation stricte de la plage de sortie 0,48–1,52, compatible avec le codage Uint8 du worker et samplePreparedHillshade.
+- Palette terrestre éclaircie progressivement vers les roches et la neige à haute altitude, sans rupture blanche à 2 000 m.
+- Réduction à 35 % de l'effet hillshade dans la couleur de base pour éviter le double contraste ; opacité de la passe overlay ajustée à 0,72 en mode standard et 0,90 en mode relief.
+- Le worker conserve une seule source de calcul : il importe la fonction commune et bénéficie automatiquement du facteur par défaut 18.
+- Tests ajoutés sur surfaces planes, facteur d'exagération, orientations de pente, bornes numériques et transition de palette.
+- La validation visuelle navigateur reste nécessaire ; les tests ne mesurent pas la perception esthétique ni les performances GPU.
+
 ## 20 novembre 2026 — niveaux de détail géographiques progressifs
 
 - Ajout de `src/world/map-lod.js` : sélection du fond mondial 1:110m ou du fond régional 1:10m à partir du zoom 4×.
