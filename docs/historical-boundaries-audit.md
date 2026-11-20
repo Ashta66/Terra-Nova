@@ -136,3 +136,13 @@ Le cache de relief calcule une signature à partir des seules tuiles géographiq
 ### Cache raster réellement partitionné en tuiles
 
 Le raster ETOPO est désormais précalculé et mis en cache par tuiles géographiques de 10° × 10°. Chaque tuile est réutilisée lors des déplacements et changements de zoom ; sa clé dépend de sa résolution, du type de passe (couleur, ombrage ou côtes modifiées), de l'état de précalcul Worker et de sa révision physique locale. Le cache LRU conserve jusqu'à 2 200 surfaces, avec une résolution adaptative de 48 à 192 pixels par tuile. Les environnements sans OffscreenCanvas utilisent un canvas DOM ; les contextes de test sans drawImage conservent le chemin raster synchrone de repli.
+
+
+### Composition cartographique à image visible unique
+
+- Le rendu géographique complet (relief, frontières, labels et catastrophes) est produit dans un canvas de scène détaché du DOM.
+- Le seul canvas visible est `#world-map`. Il reçoit une composition bitmap de la scène, transformée par calcul matriciel selon les différences entre le viewport rendu et le viewport demandé.
+- Pendant le glisser et la molette, seule la composition de l'image existante est actualisée à chaque frame ; aucune copie de canvas supplémentaire n'est ajoutée à la page et aucune transformation CSS n'est appliquée.
+- Après 140 ms sans interaction, la scène est recalculée à la résolution DPR (plafonnée à 2), puis la référence de viewport est synchronisée.
+- Les couches physiques sont dessinées dans le canvas de scène lui-même afin d'éviter un second canvas visible.
+- Le canvas visible conserve une taille CSS indépendante de sa résolution bitmap. Le fond et le ratio 2:1 sont pilotés par CSS.

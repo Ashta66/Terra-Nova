@@ -4,6 +4,7 @@ import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
+import { getSceneTransform, composeSceneCanvas } from "./world/canvas-compositor.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
@@ -40,16 +41,13 @@ let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
 let lastRenderedMapSignature = null;
-let wheelZoomState = null;
-let wheelZoomTimer = null;
+let interactionRenderTimer = null;
+let composeFrame = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
-let mapPreviewCanvas = null;
-let physicalOverlayCanvas = null;
-let mapOverscanCanvas = null;
-let mapOverscanTask = null;
-let mapOverscanVersion = 0;
-let lastMapRenderConfig = null;
+const sceneCanvas = document.createElement("canvas");
+let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
+let sceneReady = false;
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -63,6 +61,8 @@ function getCombinedLabelCollection(base, territories) {
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
+let mapCanvas = null;
+const dpr = () => Math.min(2, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 35;
 const $ = (id) => document.getElementById(id);
@@ -97,18 +97,15 @@ function resetMapView() {
   mapViewport.zoom = 1;
   mapViewport.centerLongitude = 0;
   mapViewport.centerLatitude = 0;
-  clearWheelZoomPreview();
+  if (interactionRenderTimer !== null) clearTimeout(interactionRenderTimer);
+  interactionRenderTimer = null;
+  mapInteractionActive = false;
   renderMap();
   updateMapControls();
 }
 
 function renderMap() {
   if (state.physicalWorld) state.physicalWorld = expirePhysicalSurfaceEffects(state.physicalWorld, state.clock.date);
-  // Un ancien tampon ne doit jamais être réutilisé après un changement d'état/date/vue.
-  if (!mapInteractionActive) {
-    mapOverscanVersion++;
-    mapOverscanCanvas = null;
-  }
   if (!worldFeatures || mapRenderFrame !== null) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = null;
@@ -158,20 +155,6 @@ function updateMapDiagnostics(result) {
   }));
 }
 
-function ensurePhysicalOverlayCanvas(mapCanvas, width, height) {
-  const frame = mapCanvas.parentElement;
-  if (!physicalOverlayCanvas) {
-    physicalOverlayCanvas = document.createElement("canvas");
-    physicalOverlayCanvas.className = "map-physical-overlay";
-    physicalOverlayCanvas.setAttribute("aria-hidden", "true");
-    frame.append(physicalOverlayCanvas);
-  }
-  physicalOverlayCanvas.style.width = width + "px";
-  physicalOverlayCanvas.style.height = height + "px";
-  physicalOverlayCanvas.style.display = mapInteractionActive ? "none" : "block";
-  return physicalOverlayCanvas;
-}
-
 function renderMapFrame() {
   if (!worldFeatures) return;
   if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
@@ -205,7 +188,7 @@ function renderMapFrame() {
       activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières")
     ]);
   }
-  const canvas = $("world-map");
+  const canvas = mapCanvas;
   const frame = canvas.parentElement;
   const availableWidth = frame?.clientWidth || canvas.clientWidth || 960;
   const availableHeight = frame?.clientHeight || availableWidth * 0.5;
@@ -264,19 +247,18 @@ function renderMapFrame() {
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
-    terrainEnabled: !mapInteractionActive,
+    terrainEnabled: true,
     terrainQuality: 1,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
-    pixelRatio: mapInteractionActive ? 1 : undefined,
-    interactive: mapInteractionActive,
-    physicalOverlayContext: mapInteractionActive ? null : ensurePhysicalOverlayCanvas(canvas, width, height).getContext("2d"),
+    pixelRatio: dpr(),
+    interactive: false,
+    physicalOverlayContext: null,
   };
-  const result = renderWorldMap(canvas, landDetail.features, renderOptions);
-  if (!mapInteractionActive) {
-    lastMapRenderConfig = { features: landDetail.features, options: renderOptions };
-    scheduleMapOverscan(width, height);
-  }
+  const result = renderWorldMap(sceneCanvas, landDetail.features, renderOptions);
+  sceneViewport = { ...mapViewport };
+  sceneReady = true;
+  composeScene();
   mapLabelHits = result.labelHits ?? [];
   updateMapDiagnostics(result);
   $("map-era").textContent = result.theme.label;
@@ -288,9 +270,7 @@ function renderMapFrame() {
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
   $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
   updateMapControls();
-  if (!mapInteractionActive) {
-    scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
-  }
+  scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
 }
 
 async function installFullMapPack() {
@@ -540,15 +520,15 @@ $("country-opacity")?.addEventListener("input", event => {
  const output=$("country-opacity-value");if(output)output.textContent=event.target.value+" %";
  lastRenderedMapSignature=null;renderMap();
 });
-const mapCanvas = $("world-map");
-$("map-zoom-in").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1.5); });
-$("map-zoom-out").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1 / 1.5); });
+mapCanvas = $("world-map");
+$("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
+$("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
-  if (wheelZoomState) clearWheelZoomPreview();
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
+  mapInteractionActive = true;
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
 });
@@ -572,12 +552,8 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
   mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
   Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
-  // Le bitmap initial reste visible sous l'aperçu déplacé : aucun bord vide.
-  mapInteractionActive = true;
-  if (physicalOverlayCanvas) physicalOverlayCanvas.style.display = "none";
-  createMapInteractionPreview();
-  mapPreviewCanvas.style.willChange = "transform";
-  mapPreviewCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  requestCompose();
+  scheduleInteractionRender();
 });
 function playDisasterSound(type) {
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
@@ -630,88 +606,34 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
-function scheduleMapOverscan(width, height) {
-  const version = ++mapOverscanVersion;
-  if (mapOverscanTask !== null) {
-    if (typeof cancelIdleCallback === "function") cancelIdleCallback(mapOverscanTask);
-    else clearTimeout(mapOverscanTask);
-    mapOverscanTask = null;
-  }
-  const prepare = () => {
-    mapOverscanTask = null;
-    if (version !== mapOverscanVersion || mapInteractionActive || !lastMapRenderConfig) return;
-    const { features, options } = lastMapRenderConfig;
-    const buffer = document.createElement("canvas");
-    const factor = 1.5;
-    const bufferOptions = {
-      ...options,
-      physicalOverlayContext: null,
-      width: Math.round(width * factor),
-      height: Math.round(height * factor),
-      pixelRatio: 1,
-      // Le canvas est 1,5 fois plus grand : diminuer le zoom d'autant conserve
-      // exactement l'échelle au centre tout en couvrant 25 % de débordement.
-      viewport: { ...options.viewport, zoom: (options.viewport.zoom ?? 1) / factor },
-      terrainQuality: 0.75
-    };
-    try {
-      renderWorldMap(buffer, features, bufferOptions);
-      if (version === mapOverscanVersion && !mapInteractionActive) mapOverscanCanvas = buffer;
-    } catch (error) {
-      console.warn("Préparation du tampon de navigation indisponible :", error);
-    }
-  };
-  if (typeof requestIdleCallback === "function") mapOverscanTask = requestIdleCallback(prepare, { timeout: 900 });
-  else mapOverscanTask = setTimeout(prepare, 180);
+function composeScene() {
+  if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
+  const rect = mapCanvas.getBoundingClientRect();
+  const width = rect.width || mapCanvas.clientWidth || 1;
+  const height = rect.height || mapCanvas.clientHeight || width / 2;
+  const transform = getSceneTransform(sceneViewport, mapViewport, width, height);
+  const pixelRatio = mapCanvas.width / sceneCanvas.width || dpr();
+  composeSceneCanvas(mapCanvas, sceneCanvas, transform, pixelRatio);
 }
-
-function createMapInteractionPreview() {
-  if (mapPreviewCanvas || !mapCanvas?.width || !mapCanvas?.height) return;
-  const frame = mapCanvas.parentElement;
-  const frameRect = frame.getBoundingClientRect();
-  const canvasRect = mapCanvas.getBoundingClientRect();
-  const factor = mapOverscanCanvas ? 1.5 : 1;
-  const preview = mapOverscanCanvas ?? document.createElement("canvas");
-  if (!mapOverscanCanvas) {
-    preview.width = mapCanvas.width;
-    preview.height = mapCanvas.height;
-    preview.getContext("2d")?.drawImage(mapCanvas, 0, 0);
-  }
-  Object.assign(preview.style, {
-    position: "absolute",
-    left: (canvasRect.left - frameRect.left - canvasRect.width * (factor - 1) / 2) + "px",
-    top: (canvasRect.top - frameRect.top - canvasRect.height * (factor - 1) / 2) + "px",
-    width: (canvasRect.width * factor) + "px",
-    height: (canvasRect.height * factor) + "px",
-    pointerEvents: "none",
-    zIndex: "2",
-    transformOrigin: "center center"
-  });
-  preview.setAttribute("aria-hidden", "true");
-  frame.append(preview);
-  mapPreviewCanvas = preview;
+function requestCompose() {
+  if (composeFrame !== null) return;
+  composeFrame = requestAnimationFrame(() => { composeFrame = null; composeScene(); });
 }
-function removeMapInteractionPreview() {
-  mapPreviewCanvas?.remove();
-  if (mapPreviewCanvas !== mapOverscanCanvas) mapPreviewCanvas = null;
-  else mapPreviewCanvas = null;
+function scheduleInteractionRender() {
+  if (interactionRenderTimer !== null) clearTimeout(interactionRenderTimer);
+  interactionRenderTimer = setTimeout(() => {
+    interactionRenderTimer = null;
+    mapInteractionActive = false;
+    lastRenderedMapSignature = null;
+    renderMap();
+  }, 140);
 }
-function clearWheelZoomPreview() {
-  if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
-  wheelZoomTimer = null;
-  wheelZoomState = null;
-  mapInteractionActive = false;
-  removeMapInteractionPreview();
-}
-
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
-  removeMapInteractionPreview();
-  mapInteractionActive = false;
-  lastRenderedMapSignature = null;
-  if (lastDragMoved) renderMap();
+  if (lastDragMoved) scheduleInteractionRender();
+  else mapInteractionActive = false;
 }
 mapCanvas.addEventListener("click", (event) => {
   if (lastDragMoved) { lastDragMoved = false; return; }
@@ -747,36 +669,13 @@ mapCanvas.addEventListener("pointercancel", stopMapDrag);
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
-  if (!wheelZoomState) {
-    const rect = mapCanvas.getBoundingClientRect();
-    wheelZoomState = {
-      anchorX: event.clientX - rect.left,
-      anchorY: event.clientY - rect.top,
-      rect: { width: rect.width, height: rect.height },
-      startZoom: mapViewport.zoom
-    };
-  }
-  const anchor = wheelZoomState;
+  const rect = mapCanvas.getBoundingClientRect();
+  const anchorX = event.clientX - rect.left;
+  const anchorY = event.clientY - rect.top;
   mapInteractionActive = true;
-  if (physicalOverlayCanvas) physicalOverlayCanvas.style.display = "none";
-  createMapInteractionPreview();
-  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
-  mapPreviewCanvas.style.willChange = "transform";
-  const overscanOffsetX = mapOverscanCanvas ? mapCanvas.clientWidth * 0.25 : 0;
-  const overscanOffsetY = mapOverscanCanvas ? mapCanvas.clientHeight * 0.25 : 0;
-  mapPreviewCanvas.style.transformOrigin = `${anchor.anchorX + overscanOffsetX}px ${anchor.anchorY + overscanOffsetY}px`;
-  mapPreviewCanvas.style.transform = `scale(${mapViewport.zoom / anchor.startZoom})`;
-  updateMapControls();
-  if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
-  wheelZoomTimer = setTimeout(() => {
-    if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
-    wheelZoomTimer = null;
-    wheelZoomState = null;
-    removeMapInteractionPreview();
-    mapInteractionActive = false;
-    lastRenderedMapSignature = null;
-    renderMap();
-  }, 150);
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchorX, anchorY, false, { width: rect.width, height: rect.height });
+  requestCompose();
+  scheduleInteractionRender();
 }, { passive: false });
 
 state.clock = createClock();
