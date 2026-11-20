@@ -5,7 +5,7 @@ import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResp
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"},{id:"ocean",longitude:.02,latitude:0,elevationM:-80,coastalDistanceKm:0,regionId:"sea"}];
 test("météorite : cratère et choc sans mutation de la géographie de référence",()=>{const w=createPhysicalWorld(cells),n=applyPhysicalEvent(w,{id:"impact",type:"meteor-impact",date:"1500-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500});assert.ok(n.world.currentCells[0].elevationDeltaM<0);assert.equal(w.currentCells[0].elevationDeltaM,0);assert.ok(n.result.affectedCells.length);});
-test("tsunami : exposition côtière et dégâts",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"wave",type:"tsunami",date:"1501-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100});assert.ok(n.world.currentCells[0].damage>0);assert.equal(n.world.currentCells[2].damage,0);assert.equal(n.world.currentCells[3].damage,0);assert.ok(n.result.regionImpacts[0].damage>0);});
+test("tsunami : exposition côtière et dégâts",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"wave",type:"tsunami",date:"1501-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100});assert.ok(n.world.currentCells[0].damage>0);assert.ok(n.world.currentCells[0].tsunamiWaterDepthM>0);assert.equal(n.world.currentCells[2].damage,0);assert.equal(n.world.currentCells[3].damage,0);assert.ok(n.result.regionImpacts[0].damage>0);});
 test("montée des eaux : seules les terres sous le niveau sont submergées",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"sea",type:"sea-level-rise",date:"1600-01-01",seaLevelM:5});assert.equal(n.world.currentCells[0].inundated,true);assert.equal(n.world.currentCells[1].inundated,false);assert.equal(n.world.currentCells[3].inundated,false);assert.equal(n.result.affectedCells.length,1);});
 test("volcan : coulée de lave et dépôt de cendres",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"volcano",type:"volcanic-eruption",date:"1601-01-01",longitude:0,latitude:0,radiusKm:60,lavaRadiusKm:5,ashLoad:.9});assert.equal(n.world.currentCells[0].surfaceState,"lava-flow");assert.equal(n.world.currentCells[0].habitability,0);assert.ok(n.world.currentCells[1].ashLoad>0);});
 test("séisme : dégâts et déplacement tectonique",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"quake",type:"earthquake",date:"1602-01-01",longitude:0,latitude:0,radiusKm:150,magnitude:8,ruptureOffsetM:2});assert.ok(n.world.currentCells[0].damage>0);assert.ok(n.world.currentCells[0].elevationDeltaM>0);});
@@ -48,4 +48,11 @@ test("impact météoritique : cratère et bourrelet modifient le profil altimét
  const base=createPhysicalWorld([{id:"centre",longitude:0,latitude:0,elevationM:120,coastalDistanceKm:0},{id:"rim",longitude:.55,latitude:0,elevationM:120,coastalDistanceKm:0}]);
  const result=applyPhysicalEvent(base,{id:"rim-test",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:150,craterRadiusKm:60,craterDepthM:1800,rimHeightM:600});
  assert.ok(result.world.currentCells[0].elevationDeltaM<0);assert.ok(result.world.currentCells[1].elevationDeltaM>0);
+});
+
+test("la submersion d'un tsunami se retire après deux jours",()=>{
+ const flooded=applyPhysicalEvent(createPhysicalWorld(cells),{id:"short-wave",type:"tsunami",date:"1900-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:20,maxCoastalDistanceKm:100}).world;
+ assert.ok(flooded.currentCells[0].tsunamiWaterDepthM>0);
+ const recovered=expirePhysicalSurfaceEffects(flooded,"1900-01-03");
+ assert.equal(recovered.currentCells[0].tsunamiWaterDepthM,0);
 });
