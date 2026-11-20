@@ -143,8 +143,8 @@ export function createTerrainTileStore(grid, options = {}) {
   }
 
   return {
-    tileSize, columns, rows,
-    getTile, getTileAt, sample, setElevation, markPersisted, evictUnused,
+    tileSize, columns, rows, width: grid.width, height: grid.height,
+    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, evictUnused,
     get size() { return cache.size; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
