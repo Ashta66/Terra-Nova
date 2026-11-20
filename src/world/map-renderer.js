@@ -480,6 +480,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: physicalHit, politicalCacheHit: politicalHit, dynamicLayerCount, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: politicalHit, dynamicLayerCount, width, height
   };
 }
