@@ -1,0 +1,33 @@
+{
+  "dataset": "ETOPO 2022 v1 60s (Ice Surface)",
+  "source": "NOAA NCEI ERDDAP griddap ETOPO_2022_v1_60s",
+  "source_url": "https://oceanwatch.pifsc.noaa.gov/erddap/griddap/ETOPO_2022_v1_60s.html",
+  "source_doi": "10.25921/fd45-gt74",
+  "source_license": "CC0-1.0",
+  "width": 2160,
+  "height": 1080,
+  "output_resolution_arc_minutes": 10,
+  "sample_type": "signed-int16",
+  "byte_order": "little-endian",
+  "unit": "metres",
+  "vertical_reference": "EGM2008",
+  "longitude_extent_degrees": [
+    -180,
+    180
+  ],
+  "latitude_extent_degrees": [
+    -90,
+    90
+  ],
+  "sample_centers": {
+    "longitude_first": -179.99166666666667,
+    "longitude_last": 179.84166666666664,
+    "latitude_first": 89.84166666666667,
+    "latitude_last": -89.99166666666666,
+    "spacing_degrees": 0.16666666666666666
+  },
+  "resampling": "stride sampling (every 10th source cell); not area-averaged",
+  "conversion": "latitude rows reversed north-to-south; longitude columns rotated 180 degrees from 0\u2013360 to -180\u2013180; elevations rounded to nearest metre",
+  "nodata": "none in validated input",
+  "raw_size_bytes": 4665600
+}
