@@ -3,28 +3,39 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT="${ROOT}/data/ne_10m_land.geojson"
-WORK="$(mktemp -d)"
-trap 'rm -rf "${WORK}"' EXIT
+TEMP="${OUTPUT}.download"
 
-for command in curl unzip ogr2ogr; do
-  if ! command -v "${command}" >/dev/null 2>&1; then
-    echo "Dépendance manquante : ${command}" >&2
-    exit 1
-  fi
-done
+mkdir -p "${ROOT}/data"
+trap 'rm -f "${TEMP}"' EXIT
 
-URL="https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip"
-echo "Téléchargement du fond terrestre Natural Earth 1:10m…"
-curl --fail --location --retry 3 --output "${WORK}/land.zip" "${URL}"
-unzip -q "${WORK}/land.zip" -d "${WORK}/land"
-
-SOURCE="$(find "${WORK}/land" -maxdepth 2 -name 'ne_10m_land.shp' -print -quit)"
-if [[ -z "${SOURCE}" ]]; then
-  echo "Le paquet téléchargé ne contient pas ne_10m_land.shp." >&2
+if ! command -v curl >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  echo "Dépendances manquantes : curl et Python 3 sont nécessaires." >&2
   exit 1
 fi
 
-mkdir -p "${ROOT}/data"
-ogr2ogr -f GeoJSON -lco RFC7946=YES -lco COORDINATE_PRECISION=5 "${OUTPUT}" "${SOURCE}"
-echo "Fond régional créé : ${OUTPUT}"
-echo "Vérifier la taille et les tests avant de versionner ce fichier."
+URL="https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson"
+echo "Téléchargement du fond terrestre Natural Earth 1:10m (environ 10 Mo)…"
+curl --fail --location --retry 3 --output "${TEMP}" "${URL}"
+
+python3 - "${TEMP}" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+try:
+    with path.open(encoding="utf-8") as stream:
+        data = json.load(stream)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+    raise SystemExit(f"GeoJSON invalide : {error}")
+
+if data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
+    raise SystemExit("Le fichier téléchargé n'est pas une FeatureCollection GeoJSON.")
+if not data["features"]:
+    raise SystemExit("Le fichier GeoJSON ne contient aucune entité.")
+
+print(f"Validation réussie : {len(data['features'])} entités.")
+PY
+
+mv "${TEMP}" "${OUTPUT}"
+echo "Fond régional installé : ${OUTPUT}"
