@@ -728,7 +728,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");\n  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection);
+  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");;
+  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
