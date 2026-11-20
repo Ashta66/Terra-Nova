@@ -170,7 +170,9 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     projection.type, width, height,
     Number(viewport.zoom ?? 1).toFixed(4),
     ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4),
-    Number(viewport.centerLatitude ?? 0).toFixed(4)
+    Number(viewport.centerLatitude ?? 0).toFixed(4),
+    coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
+    coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all"
   ].join(":");
   let entries = projectedPathCache.get(feature);
   if (!entries) {
