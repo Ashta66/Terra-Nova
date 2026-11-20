@@ -35,13 +35,13 @@ test("le chargement facultatif accepte une FeatureCollection valide", async () =
   assert.equal(loaded, regional);
 });
 
-test("une couche Natural Earth régionale peut être chargée directement à la demande", async () => {
+test("la couche régionale de rivières peut être chargée directement à la demande", async () => {
   let requested = "";
-  const loaded = await loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH, async url => {
+  const loaded = await loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH, async url => {
     requested = url;
     return { ok: true, json: async () => regional };
   });
-  assert.match(requested, /ne_10m_lakes\.geojson$/);
+  assert.match(requested, /ne_10m_rivers_lake_centerlines\.geojson$/);
   assert.equal(loaded, regional);
 });
 
