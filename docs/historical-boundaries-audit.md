@@ -63,3 +63,7 @@ Le raster de terrain courant est plafonné à 512 × 256 pendant les déplacemen
 
 ## Réglage supplémentaire du rendu cartographique
 La résolution du raster courant et de la passe de côte modifiée est plafonnée à 512 × 256 pendant les interactions. Les tests de dimensions sont alignés sur ce budget afin de limiter les allocations et les calculs par image. Le tracé de faille sismique est renforcé pour rester lisible à l'échelle mondiale.
+
+
+## Lisibilité du relief et allègement du raster
+Le relief est fusionné dans les aplats politiques par un mélange soft-light à contraste renforcé, plutôt que par une couche de luminosité peu perceptible. L'éclairage du relief est accentué et les teintes altimétriques sont mieux différenciées. Le raster d'affichage est abaissé de 512 × 256 à 384 × 192 pixels maximum, avec interpolation Canvas pour limiter le coût des recalculs pendant le zoom et le déplacement.

@@ -90,12 +90,12 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   }
 
   const land = interpolateStops(elevation, [
-    [0, [105, 126, 88]],
-    [250, [119, 132, 88]],
-    [1000, [139, 139, 91]],
-    [2500, [158, 139, 105]],
-    [4000, [179, 165, 143]],
-    [6500, [224, 222, 210]]
+    [0, [91, 112, 72]],
+    [250, [105, 119, 72]],
+    [1000, [132, 128, 77]],
+    [2500, [157, 135, 94]],
+    [4000, [184, 169, 142]],
+    [6500, [235, 232, 218]]
   ]);
   return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
 }
@@ -117,7 +117,7 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
   const lightUp = Math.sin(altitude);
   const illumination = normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp;
-  return clamp(1 + (illumination - lightUp) * 0.45, 0.84, 1.16);
+  return clamp(1 + (illumination - lightUp) * 0.9, 0.68, 1.32);
 }
 
 const physicalLookupCache = new WeakMap();
@@ -152,7 +152,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
   // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
-  const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
+  const scale = Math.min(1, (384 * qualityScale) / width, (192 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);

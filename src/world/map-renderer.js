@@ -877,8 +877,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     context.beginPath();
     for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
     context.clip("evenodd");
-    context.globalCompositeOperation = "luminosity";
-    context.globalAlpha = 0.46;
+    // Fusion directe du relief dans les aplats nationaux : ombres et crêtes
+    // renforcées sans masquer les couleurs politiques.
+    context.globalCompositeOperation = "soft-light";
+    context.globalAlpha = 0.92;
     drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
     context.restore();
   }

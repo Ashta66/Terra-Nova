@@ -189,10 +189,10 @@ test("la qualité du raster peut être réduite pendant le glissement pour prés
     putImageData() {}
   };
   assert.equal(drawTerrainRaster(context, 1200, 600, grid, {}, 0.5), true);
-  assert.deepEqual(dimensions, [256, 128]);
+  assert.deepEqual(dimensions, [192, 96]);
 });
 
-test("le rendu du terrain courant reste plafonné à 512 × 256 pour préserver la fluidité", () => {
+test("le rendu du terrain courant reste plafonné à 384 × 192 pour préserver la fluidité", () => {
   const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
   let dimensions = null;
   const context = {
@@ -203,7 +203,7 @@ test("le rendu du terrain courant reste plafonné à 512 × 256 pour préserver 
     putImageData() {}
   };
   assert.equal(drawTerrainRaster(context, 1600, 900, grid), true);
-  assert.deepEqual(dimensions, [455, 256]);
+  assert.deepEqual(dimensions, [341, 192]);
 });
 
 
