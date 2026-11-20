@@ -129,6 +129,15 @@ function renderMap() {
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
     canvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
+    if (result.terrainWebGLTileStats) {
+      canvas.dataset.terrainWebglTileCount = String(result.terrainWebGLTileStats.tileCount);
+      canvas.dataset.terrainWebglTileBytes = String(result.terrainWebGLTileStats.byteLength);
+      canvas.dataset.terrainWebglTileSubmitMs = result.terrainWebGLTileStats.drawSubmitMs.toFixed(3);
+    } else {
+      delete canvas.dataset.terrainWebglTileCount;
+      delete canvas.dataset.terrainWebglTileBytes;
+      delete canvas.dataset.terrainWebglTileSubmitMs;
+    }
     if (result.terrainWebGLStats) {
       canvas.dataset.terrainWebglUploadMs = result.terrainWebGLStats.textureUploadMs.toFixed(2);
       canvas.dataset.terrainWebglTextureBytes = String(result.terrainWebGLStats.textureBytes);
