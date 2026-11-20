@@ -455,8 +455,8 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
     try {
       const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
-      const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
-        cacheHit: true, bufferUploads: 0, uploadedBytes: 0,
+      const aggregate = { drawnFeatures: 0, skippedFeatures: 0, fallbackFeatures: 0,
+        drawCalls: 0, triangles: 0, cacheHit: true, bufferUploads: 0, uploadedBytes: 0,
         cacheBuildMs: 0, drawSubmitMs: 0, totalMs: 0, layers: {} };
       const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
         key: layer.key, type: layer.type, features: layer.features, color: layer.color,
@@ -482,6 +482,8 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
         const layerStats = gpuStats.layers[layer.key] ?? { drawnFeatures: 0 };
         if (layer.type === "lines") {
           const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsLine(feature));
+          layerStats.fallbackFeatures = fallbackFeatures.length;
+          aggregate.fallbackFeatures += fallbackFeatures.length;
           if (layer.key === "rivers") {
             riverCount = layerStats.drawnFeatures + drawLineLayer(context, layer.collection, width, height,
               projection, theme.colors.accent, 0.7, fallbackFeatures);
@@ -497,11 +499,15 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
         }
         if (layer.type === "boundaries") {
           const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsBoundary(feature));
+          layerStats.fallbackFeatures = fallbackFeatures.length;
+          aggregate.fallbackFeatures += fallbackFeatures.length;
           drawPolygonLayer(context, layer.collection, width, height, projection,
             null, layer.stroke, layer.lineWidth, layer.alpha, fallbackFeatures);
           continue;
         }
         const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
+        layerStats.fallbackFeatures = fallbackFeatures.length;
+        aggregate.fallbackFeatures += fallbackFeatures.length;
         const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
           layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
         if (layer.key === "land") landCount = layerStats.drawnFeatures + fallbackCount;
