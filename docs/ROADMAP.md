@@ -187,3 +187,9 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - La molette utilise une prévisualisation CSS/compositeur ancrée au premier point visé, puis un seul rendu complet après 130 ms sans nouvel événement.
 - Les vues identiques ne sont plus redessinées à chaque seconde de simulation : un identifiant de vue (taille, année, zoom, centre) invalide le rendu uniquement si nécessaire.
 - Le détail géographique régional demeure limité par les données Natural Earth 1:110m ; un LOD géographique réel demandera l'intégration de jeux de données régionaux adaptés.
+
+
+### Ajustement de lisibilité et du zoom — 20 novembre 2026
+- Relief ETOPO allégé : plafond normal 512 × 256, ombrage et teintes des classes moins contrastés.
+- Zoom maximal interactif augmenté de 8× à 24× dans les commandes et les projections 2D.
+- Le zoom supplémentaire sert à explorer plus précisément une zone, mais ne remplace pas l'intégration de côtes et frontières à échelle régionale ; le fond vectoriel mondial 1:110m reste sa limite de précision.
