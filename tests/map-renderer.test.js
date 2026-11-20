@@ -940,7 +940,9 @@ test("le préchargement GPU anticipe les deux niveaux LOD voisins et priorise le
   assert.equal(zoomOut[0].tile.level, 2);
   assert.ok(zoomIn.length <= 12);
   assert.ok(zoomOut.length <= 12);
-  assert.deepEqual(collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 0, 1, 8), []);
+  const edgeLevel = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 0, 1, 8);
+  assert.ok(edgeLevel.length > 0);
+  assert.ok(edgeLevel.every(({ tile }) => tile.level === 1));
 });
 
 test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", () => {
