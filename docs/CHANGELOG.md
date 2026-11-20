@@ -249,3 +249,13 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - La détection des villes durablement submergées utilise un index spatial local des cellules physiques, construit uniquement après une modification géographique, au lieu de parcourir toutes les cellules pour chaque ville.
 - Tests ajoutés pour les paliers de résolution, l'index de submersion, l'antiméridien et l'absence d'indexation au zoom mondial.
 - La validation réelle des FPS, de la mémoire et du rendu visuel reste à effectuer dans un navigateur sur la machine cible ; aucune valeur de performance n'est inventée.
+
+
+## 20 novembre 2026 — cache des couches statiques et scènes quantifiées
+- `src/world/map-renderer.js` : séparation du fond cartographique statique (océan, grille, relief, terres, aplats territoriaux, hachures et hydrographie) des couches dynamiques (contours sélectionnés, catastrophes, frontières politiques/administratives et labels).
+- Les couches statiques sont composées dans une surface hors écran et conservées dans un LRU borné à trois scènes par canvas. La clé tient compte de l'année, du viewport quantifié, des collections visibles, du terrain, de son état Worker, du mode de relief et de l'opacité territoriale.
+- Un changement de nation réutilise le fond statique ; seules les couches dynamiques nécessaires sont redessinées.
+- `src/world/scene-compose.js` et `src/main.js` : le centre du rendu est quantifié à la résolution du viewport de rendu. Les micro-déplacements dans la même cellule réutilisent la scène précédente, que le compositeur décale précisément à l'écran.
+- Les hitboxes des labels sont recalculées après le geste même si aucun nouveau rendu vectoriel n'est nécessaire.
+- Tests ajoutés sur le cache de scène et la quantification du centre.
+- Le rendu vectoriel complet reste sur le thread principal ; l'usage d'un Worker/OffscreenCanvas pour les vecteurs n'est pas encore intégré et dépendra du profilage réel.

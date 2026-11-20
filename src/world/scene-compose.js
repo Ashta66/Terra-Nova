@@ -21,6 +21,15 @@ export function sceneRenderParams(view = {}, width, height, overscan = 1.4) {
   return { f, Ws, Hs, renderViewport };
 }
 
+export function snapSceneViewportCenter(view = {}, renderZoom = view.zoom ?? 1) {
+  const step = 1 / Math.max(1, Number(renderZoom) || 1);
+  return {
+    ...view,
+    centerLongitude: Math.round((Number(view.centerLongitude) || 0) / step) * step,
+    centerLatitude: Math.round((Number(view.centerLatitude) || 0) / step) * step
+  };
+}
+
 const normalizeLongitudeDelta = value => ((value + 180) % 360 + 360) % 360 - 180;
 const intersectsScreen = (rect, width, height) =>
   rect.x < width && rect.x + rect.w > 0 && rect.y < height && rect.y + rect.h > 0;

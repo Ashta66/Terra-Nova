@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -25,7 +25,8 @@ function createCanvas() {
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
-    putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)])
+    putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)]),
+    drawImage: (...args) => calls.push(["drawImage", ...args.slice(1)])
   };
   return { canvas: { clientWidth: 640, getContext: () => context }, calls };
 }
@@ -798,4 +799,26 @@ test("la vue mondiale n'indexe pas les GeoJSON avant qu'un zoom régional soit n
   })) };
   assert.strictEqual(selectVisibleFeatures(collection, { zoom: 1, centerLongitude: 0, centerLatitude: 0 }), collection);
   assert.equal(getGeoSpatialIndexStats(collection).indexed, false);
+});
+
+
+test("les couches statiques sont mises en cache et réutilisées lors d'un rendu dynamique", () => {
+  const previous = globalThis.OffscreenCanvas;
+  class MockOffscreenCanvas {
+    constructor(width, height) { this.width = width; this.height = height; this.context = createCanvas().canvas.getContext("2d"); }
+    getContext() { return this.context; }
+  }
+  globalThis.OffscreenCanvas = MockOffscreenCanvas;
+  try {
+    const { canvas } = createCanvas();
+    const first = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+    const second = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, selectedCountry: "France" });
+    assert.equal(first.staticCacheHit, false);
+    assert.equal(second.staticCacheHit, true);
+    assert.equal(getStaticLayerCacheStats(canvas).entries, 1);
+    assert.equal(getStaticLayerCacheStats(canvas).maxEntries, 3);
+  } finally {
+    if (previous === undefined) delete globalThis.OffscreenCanvas;
+    else globalThis.OffscreenCanvas = previous;
+  }
 });
