@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileTexture, shouldUseTerrainParentFallback } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 
@@ -1053,4 +1053,22 @@ test("le LOD parent couvre le viewport pendant les uploads des tuiles enfant", (
   assert.equal(shouldUseTerrainParentFallback(1, 0, 8, 2, 16), false);
   assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 12), false);
   assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 10), false);
+});
+
+
+test("la file GPU traite les tuiles visibles avant le préchargement prédictif", () => {
+  const pending = new Map([
+    ["predictive-a", { priority: 2, sequence: 0 }],
+    ["visible-a", { priority: 0, sequence: 4 }],
+    ["parent-b", { priority: 1, sequence: 2 }],
+    ["visible-b", { priority: 0, sequence: 1 }]
+  ]);
+  assert.equal(getTerrainPendingNextKey(pending), "visible-b");
+  pending.delete("visible-b");
+  assert.equal(getTerrainPendingNextKey(pending), "visible-a");
+  pending.delete("visible-a");
+  assert.equal(getTerrainPendingNextKey(pending), "parent-b");
+  pending.delete("parent-b");
+  assert.equal(getTerrainPendingNextKey(pending), "predictive-a");
+  assert.equal(getTerrainPendingNextKey(new Map()), null);
 });
