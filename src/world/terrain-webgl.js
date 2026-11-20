@@ -372,7 +372,7 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
 export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  if(!gl||typeof gl.texSubImage2D!=="function"||!Number.isInteger(store?.tileSize))return null;
  const cell=store.tileSize+2, max=gl.getParameter?.(gl.MAX_TEXTURE_SIZE)??0;
- const side=Math.min(options.slotsPerSide??4,Math.floor(max/cell));
+ const side=Math.min(options.slotsPerSide??8,Math.floor(max/cell));
  if(side<1)return null;
  const atlasWidth=side*cell,atlasHeight=side*cell,texture=gl.createTexture();
  if(!texture)return null;
@@ -396,7 +396,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
   const started=now(),data=buildTerrainTileTexture(tile,store);if(!data||data.width>cell||data.height>cell)return null;
   const packed=encodeTerrainTexture(data.values);buildMs+=now()-started;const slot=free.pop(),uploadStart=now();
   gl.bindTexture(gl.TEXTURE_2D,texture);
-  gl.texSubImage2D(gl.TEXTURE_2D,0,slot.slotX*cell,slot.slotY*cell,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,data.width,data.height,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,packed);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,slot.slotX*cell,slot.slotY*cell,data.width,data.height,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,packed);
   uploadMs+=now()-uploadStart;uploads++;uploadedBytes+=packed.byteLength;
   const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
   entries.set(k,entry);return entry;
