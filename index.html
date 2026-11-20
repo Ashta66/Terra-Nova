@@ -18,21 +18,31 @@
   <main class="game-layout">
     <aside class="side-panel time-sidebar" aria-labelledby="clock-title">
       <div class="side-heading"><p class="eyebrow">CHRONOLOGIE MONDIALE</p><h1 id="clock-title">Le temps</h1></div>
-      <div class="run-indicator"><span class="status-dot"></span><span id="run-state">EN PAUSE</span></div>
-      <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
-      <div class="time-controls">
-        <button id="toggle-clock" class="button button-primary">Lancer</button>
-        <button id="advance-day" class="button">+ 1 jour</button>
+      <div class="chronicle-console">
+        <div class="run-indicator"><span class="status-dot"></span><span id="run-state">EN PAUSE</span><span class="run-live-label">HORLOGE MONDIALE</span></div>
+        <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
+        <div class="clock-subline"><span>ANNÉE SIMULÉE</span><strong id="clock-year">1444</strong></div>
+        <div class="timeline-control">
+          <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2100</span></div>
+          <input id="year-scrubber" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Choisir l'année de simulation">
+          <div class="timeline-ends"><span>1444</span><span>Ère future · 2100</span></div>
+        </div>
+        <div class="time-controls">
+          <button id="toggle-clock" class="button button-primary clock-play"><span class="play-symbol">▶</span><span id="toggle-clock-label">Lancer</span></button>
+          <button id="advance-day" class="button clock-step">+ 1 jour</button>
+          <button id="advance-year" class="button clock-step clock-step-year">+ 1 an</button>
+        </div>
+        <div class="speed-control">
+          <span>CADENCE DE SIMULATION</span>
+          <div class="speed-presets" role="group" aria-label="Vitesse de simulation">
+            <button type="button" class="speed-chip is-active" data-speed="1">1×<small>Posée</small></button>
+            <button type="button" class="speed-chip" data-speed="5">5×<small>Rapide</small></button>
+            <button type="button" class="speed-chip" data-speed="20">20×<small>Vive</small></button>
+            <button type="button" class="speed-chip" data-speed="60">60×<small>Éclair</small></button>
+          </div>
+        </div>
+        <div class="time-stats"><span>Départ de l'ère</span><strong>01.01.1444</strong><span>Temps écoulé</span><strong id="elapsed-days">Jour 1</strong></div>
       </div>
-      <label class="speed-control">Vitesse de simulation
-        <select id="speed">
-          <option value="1">1× · Posée</option>
-          <option value="5">5× · Rapide</option>
-          <option value="20">20× · Très rapide</option>
-          <option value="60">60× · Accélérée</option>
-        </select>
-      </label>
-      <div class="time-stats"><span>Début de partie</span><strong>01.01.1444</strong><span>Temps écoulé</span><strong id="elapsed-days">Jour 1</strong></div>
       <div class="sidebar-divider"></div>
       <div class="side-section-title">LE MONDE EN DEVENIR</div>
       <p class="side-copy">Les événements historiques, les découvertes et les bouleversements géographiques prendront place dans cette chronologie.</p>
@@ -47,8 +57,8 @@
           <button id="map-zoom-in" class="map-tool" type="button" aria-label="Zoomer" title="Zoomer">+</button>
           <button id="map-reset" class="map-tool map-reset" type="button">Recentrer</button>
         </div></div>
-      <div class="map-frame"><div id="map-tooltip" class="map-tooltip" role="status" hidden></div><canvas id="world-map" role="img" aria-label="Carte physique du monde, continents et terres émergées"></canvas></div>
-      <div class="map-bottom-bar"><span id="map-status">Chargement des données géographiques locales…</span><span class="map-legend"><i class="legend-land"></i> Terres <i class="legend-water"></i> Eaux <i class="legend-ice"></i> Glaces <i class="legend-political"></i> Politiques <i class="legend-admin"></i> Administratives <i class="legend-coast"></i> Côtes</span></div>
+      <div class="map-frame"><div id="map-tooltip" class="map-tooltip" role="status" hidden></div><canvas id="world-map" role="img" aria-label="Atlas politique et physique du monde, pays, provinces, continents et terres émergées"></canvas></div>
+      <div class="map-bottom-bar"><span id="map-status">Chargement des données géographiques locales…</span><span class="map-legend"><i class="legend-land"></i> Terres <i class="legend-territory"></i> Pays <i class="legend-water"></i> Eaux <i class="legend-ice"></i> Glaces <i class="legend-political"></i> Politiques <i class="legend-admin"></i> Administratives <i class="legend-coast"></i> Côtes</span></div>
       <div class="map-data-tools"><div class="map-data-copy"><strong>Mode léger actif</strong><span id="map-pack-status" role="status" aria-live="polite">La carte mondiale est prête. Télécharge le pack complet pour conserver aussi les reliefs et détails régionaux.</span></div><button id="install-map-pack" class="map-data-button" type="button">Télécharger le pack cartographique complet</button></div>
       <div class="map-footnote">Géographie physique · Côtes fines · Frontières politiques historiques (clichés datés, précision variable) · Administratives modernes · Sources : Natural Earth & Historical Basemaps (GPL-3.0)</div>
     </section>

@@ -3,11 +3,14 @@ import { fetchMapAsset } from "./map-lod.js";
 const HISTORICAL_INDEX_URL = "https://raw.githubusercontent.com/aourednik/historical-basemaps/master/index.json";
 const HISTORICAL_GEOJSON_BASE = "https://raw.githubusercontent.com/aourednik/historical-basemaps/master/geojson/";
 const MODERN_POLITICAL_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_boundary_lines_land.geojson";
+const MODERN_TERRITORIES_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
 const MODERN_ADMIN_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces_lines.geojson";
 const REGIONAL_ADMIN_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces_lines.geojson";
 let historicalIndexPromise = null;
 const historicalLayerCache = new Map();
+const historicalTerritoryCache = new Map();
 let modernPoliticalPromise = null;
+let modernTerritoriesPromise = null;
 let modernAdminPromise = null;
 let regionalAdminPromise = null;
 
@@ -102,15 +105,17 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
   if (!Number.isFinite(numericYear)) throw new TypeError("Année de frontière invalide.");
   if (numericYear >= 2026) {
     if (!modernPoliticalPromise) modernPoliticalPromise = readCollection(MODERN_POLITICAL_URL, "Frontières politiques actuelles", fetcher);
-    return { collection: await modernPoliticalPromise, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m" };
+    if (!modernTerritoriesPromise) modernTerritoriesPromise = readCollection(MODERN_TERRITORIES_URL, "Pays modernes", fetcher);
+    return { collection: await modernPoliticalPromise, territories: await modernTerritoriesPromise, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m" };
   }
   const index = await getHistoricalIndex(fetcher);
   const snapshot = selectHistoricalSnapshot(numericYear, index.years);
   if (!snapshot) return { collection: null, sourceYear: null, exact: false, source: "Aucune donnée historique" };
   if (!historicalLayerCache.has(snapshot.year)) {
-    const promise = readCollection(HISTORICAL_GEOJSON_BASE + snapshot.filename, "Frontières historiques " + snapshot.year, fetcher)
-      .then(historicalPolygonsToBoundaries)
-      .catch(error => { historicalLayerCache.delete(snapshot.year); throw error; });
+    const sourcePromise = readCollection(HISTORICAL_GEOJSON_BASE + snapshot.filename, "Territoires historiques " + snapshot.year, fetcher);
+    historicalTerritoryCache.set(snapshot.year, sourcePromise);
+    const promise = sourcePromise.then(historicalPolygonsToBoundaries)
+      .catch(error => { historicalLayerCache.delete(snapshot.year); historicalTerritoryCache.delete(snapshot.year); throw error; });
     historicalLayerCache.set(snapshot.year, promise);
   }
   return {

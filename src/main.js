@@ -1,7 +1,7 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
-import { renderWorldMap } from "./world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
@@ -18,6 +18,8 @@ let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
 let administrativeBoundaryFeatures = null;
+let territoryFeatures = null;
+let territoryLabelFeatures = null;
 let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
@@ -157,7 +159,9 @@ function renderMapFrame() {
       loadAdministrativeBoundaries(year, mapViewport.zoom)
     ]).then(([political, administrative]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
+      territoryFeatures = political?.territories ?? null;
       administrativeBoundaryFeatures = administrative;
+      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeBoundaryFeatures);
       boundarySourceLabel = political?.sourceYear
         ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
         : "indisponible";
@@ -183,7 +187,8 @@ function renderMapFrame() {
     rivers: riverDetail.features,
     glaciers: glacierFeatures,
     elevationPoints,
-    labels: labelDetail.features,
+    labels: { type: "FeatureCollection", features: [...(labelDetail.features?.features ?? []), ...(territoryLabelFeatures?.features ?? [])] },
+    territories: territoryFeatures,
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
@@ -200,7 +205,7 @@ function renderMapFrame() {
   const detailStatus = regionalLayerCount
     ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
-  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
+  $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
   updateMapControls();
   if (!mapInteractionActive) {
     scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
@@ -273,8 +278,12 @@ function render() {
   $("current-date").textContent = formatDate(state.clock.date);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
-  $("toggle-clock").textContent = state.clock.paused ? "Lancer" : "Pause";
-  $("speed").value = String(state.clock.speed);
+  $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
+  $("clock-year").textContent = String(Number(state.clock.date.slice(0, 4)));
+  $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
+  document.querySelectorAll("[data-speed]").forEach(button => {
+    button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
+  });
   renderMap();
 }
 
@@ -299,12 +308,29 @@ $("advance-day").addEventListener("click", () => {
   state.clock = advanceClock(state.clock);
   render();
 });
-$("speed").addEventListener("change", (event) => {
-  const speed = Number(event.target.value);
+$("advance-year").addEventListener("click", () => {
+  const year = Number(state.clock.date.slice(0, 4)) + 1;
+  state.clock.date = year + state.clock.date.slice(4);
+  state.clock.day += new Date(Date.UTC(year, 0, 1)).getTime() / 86400000 - new Date(Date.UTC(year - 1, 0, 1)).getTime() / 86400000;
+  render();
+});
+$("year-scrubber").addEventListener("change", event => {
+  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
+  const previousYear = Number(state.clock.date.slice(0, 4));
+  const monthDay = state.clock.date.slice(4);
+  const oldDate = new Date(state.clock.date + "T00:00:00Z");
+  const nextDate = new Date(String(year).padStart(4, "0") + monthDay + "T00:00:00Z");
+  const delta = Math.round((nextDate - oldDate) / 86400000);
+  state.clock.date = nextDate.toISOString().slice(0, 10);
+  state.clock.day = Math.max(1, state.clock.day + delta);
+  render();
+});
+document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
+  const speed = Number(button.dataset.speed);
   if (SPEEDS.includes(speed)) state.clock.speed = speed;
   schedule();
   render();
-});
+}));
 $("save-game").addEventListener("click", () => {
   try {
     const at = saveGame(state);

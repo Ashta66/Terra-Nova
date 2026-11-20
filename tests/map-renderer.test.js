@@ -618,3 +618,27 @@ test("les frontières historiques ne conservent que les segments partagés entre
   assert.equal(result.features[0].geometry.coordinates.length, 1);
   assert.deepEqual(result.features[0].geometry.coordinates[0], [[1, 0], [1, 1]]);
 });
+
+test("les noms des pays sont générés depuis les polygones territoriaux", () => {
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Testland" },
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]] }
+  }] };
+  const labels = buildTerritoryLabels(territories);
+  assert.equal(labels.features.length, 1);
+  assert.equal(labels.features[0].properties.name, "Testland");
+  assert.equal(labels.features[0].properties.kind, "country");
+  assert.ok(Math.abs(labels.features[0].geometry.coordinates[0] - 2) < 0.01);
+  assert.ok(Math.abs(labels.features[0].geometry.coordinates[1] - 2) < 0.01);
+});
+
+test("les provinces reçoivent des labels à partir de leurs lignes administratives", () => {
+  const provinces = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { name: "Province test" },
+    geometry: { type: "LineString", coordinates: [[0, 0], [2, 0], [4, 0]] }
+  }] };
+  const labels = buildTerritoryLabels(null, provinces);
+  assert.equal(labels.features.length, 1);
+  assert.equal(labels.features[0].properties.kind, "province");
+  assert.equal(labels.features[0].properties.name, "Province test");
+});

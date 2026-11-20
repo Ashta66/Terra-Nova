@@ -458,6 +458,132 @@ function addLabelBox(box, occupiedCells) {
   }
 }
 
+
+function polygonInteriorLabelPoint(feature) {
+  const geometry = feature?.geometry;
+  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
+  let largest = null, largestArea = -1;
+  for (const polygon of polygons) {
+    const ring = polygon?.[0];
+    if (!ring || ring.length < 4) continue;
+    let twiceArea = 0, cx = 0, cy = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+      const cross = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+      twiceArea += cross;
+      cx += (ring[i][0] + ring[i + 1][0]) * cross;
+      cy += (ring[i][1] + ring[i + 1][1]) * cross;
+    }
+    const area = Math.abs(twiceArea / 2);
+    if (area > largestArea) {
+      largestArea = area;
+      largest = Math.abs(twiceArea) > 1e-8
+        ? [cx / (3 * twiceArea), cy / (3 * twiceArea)]
+        : ring[Math.floor(ring.length / 2)];
+    }
+  }
+  return largest;
+}
+
+function territoryName(properties = {}) {
+  for (const key of ["NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]) {
+    const value = properties[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+export function buildTerritoryLabels(territories, provinces = null) {
+  const features = [];
+  for (const feature of territories?.features ?? []) {
+    const name = territoryName(feature.properties);
+    const point = polygonInteriorLabelPoint(feature);
+    if (!name || !point || !point.every(Number.isFinite)) continue;
+    features.push({
+      type: "Feature",
+      properties: { name, kind: "country", minZoom: 1.25, priority: 90 },
+      geometry: { type: "Point", coordinates: point }
+    });
+  }
+  for (const feature of provinces?.features ?? []) {
+    const name = territoryName(feature.properties);
+    const geometry = feature.geometry;
+    const lines = geometry?.type === "LineString" ? [geometry.coordinates]
+      : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
+    if (!name || !lines.length) continue;
+    let longest = null, longestLength = 0;
+    for (const line of lines) {
+      let length = 0;
+      for (let i = 1; i < line.length; i++) {
+        const dx = (line[i][0] - line[i - 1][0]) * Math.cos((line[i][1] + line[i - 1][1]) * Math.PI / 360);
+        const dy = line[i][1] - line[i - 1][1];
+        length += Math.hypot(dx, dy);
+      }
+      if (length > longestLength) { longestLength = length; longest = line; }
+    }
+    if (!longest || longestLength < 1.5) continue;
+    let total = 0;
+    const lengths = [];
+    for (let i = 1; i < longest.length; i++) {
+      const dx = (longest[i][0] - longest[i - 1][0]) * Math.cos((longest[i][1] + longest[i - 1][1]) * Math.PI / 360);
+      const dy = longest[i][1] - longest[i - 1][1];
+      const length = Math.hypot(dx, dy);
+      lengths.push(length); total += length;
+    }
+    let remaining = total / 2, point = longest[0];
+    for (let i = 0; i < lengths.length; i++) {
+      if (remaining <= lengths[i]) {
+        const ratio = lengths[i] ? remaining / lengths[i] : 0;
+        point = [
+          longest[i][0] + (longest[i + 1][0] - longest[i][0]) * ratio,
+          longest[i][1] + (longest[i + 1][1] - longest[i][1]) * ratio
+        ];
+        break;
+      }
+      remaining -= lengths[i];
+    }
+    features.push({
+      type: "Feature",
+      properties: { name, kind: "province", minZoom: 4.5, priority: 45 },
+      geometry: { type: "Point", coordinates: point }
+    });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+function territoryColor(feature) {
+  const name = territoryName(feature?.properties) || "terra";
+  let hash = 2166136261;
+  for (let i = 0; i < name.length; i++) hash = Math.imul(hash ^ name.charCodeAt(i), 16777619);
+  const hue = (hash >>> 0) % 360;
+  return `hsl(${hue} 24% 43%)`;
+}
+
+function drawTerritoryLayer(context, collection, width, height, projection) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  const profile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
+  context.save();
+  for (const feature of collection.features) {
+    if (!feature?.geometry) continue;
+    const path = getProjectedPath(feature, width, height, projection, profile);
+    if (path) {
+      context.fillStyle = territoryColor(feature);
+      context.globalAlpha = 0.76;
+      context.fill(path, "evenodd");
+      drawn++;
+    } else {
+      context.beginPath();
+      if (!traceGeometry(context, feature.geometry, width, height, projection, profile)) continue;
+      context.fillStyle = territoryColor(feature);
+      context.globalAlpha = 0.76;
+      context.fill("evenodd");
+      drawn++;
+    }
+  }
+  context.restore();
+  return drawn;
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
   if (!collection?.features) return [];
   const hits = [];
@@ -472,9 +598,9 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
-    const fontSize = kind === "continent" ? 13 : 10;
+    const fontSize = kind === "continent" ? 13 : kind === "country" ? 11 : kind === "province" ? 9 : 10;
     context.save();
-    context.font = kind === "city" ? "600 10px Arial, sans-serif" : `italic 600 ${fontSize}px Georgia, serif`;
+    context.font = kind === "city" || kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `600 ${fontSize}px Georgia, serif`;
     const textWidth = context.measureText(name).width;
     const x = point.x - textWidth / 2;
     const y = point.y + (kind === "city" ? 3 : 0);
@@ -486,7 +612,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     context.lineWidth = kind === "city" ? 2.8 : 3.4;
     context.strokeStyle = theme.colors.ocean;
     context.fillStyle = kind === "ocean" ? "#a9c6cf" : theme.colors.text;
-    context.globalAlpha = kind === "city" ? 0.92 : 0.78;
+    context.globalAlpha = kind === "city" || kind === "country" ? 0.96 : kind === "province" ? 0.82 : 0.78;
     context.strokeText(name, x, y);
     context.fillText(name, x, y);
     context.restore();
@@ -564,10 +690,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleRivers = selectVisibleFeatures(options.rivers, projection.viewport);
   const visibleElevationPoints = selectVisibleFeatures(options.elevationPoints, projection.viewport);
   const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
+  const visibleTerritories = selectVisibleFeatures(options.territories, projection.viewport);
   const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
   const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
+  const territoryCount = options.interactive ? 0 : drawTerritoryLayer(context, visibleTerritories, width, height, projection);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
@@ -579,7 +707,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
+    landCount, territoryCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
   };
 }
 
