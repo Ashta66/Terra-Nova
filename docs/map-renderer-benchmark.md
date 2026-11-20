@@ -99,7 +99,8 @@ Les noms `{Nom}` correspondent aux clés `land`, `glaciers`, `lakes`, `landBound
 - Vérifier les épaisseurs à plusieurs densités d'écran, aux angles aigus, aux jonctions de segments et autour de l'antiméridien.
 - Les segments partagent des disques de raccord en espace écran aux sommets communs (12 facettes), ce qui ferme les jours aux angles et intersections.
 - Les extrémités réellement libres des lignes ouvertes reçoivent également des caps circulaires de 12 facettes ; les anneaux fermés n'en reçoivent pas.
-- La détection utilise le degré des extrémités, regroupées à 5 décimales. Contrôler les réseaux denses et les lignes distinctes très proches à plusieurs densités d'écran ; le contrôle visuel réel reste obligatoire.
+- La détection utilise le degré des extrémités, regroupées à 5 décimales et calculées séparément pour chaque tracé (chaque LineString, anneau ou partie d'un MultiLineString). Deux entités indépendantes qui se touchent ne sont donc plus fusionnées en une jonction.
+- Les croisements au milieu de segments, sans sommet partagé, ne sont pas détectés comme des jonctions. Contrôler les réseaux denses, les lignes distinctes très proches et les croisements à plusieurs densités d'écran ; le contrôle visuel réel reste obligatoire.
 
 ## Instrumentation des couches géographiques
 - Le renderer expose séparément le temps CPU de construction des meshes (`geographicWebglCacheBuildMs`), le temps CPU de soumission des commandes (`geographicWebglDrawSubmitMs`) et le temps total de son passage (`geographicWebglTotalMs`).
