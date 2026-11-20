@@ -174,6 +174,24 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
 }
 
 
+
+/**
+ * Transforme l'image du viewport précédent pour prévisualiser le nouveau
+ * cadrage sans recalculer les géométries. Les coordonnées sont en pixels CSS.
+ */
+export function calculateViewportTransform(previous, next, width, height) {
+  const previousZoom = Math.max(0.0001, Number(previous?.zoom ?? 1));
+  const nextZoom = Math.max(0.0001, Number(next?.zoom ?? 1));
+  const scale = nextZoom / previousZoom;
+  return {
+    scale,
+    translateX: width / 2 - scale * width / 2
+      + ((Number(previous?.centerLongitude ?? 0) - Number(next?.centerLongitude ?? 0)) * nextZoom * width / 360),
+    translateY: height / 2 - scale * height / 2
+      + ((Number(next?.centerLatitude ?? 0) - Number(previous?.centerLatitude ?? 0)) * nextZoom * height / 180)
+  };
+}
+
 const layerCaches = { physical: new Map(), political: new Map() };
 const objectIds = new WeakMap();
 let nextObjectId = 1;
