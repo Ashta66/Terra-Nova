@@ -72,31 +72,14 @@ function hasSupportedLineCoordinates(mesh) {
   return true;
 }
 
-function buildRibbonBuffer(segments, gl, message) {
-  if (!segments.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
+function buildRibbonBuffer(segmentGroups, gl, message) {
+  const groups = segmentGroups.filter(group => group?.length >= 4);
+  if (!groups.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
   const vertices = [];
   const appendVertex = (ax, ay, bx, by, side, joinX = 0, joinY = 0, isJoin = 0) => {
     vertices.push(ax, ay, bx, by, side, joinX, joinY, isJoin);
   };
-  const endpointCounts = new Map();
   const endpointKey = (x, y) => `${x.toFixed(5)},${y.toFixed(5)}`;
-  for (let index = 0; index < segments.length; index += 4) {
-    const ax = segments[index], ay = segments[index + 1];
-    const bx = segments[index + 2], by = segments[index + 3];
-    const startKey = endpointKey(ax, ay), endKey = endpointKey(bx, by);
-    endpointCounts.set(startKey, (endpointCounts.get(startKey) ?? 0) + 1);
-    endpointCounts.set(endKey, (endpointCounts.get(endKey) ?? 0) + 1);
-    // Segment quad. Both ends use the same screen-space side of the segment.
-    appendVertex(ax, ay, bx, by, -1);
-    appendVertex(ax, ay, bx, by, 1);
-    appendVertex(bx, by, ax, ay, -1);
-    appendVertex(bx, by, ax, ay, -1);
-    appendVertex(ax, ay, bx, by, 1);
-    appendVertex(bx, by, ax, ay, 1);
-  }
-  // Disks in screen space close shared joins and round genuine open-line caps.
-  const joined = new Set();
-  const capped = new Set();
   const steps = 12;
   const appendDisk = (x, y) => {
     for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
@@ -107,16 +90,32 @@ function buildRibbonBuffer(segments, gl, message) {
       appendVertex(x, y, x, y, 0, Math.cos(b), Math.sin(b), 1);
     }
   };
-  for (let index = 0; index < segments.length; index += 4) {
-    for (const [x, y] of [[segments[index], segments[index + 1]], [segments[index + 2], segments[index + 3]]]) {
-      const key = endpointKey(x, y);
-      const degree = endpointCounts.get(key) ?? 0;
-      if (degree >= 2 && !joined.has(key)) {
-        joined.add(key);
-        appendDisk(x, y);
-      } else if (degree === 1 && !capped.has(key)) {
-        capped.add(key);
-        appendDisk(x, y);
+  for (const segments of groups) {
+    for (let index = 0; index < segments.length; index += 4) {
+      const ax = segments[index], ay = segments[index + 1];
+      const bx = segments[index + 2], by = segments[index + 3];
+      appendVertex(ax, ay, bx, by, -1);
+      appendVertex(ax, ay, bx, by, 1);
+      appendVertex(bx, by, ax, ay, -1);
+      appendVertex(bx, by, ax, ay, -1);
+      appendVertex(ax, ay, bx, by, 1);
+      appendVertex(bx, by, ax, ay, 1);
+    }
+    // Endpoint topology is local to this path: unrelated features never create joins.
+    const endpointCounts = new Map();
+    for (let index = 0; index < segments.length; index += 4) {
+      const startKey = endpointKey(segments[index], segments[index + 1]);
+      const endKey = endpointKey(segments[index + 2], segments[index + 3]);
+      endpointCounts.set(startKey, (endpointCounts.get(startKey) ?? 0) + 1);
+      endpointCounts.set(endKey, (endpointCounts.get(endKey) ?? 0) + 1);
+    }
+    const processed = new Set();
+    for (let index = 0; index < segments.length; index += 4) {
+      for (const [x, y] of [[segments[index], segments[index + 1]], [segments[index + 2], segments[index + 3]]]) {
+        const key = endpointKey(x, y);
+        if (processed.has(key)) continue;
+        processed.add(key);
+        if ((endpointCounts.get(key) ?? 0) >= 2 || endpointCounts.get(key) === 1) appendDisk(x, y);
       }
     }
   }
@@ -134,40 +133,51 @@ function buildRibbonBuffer(segments, gl, message) {
 }
 
 function buildLineBatch(features, gl) {
-  const segments = [];
+  const segmentGroups = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
-    const mesh = buildGeographicLineMesh(feature);
-    if (!hasSupportedLineCoordinates(mesh)) { skippedFeatures++; continue; }
-    for (const value of mesh.positions) segments.push(value);
+    const geometry = feature?.geometry;
+    const lines = geometry?.type === "LineString" ? [geometry.coordinates]
+      : geometry?.type === "MultiLineString" ? geometry.coordinates : null;
+    if (!lines?.length) { skippedFeatures++; continue; }
+    const featureGroups = [];
+    let valid = true;
+    for (const coordinates of lines) {
+      const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } });
+      if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
+      featureGroups.push(mesh.positions);
+    }
+    if (!valid || !featureGroups.length) { skippedFeatures++; continue; }
+    segmentGroups.push(...featureGroups);
     drawnFeatures++;
   }
-  return { ...buildRibbonBuffer(segments, gl, "Impossible de créer le buffer de lignes géographiques."), drawnFeatures, skippedFeatures };
+  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer de lignes géographiques."), drawnFeatures, skippedFeatures };
 }
 
 function buildBoundaryLineBatch(features, gl) {
-  const segments = [];
+  const segmentGroups = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
     const geometry = feature?.geometry;
     const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
     if (!polygons?.length) { skippedFeatures++; continue; }
-    const featureSegments = [];
+    const featureGroups = [];
     let valid = true;
     for (const polygon of polygons) {
       for (const ring of polygon ?? []) {
         const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
         if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
-        for (const value of mesh.positions) featureSegments.push(value);
+        featureGroups.push(mesh.positions);
       }
       if (!valid) break;
     }
-    if (!valid || !featureSegments.length) { skippedFeatures++; continue; }
-    for (const value of featureSegments) segments.push(value);
+    if (!valid || !featureGroups.length) { skippedFeatures++; continue; }
+    segmentGroups.push(...featureGroups);
     drawnFeatures++;
   }
-  return { ...buildRibbonBuffer(segments, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
+  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
 }
+
 function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
   if (offset + mesh.vertexCount > 65535) return false;
