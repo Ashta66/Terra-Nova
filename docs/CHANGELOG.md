@@ -204,3 +204,9 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - PR #10 fusionnée : scène overscan, labels recalés, traits et LOD cohérents.
 - PR #11 fusionnée : hillshade ETOPO renforcé, lumière NW dominante et palette progressive.
 - Refonte de l'écran de chargement et du sélecteur de nations en cours.
+
+
+## 20 novembre 2026 — Fiches de campagne des nations
+- Ajout d'une fiche dynamique à la sélection : capitale, population et richesse lorsque les données source le permettent, indice de potentiel militaire estimatif, statut diplomatique et objectifs contextualisés.
+- Les statistiques modernes ne sont pas réinjectées dans les années historiques. Les valeurs manquantes sont indiquées plutôt qu'inventées.
+- Ajout de tests unitaires pour les cas historiques, contemporains, vassaux et données incomplètes.
