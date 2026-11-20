@@ -114,6 +114,20 @@ function renderMap() {
     dynamicLayers: dynamicMapLayers
   });
   mapLabelHits = result.labelHits ?? [];
+  if (canvas.dataset && result.performance) {
+    canvas.dataset.renderTotalMs = result.performance.totalMs.toFixed(2);
+    canvas.dataset.renderTerrainMs = result.performance.terrainMs.toFixed(2);
+    canvas.dataset.renderPoliticalMs = result.performance.politicalMs.toFixed(2);
+    canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
+    canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
+    if (terrainTileStore) {
+      const cacheStats = terrainTileStore.cacheStats;
+      canvas.dataset.terrainCacheBytes = String(cacheStats.byteLength);
+      canvas.dataset.terrainCacheTiles = String(cacheStats.tileCount);
+      canvas.dataset.terrainCacheLevels = JSON.stringify(cacheStats.levels);
+      canvas.dataset.terrainCacheOverBudget = String(cacheStats.overBudget);
+    }
+  }
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}`;
