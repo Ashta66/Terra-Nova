@@ -772,7 +772,11 @@ test("les tuiles prédictives sont transférées dans l'atlas hors du rendu cour
   const gl = createFakeTerrainGL(64);
   const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 4 });
   const tile = store.getTileAtLevel(0, 0, 0);
+  const staleTile = store.getTileAtLevel(0, 1, 0);
   assert.equal(atlas.enqueue(tile), true);
+  assert.equal(atlas.enqueue(staleTile), true);
+  assert.equal(atlas.pendingCount, 2);
+  atlas.retainPending(new Set(["0/0/0@0"]));
   assert.equal(atlas.pendingCount, 1);
   assert.equal(gl.uploads.filter(item => item.subImage).length, 0);
   await new Promise(resolve => setTimeout(resolve, 40));
