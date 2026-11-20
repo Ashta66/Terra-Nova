@@ -18,7 +18,7 @@ function transactionDone(transaction) {
 }
 
 export async function createTerrainTilePersistence(options = {}) {
-  const indexedDBApi = options.indexedDB ?? globalThis.indexedDB;
+  const indexedDBApi = Object.hasOwn(options, "indexedDB") ? options.indexedDB : globalThis.indexedDB;
   if (!indexedDBApi?.open) return null;
 
   const request = indexedDBApi.open(options.databaseName ?? DATABASE_NAME, DATABASE_VERSION);
