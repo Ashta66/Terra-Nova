@@ -52,6 +52,32 @@ function buildLineBatch(features, gl) {
   return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
 }
 
+function buildBoundaryLineBatch(features, gl) {
+  const positions = [];
+  let drawnFeatures = 0, skippedFeatures = 0;
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
+    if (!polygons?.length) { skippedFeatures++; continue; }
+    const featurePositions = [];
+    let valid = true;
+    for (const polygon of polygons) for (const ring of polygon ?? []) {
+      const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
+      if (!mesh.supported || Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180))) { valid = false; break; }
+      for (const value of mesh.positions) featurePositions.push(value);
+    }
+    if (!valid || !featurePositions.length) { skippedFeatures++; continue; }
+    for (const value of featurePositions) positions.push(value);
+    drawnFeatures++;
+  }
+  if (!positions.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures, skippedFeatures, positions: new Float32Array() };
+  const data = new Float32Array(positions);
+  const lineBuffer = gl.createBuffer();
+  if (!lineBuffer) throw new Error("Impossible de créer le buffer des contours géographiques.");
+  try { gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW); }
+  catch (error) { gl.deleteBuffer(lineBuffer); throw error; }
+  return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
+}
 function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
   if (offset + mesh.vertexCount > 65535) return false;
