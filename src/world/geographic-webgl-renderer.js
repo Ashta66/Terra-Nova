@@ -18,6 +18,35 @@ uniform vec4 u_color;
 void main() { gl_FragColor = u_color; }
 `;
 
+const LINE_VERTEX_SHADER = `
+attribute vec2 a_coordinate;
+attribute vec2 a_other;
+attribute float a_side;
+uniform vec2 u_center;
+uniform float u_zoom;
+uniform vec2 u_viewport;
+uniform float u_line_width;
+void main() {
+  float longitude = a_coordinate.x;
+  longitude += 360.0 * floor((u_center.x - longitude) / 360.0 + 0.5);
+  float otherLongitude = a_other.x;
+  otherLongitude += 360.0 * floor((longitude - otherLongitude) / 360.0 + 0.5);
+  vec2 point = vec2((longitude - u_center.x) * u_zoom / 180.0,
+                    (a_coordinate.y - u_center.y) * u_zoom / 90.0);
+  vec2 other = vec2((otherLongitude - u_center.x) * u_zoom / 180.0,
+                    (a_other.y - u_center.y) * u_zoom / 90.0);
+  vec2 direction = (other - point) * (u_viewport * 0.5);
+  vec2 normal = vec2(-direction.y, direction.x) / max(length(direction), 0.0001);
+  vec2 offset = normal * a_side * (u_line_width / u_viewport);
+  gl_Position = vec4(point + offset, 0.0, 1.0);
+}`;
+
+const LINE_FRAGMENT_SHADER = `
+precision mediump float;
+uniform vec4 u_color;
+void main() { gl_FragColor = u_color; }
+`;
+
 function compile(gl, type, source) {
   const shader = gl.createShader(type);
   if (!shader) return null;
@@ -38,19 +67,20 @@ function hasSupportedLineCoordinates(mesh) {
   return true;
 }
 
-function buildLineBatch(features, gl) {
-  const positions = [];
-  let drawnFeatures = 0, skippedFeatures = 0;
-  for (const feature of features) {
-    const mesh = buildGeographicLineMesh(feature);
-    if (!hasSupportedLineCoordinates(mesh)) { skippedFeatures++; continue; }
-    for (const value of mesh.positions) positions.push(value);
-    drawnFeatures++;
+function buildRibbonBuffer(segments, gl, message) {
+  if (!segments.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
+  const vertices = [];
+  for (let index = 0; index < segments.length; index += 4) {
+    const ax = segments[index], ay = segments[index + 1];
+    const bx = segments[index + 2], by = segments[index + 3];
+    vertices.push(
+      ax, ay, bx, by, -1, ax, ay, bx, by, 1, bx, by, ax, ay, -1,
+      bx, by, ax, ay, -1, ax, ay, bx, by, 1, bx, by, ax, ay, 1
+    );
   }
-  if (!positions.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures, skippedFeatures, positions: new Float32Array() };
-  const data = new Float32Array(positions);
+  const data = new Float32Array(vertices);
   const lineBuffer = gl.createBuffer();
-  if (!lineBuffer) throw new Error("Impossible de créer le buffer de lignes géographiques.");
+  if (!lineBuffer) throw new Error(message);
   try {
     gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
@@ -58,34 +88,43 @@ function buildLineBatch(features, gl) {
     gl.deleteBuffer(lineBuffer);
     throw error;
   }
-  return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
+  return { lineBuffer, vertexCount: data.length / 5, drawnFeatures: 0, skippedFeatures: 0, positions: data };
+}
+
+function buildLineBatch(features, gl) {
+  const segments = [];
+  let drawnFeatures = 0, skippedFeatures = 0;
+  for (const feature of features) {
+    const mesh = buildGeographicLineMesh(feature);
+    if (!hasSupportedLineCoordinates(mesh)) { skippedFeatures++; continue; }
+    for (const value of mesh.positions) segments.push(value);
+    drawnFeatures++;
+  }
+  return { ...buildRibbonBuffer(segments, gl, "Impossible de créer le buffer de lignes géographiques."), drawnFeatures, skippedFeatures };
 }
 
 function buildBoundaryLineBatch(features, gl) {
-  const positions = [];
+  const segments = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
     const geometry = feature?.geometry;
     const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
     if (!polygons?.length) { skippedFeatures++; continue; }
-    const featurePositions = [];
+    const featureSegments = [];
     let valid = true;
-    for (const polygon of polygons) for (const ring of polygon ?? []) {
-      const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
-      if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
-      for (const value of mesh.positions) featurePositions.push(value);
+    for (const polygon of polygons) {
+      for (const ring of polygon ?? []) {
+        const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
+        if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
+        for (const value of mesh.positions) featureSegments.push(value);
+      }
+      if (!valid) break;
     }
-    if (!valid || !featurePositions.length) { skippedFeatures++; continue; }
-    for (const value of featurePositions) positions.push(value);
+    if (!valid || !featureSegments.length) { skippedFeatures++; continue; }
+    segments.push(...featureSegments);
     drawnFeatures++;
   }
-  if (!positions.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures, skippedFeatures, positions: new Float32Array() };
-  const data = new Float32Array(positions);
-  const lineBuffer = gl.createBuffer();
-  if (!lineBuffer) throw new Error("Impossible de créer le buffer des contours géographiques.");
-  try { gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW); }
-  catch (error) { gl.deleteBuffer(lineBuffer); throw error; }
-  return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
+  return { ...buildRibbonBuffer(segments, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
 }
 function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
