@@ -76,6 +76,25 @@ void main() {
   highland = e > 2500.0 ? ramp(e, 2500.0, 4000.0, vec3(158.0,139.0,105.0)/255.0, vec3(179.0,165.0,143.0)/255.0) : highland;
   highland = e > 4000.0 ? ramp(e, 4000.0, 6500.0, vec3(179.0,165.0,143.0)/255.0, vec3(224.0,222.0,210.0)/255.0) : highland;
   vec3 color = e < 0.0 ? ocean : (e < 1000.0 ? lowland : highland);
+  if (e >= 0.0) {
+    float slope = length(vec2(slopeX, slopeY));
+    float relativeHeight = e - (west + east + north + south) * 0.25;
+    vec3 tint = vec3(0.0);
+    float tintStrength = 0.065;
+    if (e >= 1800.0 && slope >= 0.08) {
+      tint = vec3(190.0,174.0,157.0) / 255.0;
+      tintStrength = 0.075;
+    } else if (e >= 700.0 && slope < 0.055) {
+      tint = vec3(183.0,158.0,121.0) / 255.0;
+    } else if (relativeHeight <= -90.0 && e < 1800.0) {
+      tint = vec3(91.0,116.0,80.0) / 255.0;
+    } else if (slope < 0.025 && e < 450.0) {
+      tint = vec3(137.0,151.0,103.0) / 255.0;
+    } else if (slope >= 0.055 || e >= 1200.0) {
+      tint = vec3(163.0,143.0,113.0) / 255.0;
+    }
+    color = mix(color, tint, tintStrength);
+  }
   gl_FragColor = vec4(color * (e < 0.0 ? 1.0 : shade), 1.0);
 }`;
 
