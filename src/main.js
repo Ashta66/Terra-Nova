@@ -8,11 +8,12 @@ import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { cancelTerrainWebGLPending } from "./world/terrain-webgl.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
+import { getGeographicRendererPreference, resolveGeographicRendererMode } from "./world/geographic-renderer-mode.js";
 
 // Mode de diagnostic pour comparer les couches géographiques Canvas et WebGL
 // avec les mêmes données, sans désactiver le renderer WebGL du relief.
-const forceCanvasGeographicRenderer = new URLSearchParams(window.location.search)
-  .get("geographic-renderer") === "canvas";
+const geographicRendererPreference = getGeographicRendererPreference(window.location.search);
+const forceCanvasGeographicRenderer = geographicRendererPreference === "canvas";
 
 let state = createGameState();
 let interval = null;
@@ -619,8 +620,9 @@ if (geographicGL) {
   try { geographicWebGLRenderer = createGeographicWebGLRenderer(geographicGL); }
   catch { geographicWebGLRenderer = null; }
 }
-mapCanvas.dataset.geographicRendererMode = forceCanvasGeographicRenderer
-  ? "canvas" : geographicWebGLRenderer ? "webgl" : "canvas-fallback";
+mapCanvas.dataset.geographicRendererMode = resolveGeographicRendererMode(
+  geographicRendererPreference, Boolean(geographicWebGLRenderer)
+);
 $("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
 $("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
