@@ -202,3 +202,16 @@ test("le rendu du terrain reste plafonné à 512 × 256 en qualité normale sur 
   assert.equal(drawTerrainRaster(context, 1600, 900, grid), true);
   assert.deepEqual(dimensions, [455, 256]);
 });
+
+
+test("le moteur écarte les entités géographiques hors du viewport régional", async () => {
+  const { selectVisibleFeatures } = await import("../src/world/map-renderer.js");
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "visible" }, geometry: { type: "Point", coordinates: [5, 5] } },
+    { type: "Feature", properties: { name: "hors écran" }, geometry: { type: "Point", coordinates: [140, 40] } }
+  ] };
+  const visible = selectVisibleFeatures(collection, { zoom: 4, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(visible.features.length, 1);
+  assert.equal(visible.features[0].properties.name, "visible");
+  assert.equal(selectVisibleFeatures(collection, { zoom: 1 }), collection);
+});

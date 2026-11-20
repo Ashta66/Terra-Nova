@@ -2,6 +2,7 @@ import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
+import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
@@ -54,7 +55,8 @@ function zoomMap(factor, anchorX, anchorY, shouldRender = true, rectOverride = n
   const latitudeAtAnchor = mapViewport.centerLatitude - ratioY * 180 / oldZoom;
   mapViewport.zoom = newZoom;
   mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
-  mapViewport.centerLatitude = Math.max(-80, Math.min(80, latitudeAtAnchor + ratioY * 180 / newZoom));
+  mapViewport.centerLatitude = latitudeAtAnchor + ratioY * 180 / newZoom;
+  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
   if (shouldRender) renderMap();
   updateMapControls();
 }
@@ -295,8 +297,9 @@ mapCanvas.addEventListener("pointermove", (event) => {
   const dx = event.clientX - mapDrag.x;
   const dy = event.clientY - mapDrag.y;
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
-  mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
-  mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
+  mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
+  mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
+  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
   // Rendu léger coalescé à l’écran : le canvas reste aligné avec son viewport.
   mapInteractionActive = true;
   renderMap();

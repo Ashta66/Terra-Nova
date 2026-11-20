@@ -52,3 +52,17 @@ export function projectCoordinate(coordinate, width, height, projection = "equir
   if (type !== "equirectangular") throw new RangeError("Projection inconnue : " + type);
   return projectEquirectangular(longitude, latitude, width, height, viewport);
 }
+
+
+// Empêche la projection équirectangulaire de boucler sur plusieurs copies du monde.
+export function constrainEquirectangularViewport(viewport = {}, maxZoom = 24) {
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, maxZoom);
+  const maxLongitude = Math.max(0, 180 - 180 / zoom);
+  const maxLatitude = Math.max(0, 90 - 90 / zoom);
+  return {
+    ...viewport,
+    zoom,
+    centerLongitude: clamp(Number(viewport.centerLongitude ?? 0), -maxLongitude, maxLongitude),
+    centerLatitude: clamp(Number(viewport.centerLatitude ?? 0), -maxLatitude, maxLatitude)
+  };
+}

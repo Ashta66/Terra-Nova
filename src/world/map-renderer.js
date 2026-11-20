@@ -2,6 +2,48 @@ import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
 
+const featureBoundsCache = new WeakMap();
+
+function getFeatureBounds(feature) {
+  if (featureBoundsCache.has(feature)) return featureBoundsCache.get(feature);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const visit = value => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      minX = Math.min(minX, value[0]); maxX = Math.max(maxX, value[0]);
+      minY = Math.min(minY, value[1]); maxY = Math.max(maxY, value[1]);
+      return;
+    }
+    for (const child of value) visit(child);
+  };
+  const walkGeometry = geometry => {
+    if (!geometry) return;
+    if (geometry.type === "GeometryCollection") {
+      for (const child of geometry.geometries ?? []) walkGeometry(child);
+    } else visit(geometry.coordinates);
+  };
+  walkGeometry(feature.geometry);
+  const bounds = minX === Infinity ? null : { minX, minY, maxX, maxY };
+  featureBoundsCache.set(feature, bounds);
+  return bounds;
+}
+
+export function selectVisibleFeatures(collection, viewport = {}) {
+  if (!collection?.features || Number(viewport.zoom ?? 1) <= 1.001) return collection;
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const halfLongitude = 180 / zoom;
+  const halfLatitude = 90 / zoom;
+  const west = Number(viewport.centerLongitude ?? 0) - halfLongitude;
+  const east = Number(viewport.centerLongitude ?? 0) + halfLongitude;
+  const south = Number(viewport.centerLatitude ?? 0) - halfLatitude;
+  const north = Number(viewport.centerLatitude ?? 0) + halfLatitude;
+  const features = collection.features.filter(feature => {
+    const bounds = getFeatureBounds(feature);
+    return !bounds || !(bounds.maxX < west || bounds.minX > east || bounds.maxY < south || bounds.minY > north);
+  });
+  return features.length === collection.features.length ? collection : { ...collection, features };
+}
+
 function traceRing(context, ring, width, height, projection) {
   let started = false;
   for (const coordinate of ring) {
@@ -219,14 +261,20 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   context.restore();
 
+  const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
+  const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
+  const visibleLakes = selectVisibleFeatures(options.lakes, projection.viewport);
+  const visibleRivers = selectVisibleFeatures(options.rivers, projection.viewport);
+  const visibleElevationPoints = selectVisibleFeatures(options.elevationPoints, projection.viewport);
+  const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85);
-  if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
-  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
-  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
-  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
-  const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
-  const labelHits = options.interactive ? [] : drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85);
+  if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
+  const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
+  const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
+  const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
+  const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
+  const labelHits = options.interactive ? [] : drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
