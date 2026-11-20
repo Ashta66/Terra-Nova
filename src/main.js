@@ -93,7 +93,7 @@ function viewSize() {
   return { width, height: Math.max(1, Math.round(width * 0.5)) };
 }
 const MIN_MAP_ZOOM = 1;
-const MAX_MAP_ZOOM = 35;
+const MAX_MAP_ZOOM = 20;
 const $ = (id) => document.getElementById(id);
 let initialLoadingFinished=false;
 let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;

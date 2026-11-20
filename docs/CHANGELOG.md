@@ -367,3 +367,11 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Téléchargement régional anticipé : labels ×3,2, terres ×5,2, rivières ×7,2 ; affichage toujours à ×4, ×6, ×8.
 - Emprise spatiale élargie lors d'un dézoom.
 - Tests et documentation mis à jour.
+
+
+## 20 novembre 2026 — limite de zoom, mémoire des zones et typographie
+- Zoom maximal abaissé de ×35 à ×20 (2 000 %) dans l'interface et les projections.
+- Cache LRU spatial étendu à 256 secteurs et 64 sélections de vue ; les données source restent partagées, sans duplication des GeoJSON.
+- Taille des labels interpolée progressivement, notamment pour les noms de pays autour de l'ancien seuil ×3.
+- Simplification des côtes terrestres adoucie aux faibles zooms pour mieux conserver les détails côtiers et réduire les zones visuellement vides.
+- Tests mis à jour.

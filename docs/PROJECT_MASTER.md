@@ -393,3 +393,11 @@ Le préchargement est prédictif à partir du dernier déplacement achevé, pas 
 
 ## Anticipation des niveaux de zoom — 20 novembre 2026
 Les labels régionaux sont demandés à ×3,2 (affichage ×4), les terres à ×5,2 (affichage ×6) et les rivières à ×7,2 (affichage ×8). Le téléchargement commence avant le besoin de rendu ; les seuils LOD restent inchangés. Lors d'un dézoom, le préchargement spatial prépare une emprise élargie (zoom cible ×0,78).
+
+
+## Navigation affinée — 20 novembre 2026
+- Zoom maximal plafonné à ×20 (2 000 %) dans l'interface et dans les projections équirectangulaire/Mercator.
+- Cache spatial LRU étendu à 256 secteurs et 64 sélections de viewport afin de conserver davantage de zones récemment parcourues, avec limites strictes.
+- Taille des labels interpolée continûment : la typographie des pays ne saute plus brutalement au seuil ×3 ; les autres labels gagnent très légèrement en taille de manière progressive.
+- Simplification des côtes terrestres moins agressive aux faibles zooms afin de conserver davantage de petites formes côtières et d'éviter un rendu mondial trop vide.
+- Les données géographiques restent partagées par référence ; le cache retient des index/sélections, pas des copies de GeoJSON.

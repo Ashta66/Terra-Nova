@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildGeoSpatialIndex, prefetchGeoSpatialFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
+import { buildGeoSpatialIndex, prefetchGeoSpatialFeatures, getGeoSpatialIndexStats, selectGeoSpatialFeatures } from "../src/world/geo-spatial-index.js";
 
 function collection() {
   const features=[];
@@ -40,4 +40,15 @@ test("ne précharge rien à l'échelle mondiale",()=>{
   const data=collection();
   assert.equal(prefetchGeoSpatialFeatures(data,{zoom:1,centerLongitude:0,centerLatitude:0}),0);
   assert.equal(getGeoSpatialIndexStats(data).indexed,false);
+});
+
+
+test("le cache spatial LRU conserve davantage de zones récemment consultées",()=>{
+  const data=collection();
+  for(let i=0;i<90;i++) selectGeoSpatialFeatures(data,{zoom:12,centerLongitude:-150+i*3,centerLatitude:20});
+  const stats=getGeoSpatialIndexStats(data);
+  assert.equal(stats.maxCachedTiles,256);
+  assert.equal(stats.maxCachedQueries,64);
+  assert.ok(stats.cachedTiles<=256);
+  assert.ok(stats.cachedQueries<=64);
 });

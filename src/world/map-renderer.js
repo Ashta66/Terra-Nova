@@ -40,10 +40,10 @@ export function getCoastSimplificationProfile(zoom = 1) {
 // frontières territoriales : les micro-îles ne justifient pas leur coût.
 export function getLandCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 3.3, minRingArea: 25 };
-  if (level <= 4) return { tolerance: 3.75, minRingArea: 38 };
-  if (level <= 10) return { tolerance: 4.15, minRingArea: 55 };
-  return { tolerance: 4.6, minRingArea: 78 };
+  if (level <= 1.5) return { tolerance: 2.8, minRingArea: 14 };
+  if (level <= 4) return { tolerance: 3.4, minRingArea: 24 };
+  if (level <= 10) return { tolerance: 3.9, minRingArea: 40 };
+  return { tolerance: 4.4, minRingArea: 60 };
 }
 
 // Les rives des lacs et mers intérieures suivent le même niveau de
@@ -933,6 +933,16 @@ export function getCityLabelLimit(_zoom = 1) {
   return 5;
 }
 
+/** Taille des labels interpolée sans seuil brutal, en pixels de rendu. */
+export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {
+  const level = Math.max(1, Math.min(20, Number(zoom) || 1));
+  const smooth = value => value * value * (3 - 2 * value);
+  const blend = (value, start, end) => smooth(Math.max(0, Math.min(1, (value - start) / (end - start))));
+  const base = kind === "continent" ? 13 : kind === "country" ? 13 : kind === "province" ? 9 : 10;
+  const progressive = kind === "country" ? 2 * blend(level, 1.5, 4) : 0.8 * blend(Math.log(level), 0, Math.log(20));
+  return (base + progressive) * Math.max(0.1, Number(renderScale) || 1);
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null) {
   if (!collection?.features) return [];
   const hits = [];
@@ -957,7 +967,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
-    const fontSize = (kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10) * renderScale;
+    const fontSize = getMapLabelFontSize(kind, zoom, renderScale);
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
     context.save();
     context.font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
