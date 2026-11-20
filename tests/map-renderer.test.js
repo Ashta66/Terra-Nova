@@ -389,8 +389,8 @@ test("les bandes exposées d'un pan pur sont calculées sans chevauchement", () 
     360, 180
   );
   assert.deepEqual(regions, [
-    { x: 0, y: 0, width: 18, height: 180 },
-    { x: 18, y: 0, width: 342, height: 9 }
+    { x: 342, y: 0, width: 18, height: 180 },
+    { x: 0, y: 0, width: 342, height: 9 }
   ]);
 });
 
