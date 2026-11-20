@@ -62,8 +62,6 @@ export function createGeographicWebGLRenderer(gl) {
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    if (buffer) gl.deleteBuffer(buffer);
-    if (indexBuffer) gl.deleteBuffer(indexBuffer);
     gl.deleteProgram(program);
     gl.deleteShader(vertex);
     gl.deleteShader(fragment);
@@ -72,6 +70,8 @@ export function createGeographicWebGLRenderer(gl) {
   const buffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
   if (!buffer || !indexBuffer) {
+    if (buffer) gl.deleteBuffer(buffer);
+    if (indexBuffer) gl.deleteBuffer(indexBuffer);
     gl.deleteProgram(program);
     gl.deleteShader(vertex);
     gl.deleteShader(fragment);
