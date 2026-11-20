@@ -1,7 +1,7 @@
 ## 20 novembre 2026 — fluidité du zoom et du panoramique
 
 - `src/main.js` : regroupement des rendus cartographiques via `requestAnimationFrame`, afin de ne pas recalculer plusieurs images lors d'une rafale d'événements pointeur ou molette.
-- Pendant le glissement, le raster ETOPO passe en qualité interactive (384 × 192 maximum) ; à la fin du geste, une demande de rendu de meilleure qualité est déclenchée.
+- Pendant le glissement, le canvas déjà rendu est translaté via `translate3d` sans recalcul du raster ETOPO ni des couches vectorielles ; le rendu complet est relancé au relâchement.
 - `src/world/terrain.js` : résolution normale plafonnée à 768 × 384 ; rendu sur une surface hors écran quand disponible.
 - `src/world/map-renderer.js` : correction du passage des dimensions logiques CSS au raster, pour éviter le mélange entre pixels physiques haute densité et coordonnées logiques.
 - Tests ajoutés sur les plafonds de résolution interactifs et normaux.
