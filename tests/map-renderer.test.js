@@ -444,3 +444,19 @@ test("la prévisualisation ne boucle pas les bords à un zoom rapproché", () =>
     [0]
   );
 });
+
+import { createGeoFeatureIndex } from "../src/world/map-renderer.js";
+test("l'index spatial filtre les géométries selon le viewport",()=>{
+ const a={id:"a",geometry:{type:"Point",coordinates:[-125,15]}};
+ const b={id:"b",geometry:{type:"Point",coordinates:[45,15]}};
+ const index=createGeoFeatureIndex({type:"FeatureCollection",features:[a,b]},10);
+ assert.deepEqual(index.query({west:-140,east:-110,south:0,north:30}),[a]);
+ assert.deepEqual(index.query({west:30,east:60,south:0,north:30}),[b]);
+ assert.equal(index.query().length,2);
+});
+test("l'index spatial conserve les géométries traversant l'antiméridien",()=>{
+ const crossing={id:"cross",geometry:{type:"LineString",coordinates:[[170,0],[-170,5]]}};
+ const ordinary={id:"ordinary",geometry:{type:"Point",coordinates:[0,0]}};
+ const index=createGeoFeatureIndex({type:"FeatureCollection",features:[crossing,ordinary]},10);
+ assert.deepEqual(index.query({west:160,east:200,south:-10,north:10}),[crossing]);
+});
