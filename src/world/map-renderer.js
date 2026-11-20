@@ -285,6 +285,7 @@ export function calculateExposedRegions(previous, next, width, height) {
 
 const layerCaches = { physical: new Map(), political: new Map() };
 let lastPhysicalFrame = null;
+let lastPoliticalFrame = null;
 const objectIds = new WeakMap();
 let nextObjectId = 1;
 
@@ -329,7 +330,27 @@ function viewportKey(viewport) {
   return [viewport.zoom ?? 1, viewport.centerLongitude ?? 0, viewport.centerLatitude ?? 0].join(",");
 }
 
-function drawPoliticalLayers(context, width, height, projection, theme, featureCollection, options) {
+function featuresInScreenRect(collection, rect, width, height, projection) {
+  if (!collection?.features) return [];
+  if (projection.type !== "equirectangular") return collection.features;
+  const v = projection.viewport ?? {}, zoom = Math.max(1, Number(v.zoom ?? 1));
+  const westRaw = Number(v.centerLongitude ?? 0) - 180 / zoom + rect.x / width * 360 / zoom;
+  const span = rect.width / width * 360 / zoom;
+  const west = ((westRaw + 180) % 360 + 360) % 360 - 180;
+  const north = Number(v.centerLatitude ?? 0) + 90 / zoom - rect.y / height * 180 / zoom;
+  const south = north - rect.height / height * 180 / zoom;
+  let index = spatialIndexes.get(collection);
+  if (!index) { index = createGeoFeatureIndex(collection); spatialIndexes.set(collection, index); }
+  return index.query({ west, east: west + span, south, north });
+}
+
+function drawPoliticalLayers(context, width, height, projection, theme, featureCollection, options, dirtyRect = null) {
+  if (dirtyRect && context.rect && context.clip) {
+    context.save();
+    context.beginPath();
+    context.rect(dirtyRect.x, dirtyRect.y, dirtyRect.width, dirtyRect.height);
+    context.clip();
+  }
   context.save();
   context.strokeStyle = theme.colors.grid;
   context.globalAlpha = 0.28;
@@ -353,12 +374,17 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   context.restore();
 
   const landFill = options.terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85, 1, visibleFeatures(featureCollection, projection));
-  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, visibleFeatures(featureCollection, projection));
-  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, visibleFeatures(options.glaciers, projection));
-  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, visibleFeatures(options.lakes, projection));
-  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, visibleFeatures(options.rivers, projection));
-  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, visibleFeatures(options.elevationPoints, projection));
+  const select = collection => dirtyRect ? featuresInScreenRect(collection, dirtyRect, width, height, projection) : visibleFeatures(collection, projection);
+  const landFeatures = select(featureCollection), glacierFeatures = select(options.glaciers);
+  const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
+  const elevationFeatures = select(options.elevationPoints);
+  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85, 1, landFeatures);
+  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
+  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, glacierFeatures);
+  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
+  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
+  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, elevationFeatures);
+  if (dirtyRect && context.rect && context.clip) context.restore();
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
@@ -435,37 +461,55 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     lastPhysicalFrame = null;
   }
 
-  const politicalKey = [
-    objectId(featureCollection), objectId(options.glaciers), objectId(options.lakes),
-    objectId(options.rivers), objectId(options.elevationPoints),
-    width, height, pixelRatio, theme.id, theme.texture, JSON.stringify(theme.colors),
-    projection.type, viewKey, terrainEnabled
-  ].join("|");
-  let political;
-  let politicalHit = false;
-  if (typeof context.drawImage === "function") {
-    political = getCachedLayer("political", politicalKey, canvas.width, canvas.height, layerContext => {
-      layerContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      return drawPoliticalLayers(layerContext, width, height, projection, theme, featureCollection, {
-        ...options, terrainEnabled
-      });
-    });
-  }
+  let politicalIncremental = false;
   let layerCounts;
-  if (political) {
-    context.save();
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.drawImage(political.surface, 0, 0);
-    context.restore();
-    politicalHit = political.hit;
-    // Les métadonnées sont indépendantes des pixels mis en cache.
-    layerCounts = political.metadata ?? {
-      landCount: 0, glacierCount: 0, lakeCount: 0, riverCount: 0, elevationPointCount: 0
-    };
+  if (typeof context.drawImage === "function") {
+    const surface = createLayerSurface(canvas.width, canvas.height);
+    if (surface) {
+      const dataKey = [objectId(featureCollection), objectId(options.glaciers), objectId(options.lakes),
+        objectId(options.rivers), objectId(options.elevationPoints)].join("|");
+      const themeKey = [theme.id, theme.texture, JSON.stringify(theme.colors), terrainEnabled, projection.type].join("|");
+      const previous = lastPoliticalFrame;
+      let dirtyRegions = null;
+      if (previous && previous.dataKey === dataKey && previous.themeKey === themeKey
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && Number(previous.viewport.zoom ?? 1) === Number(projection.viewport.zoom ?? 1)
+        && projection.type === "equirectangular" && Number(projection.viewport.zoom ?? 1) > 1) {
+        dirtyRegions = calculateExposedRegions(previous.viewport, projection.viewport, width, height);
+        const area = dirtyRegions?.reduce((sum, rect) => sum + rect.width * rect.height, 0) ?? Infinity;
+        if (dirtyRegions === null || area <= 0 || area > width * height * 0.45) dirtyRegions = null;
+      }
+      if (dirtyRegions?.length && previous?.surface) {
+        const transform = calculateViewportTransform(previous.viewport, projection.viewport, width, height);
+        surface.context.drawImage(previous.surface, transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        layerCounts = previous.metadata;
+        for (const rect of dirtyRegions) {
+          surface.context.save();
+          surface.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+          drawPoliticalLayers(surface.context, width, height, projection, theme, featureCollection,
+            { ...options, terrainEnabled }, rect);
+          surface.context.restore();
+        }
+        politicalIncremental = true;
+      } else {
+        surface.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        layerCounts = drawPoliticalLayers(surface.context, width, height, projection, theme, featureCollection,
+          { ...options, terrainEnabled });
+      }
+      lastPoliticalFrame = { surface: surface.surface, metadata: layerCounts, dataKey, themeKey,
+        width: canvas.width, height: canvas.height, pixelRatio, viewport: { ...projection.viewport } };
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(surface.surface, 0, 0);
+      context.restore();
+    } else {
+      lastPoliticalFrame = null;
+      layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, { ...options, terrainEnabled });
+    }
   } else {
-    layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, {
-      ...options, terrainEnabled
-    });
+    lastPoliticalFrame = null;
+    layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, { ...options, terrainEnabled });
   }
 
   const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
@@ -480,6 +524,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: politicalHit, dynamicLayerCount, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
 }
