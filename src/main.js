@@ -15,6 +15,9 @@ let mapLabels = null;
 let terrainGrid = null;
 let mapLabelHits = [];
 let mapRenderFrame = null;
+let lastRenderedMapSignature = null;
+let wheelZoomState = null;
+let wheelZoomTimer = null;
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -28,9 +31,9 @@ function updateMapControls() {
   $("map-zoom-in").disabled = mapViewport.zoom >= MAX_MAP_ZOOM;
 }
 
-function zoomMap(factor, anchorX, anchorY) {
+function zoomMap(factor, anchorX, anchorY, shouldRender = true, rectOverride = null) {
   const canvas = $("world-map");
-  const rect = canvas.getBoundingClientRect();
+  const rect = rectOverride ?? canvas.getBoundingClientRect();
   const x = anchorX ?? rect.width / 2;
   const y = anchorY ?? rect.height / 2;
   const ratioX = rect.width ? x / rect.width - 0.5 : 0;
@@ -43,7 +46,7 @@ function zoomMap(factor, anchorX, anchorY) {
   mapViewport.zoom = newZoom;
   mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, latitudeAtAnchor + ratioY * 180 / newZoom));
-  renderMap();
+  if (shouldRender) renderMap();
   updateMapControls();
 }
 
@@ -51,6 +54,7 @@ function resetMapView() {
   mapViewport.zoom = 1;
   mapViewport.centerLongitude = 0;
   mapViewport.centerLatitude = 0;
+  clearWheelZoomPreview();
   renderMap();
   updateMapControls();
 }
@@ -68,6 +72,9 @@ function renderMapFrame() {
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
+  const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
+  if (signature === lastRenderedMapSignature) return;
+  lastRenderedMapSignature = signature;
   const result = renderWorldMap(canvas, worldFeatures, {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
@@ -179,6 +186,7 @@ $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
+  clearWheelZoomPreview();
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
@@ -225,6 +233,12 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
+function clearWheelZoomPreview() {
+  if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
+  wheelZoomTimer = null;
+  wheelZoomState = null;
+  mapCanvas.style.transform = '';
+}
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
@@ -247,8 +261,25 @@ mapCanvas.addEventListener("pointercancel", stopMapDrag);
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
-  const rect = mapCanvas.getBoundingClientRect();
-  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, event.clientX - rect.left, event.clientY - rect.top);
+  if (!wheelZoomState) {
+    const rect = mapCanvas.getBoundingClientRect();
+    wheelZoomState = {
+      baseZoom: mapViewport.zoom,
+      anchorX: event.clientX - rect.left,
+      anchorY: event.clientY - rect.top,
+      rect: { width: rect.width, height: rect.height }
+    };
+  }
+  const anchor = wheelZoomState;
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
+  const scale = mapViewport.zoom / anchor.baseZoom;
+  mapCanvas.style.transformOrigin = "0 0";
+  mapCanvas.style.transform = "translate3d(" + anchor.anchorX * (1 - scale) + "px, " + anchor.anchorY * (1 - scale) + "px, 0) scale(" + scale + ")";
+  if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
+  wheelZoomTimer = setTimeout(() => {
+    clearWheelZoomPreview();
+    renderMap();
+  }, 130);
 }, { passive: false });
 
 state.clock = createClock();
