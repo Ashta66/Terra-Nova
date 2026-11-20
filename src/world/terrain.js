@@ -120,19 +120,20 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
 }
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
   // Cela évite plusieurs millions d'échantillonnages à chaque déplacement/zoom.
-  const scale = Math.min(1, 1024 / width, 512 / height);
+  const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
+  const scale = Math.min(1, (768 * qualityScale) / width, (384 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   let renderContext = context;
   let surface = null;
-  if (scale < 1 && typeof OffscreenCanvas !== "undefined") {
+  if (context.drawImage && typeof OffscreenCanvas !== "undefined") {
     surface = new OffscreenCanvas(renderWidth, renderHeight);
     renderContext = surface.getContext("2d");
-  } else if (scale < 1 && typeof document !== "undefined" && context.drawImage) {
+  } else if (context.drawImage && typeof document !== "undefined") {
     surface = document.createElement("canvas");
     surface.width = renderWidth;
     surface.height = renderHeight;
