@@ -1,3 +1,8 @@
+## Harmonisation du littoral physique et politique — 20 novembre 2026
+- Les contours territoriaux utilisent désormais le même profil de simplification que le masque terrestre, et non le profil côtier plus fin réservé aux autres frontières.
+- Les micro-îles et découpes de côte ne doivent donc plus réapparaître sous forme de tracé politique isolé ; les aplats, couleurs et statuts des pays restent conservés.
+- Les tests couvrent l'identité des profils aux zooms 1×, 2×, 4×, 8× et 20×. Le rendu visuel réel reste à contrôler dans le navigateur.
+
 ## Fond terrestre neutralisé — 20 novembre 2026
 - Le fond des terres sous les aplats politiques n'utilise plus la palette ocre du thème historique : teinte neutre et désaturée.
 - Le trait du littoral est passé à un ton froid discret et affiné ; il reste un repère géographique, sans ressembler à une seconde frontière politique.
