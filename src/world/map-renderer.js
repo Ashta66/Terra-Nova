@@ -517,12 +517,21 @@ export function buildTerritoryLabels(territories, provinces = null) {
   return { type: "FeatureCollection", features };
 }
 
-function territoryColor(feature) {
-  const name = territoryName(feature?.properties) || "terra";
+export function territoryColor(feature) {
+  const properties = feature?.properties ?? {};
+  const name = territoryName(properties) || "terra";
+  const identity = String(properties.ADM0_A3 ?? properties.SOV_A3 ?? properties.ISO_A3 ?? name).toUpperCase();
+  // Bleu roi pour la France métropolitaine ; palette claire et contrastée pour les autres pays.
+  if (["FRA", "FRANCE", "FR"].includes(identity) || /^(france|french republic)$/i.test(name)) return "#3159A6";
+  const palette = [
+    "#B66F62", "#668D78", "#B18A4F", "#718BAF", "#9A769F",
+    "#B47E91", "#6D9B9C", "#A28A62", "#7E86A8", "#A27B5D",
+    "#78936B", "#B07862", "#64899B", "#A18A9A", "#9A9A61",
+    "#8B765E", "#6F9A88", "#A77C75", "#7885A0", "#B08B69"
+  ];
   let hash = 2166136261;
-  for (let i = 0; i < name.length; i++) hash = Math.imul(hash ^ name.charCodeAt(i), 16777619);
-  const hue = (hash >>> 0) % 360;
-  return `hsl(${hue} 28% 57%)`;
+  for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
+  return palette[(hash >>> 0) % palette.length];
 }
 
 function drawTerritoryLayer(context, collection, width, height, projection) {
@@ -535,7 +544,7 @@ function drawTerritoryLayer(context, collection, width, height, projection) {
     const path = getProjectedPath(feature, width, height, projection, profile);
     if (path) {
       context.fillStyle = territoryColor(feature);
-      context.globalAlpha = 0.76;
+      context.globalAlpha = 0.88;
       context.fill(path, "evenodd");
       drawn++;
     } else {
@@ -565,23 +574,38 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
-    const fontSize = kind === "continent" ? 13 : kind === "country" ? 11 : kind === "province" ? 9 : 10;
+    const fontSize = kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10;
+    const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
     context.save();
-    context.font = kind === "city" || kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `600 ${fontSize}px Georgia, serif`;
-    const textWidth = context.measureText(name).width;
+    context.font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
+    const textWidth = context.measureText(displayName).width;
     const x = point.x - textWidth / 2;
-    const y = point.y + (kind === "city" ? 3 : 0);
-    const box = { left: x - 4, right: x + textWidth + 4, top: y - fontSize - 3, bottom: y + 4 };
+    const y = point.y + (kind === "city" ? 5 : 0);
+    const box = { left: x - (kind === "country" ? 7 : 4), right: x + textWidth + (kind === "country" ? 7 : 4), top: y - fontSize - (kind === "country" ? 6 : 3), bottom: y + (kind === "city" ? 7 : 4) };
     if (labelBoxCollides(box, occupiedCells)) { context.restore(); continue; }
     addLabelBox(box, occupiedCells);
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
-    context.lineWidth = kind === "city" ? 2.8 : 3.4;
-    context.strokeStyle = theme.colors.ocean;
-    context.fillStyle = kind === "ocean" ? "#a9c6cf" : theme.colors.text;
-    context.globalAlpha = kind === "city" || kind === "country" ? 0.96 : kind === "province" ? 0.82 : 0.78;
-    context.strokeText(name, x, y);
-    context.fillText(name, x, y);
+    context.lineWidth = kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4;
+    context.lineJoin = "round";
+    context.strokeStyle = kind === "country" ? "rgba(17,35,47,0.96)" : "rgba(12,29,39,0.94)";
+    context.fillStyle = kind === "country" ? "#fff0c8" : kind === "city" ? "#ffffff" : kind === "ocean" ? "#a9c6cf" : theme.colors.text;
+    context.globalAlpha = kind === "city" || kind === "country" ? 1 : kind === "province" ? 0.86 : 0.78;
+    if (kind === "country") {
+      context.shadowColor = "rgba(0,0,0,0.65)";
+      context.shadowBlur = 4;
+    }
+    context.strokeText(displayName, x, y);
+    context.fillText(displayName, x, y);
+    if (kind === "city") {
+      context.beginPath();
+      context.arc(point.x, point.y - 1, 2.2, 0, Math.PI * 2);
+      context.fillStyle = "#f5d58e";
+      context.fill();
+      context.strokeStyle = "rgba(12,29,39,0.95)";
+      context.lineWidth = 1.2;
+      context.stroke();
+    }
     context.restore();
     hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5, right: x + textWidth + 5, top: y - fontSize - 5, bottom: y + 6 }, coordinates: feature.geometry.coordinates });
   }
@@ -662,15 +686,16 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
-  const territoryCount = options.interactive ? 0 : drawTerritoryLayer(context, visibleTerritories, width, height, projection);
+  // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
+  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
-  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d06f61", 0.95, [], true);
-  const administrativeBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", 0.65, [2.2, 2.4]);
-  const labelHits = options.interactive ? [] : drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d06f61", options.interactive ? 0.72 : 0.95, [], true);
+  const administrativeBoundaryCount = drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]);
+  const labelHits = drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,

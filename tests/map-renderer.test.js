@@ -642,3 +642,14 @@ test("les provinces reçoivent des labels à partir de leurs lignes administrati
   assert.equal(labels.features[0].properties.kind, "province");
   assert.equal(labels.features[0].properties.name, "Province test");
 });
+
+
+test("la France reçoit un bleu roi dans la palette politique", () => {
+  assert.equal(territoryColor({ type: "Feature", properties: { ADMIN: "France", ADM0_A3: "FRA" } }), "#3159A6");
+});
+
+test("les autres pays reçoivent une couleur stable distincte du bleu roi français", () => {
+  const feature = { type: "Feature", properties: { ADMIN: "Spain", ADM0_A3: "ESP" } };
+  assert.equal(territoryColor(feature), territoryColor(feature));
+  assert.notEqual(territoryColor(feature), "#3159A6");
+});
