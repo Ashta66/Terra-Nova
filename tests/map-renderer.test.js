@@ -1193,6 +1193,14 @@ test("le renderer WebGL géographique regroupe les polygones et ignore les géom
   assert.ok(calls.some(call => call[0] === "bufferData" && call[1] === gl.ELEMENT_ARRAY_BUFFER));
   assert.equal(renderer.supports(polygon), true);
   assert.equal(renderer.supports(withHole), false);
+  assert.equal(stats.cacheHit, false);
+  assert.equal(stats.bufferUploads, 2);
+  const repeatedStats = renderer.render([polygon, polygon, withHole], 800, 400,
+    { centerLongitude: 15, centerLatitude: 5, zoom: 2 }, [0.2, 0.3, 0.4, 1]);
+  assert.equal(repeatedStats.cacheHit, true);
+  assert.equal(repeatedStats.bufferUploads, 0);
+  assert.equal(repeatedStats.uploadedBytes, 0);
+  assert.equal(calls.filter(call => call[0] === "bufferData").length, 2);
   const dateline = {
     type: "Feature",
     geometry: { type: "Polygon", coordinates: [[[179, 10], [-179, 10], [-179, 12], [179, 12], [179, 10]]] }
