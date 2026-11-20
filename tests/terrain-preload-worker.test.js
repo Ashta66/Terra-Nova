@@ -14,12 +14,12 @@ test("le worker prépare des tuiles pour les niveaux de zoom adjacents", () => {
   assert.equal(new Set(plan).size, plan.length);
 });
 
-test("le worker gère l'antiméridien et ignore les niveaux invalides", () => {
+test("le worker gère l'antiméridien et écarte les niveaux invalides", () => {
   const plan = calculateZoomTilePlan({
     width: 720, height: 360, tileSize: 30,
     viewport: { zoom: 4, centerLongitude: 179, centerLatitude: 0 },
     padding: 0.2,
-    zoomLevels: [4, 0, -1, Number.NaN, Infinity]
+    zoomLevels: [2, 8, 0, -1, Number.NaN, Infinity]
   });
   assert.ok(plan.length > 0);
   assert.ok(plan.every(id => Number(id.split("/")[1]) >= 0));
