@@ -107,7 +107,7 @@ test("la caméra traverse ±180° sans borner la longitude et revient au centre 
   const regional = constrainEquirectangularViewport({ zoom: 5, centerLongitude: 545, centerLatitude: 0 });
   assert.equal(regional.centerLongitude, 545);
   const world = constrainEquirectangularViewport({ zoom: 1, centerLongitude: 545, centerLatitude: 0 });
-  assert.equal(world.centerLongitude, 0);
+  assert.equal(Math.abs(world.centerLongitude), 0);
 });
 
 test("l'index spatial sélectionne les deux côtés de l'antiméridien sans dupliquer les entités", () => {
