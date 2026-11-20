@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -569,7 +569,8 @@ test("le shader WebGL tuilé échantillonne les textures locales avec leurs bord
   const shader = getTerrainWebGLShaders().tileFragment;
   assert.match(shader, /v_tileUv/);
   assert.match(shader, /u_opacity/);
-  assert.match(shader, /u_tileSize/);
+  assert.match(shader, /v_atlasUv/);
+  assert.match(shader, /v_atlasStep/);
   assert.match(shader, /sampleValue\.a/);
   assert.match(shader, /stepUV/);
   assert.match(shader, /gl_FragColor/);
@@ -732,10 +733,56 @@ function createFakeTerrainGL(maxTextureSize = 64) {
     pixelStorei() {},
     getParameter(parameter) { return parameter === this.MAX_TEXTURE_SIZE ? maxTextureSize : 0; },
     texImage2D(target, level, internalFormat, width, height, border, format, type, data) {
-      uploads.push({ width, height, bytes: data.byteLength });
+      uploads.push({ width, height, bytes: data?.byteLength ?? 0, allocation: data == null });
+    },
+    texSubImage2D(target, level, x, y, width, height, format, type, data) {
+      uploads.push({ x, y, width, height, bytes: data.byteLength, subImage: true });
     }
   };
 }
+
+test("l'atlas GPU partage une texture, réutilise ses slots et respecte la capacité", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(18);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 4 });
+  assert.ok(atlas);
+  assert.equal(atlas.capacity, 9);
+  assert.equal(gl.uploads[0].allocation, true);
+  const a = store.getTileAtLevel(0, 0, 0), b = store.getTileAtLevel(0, 1, 0);
+  const first = atlas.get(a);
+  const second = atlas.get(b);
+  assert.equal(first.texture, second.texture);
+  assert.notDeepEqual([first.slotX, first.slotY], [second.slotX, second.slotY]);
+  assert.equal(atlas.get(a), first);
+  assert.equal(atlas.stats.hits, 1);
+  assert.equal(atlas.stats.uploads, 2);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 2);
+  assert.equal(atlas.memoryBytes, atlas.atlasWidth * atlas.atlasHeight * 2);
+  atlas.clear();
+  assert.equal(atlas.size, 0);
+  assert.equal(atlas.get(a).texture, atlas.texture);
+});
+
+test("le batch atlas regroupe plusieurs tuiles en une seule liste de triangles", () => {
+  const items = [
+    { tile: { level: 0, x: 0, y: 0, width: 4, height: 4 }, rects: [
+      { x: 0, y: 0, width: 50, height: 40, u0: 0, u1: 1, v0: 0, v1: 1 }
+    ] },
+    { tile: { level: 0, x: 1, y: 0, width: 2, height: 4 }, rects: [
+      { x: 50, y: 0, width: 50, height: 40, u0: 0, u1: 1, v0: 0, v1: 1 }
+    ] }
+  ];
+  const entries = new Map([
+    ["0/0/0@0", { slotX: 0, slotY: 0, level: 0, x: 0, y: 0 }],
+    ["0/1/0@0", { slotX: 1, slotY: 0, level: 0, x: 1, y: 0 }]
+  ]);
+  const atlas = { cellSize: 6, atlasWidth: 12, atlasHeight: 12 };
+  const vertices = buildTerrainTileAtlasBatchVertices(items, entries, 100, 40, atlas);
+  assert.equal(vertices.length, 96);
+  assert.deepEqual(Array.from(vertices.slice(0, 8)), [-1, 1, 1/12, 1/12, 1/12, 1/12, 1/6, 1/6]);
+  assert.ok(vertices.some((value, index) => index % 8 === 2 && value > 0.5));
+});
 
 test("le cache GPU des tuiles respecte le LRU et son budget mémoire", () => {
   const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
