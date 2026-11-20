@@ -1,6 +1,6 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
-import { drawTerrainRaster, sampleElevation } from "./terrain.js";
+import { drawTerrainRaster, sampleElevation, isTerrainHillshadePrepared } from "./terrain.js";
 import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
@@ -831,6 +831,61 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   return hits;
 }
 
+const renderObjectIds = new WeakMap();
+let nextRenderObjectId = 1;
+const staticLayerCache = new WeakMap();
+const STATIC_LAYER_CACHE_LIMIT = 3;
+const STATIC_LAYER_TIMING_KEYS = [
+  "relief-base", "terres-et-cotes", "territoires-couleurs",
+  "ombrage-multidirectionnel", "hachures", "glaciers", "lacs", "rivières", "repères-altitude"
+];
+
+function renderObjectId(value) {
+  if (!value || (typeof value !== "object" && typeof value !== "function")) return 0;
+  let id = renderObjectIds.get(value);
+  if (!id) { id = nextRenderObjectId++; renderObjectIds.set(value, id); }
+  return id;
+}
+
+function staticLayerSignature(width, height, pixelRatio, year, theme, projection, options, layers) {
+  const view = projection.viewport ?? {};
+  return [
+    width, height, pixelRatio, year, theme.id, options.technologyLevel ?? 0,
+    projection.type, Number(view.zoom ?? 1).toFixed(4),
+    Number(view.centerLongitude ?? 0).toFixed(4), Number(view.centerLatitude ?? 0).toFixed(4),
+    projection.lodZoom, projection.renderScale,
+    renderObjectId(layers.land?.features), renderObjectId(layers.glaciers?.features),
+    renderObjectId(layers.lakes?.features), renderObjectId(layers.rivers?.features),
+    renderObjectId(layers.elevationPoints?.features), renderObjectId(layers.territories?.features),
+    renderObjectId(options.terrain), isTerrainHillshadePrepared(options.terrain) ? 1 : 0,
+    options.terrainEnabled !== false ? 1 : 0, options.terrainQuality ?? 1,
+    options.terrainMode ?? "political", Number(options.physicalWorld?.revision ?? 0),
+    Number(options.countryOpacity ?? 0.52), options.interactive ? 1 : 0
+  ].join("|");
+}
+
+function getStaticLayerCache(canvas) {
+  let cache = staticLayerCache.get(canvas);
+  if (!cache) { cache = new Map(); staticLayerCache.set(canvas, cache); }
+  return cache;
+}
+
+function createStaticSurface(width, height) {
+  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(width, height);
+  if (typeof document !== "undefined") {
+    const surface = document.createElement("canvas");
+    surface.width = width;
+    surface.height = height;
+    return surface;
+  }
+  return null;
+}
+
+export function getStaticLayerCacheStats(canvas) {
+  const cache = canvas && staticLayerCache.get(canvas);
+  return { entries: cache?.size ?? 0, maxEntries: STATIC_LAYER_CACHE_LIMIT };
+}
+
 export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
@@ -839,9 +894,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const width = Math.max(1, options.width ?? canvas.clientWidth ?? 960);
   const height = Math.max(1, options.height ?? Math.round(width * 0.52));
   const pixelRatio = Math.min(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1, 2);
-  // Redimensionner un canvas réinitialise son bitmap et tout son état graphique.
-  // Ne toucher aux dimensions que lorsqu'elles changent réellement : le rendu
-  // peut ainsi être rappelé pendant le pan/zoom sans réallouer le bitmap à chaque frame.
   const backingWidth = Math.round(width * pixelRatio);
   const backingHeight = Math.round(height * pixelRatio);
   if (canvas.width !== backingWidth) canvas.width = backingWidth;
@@ -866,48 +918,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     return value;
   };
 
-  context.fillStyle = theme.colors.ocean;
-  context.fillRect(0, 0, width, height);
-  // Le raster actuel est géoréférencé en équirectangulaire ; ne pas l’afficher sous une autre projection.
-  let terrainEnabled = false;
-
-  context.save();
-  context.strokeStyle = theme.colors.grid;
-  context.globalAlpha = 0.10;
-  context.lineWidth = 0.35 * projection.renderScale;
-  for (let longitude = -150; longitude <= 180; longitude += 30) {
-    const a = projectCoordinate([longitude, -85], width, height, projection);
-    const b = projectCoordinate([longitude, 85], width, height, projection);
-    if (a && b) { context.beginPath(); context.moveTo(a.x, a.y); context.lineTo(b.x, b.y); context.stroke(); }
-  }
-  for (let latitude = -60; latitude <= 60; latitude += 30) {
-    context.beginPath();
-    let started = false;
-    for (let longitude = -180; longitude <= 180; longitude += 3) {
-      const point = projectCoordinate([longitude, latitude], width, height, projection);
-      if (!point) { started = false; continue; }
-      if (!started) { context.moveTo(point.x, point.y); started = true; }
-      else context.lineTo(point.x, point.y);
-    }
-    context.stroke();
-  }
-  context.restore();
-
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
-  const coastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
-  // Le raster ETOPO est limité à la géométrie terrestre effectivement affichée.
-  // Ainsi, le trait de côte, le remplissage et le relief partagent le même contour
-  // simplifié : la côte du raster ne peut plus apparaître décalée sous le trait orange.
-  if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
-    context.save();
-    context.beginPath();
-    for (const feature of visibleLand.features) {
-      if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
-    }
-    context.clip("evenodd");
-    terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
-    context.restore();
-  }
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
   const visibleLakes = selectVisibleFeatures(options.lakes, projection.viewport);
   const visibleRivers = selectVisibleFeatures(options.rivers, projection.viewport);
@@ -916,25 +927,111 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleTerritories = selectVisibleFeatures(options.territories, projection.viewport);
   const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
   const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
-  const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
-  // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const reliefMode = options.terrainMode === "relief";
-  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
-  const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
-  if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
-    context.save();
-    context.beginPath();
-    for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
-    context.clip("evenodd");
-    // Ombres multidirectionnelles en niveaux de gris : le mode overlay creuse
-    // fortement les vallées et éclaire les crêtes sans recolorer les nations.
-    context.globalCompositeOperation = "overlay";
-    context.globalAlpha = reliefMode ? 0.90 : 0.72;
-    measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
-    context.restore();
+  const layers = {
+    land: visibleLand, glaciers: visibleGlaciers, lakes: visibleLakes,
+    rivers: visibleRivers, elevationPoints: visibleElevationPoints,
+    territories: visibleTerritories
+  };
+  const cacheSignature = staticLayerSignature(width, height, pixelRatio, year, theme, projection, options, layers);
+  const canCacheStatic = typeof context.drawImage === "function"
+    && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined");
+  let staticStats = null;
+  let terrainEnabled = false;
+  let staticCacheHit = false;
+
+  const drawStaticLayers = target => {
+    target.fillStyle = theme.colors.ocean;
+    target.fillRect(0, 0, width, height);
+    target.save();
+    target.strokeStyle = theme.colors.grid;
+    target.globalAlpha = 0.10;
+    target.lineWidth = 0.35 * projection.renderScale;
+    for (let longitude = -150; longitude <= 180; longitude += 30) {
+      const a = projectCoordinate([longitude, -85], width, height, projection);
+      const b = projectCoordinate([longitude, 85], width, height, projection);
+      if (a && b) { target.beginPath(); target.moveTo(a.x, a.y); target.lineTo(b.x, b.y); target.stroke(); }
+    }
+    for (let latitude = -60; latitude <= 60; latitude += 30) {
+      target.beginPath();
+      let started = false;
+      for (let longitude = -180; longitude <= 180; longitude += 3) {
+        const point = projectCoordinate([longitude, latitude], width, height, projection);
+        if (!point) { started = false; continue; }
+        if (!started) { target.moveTo(point.x, point.y); started = true; }
+        else target.lineTo(point.x, point.y);
+      }
+      target.stroke();
+    }
+    target.restore();
+
+    const coastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+      target.save();
+      target.beginPath();
+      for (const feature of visibleLand.features) {
+        if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+      }
+      target.clip("evenodd");
+      terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
+      target.restore();
+    }
+    const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
+    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
+    const reliefMode = options.terrainMode === "relief";
+    const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
+    const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
+    if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+      target.save();
+      target.beginPath();
+      for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+      target.clip("evenodd");
+      target.globalCompositeOperation = "overlay";
+      target.globalAlpha = reliefMode ? 0.90 : 0.72;
+      measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
+      target.restore();
+    }
+    if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) {
+      measureLayer("hachures", () => drawLandHachures(target, visibleLand, width, height, projection, theme.colors.coast));
+    }
+    const glacierCount = measureLayer("glaciers", () => drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88));
+    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55));
+    const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7));
+    const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
+    return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
+  };
+
+  if (canCacheStatic) {
+    const cache = getStaticLayerCache(canvas);
+    let record = cache.get(cacheSignature);
+    if (record) {
+      cache.delete(cacheSignature);
+      cache.set(cacheSignature, record);
+      staticStats = record.stats;
+      staticCacheHit = true;
+      for (const key of STATIC_LAYER_TIMING_KEYS) renderTimings[key] = 0;
+      const startedAt = globalThis.performance?.now?.() ?? Date.now();
+      context.drawImage(record.surface, 0, 0, width, height);
+      renderTimings["cache-statique"] = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
+    } else {
+      const surface = createStaticSurface(backingWidth, backingHeight);
+      const surfaceContext = surface?.getContext?.("2d");
+      if (surfaceContext) {
+        surfaceContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        staticStats = drawStaticLayers(surfaceContext);
+        context.drawImage(surface, 0, 0, width, height);
+        record = { surface, stats: staticStats };
+        cache.set(cacheSignature, record);
+        while (cache.size > STATIC_LAYER_CACHE_LIMIT) cache.delete(cache.keys().next().value);
+      } else {
+        staticStats = drawStaticLayers(context);
+      }
+    }
+  } else {
+    staticStats = drawStaticLayers(context);
   }
-  const territoryOutlineCount = measureLayer("frontieres-territoriales", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", countryOpacity));
+
+  terrainEnabled = Boolean(staticStats?.terrainEnabled);
+  const territoryOutlineCount = measureLayer("frontières-territoriales", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", Number(options.countryOpacity ?? 0.52)));
   const physicalContext = options.physicalOverlayContext ?? context;
   if (options.physicalOverlayContext) {
     const overlayCanvas = physicalContext.canvas;
@@ -945,23 +1042,22 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     physicalContext.clearRect(0, 0, width, height);
   }
   const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(physicalContext, options.physicalWorld, width, height, projection, options.terrain));
-  if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
-  const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
-  const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
-  const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
-  const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
-  const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
-    + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true);
+  const politicalBoundaryCount = measureLayer("frontieres-politiques", () =>
+    drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
+    + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
   const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]));
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     renderTimings, totalRenderMs: Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt),
-    landCount, territoryCount, territoryOutlineCount, physicalChangeCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
+    landCount: staticStats?.landCount ?? 0, territoryCount: staticStats?.territoryCount ?? 0,
+    territoryOutlineCount, physicalChangeCount, glacierCount: staticStats?.glacierCount ?? 0,
+    lakeCount: staticStats?.lakeCount ?? 0, riverCount: staticStats?.riverCount ?? 0,
+    elevationPointCount: staticStats?.elevationPointCount ?? 0, politicalBoundaryCount,
+    administrativeBoundaryCount, labelHits, terrainEnabled, staticCacheHit, width, height
   };
 }
-
 
 export function getProjectedPathCacheStats() {
   return { cachedPaths: projectedPathCacheLru.size, maxCachedPaths: MAX_PROJECTED_PATHS, cachedVertices: projectedPathVertexCount, maxCachedVertices: MAX_PROJECTED_PATH_VERTICES };
