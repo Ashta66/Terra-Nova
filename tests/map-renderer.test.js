@@ -525,3 +525,17 @@ test("l'opacité de transition du relief est bornée et progressive", () => {
   assert.equal(getTerrainTransitionOpacity(2), 1);
   assert.equal(getTerrainTransitionOpacity(Number.NaN), 1);
 });
+
+
+test("le rendu expose des mesures séparées par famille de couches", () => {
+  const { canvas } = createCanvas();
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    dynamicLayers: [(context) => context.fillRect(1, 1, 2, 2)]
+  });
+  for (const key of ["totalMs", "terrainMs", "politicalMs", "labelsMs", "dynamicMs"]) {
+    assert.ok(Number.isFinite(result.performance[key]));
+    assert.ok(result.performance[key] >= 0);
+  }
+  assert.ok(result.performance.totalMs >= result.performance.politicalMs);
+});
