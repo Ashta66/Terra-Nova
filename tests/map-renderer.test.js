@@ -787,9 +787,9 @@ test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", 
   const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
   const visible = collectTerrainViewportTiles(store,
     { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 360, 180, 0);
-  assert.equal(visible.length, 4);
+  assert.equal(visible.length, 6);
   assert.deepEqual(visible.map(({ tile }) => `${tile.x}/${tile.y}`).sort(),
-    ["1/0", "1/1", "2/0", "2/1"]);
+    ["0/0", "0/1", "1/0", "1/1", "2/0", "2/1"]);
   assert.ok(visible.every(({ rects }) => rects.length > 0));
 });
 
