@@ -275,7 +275,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
   const viewKey = viewportKey(projection.viewport);
-  const physicalKey = [objectId(options.terrain), width, height, pixelRatio, viewKey].join("|");
+  const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
   let physicalHit = false;
   if (terrainEnabled && typeof context.drawImage === "function") {
     const physical = getCachedLayer("physical", physicalKey, canvas.width, canvas.height, layerContext => {
