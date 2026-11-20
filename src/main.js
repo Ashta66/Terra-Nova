@@ -1,5 +1,6 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
+import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
@@ -44,6 +45,8 @@ let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
 let lastRenderedMapSignature = null;
 let interactionRenderTimer = null;
+let interactionPreviewTimer = null;
+let interactionRenderAllowed = false;
 let composeFrame = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
@@ -198,7 +201,10 @@ function resetMapView() {
   mapViewport.centerLongitude = 0;
   mapViewport.centerLatitude = 0;
   if (interactionRenderTimer !== null) clearTimeout(interactionRenderTimer);
+  if (interactionPreviewTimer !== null) clearTimeout(interactionPreviewTimer);
   interactionRenderTimer = null;
+  interactionPreviewTimer = null;
+  interactionRenderAllowed = false;
   mapInteractionActive = false;
   renderMap();
   updateMapControls();
@@ -402,7 +408,8 @@ function completeMapRender(result, context) {
 function renderMapFrame() {
   // Un chargement régional ou une invalidation asynchrone ne doit jamais
   // lancer un rendu complet pendant que le joueur manipule la carte.
-  if (!worldFeatures || mapInteractionActive) return;
+  if (!worldFeatures || (mapInteractionActive && !interactionRenderAllowed)) return;
+  if (mapInteractionActive) interactionRenderAllowed = false;
   if (mapViewport.zoom >= 6 && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
@@ -922,13 +929,30 @@ function requestCompose() {
   composeFrame = requestAnimationFrame(() => { composeFrame = null; composeScene(); });
 }
 function scheduleInteractionRender() {
+  // Pendant un geste continu, une seule actualisation intermédiaire est
+  // autorisée par intervalle. Les événements rapprochés sont coalescés.
+  if (interactionPreviewTimer === null) {
+    interactionPreviewTimer = setTimeout(() => {
+      interactionPreviewTimer = null;
+      if (!mapInteractionActive) return;
+      interactionRenderAllowed = true;
+      lastRenderedMapSignature = null;
+      renderMap();
+    }, INTERACTION_PREVIEW_INTERVAL_MS);
+  }
+
+  // À l'arrêt, on abandonne le prochain aperçu éventuel et on lance tout de
+  // suite le rendu final haute qualité, sans attendre une longue temporisation.
   if (interactionRenderTimer !== null) clearTimeout(interactionRenderTimer);
   interactionRenderTimer = setTimeout(() => {
     interactionRenderTimer = null;
+    if (interactionPreviewTimer !== null) clearTimeout(interactionPreviewTimer);
+    interactionPreviewTimer = null;
+    interactionRenderAllowed = false;
     mapInteractionActive = false;
     lastRenderedMapSignature = null;
     renderMap();
-  }, 240);
+  }, INTERACTION_SETTLE_DELAY_MS);
 }
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;

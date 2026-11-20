@@ -1,3 +1,10 @@
+## 20 novembre 2026 — rafraîchissement progressif pendant la navigation
+- Le déplacement du bitmap reste immédiat pendant le glisser et le zoom à la molette.
+- Un rendu intermédiaire du Worker est désormais autorisé au maximum toutes les 120 ms pendant un geste continu ; les mouvements rapprochés sont coalescés par la file existante du Worker.
+- Après le dernier mouvement, le rendu final haute qualité est déclenché après 90 ms au lieu de 240 ms. Le timer d'aperçu restant est annulé pour éviter un rendu redondant.
+- Les limites mémoire, le pixel ratio, les profils LOD et la simplification géographique ne sont pas relâchés.
+- Tests dédiés aux cadences de rafraîchissement. Les gains réels de fluidité et les éventuels artefacts restent à vérifier dans le navigateur cible.
+
 ## 20 novembre 2026 — généralisation géométrique multi-couches
 - Ajout de `src/world/geometry-generalization.js` : simplification GeoJSON avant indexation spatiale et projection, pour réduire les sommets parcourus par les index et le Worker de rendu.
 - Application aux terres mondiales/régionales, lacs, rivières, glaciers, territoires politiques, frontières politiques et administratives. Les coordonnées sources dans le dépôt ne sont pas modifiées ; seules les collections actives en mémoire sont généralisées.
