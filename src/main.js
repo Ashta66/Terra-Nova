@@ -180,13 +180,13 @@ $("load-game").addEventListener("click", () => {
 });
 
 const mapCanvas = $("world-map");
-$("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
-$("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
+$("map-zoom-in").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1.5); });
+$("map-zoom-out").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1 / 1.5); });
 $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
-  clearWheelZoomPreview();
+  if (wheelZoomState) { clearWheelZoomPreview(); renderMap(); }
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
