@@ -607,7 +607,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   return {
     performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
     terrainWebGLStats: terrainRenderer === "webgl" ? getTerrainWebGLStats(webglTerrainGrid) : null,
-    terrainWebGLTileStats: terrainRenderer === "webgl-tiles" ? getTerrainWebGLTileStats(webglTerrainTileStore) : null,
+    terrainWebGLTileStats: webglTerrainTileStore ? getTerrainWebGLTileStats(webglTerrainTileStore) : null,
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
