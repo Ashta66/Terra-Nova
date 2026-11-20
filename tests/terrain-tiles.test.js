@@ -202,6 +202,17 @@ test("les tuiles parent reflètent les modifications apportées aux données sou
   assert.equal(parent.values[0], 2400);
 });
 
+test("une modification invalide les tuiles parent déjà mises en cache", () => {
+  const values = Int16Array.from({ length: 64 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 24 });
+  const cachedParent = store.getTileAtLevel(1, 0, 0);
+  assert.equal(cachedParent.values[0], 0);
+  assert.equal(store.setElevation(-157.5, 67.5, 2400), true);
+  const refreshedParent = store.getTileAtLevel(1, 0, 0);
+  assert.notEqual(refreshedParent, cachedParent);
+  assert.equal(refreshedParent.values[0], 2400);
+});
+
 test("les identifiants et le préchargement asynchrone acceptent les niveaux parent", async () => {
   const store = createTerrainTileStore({ width: 16, height: 16, values: new Int16Array(256) }, { tileSize: 4, maxTiles: 24 });
   assert.equal(store.getTileId(0, 0, 2), "2/0/0");
