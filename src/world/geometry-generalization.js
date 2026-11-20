@@ -59,7 +59,7 @@ function simplifyPath(path, tolerance, anchors) {
     for(let s=0;s<sorted.length;s++){const a=sorted[s],b=sorted[(s+1)%sorted.length];const segment=[];let i=a;while(true){segment.push(points[i]);if(i===b)break;i=(i+1)%points.length;}const part=simplifyOpen(segment,tolerance);result.push(...(s?part.slice(1):part));}
   }
   const unique=[];for(const point of result)if(!unique.length||coordinateKey(unique[unique.length-1])!==coordinateKey(point))unique.push(point);
-  if(closed){if(unique.length<3)return path;unique.push(unique[0]);}
+  if(closed){if(unique.length<3)return path;if(coordinateKey(unique[0])!==coordinateKey(unique[unique.length-1]))unique.push(unique[0]);}
   else if(unique.length<2)return path;
   return unique.length<path.length?unique:path;
 }
@@ -83,7 +83,7 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   if(!collection?.features||!Number.isFinite(tolerance)||tolerance<=0)return collection;
   const paths=collection.features.flatMap(feature=>collectPaths(feature?.geometry,[]));
   const occurrences=new Map();
-  for(const path of paths)for(const point of path){const key=coordinateKey(point);if(key)occurrences.set(key,(occurrences.get(key)??0)+1);}
+  for(const path of paths){const keys=new Set(path.map(coordinateKey).filter(Boolean));for(const key of keys)occurrences.set(key,(occurrences.get(key)??0)+1);}
   const sharedAnchors=new Set([...occurrences].filter(([,count])=>count>1).map(([key])=>key));
   let originalVertices=0,simplifiedVertices=0,changedFeatures=0;
   const features=collection.features.map(feature=>{

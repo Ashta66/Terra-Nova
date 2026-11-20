@@ -5,7 +5,7 @@ import { simplifyGeoJsonCollection } from "../src/world/geometry-generalization.
 const polygon=(coordinates)=>({type:"Feature",properties:{},geometry:{type:"Polygon",coordinates}});
 test("simplifie les anneaux et lignes avant projection sans modifier les sources",()=>{
  const ring=[[0,0],[1,0.0001],[2,0],[2,1],[1,1.0001],[0,1],[0,0]];
- const line=[[0,0],[1,0.0001],[2,0],[3,0]];
+ const line=[[10,0],[11,0.0001],[12,0],[13,0]];
  const source={type:"FeatureCollection",features:[polygon([ring]),{type:"Feature",properties:{},geometry:{type:"LineString",coordinates:line}}]};
  const result=simplifyGeoJsonCollection(source,0.01);
  assert.ok(result.geometryStats.removedVertices>=2);
