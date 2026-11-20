@@ -243,10 +243,10 @@ export function createTerrainTileStore(grid, options = {}) {
 
     const predictive = lookAhead > 0 && (directionLongitude || directionLatitude)
       ? collect(
-        centerLongitude + directionLongitude * primaryLon * lookAhead,
-        clamp(centerLatitude + directionLatitude * primaryLat * lookAhead, -90, 90),
-        primaryLon * 0.55,
-        primaryLat * 0.55
+        centerLongitude + directionLongitude * primaryLon * (0.7 + lookAhead * 0.5),
+        clamp(centerLatitude + directionLatitude * primaryLat * (0.7 + lookAhead * 0.5), -90, 90),
+        primaryLon * 0.4,
+        primaryLat * 0.4
       )
       : [];
     const current = collect(centerLongitude, centerLatitude, primaryLon, primaryLat);
