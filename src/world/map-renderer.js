@@ -395,6 +395,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const elevationFeatures = select(options.elevationPoints);
   const geographicRenderer = !dirtyRect && projection.type === "equirectangular"
     ? options.geographicWebGLRenderer : null;
+  let geographicWebGLStats = null;
   let landCount;
   if (geographicRenderer?.canvas && typeof context.drawImage === "function") {
     try {
@@ -402,6 +403,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       const gpuStats = geographicRenderer.render(landFeatures,
         Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
         projection.viewport, parseWebGLColor(landFill));
+      geographicWebGLStats = gpuStats;
       context.save();
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.drawImage(geographicRenderer.canvas, 0, 0);
@@ -426,7 +428,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, elevationFeatures);
   if (dirtyRect && context.rect && context.clip) context.restore();
-  return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
+  return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount, geographicWebGLStats };
 }
 
 function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null, tileStore = null, onTileReady = null) {
@@ -636,13 +638,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   const dynamicMs = performanceNow() - dynamicStartedAt;
   const totalMs = performanceNow() - frameStartedAt;
-  const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount } = layerCounts;
+  const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount, geographicWebGLStats } = layerCounts;
 
 
   return {
     performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
     terrainWebGLStats: terrainRenderer === "webgl" ? getTerrainWebGLStats(webglTerrainGrid) : null,
     terrainWebGLTileStats: webglTerrainTileStore ? getTerrainWebGLTileStats(webglTerrainTileStore) : null,
+    geographicWebGLStats,
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
