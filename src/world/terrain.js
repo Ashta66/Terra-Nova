@@ -131,6 +131,30 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 1.65, 0.48, 1.52);
 }
 
+function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
+  const zoom = Math.max(1, Number(viewport.zoom ?? 1));
+  const centerLon = Number(viewport.centerLongitude ?? 0);
+  const centerLat = Number(viewport.centerLatitude ?? 0);
+  const lonSpan = Math.min(360, 360 / zoom);
+  const latSpan = Math.min(180, 180 / zoom);
+  const west = centerLon - lonSpan / 2, east = centerLon + lonSpan / 2;
+  const south = Math.max(-90, centerLat - latSpan / 2);
+  const north = Math.min(90, centerLat + latSpan / 2);
+  const xStart = Math.floor((west + 180) / 10);
+  const xEnd = Math.floor((east + 180) / 10);
+  const yStart = Math.max(0, Math.floor((south + 90) / 10));
+  const yEnd = Math.min(17, Math.floor((north + 90) / 10));
+  const entries = [];
+  for (let y = yStart; y <= yEnd; y++) {
+    for (let x = xStart; x <= xEnd; x++) {
+      const wrappedX = ((x % 36) + 36) % 36;
+      const key = wrappedX + ":" + y;
+      entries.push(key + "=" + Number(revisions[key] ?? 0));
+    }
+  }
+  return entries.sort().join(",");
+}
+
 const physicalLookupCache = new WeakMap();
 function physicalLookup(world) {
  if(!world?.currentCells)return null;
@@ -168,7 +192,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", physicalWorld?.revision ?? 0].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", visibleTileRevisionSignature(viewport, physicalWorld?.tileRevisions ?? {})].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
