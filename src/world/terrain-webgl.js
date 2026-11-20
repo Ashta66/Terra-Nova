@@ -44,7 +44,7 @@ vec3 ramp(float value, float low, float high, vec3 a, vec3 b) {
 
 void main() {
   float longitude = u_viewCenter.x + (v_uv.x - 0.5) * 360.0 / u_zoom;
-  float latitude = u_viewCenter.y - (v_uv.y - 0.5) * 180.0 / u_zoom;
+  float latitude = u_viewCenter.y + (v_uv.y - 0.5) * 180.0 / u_zoom;
   vec2 geo = vec2((longitude + 180.0) / 360.0, (90.0 - latitude) / 180.0);
   float e = elevationAt(geo);
   float dx = 1.0 / u_gridSize.x;
