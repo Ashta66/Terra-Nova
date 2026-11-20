@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -48,7 +48,7 @@ test("le moteur dessine une FeatureCollection et retourne son thème", () => {
 
 test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes", () => {
   const { canvas } = createCanvas();
-  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[86, 27], [88, 27], [88, 29], [86, 27]]] } }] };
+  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[80, 20], [100, 20], [100, 40], [80, 20]]] } }] };
   const rivers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [5, 5], [10, 4]] } }] };
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, lakes, rivers });
   assert.equal(result.lakeCount, 1);
@@ -863,15 +863,28 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
 });
 
-test("le littoral physique et les contours territoriaux partagent la même simplification", () => {
-  for (const zoom of [1, 2, 4, 8, 20]) {
+test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
+  const expected = [
+    [1, { tolerance: 3.2, minRingArea: 24 }],
+    [3, { tolerance: 3.6, minRingArea: 36 }],
+    [8, { tolerance: 4, minRingArea: 52 }],
+    [20, { tolerance: 4.4, minRingArea: 72 }]
+  ];
+  for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
+    assert.deepEqual(land, profile);
     assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), land);
     assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
   }
   assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
 });
 
+
+test("les rives des lacs utilisent le même profil de simplification que les côtes marines", () => {
+  for (const zoom of [1, 2, 4, 8, 20]) {
+    assert.deepEqual(getLakeCoastSimplificationProfile(zoom), getLandCoastSimplificationProfile(zoom));
+  }
+});
 
 test("les aplats territoriaux orange suivent le même masque côtier que les terres", () => {
   for (const zoom of [1, 2, 4, 8, 20]) {
@@ -901,5 +914,5 @@ test("le fond terrestre sous les pays utilise des tons neutres et non la palette
   const { canvas, calls } = createCanvas();
   renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1, terrainEnabled: false });
   assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "#53665f"));
-  assert.ok(calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
+  assert.ok(!calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
 });

@@ -1,3 +1,13 @@
+## Harmonisation des rives intérieures — 20 novembre 2026
+- Les contours des lacs et mers intérieures utilisent le même profil de simplification géométrique que les côtes marines.
+- Le filtrage progressif par rang des lacs est conservé ; les grands plans d'eau restent visibles, mais leurs micro-découpes et petites îles sont allégées.
+- Test dédié aux zooms 1×, 2×, 4×, 8× et 20×.
+
+## Correction du doublon de littoral — 20 novembre 2026
+- Le fond terrestre ne trace plus de contour côtier propre : il reste un aplat de base et un masque pour le relief. Les contours politiques dédiés constituent la référence visible.
+- Simplification du fond et des couches territoriales renforcée : tolérance de 3,2 à 4,4 px et suppression des anneaux inférieurs à 24–72 px² selon le zoom, afin de réduire les micro-îles et les dentelures.
+- Les géométries sources ne sont pas supprimées ; les seuils s'appliquent uniquement au rendu.
+
 ## Harmonisation du littoral physique et politique — 20 novembre 2026
 - Les contours territoriaux utilisent désormais le même profil de simplification que le masque terrestre, et non le profil côtier plus fin réservé aux autres frontières.
 - Les micro-îles et découpes de côte ne doivent donc plus réapparaître sous forme de tracé politique isolé ; les aplats, couleurs et statuts des pays restent conservés.

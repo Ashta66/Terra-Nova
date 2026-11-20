@@ -40,10 +40,16 @@ export function getCoastSimplificationProfile(zoom = 1) {
 // frontières territoriales : les micro-îles ne justifient pas leur coût.
 export function getLandCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 2.5, minRingArea: 12 };
-  if (level <= 4) return { tolerance: 2.8, minRingArea: 18 };
-  if (level <= 10) return { tolerance: 3.1, minRingArea: 24 };
-  return { tolerance: 3.4, minRingArea: 32 };
+  if (level <= 1.5) return { tolerance: 3.2, minRingArea: 24 };
+  if (level <= 4) return { tolerance: 3.6, minRingArea: 36 };
+  if (level <= 10) return { tolerance: 4, minRingArea: 52 };
+  return { tolerance: 4.4, minRingArea: 72 };
+}
+
+// Les rives des lacs et mers intérieures suivent le même niveau de
+// généralisation géométrique que le littoral marin.
+export function getLakeCoastSimplificationProfile(zoom = 1) {
+  return getLandCoastSimplificationProfile(zoom);
 }
 
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
@@ -281,15 +287,19 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
       if (!traceGeometry(context, feature.geometry, width, height, projection, coastProfile)) continue;
     }
     context.fillStyle = fill;
-    context.strokeStyle = stroke;
-    context.lineWidth = lineWidth * renderScale;
+    // Le fond terrestre ne trace pas une deuxième côte : les contours
+    // politiques dédiés restent la seule référence visible.
+    if (stroke !== null) {
+      context.strokeStyle = stroke;
+      context.lineWidth = lineWidth * renderScale;
+    }
     // CanvasRenderingContext2D accepts either a cached Path2D or the current path.
     if (cachedPath) {
       context.fill(cachedPath, "evenodd");
-      context.stroke(cachedPath);
+      if (stroke !== null) context.stroke(cachedPath);
     } else {
       context.fill("evenodd");
-      context.stroke();
+      if (stroke !== null) context.stroke();
     }
     drawn++;
   }
@@ -1072,7 +1082,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // Une teinte neutre évite le doublon ocre des anciens atlas ; le littoral
     // reste visible en trait froid discret, sans concurrencer les frontières.
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
-    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, "#344b50", 0.58, 1, true, Infinity, coastProfile));
+    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, null, 0, 1, true, Infinity, coastProfile));
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
@@ -1092,7 +1102,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     }
     const detailProfile = getSecondaryDetailProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     const glacierCount = measureLayer("glaciers", () => detailProfile.glaciers ? drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, false, 4) : 0);
-    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, false, detailProfile.lakesRank));
+    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)));
     const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, getBoundarySimplificationProfile(projection.lodZoom ?? 1), detailProfile.riversRank, detailProfile.riversMax));
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
     return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
