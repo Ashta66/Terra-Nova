@@ -290,10 +290,8 @@ test("une tuile modifiée reste intacte après éviction puis rechargement du ca
     { width: 4, height: 2, values: new Int16Array(8) },
     { tileSize: 2, maxTiles: 1 }
   );
+  assert.equal(store.setElevation(-135, 45, 321), true);
   const edited = store.getTile(0, 0);
-  edited.values[0] = 321;
-  edited.revision = 3;
-  edited.dirty = true;
   assert.equal(store.markPersisted(edited.id, edited.revision), true);
   store.getTile(1, 0);
   assert.equal(store.getTile(0, 0).values[0], 321);
