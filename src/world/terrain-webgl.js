@@ -60,11 +60,17 @@ void main() {
   vec3 normal = normalize(vec3(-slopeX, -slopeY, 1.0));
   vec3 light = normalize(vec3(-0.35, 0.35, 0.87));
   float shade = clamp(0.92 + dot(normal, light) * 0.28, 0.72, 1.18);
-  vec3 ocean = ramp(e, -6000.0, 0.0, vec3(0.035,0.12,0.19), vec3(0.19,0.36,0.40));
-  vec3 lowland = ramp(e, 0.0, 900.0, vec3(0.30,0.39,0.27), vec3(0.60,0.57,0.39));
-  vec3 highland = ramp(e, 900.0, 4200.0, vec3(0.60,0.57,0.39), vec3(0.88,0.86,0.78));
-  vec3 color = e < 0.0 ? ocean : highland;
-  if (e >= 0.0 && e < 900.0) color = lowland;
+  vec3 ocean = ramp(e, -11000.0, -4000.0, vec3(25.0,45.0,57.0)/255.0, vec3(27.0,50.0,62.0)/255.0);
+  ocean = e > -4000.0 ? ramp(e, -4000.0, -1500.0, vec3(27.0,50.0,62.0)/255.0, vec3(30.0,57.0,68.0)/255.0) : ocean;
+  ocean = e > -1500.0 ? ramp(e, -1500.0, -500.0, vec3(30.0,57.0,68.0)/255.0, vec3(36.0,68.0,77.0)/255.0) : ocean;
+  ocean = e > -500.0 ? ramp(e, -500.0, -50.0, vec3(36.0,68.0,77.0)/255.0, vec3(46.0,80.0,87.0)/255.0) : ocean;
+  ocean = e > -50.0 ? ramp(e, -50.0, 0.0, vec3(46.0,80.0,87.0)/255.0, vec3(55.0,91.0,96.0)/255.0) : ocean;
+  vec3 lowland = ramp(e, 0.0, 250.0, vec3(105.0,126.0,88.0)/255.0, vec3(119.0,132.0,88.0)/255.0);
+  lowland = e > 250.0 ? ramp(e, 250.0, 1000.0, vec3(119.0,132.0,88.0)/255.0, vec3(139.0,139.0,91.0)/255.0) : lowland;
+  vec3 highland = ramp(e, 1000.0, 2500.0, vec3(139.0,139.0,91.0)/255.0, vec3(158.0,139.0,105.0)/255.0);
+  highland = e > 2500.0 ? ramp(e, 2500.0, 4000.0, vec3(158.0,139.0,105.0)/255.0, vec3(179.0,165.0,143.0)/255.0) : highland;
+  highland = e > 4000.0 ? ramp(e, 4000.0, 6500.0, vec3(179.0,165.0,143.0)/255.0, vec3(224.0,222.0,210.0)/255.0) : highland;
+  vec3 color = e < 0.0 ? ocean : (e < 1000.0 ? lowland : highland);
   gl_FragColor = vec4(color * (e < 0.0 ? 1.0 : shade), 1.0);
 }`;
 
