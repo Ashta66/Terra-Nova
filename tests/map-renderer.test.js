@@ -766,6 +766,24 @@ test("l'atlas GPU partage une texture, réutilise ses slots et respecte la capac
   assert.equal(atlas.get(a).texture, atlas.texture);
 });
 
+test("les tuiles prédictives sont transférées dans l'atlas hors du rendu courant", async () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(64);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 4 });
+  const tile = store.getTileAtLevel(0, 0, 0);
+  assert.equal(atlas.enqueue(tile), true);
+  assert.equal(atlas.pendingCount, 1);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 0);
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(atlas.pendingCount, 0);
+  assert.equal(atlas.size, 1);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 1);
+  assert.equal(atlas.stats.uploads, 1);
+  atlas.dispose();
+  assert.equal(gl.deleted.length, 1);
+});
+
 test("le batch atlas regroupe plusieurs tuiles en une seule liste de triangles", () => {
   const items = [
     { tile: { level: 0, x: 0, y: 0, width: 4, height: 4 }, rects: [
