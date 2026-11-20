@@ -1,3 +1,8 @@
+## Fond terrestre neutralisé — 20 novembre 2026
+- Le fond des terres sous les aplats politiques n'utilise plus la palette ocre du thème historique : teinte neutre et désaturée.
+- Le trait du littoral est passé à un ton froid discret et affiné ; il reste un repère géographique, sans ressembler à une seconde frontière politique.
+- Les aplats colorés des pays, leurs contours et leurs statuts restent inchangés. Le relief ETOPO reste disponible et indépendant.
+
 ## Correction des couches de relief et territoires — 20 novembre 2026
 - Suppression des triangles symbolisant les sommets montagneux ; les noms des sommets majeurs (≥ 5 000 m) sont conservés.
 - Les aplats colorés des territoires historiques utilisent désormais le même profil de simplification du littoral que le fond terrestre, afin d'éviter les petites îles qui semblent flotter hors du masque physique.
