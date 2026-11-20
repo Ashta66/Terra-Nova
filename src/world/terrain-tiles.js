@@ -18,6 +18,7 @@ export function createTerrainTileStore(grid, options = {}) {
   const columns = Math.ceil(grid.width / tileSize);
   const rows = Math.ceil(grid.height / tileSize);
   const cache = new Map();
+  const modifiedTiles = new Map();
   let clock = 0;
   let onTileChange = typeof options.onTileChange === "function" ? options.onTileChange : null;
 
@@ -58,9 +59,11 @@ export function createTerrainTileStore(grid, options = {}) {
       const sourceStart = (originY + row) * grid.width + originX;
       values.set(grid.values.subarray(sourceStart, sourceStart + width), row * width);
     }
+    const saved = modifiedTiles.get(id);
+    if (saved && saved.values.length === values.length) values.set(saved.values);
     const tile = {
       id, level: 0, x, y, originX, originY, width, height, values,
-      revision: 0, dirty: false, lastUsed: 0
+      revision: saved?.revision ?? 0, dirty: false, lastUsed: 0
     };
     touch(tile);
     evictOverflow(id);
@@ -124,6 +127,7 @@ export function createTerrainTileStore(grid, options = {}) {
     tile.values[position.localY * tile.width + position.localX] = Math.round(elevation);
     tile.revision++;
     tile.dirty = true;
+    modifiedTiles.set(tile.id, { values: tile.values.slice(), revision: tile.revision });
     if (onTileChange) {
       const snapshot = {
         id: tile.id, x: tile.x, y: tile.y, width: tile.width, height: tile.height,
@@ -151,7 +155,9 @@ export function createTerrainTileStore(grid, options = {}) {
     const tile = getTile(snapshot.x, snapshot.y);
     if (!tile || snapshot.id !== tile.id || snapshot.width !== tile.width
       || snapshot.height !== tile.height || snapshot.values.length !== tile.values.length) return false;
-    tile.values.set(snapshot.values);
+    const values = snapshot.values.slice();
+    modifiedTiles.set(tile.id, { values, revision: Math.max(0, snapshot.revision) });
+    tile.values.set(values);
     tile.revision = Math.max(0, snapshot.revision);
     tile.dirty = false;
     return true;
