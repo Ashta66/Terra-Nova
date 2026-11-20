@@ -219,6 +219,16 @@ export async function getRegionalCacheStatus() {
   return { count, ready: count === keys.length };
 }
 
+let regionalWarmupPromise = null;
+
+/** Télécharge en arrière-plan les quatre couches régionales et les conserve dans IndexedDB. */
+export function warmRegionalMapCache(onProgress = () => {}, fetcher = globalThis.fetch) {
+  if (regionalWarmupPromise) return regionalWarmupPromise;
+  regionalWarmupPromise = downloadRegionalMapData(onProgress, fetcher)
+    .catch(error => { regionalWarmupPromise = null; throw error; });
+  return regionalWarmupPromise;
+}
+
 export async function downloadRegionalMapData(onProgress = () => {}, fetcher = globalThis.fetch) {
   if (typeof fetcher !== "function") throw new Error("Le navigateur ne permet pas les téléchargements.");
   if (!globalThis.indexedDB) throw new Error("Le stockage local du navigateur est indisponible. Activez les données du site dans les paramètres du navigateur.");

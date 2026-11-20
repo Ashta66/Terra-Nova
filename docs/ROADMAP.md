@@ -215,3 +215,13 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - [ ] Enrichir les capitales et emblèmes avec un référentiel historique daté et sourcé.
 - [ ] Remplacer les indices heuristiques par des variables issues des futurs systèmes économiques, démographiques et militaires.
 - [ ] Construire de véritables relations diplomatiques dynamiques (alliances, rivalités, tribut, guerres) à partir d'un moteur de simulation.
+
+
+## Démarrage et préparation locale des cartes — 20 novembre 2026
+- [x] Fusionner la fiche stratégique des nations (PR #13) dans `main`.
+- [x] Conserver les ressources mondiales (6 GeoJSON + raster ETOPO) dans Cache Storage lors de leur téléchargement.
+- [x] Précharger en arrière-plan les quatre couches régionales 1:10m dans IndexedDB pendant le démarrage / la sélection du pays.
+- [x] Préparer les index spatiaux et les secteurs voisins au repos, par petites tranches, pour anticiper le premier zoom.
+- [x] Animer l'emblème et lisser la progression de l'écran d'ouverture, avec prise en charge de `prefers-reduced-motion`.
+- [ ] Mesurer le temps de démarrage, le coût CPU du parsing/indexation et les FPS sur plusieurs navigateurs et machines.
+- [ ] Vérifier visuellement le rendu du préchargement régional à partir du zoom 4×.

@@ -10,7 +10,7 @@ import { sceneRenderParams, composeRects } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, warmRegionalMapCache, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -82,10 +82,90 @@ function viewSize() {
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 35;
 const $ = (id) => document.getElementById(id);
-let initialLoadingFinished=false;const loadingStages=["Initialisation du monde","Chargement des cartes","Préparation du relief","Synchronisation historique","Ouverture de la campagne"];
-function setInitialLoading(stage,message){if(initialLoadingFinished)return;const n=Math.max(0,Math.min(4,stage)),pct=[5,28,54,78,92][n];$("loading-progress").style.width=pct+"%";$("loading-percent").textContent=pct+"%";$("loading-stage").textContent=loadingStages[n];$("loading-message").textContent=message;$("loading-status").textContent="ÉTAPE "+(n+1)+" / 5";}
-function completeInitialLoading(){if(initialLoadingFinished)return;initialLoadingFinished=true;$("loading-progress").style.width="100%";$("loading-percent").textContent="100%";$("loading-stage").textContent="Le monde est prêt";$("loading-message").textContent="Les frontières sont établies. Votre histoire peut commencer.";document.body.classList.add("world-ready");setTimeout(()=>$("initial-loading")?.setAttribute("aria-hidden","true"),650);}
-function failInitialLoading(error){if(initialLoadingFinished)return;$("loading-stage").textContent="Chargement interrompu";$("loading-message").textContent="Certaines données n’ont pas pu être chargées : "+(error?.message??"erreur inconnue");$("loading-retry").hidden=false;$("loading-retry").addEventListener("click",()=>location.reload(),{once:true});}
+let initialLoadingFinished=false;
+let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;
+let mapWarmupPromise=null,mapIndexWarmupStarted=false;
+const loadingStages=["Initialisation du monde","Chargement des cartes","Préparation du relief","Synchronisation historique","Ouverture de la campagne"];
+function animateLoadingProgress(target){
+  loadingProgressTarget=Math.max(0,Math.min(100,target));
+  if(loadingAnimationFrame!==null)return;
+  const tick=()=>{
+    const delta=loadingProgressTarget-loadingProgressValue;
+    loadingProgressValue+=delta*0.13;
+    if(Math.abs(delta)<0.18)loadingProgressValue=loadingProgressTarget;
+    const pct=Math.round(loadingProgressValue*10)/10;
+    $("loading-progress").style.width=pct+"%";
+    $("loading-percent").textContent=Math.round(pct)+"%";
+    if(loadingProgressValue!==loadingProgressTarget)loadingAnimationFrame=requestAnimationFrame(tick);
+    else loadingAnimationFrame=null;
+  };
+  loadingAnimationFrame=requestAnimationFrame(tick);
+}
+function setInitialLoading(stage,message,progress=null){
+  if(initialLoadingFinished)return;
+  const n=Math.max(0,Math.min(4,stage)),pct=progress??[5,28,54,78,92][n];
+  animateLoadingProgress(pct);
+  $("loading-stage").textContent=loadingStages[n];
+  $("loading-message").textContent=message;
+  $("loading-status").textContent="ÉTAPE "+(n+1)+" / 5";
+}
+function setMapCacheStatus(message,kind="loading"){
+  const node=$("map-cache-status");if(!node)return;
+  node.textContent=message;node.dataset.state=kind;
+}
+function startMapWarmup(){
+  if(mapWarmupPromise)return mapWarmupPromise;
+  setMapCacheStatus("Préchargement des atlas régionaux en arrière-plan…");
+  mapWarmupPromise=warmRegionalMapCache(progress=>{
+    const pct=Math.round(progress.current/progress.total*100);
+    setMapCacheStatus("Atlas régionaux · "+progress.current+"/"+progress.total+" · "+progress.label+(progress.cached?" déjà en local":" enregistré")+" ("+pct+" %)");
+  }).then(result=>{
+    setMapCacheStatus("Atlas régionaux prêts en stockage local · "+result.count+" couches", "ready");
+    return result;
+  }).catch(error=>{
+    setMapCacheStatus("Préchargement régional différé : "+error.message,"warning");
+    mapWarmupPromise=null;
+    return null;
+  });
+  return mapWarmupPromise;
+}
+function scheduleMapIndexWarmup(){
+  if(mapIndexWarmupStarted)return;
+  mapIndexWarmupStarted=true;
+  const collections=[worldFeatures,lakeFeatures,riverFeatures,mapLabels,territoryFeatures].filter(collection=>collection?.features?.length);
+  let cursor=0;
+  const idle=deadline=>{
+    let didWork=false;
+    while(cursor<collections.length&&(!deadline||deadline.timeRemaining()>8||!didWork)){
+      const collection=collections[cursor++];
+      try{prefetchGeoSpatialFeatures(collection,{zoom:2,centerLongitude:0,centerLatitude:0},1);}catch(error){console.info("Préparation différée d’index cartographique :",error);}
+      didWork=true;
+    }
+    if(cursor<collections.length){
+      if(typeof requestIdleCallback==="function")requestIdleCallback(idle,{timeout:1800});
+      else setTimeout(()=>idle(null),80);
+    }
+  };
+  if(typeof requestIdleCallback==="function")requestIdleCallback(idle,{timeout:1200});
+  else setTimeout(()=>idle(null),250);
+}
+function completeInitialLoading(){
+  if(initialLoadingFinished)return;
+  initialLoadingFinished=true;
+  animateLoadingProgress(100);
+  $("loading-stage").textContent="Le monde est prêt";
+  $("loading-message").textContent="Les frontières sont établies. Votre histoire peut commencer.";
+  document.body.classList.add("world-ready");
+  scheduleMapIndexWarmup();
+  setTimeout(()=>$("initial-loading")?.setAttribute("aria-hidden","true"),650);
+}
+function failInitialLoading(error){
+  if(initialLoadingFinished)return;
+  $("loading-stage").textContent="Chargement interrompu";
+  $("loading-message").textContent="Certaines données n’ont pas pu être chargées : "+(error?.message??"erreur inconnue");
+  $("loading-retry").hidden=false;
+  $("loading-retry").addEventListener("click",()=>location.reload(),{once:true});
+}
 
 function updateMapControls() {
   $("map-zoom-level").textContent = Math.round(mapViewport.zoom * 100) + " %";
@@ -340,6 +420,7 @@ async function loadWorldMap() {
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
     setInitialLoading(2,"Atlas mondial assemblé · préparation du relief…");
+    if(typeof requestIdleCallback==="function")requestIdleCallback(()=>{void startMapWarmup();},{timeout:1400});else setTimeout(()=>{void startMapWarmup();},350);
     try {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) {
@@ -394,7 +475,7 @@ function renderCountryDossier(item){
  dossier.objectives.forEach((objective,index)=>{const row=document.createElement("div");row.className="dossier-objective";const number=document.createElement("span");number.textContent=String(index+1).padStart(2,"0");const text=document.createElement("p");text.textContent=objective;row.append(number,text);objectives.append(row);});root.append(objectives);
  const note=document.createElement("p");note.className="dossier-data-note";note.textContent=dossier.dataNote;root.append(note);
 }
-function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";renderCountryDossier(x);renderCountryPicker();renderMap();}
+function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
 function populateCampaignCountries(){const select=$("player-country");if(!select||!territoryFeatures?.features)return;const names=territoryFeatures.features.map(feature=>{const p=feature.properties??{},raw=p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||p.NAME_LONG,status=String(p.historicalStatus??p.status??p.STATUS??"").toLowerCase();if(typeof raw!=="string"||!raw.trim()||["influence","unclaimed","influence-zone"].includes(status)||isNonStateHistoricalRegion(feature))return null;const name=raw.trim(),label=frenchTerritoryName(name,p),region=countryRegion(feature),difficulty=countryDifficulty(name,region,feature),tier=COUNTRY_MAJOR.has(name)?0:COUNTRY_REGIONAL.has(name)?1:2;return{raw:name,label,region,difficulty,tier,rank:countryRank(name,difficulty,feature),feature}}).filter(Boolean);campaignCountries=[...new Map(names.map(x=>[x.raw,x])).values()];const previous=playerCountry||previewCountry||select.value,options='<option value="">Choisir une nation…</option>'+campaignCountries.map(x=>{const safe=x.raw.replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));return'<option value="'+safe+'">'+x.label+'</option>'}).join("");select.innerHTML=options;const sandbox=$("sandbox-country");if(sandbox)sandbox.innerHTML=options;const preferred=campaignCountries.find(x=>/france/i.test(x.raw)||x.label==="France"),restored=campaignCountries.find(x=>x.raw===previous)||preferred||campaignCountries[0]||null;select.value=restored?.raw??"";if(!playerCountry)previewCountry=restored?.raw??"";if(sandbox)sandbox.value=playerCountry||restored?.raw||"";if(restored)selectCampaignCountry(restored.raw);else renderCountryPicker();}
 $("country-search").addEventListener("input",e=>{selectedCountryFilter.query=e.target.value;renderCountryPicker()});$("country-region-filter").addEventListener("change",e=>{selectedCountryFilter.region=e.target.value;renderCountryPicker()});$("country-difficulty-filter").addEventListener("change",e=>{selectedCountryFilter.difficulty=e.target.value;renderCountryPicker()});
 $("player-country").addEventListener("change", event => {

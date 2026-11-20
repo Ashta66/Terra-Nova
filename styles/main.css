@@ -215,3 +215,22 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 .country-selected{max-height:min(66vh,690px);overflow:auto;scrollbar-width:thin;scrollbar-color:#657b78 #14242a}
 @media(max-height:850px){.country-results{max-height:165px}.country-selected{max-height:52vh}}
 @media(max-width:760px){.dossier-metric strong{font-size:13px}}
+
+
+/* Démarrage vivant, progression interpolée et préparation cartographique silencieuse */
+.loading-atlas-mark{isolation:isolate;animation:atlas-breathe 3.2s ease-in-out infinite}
+.loading-atlas-mark:before{content:"";position:absolute;inset:-13px;border:1px solid #d9b87833;border-radius:50%;border-top-color:#e5cd94;animation:atlas-orbit 5.5s linear infinite}
+.loading-atlas-mark:after{content:"";position:absolute;inset:-19px;border:1px dashed #d9b87835;border-radius:50%;animation:atlas-orbit 13s linear infinite reverse}
+.loading-atlas-mark i{animation:atlas-tilt 8s ease-in-out infinite}
+.loading-atlas-mark i:last-child{animation-direction:reverse}
+@keyframes atlas-orbit{to{transform:rotate(360deg)}}
+@keyframes atlas-tilt{0%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(225deg) scale(1.05)}}
+@keyframes atlas-breathe{0%,100%{box-shadow:0 0 28px #d9b87812,inset 0 0 16px #d9b8780c}50%{box-shadow:0 0 58px #d9b87835,inset 0 0 26px #d9b87822}}
+.loading-progress-track{position:relative;border-radius:99px;box-shadow:0 0 18px #d9b87818}
+.loading-progress-track span{position:relative;border-radius:99px;will-change:width;transition:width .08s linear;box-shadow:0 0 12px #e5cd9470}
+.loading-progress-track span:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#fff8,transparent);transform:translateX(-100%);animation:progress-glint 2.4s ease-in-out infinite}
+@keyframes progress-glint{to{transform:translateX(420px)}}
+.map-cache-status{min-height:24px;padding:5px 2px 2px;color:#829b99;font-size:9px;line-height:1.45;letter-spacing:.015em}
+.map-cache-status[data-state=ready]{color:#9fc6a8}
+.map-cache-status[data-state=warning]{color:#c9a77a}
+@media(prefers-reduced-motion:reduce){.loading-atlas-mark,.loading-atlas-mark:before,.loading-atlas-mark:after,.loading-atlas-mark i,.loading-progress-track span:after{animation:none!important}.loading-progress-track span{transition:none!important}}
