@@ -134,10 +134,30 @@ function renderMap() {
       canvas.dataset.terrainWebglTileCount = String(result.terrainWebGLTileStats.tileCount);
       canvas.dataset.terrainWebglTileBytes = String(result.terrainWebGLTileStats.byteLength);
       canvas.dataset.terrainWebglTileSubmitMs = result.terrainWebGLTileStats.drawSubmitMs.toFixed(3);
+      canvas.dataset.terrainWebglTileDrawCalls = String(result.terrainWebGLTileStats.drawCalls);
+      canvas.dataset.terrainWebglTileVisible = String(result.terrainWebGLTileStats.visibleTiles);
+      canvas.dataset.terrainWebglTileLod = String(result.terrainWebGLTileStats.lod);
+      canvas.dataset.terrainWebglTileHits = String(result.terrainWebGLTileStats.hits);
+      canvas.dataset.terrainWebglTileMisses = String(result.terrainWebGLTileStats.misses);
+      canvas.dataset.terrainWebglTileUploads = String(result.terrainWebGLTileStats.uploads);
+      canvas.dataset.terrainWebglTileUploadedBytes = String(result.terrainWebGLTileStats.uploadedBytes);
+      canvas.dataset.terrainWebglTileBuildMs = result.terrainWebGLTileStats.buildMs.toFixed(3);
+      canvas.dataset.terrainWebglTileUploadMs = result.terrainWebGLTileStats.uploadMs.toFixed(3);
+      canvas.dataset.terrainWebglTileEvictions = String(result.terrainWebGLTileStats.evictions);
     } else {
       delete canvas.dataset.terrainWebglTileCount;
       delete canvas.dataset.terrainWebglTileBytes;
       delete canvas.dataset.terrainWebglTileSubmitMs;
+      delete canvas.dataset.terrainWebglTileDrawCalls;
+      delete canvas.dataset.terrainWebglTileVisible;
+      delete canvas.dataset.terrainWebglTileLod;
+      delete canvas.dataset.terrainWebglTileHits;
+      delete canvas.dataset.terrainWebglTileMisses;
+      delete canvas.dataset.terrainWebglTileUploads;
+      delete canvas.dataset.terrainWebglTileUploadedBytes;
+      delete canvas.dataset.terrainWebglTileBuildMs;
+      delete canvas.dataset.terrainWebglTileUploadMs;
+      delete canvas.dataset.terrainWebglTileEvictions;
     }
     if (result.terrainWebGLStats) {
       canvas.dataset.terrainWebglUploadMs = result.terrainWebGLStats.textureUploadMs.toFixed(2);
