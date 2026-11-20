@@ -129,12 +129,8 @@ Le jeu démarre immédiatement avec les couches mondiales légères 1:110m. Le j
 Pendant le panoramique et le zoom à la molette, la carte est redessinée à chaque frame avec une qualité temporairement réduite : raster de relief à 35 %, pixel ratio 1, labels et repères détaillés différés. Le canvas reste à sa taille normale et n'est plus déplacé ou agrandi par transformation CSS ; les bords de la fenêtre ne révèlent donc plus le fond vide. À la fin du geste, un rendu complet restaure la qualité du relief, les labels et les repères. Cette stratégie privilégie la continuité visuelle ; les performances finales restent à mesurer sur les navigateurs et matériels réels.
 
 
-## Fond mondial permanent et navigation par composition — lot 2.9
+## Navigation cartographique : rendu cohérent dans un seul viewport
 
-Le moteur conserve maintenant deux rendus superposés :
-- un fond mondial de référence, calculé à l'échelle 1× et conservé sous la carte interactive ;
-- un rendu de premier plan qui porte le niveau de détail courant (relief, hydrographie, couches régionales et labels).
+Le rendu à double canvas et le fond mondial de secours ont été retirés : ils créaient une seconde échelle visible et une incohérence de projection pendant les gestes. Le moteur utilise un seul canvas, dont la géométrie est recalculée à partir du viewport réel à chaque frame d'interaction (les événements sont regroupés par `requestAnimationFrame`). Pendant le geste, le rendu simplifié désactive le raster ETOPO, les hachures, les repères d'altitude et les labels ; le fond océanique et les géométries terrestres restent projetés avec le même centre et le même zoom que le viewport. À la fin du geste, un rendu complet restaure relief, hydrographie et labels.
 
-Pendant le panoramique et la molette, le premier plan déjà rendu est transformé avec une matrice CSS (`matrix`) afin de déléguer le déplacement et le zoom au compositeur du navigateur. Le moteur ne reprojette plus toutes les géométries ni ne recalcule le raster ETOPO à chaque événement. Le fond mondial reste visible dans les zones découvertes par le déplacement ou le zoom ; à la fin du geste, un rendu précis est recalculé une seule fois et le premier plan rejoint le fond. Le fond est reconstruit uniquement si la largeur de la carte ou l'année cartographique change.
-
-Cette approche supprime les attentes de rendu pendant les gestes et fournit un filet visuel mondial permanent. Les bords révélés peuvent temporairement montrer une géographie à l'échelle mondiale plutôt que le détail exact de la zone déplacée ; le rendu précis reprend à la fin du geste. La CI valide le code et les tests, mais le comportement de composition, les performances et l'absence de scintillement doivent être vérifiés dans un navigateur réel.
+Cette stratégie privilégie la cohérence géographique : aucune carte mondiale étirée n'est affichée sous une vue régionale et le canvas ne sort pas de son viewport. Elle peut encore demander une optimisation CPU si le jeu est utilisé sur une machine modeste ; les performances doivent être mesurées en navigateur réel avant d'introduire un cache de tuiles ou un moteur WebGL.

@@ -24,8 +24,6 @@ let regionalLayersLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
 let lastRenderedMapSignature = null;
-let lastBaseMapSignature = null;
-let mapPreviewOrigin = null;
 let wheelZoomState = null;
 let wheelZoomTimer = null;
 let lastDragMoved = false;
@@ -109,21 +107,9 @@ function renderMapFrame() {
     });
   }
   const canvas = $("world-map");
-  const baseCanvas = $("world-map-base");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const height = Math.round(width * 0.5);
   const year = Number(String(state.clock.date).slice(0, 4));
-  const baseSignature = [width, year].join(":");
-  if (baseCanvas && baseSignature !== lastBaseMapSignature) {
-    renderWorldMap(baseCanvas, worldFeatures, {
-      width, height, year, projection: "equirectangular",
-      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
-      lakes: lakeFeatures, rivers: riverFeatures, glaciers: glacierFeatures,
-      elevationPoints, labels: mapLabels, terrain: terrainGrid,
-      terrainQuality: 0.8, pixelRatio: 1
-    });
-    lastBaseMapSignature = baseSignature;
-  }
   const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4), mapInteractionActive ? 'interactive' : 'full'].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
@@ -141,7 +127,7 @@ function renderMapFrame() {
     elevationPoints,
     labels: labelDetail.features,
     terrain: terrainGrid,
-    terrainQuality: mapInteractionActive ? 0.35 : 1,
+    terrainQuality: mapInteractionActive ? 0 : 1,
     pixelRatio: mapInteractionActive ? 1 : undefined,
     interactive: mapInteractionActive,
   });
@@ -288,7 +274,6 @@ mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   if (wheelZoomState) clearWheelZoomPreview();
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
-  mapPreviewOrigin = { zoom: mapViewport.zoom, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
 });
@@ -311,9 +296,9 @@ mapCanvas.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
-  // Le canvas déjà dessiné est déplacé par le compositeur GPU ; aucun calcul géographique pendant le geste.
+  // Rendu léger coalescé à l’écran : le canvas reste aligné avec son viewport.
   mapInteractionActive = true;
-  applyMapPreviewTransform();
+  renderMap();
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
@@ -334,25 +319,14 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
-function applyMapPreviewTransform(origin = mapPreviewOrigin) {
-  if (!origin) return;
-  const width = mapCanvas.clientWidth;
-  const height = mapCanvas.clientHeight;
-  if (!width || !height) return;
-  const scale = mapViewport.zoom / origin.zoom;
-  const deltaLongitude = mapViewport.centerLongitude - origin.centerLongitude;
-  const deltaLatitude = mapViewport.centerLatitude - origin.centerLatitude;
-  const tx = width * (1 - scale) / 2 - deltaLongitude / 360 * width * mapViewport.zoom;
-  const ty = deltaLatitude / 180 * height * mapViewport.zoom;
-  mapCanvas.style.transform = "translateY(-50%) matrix(" + [scale,0,0,scale,tx,ty].join(",") + ")";
-}
 function clearWheelZoomPreview() {
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = null;
   wheelZoomState = null;
-  mapPreviewOrigin = null;
-  mapCanvas.style.transform = '';
+  mapInteractionActive = false;
+  mapCanvas.style.transform = "";
 }
+
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
@@ -385,12 +359,10 @@ mapCanvas.addEventListener("wheel", (event) => {
       anchorY: event.clientY - rect.top,
       rect: { width: rect.width, height: rect.height }
     };
-    mapPreviewOrigin = { zoom: mapViewport.zoom, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   }
   const anchor = wheelZoomState;
   mapInteractionActive = true;
-  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
-  applyMapPreviewTransform();
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, true, anchor.rect);
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = setTimeout(() => {
     if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);

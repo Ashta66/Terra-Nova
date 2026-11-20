@@ -83,9 +83,4 @@ button,select,textarea{font:inherit}
 @media(max-width:760px){.map-data-tools{align-items:stretch;flex-direction:column}.map-data-button{width:100%;max-width:none}}
 
 
-/* Fond mondial permanent : le niveau global reste visible sous le rendu détaillé */
-.map-frame{position:relative;isolation:isolate}
-.map-frame canvas{position:absolute;left:0;top:50%;width:100%;height:auto;max-height:100%;object-fit:contain;transform-origin:0 0;transform:translateY(-50%)}
-.map-frame #world-map-base{z-index:0;pointer-events:none}
-.map-frame #world-map{z-index:1;will-change:transform}
-.map-frame .map-tooltip{z-index:3}
+
