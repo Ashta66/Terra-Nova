@@ -1325,8 +1325,9 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(first.skippedFeatures, 1);
   assert.equal(first.drawCalls, 1);
   assert.equal(first.bufferUploads, 1);
-  assert.equal(first.layers.rivers.vertices, 6);
-  assert.equal(first.layers.rivers.uploadedBytes, 192);
+  // Un segment (6 sommets) + deux caps circulaires de 12 triangles (72 sommets).
+  assert.equal(first.layers.rivers.vertices, 78);
+  assert.equal(first.layers.rivers.uploadedBytes, 2496);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
   assert.equal(renderer.supportsLine(ordinary), true);
