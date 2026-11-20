@@ -148,9 +148,26 @@ function renderMap() {
       canvas.dataset.geographicWebglCacheBuildMs = result.geographicWebGLStats.cacheBuildMs.toFixed(3);
       canvas.dataset.geographicWebglDrawSubmitMs = result.geographicWebGLStats.drawSubmitMs.toFixed(3);
       canvas.dataset.geographicWebglTotalMs = result.geographicWebGLStats.totalMs.toFixed(3);
-      for (const [layerKey, layerStats] of Object.entries(result.geographicWebGLStats.layers ?? {})) {
+      const geographicLayerKeys = [
+        "land", "glaciers", "lakes", "land-boundaries", "glacier-boundaries",
+        "lake-boundaries", "rivers", "administrative-boundary-lines",
+        "administrative-boundary-polygons"
+      ];
+      for (const layerKey of geographicLayerKeys) {
         const safeLayerKey = layerKey.replace(/[^a-zA-Z0-9]+(.)?/g, (_, next) => next ? next.toUpperCase() : "");
         const datasetPrefix = `geographicWebglLayer${safeLayerKey[0]?.toUpperCase() ?? ""}${safeLayerKey.slice(1)}`;
+        const layerStats = result.geographicWebGLStats.layers?.[layerKey];
+        if (!layerStats) {
+          for (const suffix of ["Features", "SkippedFeatures", "DrawCalls", "CacheHit", "BuildMs",
+            "DrawSubmitMs", "TotalMs", "Triangles", "Uploads", "UploadedBytes"]) {
+            delete canvas.dataset[`${datasetPrefix}${suffix}`];
+          }
+          continue;
+        }
+        canvas.dataset[`${datasetPrefix}Features`] = String(layerStats.drawnFeatures ?? 0);
+        canvas.dataset[`${datasetPrefix}SkippedFeatures`] = String(layerStats.skippedFeatures ?? 0);
+        canvas.dataset[`${datasetPrefix}DrawCalls`] = String(layerStats.drawCalls ?? 0);
+        canvas.dataset[`${datasetPrefix}CacheHit`] = String(layerStats.cacheHit);
         canvas.dataset[`${datasetPrefix}BuildMs`] = Number(layerStats.cacheBuildMs ?? 0).toFixed(3);
         canvas.dataset[`${datasetPrefix}DrawSubmitMs`] = Number(layerStats.drawSubmitMs ?? 0).toFixed(3);
         canvas.dataset[`${datasetPrefix}TotalMs`] = (Number(layerStats.cacheBuildMs ?? 0) + Number(layerStats.drawSubmitMs ?? 0)).toFixed(3);
@@ -184,6 +201,18 @@ function renderMap() {
       delete canvas.dataset.geographicWebglCacheBuildMs;
       delete canvas.dataset.geographicWebglDrawSubmitMs;
       delete canvas.dataset.geographicWebglTotalMs;
+      for (const layerKey of [
+        "land", "glaciers", "lakes", "land-boundaries", "glacier-boundaries",
+        "lake-boundaries", "rivers", "administrative-boundary-lines",
+        "administrative-boundary-polygons"
+      ]) {
+        const safeLayerKey = layerKey.replace(/[^a-zA-Z0-9]+(.)?/g, (_, next) => next ? next.toUpperCase() : "");
+        const datasetPrefix = `geographicWebglLayer${safeLayerKey[0]?.toUpperCase() ?? ""}${safeLayerKey.slice(1)}`;
+        for (const suffix of ["Features", "SkippedFeatures", "DrawCalls", "CacheHit", "BuildMs",
+          "DrawSubmitMs", "TotalMs", "Triangles", "Uploads", "UploadedBytes"]) {
+          delete canvas.dataset[`${datasetPrefix}${suffix}`];
+        }
+      }
       for (const layerKey of ["land", "glaciers", "lakes"]) {
         const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
         delete canvas.dataset[`${datasetPrefix}Features`];
