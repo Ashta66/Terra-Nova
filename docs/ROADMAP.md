@@ -1,3 +1,10 @@
+## 20 novembre 2026 — généralisation géométrique multi-couches
+- Ajout de `src/world/geometry-generalization.js` : simplification GeoJSON avant indexation spatiale et projection, pour réduire les sommets parcourus par les index et le Worker de rendu.
+- Application aux terres mondiales/régionales, lacs, rivières, glaciers, territoires politiques, frontières politiques et administratives. Les coordonnées sources dans le dépôt ne sont pas modifiées ; seules les collections actives en mémoire sont généralisées.
+- Les sommets partagés entre entités sont conservés comme ancrages afin de maintenir l'alignement des frontières communes. Les anneaux restent fermés et les géométries ne sont pas réécrites sur disque.
+- Renforcement modéré de la simplification écran, y compris aux niveaux de zoom rapprochés : légère baisse de détail, sans suppression brutale des grands contours.
+- Tests dédiés à la réduction des sommets, à l'intégrité des sources et à l'alignement des frontières partagées.
+
 ## 20 novembre 2026 — filtrage physique des petites îles et des lacs secondaires
 - Les petites composantes insulaires sous 100 km² sont retirées des couches terrestres mondiales et régionales avant la création des index spatiaux ; pour les territoires politiques, la plus grande composante de chaque territoire est conservée afin de ne pas effacer un petit État insulaire.
 - Les lacs de rang secondaire et les lacs de moins de 500 km² sont exclus de la collection active dès le chargement ; les 12 plus grands lacs visibles restent dessinés au maximum.
