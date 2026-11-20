@@ -179,3 +179,8 @@ Le cache `Path2D` regroupe les sous-lignes d'un `MultiLineString` dans un seul c
 ## Préchargement des secteurs voisins — étape 1/5
 
 Après un rendu complet, le navigateur prépare au repos les sélections spatiales des secteurs adjacents au cadrage. Le travail est reporté via `requestIdleCallback` (ou un court délai de repli) et annulé/remplacé si un nouveau cadrage arrive. Il ne télécharge aucune donnée supplémentaire, ne duplique pas la carte et ne modifie pas les collections GeoJSON : il préchauffe uniquement le cache borné de requêtes spatiales. Au zoom mondial, le préchargement est désactivé car la vue couvre déjà l'ensemble du monde.
+
+
+## Cache spatial borné et observable — étape 2/5
+
+Chaque index spatial conserve au maximum 48 sélections de fenêtres géographiques (LRU). Deux fonctions de diagnostic permettent de lire le nombre d'entités, de cellules et de requêtes conservées, ou de vider uniquement le cache des sélections d'une collection. Les géométries sources et l'index de cellules ne sont pas détruits lors de cette opération. Le préchargement voisin utilise exactement le même budget, ce qui empêche son accumulation sans limite.

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
-import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
+import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
@@ -410,3 +410,28 @@ test("le préchargement prépare les sélections des secteurs voisins sans modif
   assert.equal(collection.features, originalFeatures);
   assert.equal(prefetchGeoSpatialFeatures(collection, { zoom: 1, centerLongitude: 0, centerLatitude: 0 }), 0);
 });
+
+
+test("le cache des requêtes spatiales reste borné et peut être vidé", async () => {
+  const { buildGeoSpatialIndex, queryGeoSpatialIndex, getGeoSpatialIndexStats, clearGeoSpatialQueryCache } =
+    await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: Array.from({ length: 30 }, (_, index) => ({
+    type: "Feature", geometry: { type: "Point", coordinates: [-170 + index * 11, -60 + (index % 10) * 12] }
+  })) };
+  const index = buildGeoSpatialIndex(collection);
+  for (let i = 0; i < 100; i++) queryGeoSpatialIndex(index, { zoom: 5, centerLongitude: -170 + i * 3.4, centerLatitude: -70 + (i % 35) * 4 });
+  const stats = getGeoSpatialIndexStats(collection);
+  assert.equal(stats.indexed, false); // l'index construit directement reste volontairement isolé du cache faible global
+  assert.ok(index.queryCache.size <= 48);
+  assert.equal(index.queryCache.size, 48);
+  indexCacheAttachForTest(collection, index);
+  assert.equal(getGeoSpatialIndexStats(collection).cachedQueries, 48);
+  assert.equal(clearGeoSpatialQueryCache(collection), true);
+  assert.equal(getGeoSpatialIndexStats(collection).cachedQueries, 0);
+});
+
+function indexCacheAttachForTest(collection, index) {
+  // La sélection publique crée l'index faible pour cette collection.
+  // Les requêtes ci-dessus sont donc rejouées via cette entrée afin de vérifier l'API d'observabilité.
+  for (let i = 0; i < 60; i++) selectVisibleFeatures(collection, { zoom: 5, centerLongitude: -160 + i * 5, centerLatitude: 0 });
+}

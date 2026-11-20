@@ -146,3 +146,23 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   }
   return prepared;
 }
+
+
+export function getGeoSpatialIndexStats(collection) {
+  const index = collection && indexCache.get(collection);
+  if (!index) return { indexed: false, featureCount: 0, cellCount: 0, cachedQueries: 0, maxCachedQueries: MAX_QUERY_CACHE_ENTRIES };
+  return {
+    indexed: true,
+    featureCount: index.collection.features.length,
+    cellCount: index.cells.size,
+    cachedQueries: index.queryCache.size,
+    maxCachedQueries: MAX_QUERY_CACHE_ENTRIES
+  };
+}
+
+export function clearGeoSpatialQueryCache(collection) {
+  const index = collection && indexCache.get(collection);
+  if (!index) return false;
+  index.queryCache.clear();
+  return true;
+}
