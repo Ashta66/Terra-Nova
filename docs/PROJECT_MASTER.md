@@ -287,3 +287,10 @@ Chaque sélection ouvre une fiche de campagne : capitale lorsqu'elle est documen
 
 ## Ergonomie du démarrage — 20 novembre 2026
 Le panneau de nouvelle campagne est volontairement compact : date et mode tiennent sur la même rangée, la liste des nations possède une hauteur plafonnée, et la fiche stratégique défile dans sa propre zone. L'objectif est de rendre le choix du départ plus rapide sans supprimer les informations de nation. Sur petit écran, les zones restent utilisables et adaptent leurs hauteurs.
+
+
+## 20 novembre 2026 — correction du panoramique cartographique
+- Le compositeur pouvait demander un rendu vectoriel complet toutes les 250 ms lorsque le bitmap ne couvrait plus l'écran, notamment pendant un déplacement vertical au zoom mondial ×1.
+- Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
+- Ajout de tests sur la décision de recalcul pendant et après le geste.
+- Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
