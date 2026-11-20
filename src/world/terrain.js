@@ -131,13 +131,17 @@ export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
  if(!(lookup.levels instanceof Map)){const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);return base+(Number(c.elevationDeltaM)||0);}
- const step=lookup.steps?.[0]??12,level=lookup.levels.get(step);if(!level)return base;
- const gx=x/step-.5,gy=y/step-.5,x0=Math.floor(gx),y0=Math.floor(gy),fx=gx-x0,fy=gy-y0,nx=Math.ceil(grid.width/step);
- const at=(ix,iy)=>level.get(Math.max(0,iy)+":"+(((ix%nx)+nx)%nx));
- const c00=at(x0,y0),c10=at(x0+1,y0),c01=at(x0,y0+1),c11=at(x0+1,y0+1);
- const mix=k=>{const a=(Number(c00?.[k])||0)*(1-fx)+(Number(c10?.[k])||0)*fx,b=(Number(c01?.[k])||0)*(1-fx)+(Number(c11?.[k])||0)*fx;return a*(1-fy)+b*fy;};
- const flood=mix("tsunamiWaterDepthM");if(flood>.01)return -Math.max(.1,flood);
- return base+mix("elevationDeltaM");
+ for(const step of lookup.steps??[...lookup.levels.keys()].sort((a,b)=>a-b)){
+  const level=lookup.levels.get(step);if(!level)continue;
+  const gx=x/step-.5,gy=y/step-.5,x0=Math.floor(gx),y0=Math.floor(gy),fx=gx-x0,fy=gy-y0,nx=Math.ceil(grid.width/step);
+  const at=(ix,iy)=>level.get(Math.max(0,iy)+":"+(((ix%nx)+nx)%nx));
+  const c00=at(x0,y0),c10=at(x0+1,y0),c01=at(x0,y0+1),c11=at(x0+1,y0+1);
+  if(!c00&&!c10&&!c01&&!c11)continue;
+  const mix=k=>{const a=(Number(c00?.[k])||0)*(1-fx)+(Number(c10?.[k])||0)*fx,b=(Number(c01?.[k])||0)*(1-fx)+(Number(c11?.[k])||0)*fx;return a*(1-fy)+b*fy;};
+  const flood=mix("tsunamiWaterDepthM");if(flood>.01)return -Math.max(.1,flood);
+  return base+mix("elevationDeltaM");
+ }
+ return base;
 }
 
 const terrainSurfaceCache = new WeakMap();
