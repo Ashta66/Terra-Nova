@@ -1,3 +1,11 @@
+## 20 novembre 2026 — relief allégé et zoom étendu
+
+- Réduction du raster de relief normal de 768 × 384 à 512 × 256 pixels.
+- Ombrage des pentes et teintes des classes de relief adoucis pour une carte moins chargée.
+- Zoom maximal porté de 8× à 24× ; projections équirectangulaire et Mercator alignées sur cette limite.
+- Tests adaptés à la nouvelle résolution, à la plage de contraste et au zoom 24×.
+- Limite connue : les données vectorielles mondiales Natural Earth 1:110m restent simplifiées au zoom élevé ; les niveaux de détail régionaux sont toujours à intégrer.
+
 ## 20 novembre 2026 — zoom différé et invalidation du rendu
 
 - Zoom molette : prévisualisation CSS ancrée au point visé, puis rendu complet unique après 130 ms sans nouvel événement.
