@@ -121,7 +121,7 @@ function buildBoundaryLineBatch(features, gl) {
       if (!valid) break;
     }
     if (!valid || !featureSegments.length) { skippedFeatures++; continue; }
-    segments.push(...featureSegments);
+    for (const value of featureSegments) segments.push(value);
     drawnFeatures++;
   }
   return { ...buildRibbonBuffer(segments, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
