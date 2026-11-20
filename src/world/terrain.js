@@ -125,6 +125,15 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
 }
 
+export function getTerrainLod(grid, renderWidth, zoom = 1) {
+  if (!Number.isFinite(grid?.width) || grid.width < 1
+    || !Number.isFinite(renderWidth) || renderWidth < 1
+    || !Number.isFinite(zoom) || zoom <= 0) return 0;
+  // Le LOD suit la densité d'échantillonnage écran, pas un seuil de zoom
+  // arbitraire : les niveaux parents/enfants se mélangent progressivement.
+  return clamp(Math.log2(Math.max(1, grid.width / renderWidth / Math.max(1, zoom))), 0, 4);
+}
+
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, dirtyRect = null) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
@@ -155,7 +164,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, d
   const dx = 360 / grid.width, dy = 180 / grid.height;
   // Choisit un niveau selon la densité de pixels : faible zoom = parent simplifié,
   // zoom rapproché = retour progressif vers les échantillons natifs.
-  const lod = clamp(Math.log2(Math.max(1, grid.width / renderWidth / Math.max(1, zoom))), 0, 4);
+  const lod = getTerrainLod(grid, renderWidth, zoom);
   for (let py = y0; py < y1; py++) {
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
     for (let px = x0; px < x1; px++) {
