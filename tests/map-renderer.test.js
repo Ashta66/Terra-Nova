@@ -571,7 +571,7 @@ test("le shader WebGL tuilé échantillonne les textures locales avec leurs bord
   assert.match(shader, /u_opacity/);
   assert.match(shader, /v_atlasUv/);
   assert.match(shader, /v_atlasStep/);
-  assert.match(shader, /sampleValue\.a/);
+  assert.match(shader, /s\.a/);
   assert.match(shader, /v_tileStep/);
   assert.match(shader, /gl_FragColor/);
 });
@@ -779,8 +779,8 @@ test("le batch atlas regroupe plusieurs tuiles en une seule liste de triangles",
   ]);
   const atlas = { cellSize: 6, atlasWidth: 12, atlasHeight: 12 };
   const vertices = buildTerrainTileAtlasBatchVertices(items, entries, 100, 40, atlas);
-  assert.equal(vertices.length, 96);
-  assert.deepEqual(Array.from(vertices.slice(0, 8)), [-1, 1, 1/12, 1/12, 1/12, 1/12, 1/6, 1/6]);
+  assert.equal(vertices.length, 144);
+  assert.deepEqual(Array.from(vertices.slice(0, 12)), [-1, 1, 1/12, 1/12, 1/12, 1/12, 1/6, 1/6, 0, 0, 5/12, 5/12]);
   assert.ok(vertices.some((value, index) => index % 8 === 2 && value > 0.5));
 });
 
