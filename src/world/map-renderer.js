@@ -421,24 +421,24 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
       const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
         cacheHit: true, bufferUploads: 0, uploadedBytes: 0, layers: {} };
+      const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
+        key: layer.key, features: layer.features, color: layer.color
+      })), Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
+      projection.viewport);
+      aggregate.drawnFeatures = gpuStats.drawnFeatures;
+      aggregate.skippedFeatures = gpuStats.skippedFeatures;
+      aggregate.drawCalls = gpuStats.drawCalls;
+      aggregate.triangles = gpuStats.triangles;
+      aggregate.cacheHit = gpuStats.cacheHit;
+      aggregate.bufferUploads = gpuStats.bufferUploads;
+      aggregate.uploadedBytes = gpuStats.uploadedBytes;
+      aggregate.layers = gpuStats.layers;
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(geographicRenderer.canvas, 0, 0);
+      context.restore();
       for (const layer of gpuLayers) {
-        const gpuStats = geographicRenderer.renderLayers([{
-          key: layer.key, features: layer.features, color: layer.color
-        }], Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
-        projection.viewport);
-        const layerStats = gpuStats.layers[layer.key];
-        aggregate.drawnFeatures += gpuStats.drawnFeatures;
-        aggregate.skippedFeatures += gpuStats.skippedFeatures;
-        aggregate.drawCalls += gpuStats.drawCalls;
-        aggregate.triangles += gpuStats.triangles;
-        aggregate.cacheHit = aggregate.cacheHit && gpuStats.cacheHit;
-        aggregate.bufferUploads += gpuStats.bufferUploads;
-        aggregate.uploadedBytes += gpuStats.uploadedBytes;
-        aggregate.layers[layer.key] = layerStats;
-        context.save();
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        context.drawImage(geographicRenderer.canvas, 0, 0);
-        context.restore();
+        const layerStats = gpuStats.layers[layer.key] ?? { drawnFeatures: 0 };
         const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
         const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
           layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
