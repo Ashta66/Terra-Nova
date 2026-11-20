@@ -1,11 +1,11 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
-import { renderWorldMap, buildTerritoryLabels } from "./world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld } from "./world/physical-geography.js";
+import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
@@ -44,6 +44,7 @@ let wheelZoomState = null;
 let wheelZoomTimer = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
+let meteorPlacementMode = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 const MIN_MAP_ZOOM = 1;
@@ -297,22 +298,24 @@ function populateCampaignCountries() {
   if (!select || !territoryFeatures?.features) return;
   const names = territoryFeatures.features.map(feature => {
     const p = feature.properties ?? {};
-    return p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
-  }).filter(name => typeof name === "string" && name.trim());
-  const unique = [...new Set(names)].sort((a,b) => a.localeCompare(b, "fr"));
+    const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
+    return typeof raw === "string" && raw.trim() ? { raw: raw.trim(), label: frenchTerritoryName(raw, p) } : null;
+  }).filter(Boolean);
+  const unique = [...new Map(names.map(item => [item.raw, item])).values()].sort((a,b) => a.label.localeCompare(b.label, "fr"));
   const previousChoice = playerCountry || previewCountry || select.value;
-  const options = '<option value="">Choisir une nation…</option>' + unique.map(name => {
-    const safe = name.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-    return '<option value="' + safe + '">' + safe + '</option>';
+  const options = '<option value="">Choisir une nation…</option>' + unique.map(item => {
+    const safeValue = item.raw.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    const safeLabel = item.label.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    return '<option value="' + safeValue + '">' + safeLabel + '</option>';
   }).join("");
   select.innerHTML = options;
   const sandboxSelect = $("sandbox-country");
   if (sandboxSelect) sandboxSelect.innerHTML = options;
-  const preferred = unique.find(name => /france/i.test(name));
-  const restored = unique.find(name => name === previousChoice) || preferred || unique[0] || "";
-  select.value = restored;
-  if (!playerCountry) previewCountry = restored;
-  if (sandboxSelect) sandboxSelect.value = playerCountry || restored;
+  const preferred = unique.find(item => /france/i.test(item.raw) || item.label === "France");
+  const restored = unique.find(item => item.raw === previousChoice) || preferred || unique[0] || null;
+  select.value = restored?.raw ?? "";
+  if (!playerCountry) previewCountry = restored?.raw ?? "";
+  if (sandboxSelect) sandboxSelect.value = playerCountry || restored?.raw || "";
   renderMap();
 }
 $("player-country").addEventListener("change", event => {
@@ -323,7 +326,7 @@ $("sandbox-country").addEventListener("change", event => {
   if (!event.target.value) return;
   playerCountry = event.target.value;
   previewCountry = playerCountry;
-  $("map-title").textContent = event.target.value + " · " + state.clock.date.slice(0,4);
+  $("map-title").textContent = frenchTerritoryName(event.target.value) + " · " + state.clock.date.slice(0,4);
   $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
   renderMap();
 });
@@ -356,7 +359,7 @@ $("begin-campaign").addEventListener("click", () => {
   state.clock.paused = true;
   document.body.classList.add("campaign-started");
   document.body.classList.toggle("sandbox-mode", mode === "sandbox");
-  $("map-title").textContent = country + " · " + year;
+  $("map-title").textContent = frenchTerritoryName(country) + " · " + year;
   $("sandbox-country").value = country;
   $("save-status").textContent = "Campagne : " + country + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
   schedule();
@@ -497,6 +500,19 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapInteractionActive = true;
   renderMap();
 });
+function setMeteorPlacementMode(active) {
+  meteorPlacementMode = Boolean(active);
+  const button = $("meteor-test");
+  if (button) {
+    button.classList.toggle("is-active", meteorPlacementMode);
+    button.setAttribute("aria-pressed", String(meteorPlacementMode));
+    button.textContent = meteorPlacementMode ? "Clique sur la carte…" : "☄ Météorite · test";
+  }
+  mapCanvas.style.cursor = meteorPlacementMode ? "crosshair" : "grab";
+  if (meteorPlacementMode) $("save-status").textContent = "Mode test : choisis un point sur la carte pour déclencher l’impact.";
+}
+$("meteor-test").addEventListener("click", () => setMeteorPlacementMode(!meteorPlacementMode));
+
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
   const kindNames = { continent: "Continent", ocean: "Océan", city: "Ville historique", country: "Pays / territoire", province: "Province ou région" };
@@ -538,6 +554,31 @@ mapCanvas.addEventListener("click", (event) => {
   const rect = mapCanvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
+  if (meteorPlacementMode) {
+    const longitude = ((mapViewport.centerLongitude + (x / rect.width - 0.5) * 360 / mapViewport.zoom + 540) % 360) - 180;
+    const latitude = Math.max(-89.5, Math.min(89.5, mapViewport.centerLatitude - (y / rect.height - 0.5) * 180 / mapViewport.zoom));
+    try {
+      const event = {
+        id: "meteor-" + Date.now() + "-" + (state.physicalWorld?.revision ?? 0),
+        type: "meteor-impact",
+        date: state.clock.date,
+        longitude,
+        latitude,
+        radiusKm: 650,
+        craterDepthM: 1800
+      };
+      const refinedWorld = refinePhysicalWorldForImpact(state.physicalWorld, terrainGrid, event, 2);
+      const impact = applyPhysicalEvent(refinedWorld, event);
+      state.physicalWorld = impact.world;
+      $("save-status").textContent = "Impact météoritique : " + latitude.toFixed(2) + "°, " + longitude.toFixed(2) + "° · " + impact.result.affectedCells.length + " cellules touchées.";
+      setMeteorPlacementMode(false);
+      lastRenderedMapSignature = null;
+      renderMap();
+    } catch (error) {
+      $("save-status").textContent = "Impact impossible : " + error.message;
+    }
+    return;
+  }
   const hit = [...mapLabelHits].reverse().find(label =>
     x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
   );

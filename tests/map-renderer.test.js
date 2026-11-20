@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -721,4 +721,19 @@ test("le rendu physique conserve le relief ETOPO hors des cellules modifiées",(
  assert.equal(samplePhysicalElevation(grid,lon,lat,altered),-100);
  const flooded=new Map([["0:0",{gridX:0,gridY:0,elevationDeltaM:0,currentElevationM:150,inundated:true,waterDepthM:4}]]);
  assert.equal(samplePhysicalElevation(grid,lon,lat,flooded),-4);
+});
+
+
+test("les noms historiques sont francisés et les enclaves anglaises sont explicitement nommées",()=>{
+ assert.equal(frenchTerritoryName("New France"),"Nouvelle-France");
+ assert.equal(frenchTerritoryName("Aquitaine",{NAME:"Aquitaine",SUBJECTO:"Kingdom of England"}),"Aquitaine anglaise");
+ assert.equal(frenchTerritoryName("British Raj"),"Inde britannique");
+});
+test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
+ const territories={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{NAME:"Aquitaine",SUBJECTO:"England"},geometry:{type:"Polygon",coordinates:[[[-2,43],[1,43],[1,46],[-2,46],[-2,43]]]}},
+  {type:"Feature",properties:{NAME:"New France",SUBJECTO:"France"},geometry:{type:"Polygon",coordinates:[[[-75,45],[-70,45],[-70,48],[-75,48],[-75,45]]]}}
+ ]};
+ const labels=buildTerritoryLabels(territories);
+ assert.deepEqual(labels.features.map(f=>f.properties.name),["Aquitaine anglaise","Nouvelle-France"]);
 });

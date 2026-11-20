@@ -123,6 +123,52 @@ async function getHistoricalIndex(fetcher) {
   return historicalIndexPromise;
 }
 
+async function loadAtlasPiSnapshot(year, fetcher) {
+  if (Number(year) !== 1812) return null;
+  const url = "https://atlaspi.it/v1/entities?year=1812&limit=500";
+  const response = await fetchMapAsset(url, fetcher);
+  if (!response?.ok) return null;
+  const payload = await response.json();
+  const entities = Array.isArray(payload) ? payload
+    : payload?.entities ?? payload?.items ?? payload?.results ?? payload?.data?.entities ?? payload?.data?.items ?? [];
+  if (!Array.isArray(entities)) return null;
+  const features = [];
+  for (const entity of entities) {
+    let geometry = entity?.boundary_geojson ?? entity?.geometry ?? null;
+    if (typeof geometry === "string") {
+      try { geometry = JSON.parse(geometry); } catch { geometry = null; }
+    }
+    if (geometry?.type === "Feature") geometry = geometry.geometry;
+    if (!["Polygon", "MultiPolygon"].includes(geometry?.type)) continue;
+    const variants = entity.name_variants ?? {};
+    const frenchName = variants.fr ?? variants.french ?? entity.name_fr ?? entity.name_original ?? entity.name ?? entity.title;
+    if (typeof frenchName !== "string" || !frenchName.trim()) continue;
+    features.push({
+      type: "Feature",
+      properties: {
+        NAME: frenchName.trim(),
+        ADMIN: frenchName.trim(),
+        NAME_EN: entity.name_english ?? entity.name_en ?? entity.name ?? "",
+        SUBJECTO: entity.subjecto ?? entity.sovereign_power ?? entity.overlord ?? "",
+        historicalStatus: entity.status === "disputed" ? "contested" : entity.status === "uncertain" ? "contested" : "sovereign",
+        atlasPiId: entity.id ?? null,
+        confidenceScore: entity.confidence_score ?? null,
+        boundarySource: entity.boundary_source ?? "AtlasPI"
+      },
+      geometry
+    });
+  }
+  if (!features.length) return null;
+  const territories = selectHistoricalPoliticalTerritories({ type: "FeatureCollection", features });
+  return {
+    collection: historicalPolygonsToBoundaries(territories),
+    territories,
+    sourceYear: 1812,
+    exact: true,
+    source: "AtlasPI · géométries historiques (Apache-2.0)"
+  };
+}
+
 export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) {
   const numericYear = Number(year);
   if (!Number.isFinite(numericYear)) throw new TypeError("Année de frontière invalide.");
@@ -130,6 +176,14 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
     if (!modernPoliticalPromise) modernPoliticalPromise = readCollection(MODERN_POLITICAL_URL, "Frontières politiques actuelles", fetcher);
     if (!modernTerritoriesPromise) modernTerritoriesPromise = readCollection(MODERN_TERRITORIES_URL, "Pays modernes", fetcher);
     return { collection: await modernPoliticalPromise, territories: await modernTerritoriesPromise, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m" };
+  }
+  if (numericYear === 1812) {
+    try {
+      const atlasSnapshot = await loadAtlasPiSnapshot(numericYear, fetcher);
+      if (atlasSnapshot) return atlasSnapshot;
+    } catch (error) {
+      console.warn("Cliché AtlasPI 1812 indisponible, repli sur Historical Basemaps :", error);
+    }
   }
   const index = await getHistoricalIndex(fetcher);
   const snapshot = selectHistoricalSnapshot(numericYear, index.years);

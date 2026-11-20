@@ -492,10 +492,108 @@ function territoryName(properties = {}) {
   return "";
 }
 
+const FRENCH_HISTORICAL_NAMES = {
+  "aquitaine": "Aquitaine",
+  "duchy of aquitaine": "Duché d’Aquitaine",
+  "guyenne": "Guyenne",
+  "gascony": "Gascogne",
+  "new france": "Nouvelle-France",
+  "new spain": "Nouvelle-Espagne",
+  "new granada": "Nouvelle-Grenade",
+  "new netherlands": "Nouvelle-Néerlande",
+  "new sweden": "Nouvelle-Suède",
+  "british raj": "Inde britannique",
+  "east india company": "Compagnie britannique des Indes orientales",
+  "french empire": "Empire français",
+  "first french empire": "Premier Empire français",
+  "french republic": "République française",
+  "british empire": "Empire britannique",
+  "kingdom of england": "Royaume d’Angleterre",
+  "kingdom of france": "Royaume de France",
+  "kingdom of castile": "Royaume de Castille",
+  "crown of castile": "Couronne de Castille",
+  "crown of aragon": "Couronne d’Aragon",
+  "spanish empire": "Empire espagnol",
+  "portuguese empire": "Empire portugais",
+  "holy roman empire": "Saint-Empire romain germanique",
+  "ottoman empire": "Empire ottoman",
+  "united provinces": "Provinces-Unies",
+  "papal states": "États pontificaux",
+  "mughal empire": "Empire moghol",
+  "qing dynasty": "Dynastie Qing",
+  "ming dynasty": "Dynastie Ming",
+  "japanese empire": "Empire du Japon",
+  "russian empire": "Empire russe",
+  "austrian empire": "Empire d’Autriche",
+  "prussia": "Prusse",
+  "kingdom of prussia": "Royaume de Prusse",
+  "sweden": "Suède",
+  "denmark": "Danemark",
+  "norway": "Norvège",
+  "scotland": "Écosse",
+  "ireland": "Irlande",
+  "england": "Angleterre",
+  "france": "France",
+  "spain": "Espagne",
+  "portugal": "Portugal",
+  "netherlands": "Pays-Bas",
+  "germany": "Allemagne",
+  "italy": "Italie",
+  "switzerland": "Suisse",
+  "poland": "Pologne",
+  "lithuania": "Lituanie",
+  "russia": "Russie",
+  "ukraine": "Ukraine",
+  "morocco": "Maroc",
+  "algeria": "Algérie",
+  "tunisia": "Tunisie",
+  "egypt": "Égypte",
+  "ethiopia": "Éthiopie",
+  "persia": "Perse",
+  "iran": "Iran",
+  "iraq": "Irak",
+  "afghanistan": "Afghanistan",
+  "china": "Chine",
+  "india": "Inde",
+  "japan": "Japon",
+  "korea": "Corée",
+  "mexico": "Mexique",
+  "brazil": "Brésil",
+  "argentina": "Argentine",
+  "chile": "Chili",
+  "peru": "Pérou",
+  "canada": "Canada",
+  "united states": "États-Unis",
+  "united states of america": "États-Unis",
+  "australia": "Australie",
+  "new zealand": "Nouvelle-Zélande"
+};
+
+const frenchRegionNames = typeof Intl !== "undefined" && Intl.DisplayNames
+  ? new Intl.DisplayNames(["fr"], { type: "region" })
+  : null;
+
+export function frenchTerritoryName(value, properties = {}) {
+  const raw = String(value ?? territoryName(properties) ?? "").trim();
+  if (!raw) return "";
+  const key = raw.toLowerCase().replace(/\\s+/g, " ");
+  const owner = String(properties.SUBJECTO ?? properties.SOVEREIGNT ?? "").trim().toLowerCase();
+  if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
+  if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
+  if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
+  const iso2 = String(properties.ISO_A2 ?? properties.iso_a2 ?? "").toUpperCase();
+  if (frenchRegionNames && /^[A-Z]{2}$/.test(iso2) && iso2 !== "-99") {
+    const localized = frenchRegionNames.of(iso2);
+    if (localized && localized !== iso2) return localized;
+  }
+  return raw;
+}
+
 export function buildTerritoryLabels(territories, provinces = null) {
   const features = [];
   for (const feature of territories?.features ?? []) {
-    const name = territoryName(feature.properties);
+    const rawName = territoryName(feature.properties);
+    const name = frenchTerritoryName(rawName, feature.properties);
     const point = polygonInteriorLabelPoint(feature);
     if (!name || !point || !point.every(Number.isFinite)) continue;
     features.push({
@@ -505,7 +603,8 @@ export function buildTerritoryLabels(territories, provinces = null) {
     });
   }
   for (const feature of provinces?.features ?? []) {
-    const name = territoryName(feature.properties);
+    const rawName = territoryName(feature.properties);
+    const name = frenchTerritoryName(rawName, feature.properties);
     const point = polygonInteriorLabelPoint(feature);
     if (!name || !point || !point.every(Number.isFinite)) continue;
     features.push({
