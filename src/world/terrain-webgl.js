@@ -402,6 +402,19 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
   };
 }
 
+export function getTerrainPendingNextKey(pending) {
+ if(!(pending instanceof Map)||pending.size===0)return null;
+ let selectedKey=null,selected=null;
+ for(const [key,item] of pending) {
+  const priority=Number.isFinite(item?.priority)?item.priority:1;
+  const sequence=Number.isFinite(item?.sequence)?item.sequence:0;
+  if(!selected||priority<selected.priority||(priority===selected.priority&&sequence<selected.sequence)) {
+   selectedKey=key;selected={priority,sequence};
+  }
+ }
+ return selectedKey;
+}
+
 export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  if(!gl||typeof gl.texSubImage2D!=="function"||!Number.isInteger(store?.tileSize))return null;
  const cell=store.tileSize+2, max=gl.getParameter?.(gl.MAX_TEXTURE_SIZE)??0;
@@ -419,7 +432,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  const entries=new Map(),free=[];
  for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});
  let hits=0,misses=0,uploads=0,uploadedBytes=0,buildMs=0,uploadMs=0,evictions=0;
- const pending=new Map();let pumpScheduled=false,disposed=false,onReady=null;
+ const pending=new Map();let pumpScheduled=false,disposed=false,onReady=null,nextSequence=0;
  const now=()=>globalThis.performance?.now?.()??Date.now(),key=t=>`${t.level}/${t.x}/${t.y}@${store.revision??0}`;
  function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
  function evict(protectedKeys=new Set()){for(const [k,e] of entries){if(free.length)break;if(!protectedKeys.has(k))release(k,e);}}
@@ -438,11 +451,11 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
   const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
   entries.set(k,entry);return entry;
  }
- function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k)){const entry=get(item.tile,item.protectedKeys);if(entry)onReady?.(item.tile);}schedulePump();}
+ function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const k=getTerrainPendingNextKey(pending),item=pending.get(k);if(!item)return;pending.delete(k);if(!entries.has(k)){const entry=get(item.tile,item.protectedKeys);if(entry)onReady?.(item.tile);}schedulePump();}
  function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
  function setOnReady(callback){onReady=typeof callback==="function"?callback:null;}
  function retainPending(keys){const keep=keys instanceof Set?keys:new Set();let removed=0;for(const k of pending.keys())if(!keep.has(k)){pending.delete(k);removed++;}return removed;}
- function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
+ function enqueue(tile,protectedKeys=new Set(),priority=1){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}const rank=Number.isFinite(priority)?priority:1;const queued=pending.get(k);if(queued){if(rank<queued.priority){queued.priority=rank;queued.protectedKeys=new Set(protectedKeys);}return false;}pending.set(k,{tile,protectedKeys:new Set(protectedKeys),priority:rank,sequence:nextSequence++});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
  return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,maxBytes,get,peek,enqueue,retainPending,setOnReady,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
@@ -866,7 +879,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     for(const item of items){
       const entry=deferMissing?cache.peek(item.tile):cache.get(item.tile,protectedKeys);
       if(entry){entries.set(entry.key,entry);readyItems.push(item);}
-      else if(deferMissing)cache.enqueue(item.tile,protectedKeys);
+      else if(deferMissing)cache.enqueue(item.tile,protectedKeys,0);
     }
     const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache);
     if(!vertices.length)return;
@@ -886,7 +899,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     const combined=[...adjacent,...spatial].filter((item,index,all)=>all.findIndex(other=>other.tile.level===item.tile.level&&other.tile.x===item.tile.x&&other.tile.y===item.tile.y)===index).slice(0,12);
     cache.retainPending(new Set([...visible,...combined].map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
     for(const {tile} of combined) {
-      if(cache.enqueue(tile,protectedKeys)) renderer.lastPreloadedTiles++;
+      if(cache.enqueue(tile,protectedKeys,2)) renderer.lastPreloadedTiles++;
     }
     renderer.lastZoom=zoom;
   }
