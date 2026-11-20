@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -811,6 +811,15 @@ test("le LOD GPU choisit le niveau parent selon la densité d'échantillons à l
   assert.equal(selectTerrainTileLevel(store, { zoom: 1 }, 960), 4);
   assert.equal(selectTerrainTileLevel(store, { zoom: 8 }, 960), 1);
   assert.equal(selectTerrainTileLevel(store, { zoom: 32 }, 960), 0);
+});
+
+test("la transition LOD GPU est progressive et bornée", () => {
+  assert.equal(getTerrainTileTransitionOpacity(-1), 0);
+  assert.equal(getTerrainTileTransitionOpacity(0), 0);
+  assert.equal(getTerrainTileTransitionOpacity(0.25), 0.25);
+  assert.equal(getTerrainTileTransitionOpacity(1), 1);
+  assert.equal(getTerrainTileTransitionOpacity(2), 1);
+  assert.equal(getTerrainTileTransitionOpacity(Number.NaN), 1);
 });
 
 test("le préchargement GPU sélectionne des tuiles voisines sans dupliquer le viewport", () => {
