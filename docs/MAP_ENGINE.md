@@ -87,3 +87,11 @@ Le raster ETOPO est maintenant interprété avec des classes locales légères d
 - Une signature de rendu empêche de redessiner la carte lorsque seule l'horloge avance dans la même année et que la vue n'a pas changé.
 - Le canvas est préparé pour la composition graphique via `will-change: transform`. Le navigateur reste libre de décider du chemin matériel.
 - Limites : le zoom à la molette est une prévisualisation transformée, légèrement moins nette pendant le geste ; le rendu haute qualité revient à la fin. Les véritables niveaux de détail géographiques régionaux nécessitent des données à plus grande échelle, non encore embarquées.
+
+
+## Relief allégé et zoom étendu — 20 novembre 2026
+
+- Le raster de terrain est plafonné à **512 × 256 pixels** pour le rendu normal (contre 768 × 384 précédemment). Le rendu adaptatif conserve ses facteurs de qualité réduite pendant les interactions.
+- L'ombrage terrestre est moins contrasté (facteur limité à 0,84–1,16) et les teintes des classes de relief sont plus discrètes. Les formes principales — chaînes montagneuses, hauts plateaux et plaines — restent perceptibles sans micro-contraste excessif.
+- Le zoom interactif maximal passe de **8× à 24×**. Les projections équirectangulaire et Mercator acceptent maintenant la même plage.
+- Attention : 24× agrandit les données mondiales actuelles, mais ne crée pas de précision géographique absente du fond Natural Earth 1:110m. Les côtes et frontières peuvent donc paraître simplifiées au zoom élevé ; les véritables détails locaux dépendront des futures données régionales.
