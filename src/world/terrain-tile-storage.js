@@ -33,8 +33,9 @@ export async function createTerrainTilePersistence(options = {}) {
 
   async function loadAll(grid, tileSize) {
     const transaction = database.transaction(STORE_NAME, "readonly");
+    const done = transactionDone(transaction);
     const records = await requestResult(transaction.objectStore(STORE_NAME).getAll());
-    await transactionDone(transaction);
+    await done;
     return records
       .filter(record => record.schemaVersion === 1 && record.gridWidth === grid.width
         && record.gridHeight === grid.height && record.tileSize === tileSize
