@@ -622,14 +622,6 @@ void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;gl
 `;
 
 
-attribute vec2 a_position;
-attribute vec2 a_tileUv;
-varying vec2 v_tileUv;
-void main() {
-  v_tileUv = a_tileUv;
-  gl_Position = vec4(a_position, 0.0, 1.0);
-}`;
-
 const TILE_FRAGMENT_SHADER = `
 precision highp float;
 uniform sampler2D u_elevation;
