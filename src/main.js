@@ -1,7 +1,7 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
-import { renderWorldMap } from "./world/map-renderer.js";
+import { calculateViewportTransform, renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
@@ -25,6 +25,10 @@ let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 let pendingMapFrame = null;
+let pendingPreviewFrame = null;
+let previewCanvas = null;
+let previewBaseViewport = null;
+let previewIdleTimer = null;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 8;
 const $ = (id) => document.getElementById(id);
@@ -36,6 +40,7 @@ function updateMapControls() {
 }
 
 function zoomMap(factor, anchorX, anchorY) {
+  beginMapPreview();
   const canvas = $("world-map");
   const rect = canvas.getBoundingClientRect();
   const x = anchorX ?? rect.width / 2;
@@ -50,15 +55,18 @@ function zoomMap(factor, anchorX, anchorY) {
   mapViewport.zoom = newZoom;
   mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, latitudeAtAnchor + ratioY * 180 / newZoom));
-  scheduleMapRender();
+  scheduleMapPreview();
+  scheduleMapPreviewCommit();
   updateMapControls();
 }
 
 function resetMapView() {
+  beginMapPreview();
   mapViewport.zoom = 1;
   mapViewport.centerLongitude = 0;
   mapViewport.centerLatitude = 0;
-  scheduleMapRender();
+  scheduleMapPreview();
+  scheduleMapPreviewCommit();
   updateMapControls();
 }
 
@@ -88,7 +96,59 @@ function renderMap() {
 }
 
 
+function beginMapPreview() {
+  if (previewBaseViewport) return;
+  const canvas = $("world-map");
+  if (!canvas?.width || !canvas?.height) return;
+  previewCanvas = document.createElement("canvas");
+  previewCanvas.width = canvas.width;
+  previewCanvas.height = canvas.height;
+  const snapshotContext = previewCanvas.getContext("2d");
+  if (!snapshotContext) { previewCanvas = null; return; }
+  snapshotContext.drawImage(canvas, 0, 0);
+  previewBaseViewport = { ...mapViewport };
+}
+
+function drawMapPreview() {
+  if (!previewCanvas || !previewBaseViewport) return;
+  const canvas = $("world-map");
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const width = Math.max(1, canvas.clientWidth || 960);
+  const height = Math.max(1, canvas.clientHeight || Math.round(width * 0.5));
+  const ratio = canvas.width / width;
+  const transform = calculateViewportTransform(previewBaseViewport, mapViewport, width, height);
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.setTransform(transform.scale, 0, 0, transform.scale, transform.translateX * ratio, transform.translateY * ratio);
+  context.drawImage(previewCanvas, 0, 0);
+}
+
+function scheduleMapPreview() {
+  if (!previewBaseViewport || pendingPreviewFrame !== null) return;
+  pendingPreviewFrame = window.requestAnimationFrame(() => {
+    pendingPreviewFrame = null;
+    drawMapPreview();
+  });
+}
+
+function scheduleMapPreviewCommit() {
+  if (previewIdleTimer !== null) window.clearTimeout(previewIdleTimer);
+  previewIdleTimer = window.setTimeout(finishMapPreview, 120);
+}
+
+function finishMapPreview() {
+  if (previewIdleTimer !== null) window.clearTimeout(previewIdleTimer);
+  previewIdleTimer = null;
+  if (pendingPreviewFrame !== null) window.cancelAnimationFrame(pendingPreviewFrame);
+  pendingPreviewFrame = null;
+  previewCanvas = null;
+  previewBaseViewport = null;
+  scheduleMapRender();
+}
+
 function scheduleMapRender() {
+  if (previewBaseViewport) return;
   if (pendingMapFrame !== null) return;
   pendingMapFrame = window.requestAnimationFrame(() => {
     pendingMapFrame = null;
@@ -222,6 +282,9 @@ $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
+  if (previewIdleTimer !== null) window.clearTimeout(previewIdleTimer);
+  previewIdleTimer = null;
+  beginMapPreview();
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
@@ -234,7 +297,8 @@ mapCanvas.addEventListener("pointermove", (event) => {
     const hit = [...mapLabelHits].reverse().find(label =>
       x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
     );
-    mapCanvas.style.cursor = hit ? "pointer" : "grab";
+    mapCanvas.style.cursor = previewBaseViewport ? "grabbing" : hit ? "pointer" : "grab";
+    if (previewBaseViewport) { hideMapTooltip(); return; }
     if (hit) showMapTooltip(hit, x, y, false);
     else hideMapTooltip();
     return;
@@ -245,7 +309,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
-  scheduleMapRender();
+  scheduleMapPreview();
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
@@ -267,9 +331,13 @@ function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
 function stopMapDrag() {
-  if (mapDrag) lastDragMoved = mapDrag.moved;
-  mapDrag = null;
-  mapCanvas.classList.remove("is-dragging");
+  if (mapDrag) {
+    lastDragMoved = mapDrag.moved;
+    mapDrag = null;
+    mapCanvas.classList.remove("is-dragging");
+    if (lastDragMoved) finishMapPreview();
+    else { previewCanvas = null; previewBaseViewport = null; }
+  }
 }
 mapCanvas.addEventListener("click", (event) => {
   if (lastDragMoved) { lastDragMoved = false; return; }
