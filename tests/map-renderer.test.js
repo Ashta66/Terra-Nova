@@ -1445,3 +1445,46 @@ test("les frontières administratives non compatibles WebGL conservent le fallba
   });
   assert.ok(calls.some(call => call[0] === "stroke"));
 });
+
+
+test("les frontières administratives respectent leur seuil MIN_ZOOM", () => {
+  const { canvas } = createCanvas();
+  const visibleAtThree = {
+    type: "Feature",
+    properties: { MIN_ZOOM: 2 },
+    geometry: { type: "LineString", coordinates: [[1, 1], [4, 4]] }
+  };
+  const hiddenUntilFourPointSeven = {
+    type: "Feature",
+    properties: { MIN_ZOOM: 4.7 },
+    geometry: { type: "LineString", coordinates: [[5, 5], [8, 8]] }
+  };
+  const administrativeBoundaries = {
+    type: "FeatureCollection",
+    features: [visibleAtThree, hiddenUntilFourPointSeven]
+  };
+  let submittedLineFeatures = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers(layers) {
+      submittedLineFeatures = layers.find(layer => layer.key === "administrative-boundary-lines")?.features ?? [];
+      return {
+        drawnFeatures: 1, skippedFeatures: 0, drawCalls: 1, triangles: 0,
+        cacheHit: false, bufferUploads: 1, uploadedBytes: 16,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundary-lines": { drawnFeatures: 1 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => true,
+    supportsLine: () => true
+  };
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 },
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  assert.deepEqual(submittedLineFeatures, [visibleAtThree]);
+});
