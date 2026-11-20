@@ -300,7 +300,9 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
 function riverFeatureRank(feature) {
   const raw = feature?.properties?.scalerank ?? feature?.properties?.SCALERANK ?? feature?.properties?.min_zoom ?? feature?.properties?.MIN_ZOOM;
   const rank = Number(raw);
-  return Number.isFinite(rank) ? rank : Infinity;
+  // Les collections synthétiques ou anciennes sans scalerank restent classées
+  // comme cours d'eau secondaires, jamais comme affluents éliminés par défaut.
+  return Number.isFinite(rank) ? rank : 1;
 }
 function lineVertexCount(feature) {
   const geometry = feature?.geometry;
@@ -404,12 +406,13 @@ function drawLandHachures(context, collection, width, height, projection, color)
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     context.save();
-    const cachedPath = getProjectedPath(feature, width, height, projection);
+    const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       context.clip(cachedPath, "evenodd");
     } else {
       context.beginPath();
-      if (traceGeometry(context, feature.geometry, width, height, projection)) context.clip("evenodd");
+      if (traceGeometry(context, feature.geometry, width, height, projection, coastProfile)) context.clip("evenodd");
     }
     if (cachedPath || typeof Path2D === "undefined") {
       for (let offset = -height; offset < width; offset += 13 * renderScale) {
