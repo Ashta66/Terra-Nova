@@ -61,7 +61,7 @@ button,select,textarea{font:inherit}
 .map-tool:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .map-reset{font-size:10px;letter-spacing:.04em}
 .map-zoom-level{min-width:42px;text-align:center;color:#a8b7b5;font-size:10px;font-variant-numeric:tabular-nums}
-.map-frame canvas{cursor:grab;touch-action:none}
+.map-frame canvas{cursor:grab;touch-action:none;will-change:transform}
 .map-frame canvas.is-dragging{cursor:grabbing}
 @media(max-width:760px){.map-tools{gap:4px}.map-tool{min-width:29px;height:28px;padding:0 7px}.map-reset{font-size:9px}}
 
