@@ -23,8 +23,21 @@ export function createTerrainTileStore(grid, options = {}) {
   let onTileChange = typeof options.onTileChange === "function" ? options.onTileChange : null;
   let storeRevision = 0;
 
-  function tileId(x, y) {
-    return `0/${x}/${y}`;
+  function tileId(x, y, level = 0) {
+    return `${level}/${x}/${y}`;
+  }
+  function dimensionsAtLevel(level) {
+    const stride = 2 ** level;
+    return { stride, width: Math.ceil(grid.width / stride), height: Math.ceil(grid.height / stride) };
+  }
+  function sourceValue(x, y) {
+    const tx = Math.floor(x / tileSize), ty = Math.floor(y / tileSize);
+    const saved = modifiedTiles.get(tileId(tx, ty, 0));
+    if (saved) {
+      const width = Math.min(tileSize, grid.width - tx * tileSize);
+      return saved.values[(y - ty * tileSize) * width + x - tx * tileSize];
+    }
+    return grid.values[y * grid.width + x];
   }
 
   function touch(tile) {
@@ -45,32 +58,33 @@ export function createTerrainTileStore(grid, options = {}) {
     }
   }
 
-  function getTile(x, y, protectedIds = null) {
-    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= columns || y < 0 || y >= rows) return null;
-    const id = tileId(x, y);
-    const cached = cache.get(id);
+  function getTileAtLevel(level, x, y, protectedIds = null) {
+    if (!Number.isInteger(level) || level < 0 || level > 4) return null;
+    const dimensions = dimensionsAtLevel(level);
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0
+      || x >= Math.ceil(dimensions.width / tileSize) || y >= Math.ceil(dimensions.height / tileSize)) return null;
+    const id = tileId(x, y, level), cached = cache.get(id);
     if (cached) return touch(cached);
-
-    const originX = x * tileSize;
-    const originY = y * tileSize;
-    const width = Math.min(tileSize, grid.width - originX);
-    const height = Math.min(tileSize, grid.height - originY);
+    const originX = x * tileSize, originY = y * tileSize;
+    const width = Math.min(tileSize, dimensions.width - originX);
+    const height = Math.min(tileSize, dimensions.height - originY);
     const values = new Int16Array(width * height);
-    for (let row = 0; row < height; row++) {
-      const sourceStart = (originY + row) * grid.width + originX;
-      values.set(grid.values.subarray(sourceStart, sourceStart + width), row * width);
+    for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+      const sx = Math.min(grid.width - 1, (originX + column) * dimensions.stride);
+      const sy = Math.min(grid.height - 1, (originY + row) * dimensions.stride);
+      values[row * width + column] = sourceValue(sx, sy);
     }
-    const saved = modifiedTiles.get(id);
+    const saved = level === 0 ? modifiedTiles.get(id) : null;
     if (saved && saved.values.length === values.length) values.set(saved.values);
-    const tile = {
-      id, level: 0, x, y, originX, originY, width, height, values,
-      revision: saved?.revision ?? 0, dirty: false, lastUsed: 0
-    };
+    const tile = { id, level, x, y, originX, originY, width, height, values,
+      revision: saved?.revision ?? 0, dirty: false, lastUsed: 0, sourceStride: dimensions.stride };
     touch(tile);
     evictOverflow(id, protectedIds);
     return tile;
   }
-
+  function getTile(x, y, protectedIds = null) {
+    return getTileAtLevel(0, x, y, protectedIds);
+  }
   function locate(longitude, latitude) {
     if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
     const normalized = normalizeLongitude(longitude);
@@ -113,10 +127,8 @@ export function createTerrainTileStore(grid, options = {}) {
     const fx = coarseX - rawX;
     const fy = coarseY - rawY;
     const at = (column, row) => {
-      const sourceX = Math.min(grid.width - 1, column * stride);
-      const sourceY = Math.min(grid.height - 1, row * stride);
-      const tile = getTile(Math.floor(sourceX / tileSize), Math.floor(sourceY / tileSize));
-      return tile.values[(sourceY - tile.originY) * tile.width + sourceX - tile.originX];
+      const tile = getTileAtLevel(level, Math.floor(column / tileSize), Math.floor(row / tileSize));
+      return tile ? tile.values[(row - tile.originY) * tile.width + column - tile.originX] : 0;
     };
     const a = at(x0, y0) * (1 - fx) + at(x1, y0) * fx;
     const b = at(x0, y1) * (1 - fx) + at(x1, y1) * fx;
@@ -201,8 +213,12 @@ export function createTerrainTileStore(grid, options = {}) {
 
   async function preloadTileIds(ids = [], preloadOptions = {}) {
     const uniqueIds = [...new Set(ids)].filter(id => {
-      const match = /^0\/(\d+)\/(\d+)$/.exec(id);
-      return match && Number(match[1]) < columns && Number(match[2]) < rows;
+      const match = /^(\\d+)\\/(\\d+)\\/(\\d+)$/.exec(id);
+      if (!match) return false;
+      const level = Number(match[1]), x = Number(match[2]), y = Number(match[3]);
+      if (!Number.isInteger(level) || level < 0 || level > 4) return false;
+      const dimensions = dimensionsAtLevel(level);
+      return x < Math.ceil(dimensions.width / tileSize) && y < Math.ceil(dimensions.height / tileSize);
     });
     const protectedIds = new Set(preloadOptions.protectedIds ?? []);
     const batchSize = Math.max(1, Math.floor(preloadOptions.batchSize ?? 8));
@@ -214,8 +230,8 @@ export function createTerrainTileStore(grid, options = {}) {
       const batch = uniqueIds.slice(offset, offset + batchSize);
       for (const id of batch) {
         if (shouldCancel()) return { loaded, cancelled: true };
-        const [, x, y] = id.split("/").map(Number);
-        if (getTile(x, y, protectedIds)) loaded++;
+        const [level, x, y] = id.split("/").map(Number);
+        if (getTileAtLevel(level, x, y, protectedIds)) loaded++;
       }
       if (offset + batchSize < uniqueIds.length) {
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -304,8 +320,8 @@ export function createTerrainTileStore(grid, options = {}) {
     // explicitement conservées, puis laisse le LRU arbitrer les périphériques.
     if (current[0]) protectedIds.add(tileId(current[0].x, current[0].y));
     for (const id of requestedIds) {
-      const [, x, y] = id.split("/").map(Number);
-      getTile(x, y, protectedIds);
+      const [level, x, y] = id.split("/").map(Number);
+      getTileAtLevel(level, x, y, protectedIds);
     }
     if (!preloadOptions.retainExisting) evictUnused(requestedIds);
     const loaded = new Set(cache.keys());
@@ -315,9 +331,15 @@ export function createTerrainTileStore(grid, options = {}) {
   return {
     tileSize, columns, rows, width: grid.width, height: grid.height,
     getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport, preloadTileIds,
+    getTileAtLevel,
     get size() { return cache.size; },
     get revision() { return storeRevision; },
     get loadedIds() { return [...cache.keys()]; },
-    getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
+    getTileId(x, y, level = 0) {
+      if (!Number.isInteger(level) || level < 0 || level > 4) return null;
+      const dimensions = dimensionsAtLevel(level);
+      return x >= 0 && x < Math.ceil(dimensions.width / tileSize)
+        && y >= 0 && y < Math.ceil(dimensions.height / tileSize) ? tileId(x, y, level) : null;
+    }
   };
 }
