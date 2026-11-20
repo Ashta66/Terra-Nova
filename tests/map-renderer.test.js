@@ -1325,7 +1325,8 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(first.skippedFeatures, 1);
   assert.equal(first.drawCalls, 1);
   assert.equal(first.bufferUploads, 1);
-  assert.equal(first.layers.rivers.vertices, 2);
+  assert.equal(first.layers.rivers.vertices, 6);
+  assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.equal(renderer.supportsLine(ordinary), true);
   assert.equal(renderer.supportsLine(dateline), false);
   assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
@@ -1364,7 +1365,8 @@ test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () 
   const layers = [{ key: "coast-outline", type: "boundaries", features: [polygon], color: [0.4, 0.5, 0.6, 1] }];
   const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
   assert.equal(first.drawnFeatures, 1);
-  assert.equal(first.layers["coast-outline"].vertices, 8);
+  assert.equal(first.layers["coast-outline"].vertices, 24);
+  assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.equal(first.bufferUploads, 1);
   assert.equal(renderer.supportsBoundary(polygon), true);
   assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
