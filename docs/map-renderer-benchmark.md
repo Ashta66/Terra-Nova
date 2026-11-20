@@ -97,6 +97,7 @@ window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
       devicePixelRatio: window.devicePixelRatio,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
+      geographicRendererMode: canvas.dataset.geographicRendererMode ?? "unknown",
       durationMs,
       sampleCount: samples.length
     },
