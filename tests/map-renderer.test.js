@@ -150,8 +150,8 @@ test("le hillshade directionnel est neutre sur une surface plane et borné sur l
   assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
   const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
   const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
-  assert.ok(illuminatedSlope >= 0.72 && illuminatedSlope <= 1.22);
-  assert.ok(oppositeSlope >= 0.72 && oppositeSlope <= 1.22);
+  assert.ok(illuminatedSlope >= 0.84 && illuminatedSlope <= 1.16);
+  assert.ok(oppositeSlope >= 0.84 && oppositeSlope <= 1.16);
   assert.notEqual(illuminatedSlope, oppositeSlope);
 });
 
@@ -189,7 +189,7 @@ test("la qualité du raster peut être réduite pendant le glissement pour prés
   assert.deepEqual(dimensions, [384, 192]);
 });
 
-test("le rendu du terrain reste plafonné en qualité normale sur les grands écrans", () => {
+test("le rendu du terrain reste plafonné à 512 × 256 en qualité normale sur les grands écrans", () => {
   const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
   let dimensions = null;
   const context = {
@@ -200,5 +200,5 @@ test("le rendu du terrain reste plafonné en qualité normale sur les grands éc
     putImageData() {}
   };
   assert.equal(drawTerrainRaster(context, 1600, 900, grid), true);
-  assert.deepEqual(dimensions, [683, 384]);
+  assert.deepEqual(dimensions, [455, 256]);
 });
