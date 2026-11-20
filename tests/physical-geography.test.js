@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate} from "../src/world/physical-geography.js";
+import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid} from "../src/world/physical-geography.js";
 import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResponses} from "../src/world/society-engine.js";
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"}];
@@ -12,3 +12,9 @@ test("séisme : dégâts et déplacement tectonique",()=>{const n=applyPhysicalE
 test("rejeu déterministe de l'état physique à une date passée",()=>{let w=createPhysicalWorld(cells);w=applyPhysicalEvent(w,{id:"uplift",type:"tectonic-uplift",date:"1500-01-01",longitude:0,latitude:0,radiusKm:100,upliftM:50}).world;w=applyPhysicalEvent(w,{id:"impact",type:"meteor-impact",date:"1700-01-01",longitude:0,latitude:0,radiusKm:100,craterDepthM:100}).world;const past=getPhysicalStateAtDate(w,"1600-01-01");assert.ok(past.currentCells[0].elevationDeltaM>0);assert.equal(past.events.length,1);});
 test("catastrophe : déplacements de population et réponses IA",()=>{const p=applyPhysicalEvent(createPhysicalWorld(cells),{id:"flood",type:"sea-level-rise",date:"1700-01-01",seaLevelM:5}),s=createSocietyState([{regionId:"delta",countryId:"fr",population:100000,infrastructure:.9,recoveryCapacity:.6}]),h=applyPhysicalConsequences(s,p.result);assert.ok(h.society.regions[0].displacedPopulation>0);const actions=planAiResponses(h.society,{year:1700});assert.ok(actions.some(a=>["resettle","evacuate"].includes(a.type)));assert.ok(applyAiResponses(h.society,actions).actions.length>0);});
 test("pipeline : monde physique, conséquences et IA",()=>{const r=advanceWorldSimulation({physicalWorld:createPhysicalWorld(cells),society:createSocietyState([{regionId:"delta",population:50000,infrastructure:.7,recoveryCapacity:.8}]),event:{id:"chain",type:"tsunami",date:"1800-01-01",longitude:0,latitude:0,radiusKm:180,waveHeightM:20,maxCoastalDistanceKm:100},year:1800});assert.ok(r.report.affectedCells>0);assert.ok(r.report.humanConsequences.length>0);assert.ok(r.report.aiActions.length>0);});
+
+test("la grille physique peut être initialisée depuis un raster ETOPO",()=>{
+ const grid={width:4,height:2,values:new Int16Array([100,80,-20,-50,110,90,-10,-40])};
+ const cells=buildPhysicalCellsFromTerrainGrid(grid,{step:1,maxCoastSearchCells:2});
+ assert.equal(cells.length,8);assert.equal(cells[0].elevationM,100);assert.ok(cells[0].coastalDistanceKm>0);assert.equal(cells[2].coastalDistanceKm,0);assert.ok(cells[0].regionId.startsWith("geo-"));
+});

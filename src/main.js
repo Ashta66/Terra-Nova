@@ -5,6 +5,7 @@ import { renderWorldMap, buildTerritoryLabels } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
+import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
@@ -264,7 +265,14 @@ async function loadWorldMap() {
       await Promise.all(responses.map(response => response.json()));
     try {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
-      if (terrainResponse.ok) terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+      if (terrainResponse.ok) {
+        terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        if (!state.physicalWorld?.currentCells?.length) {
+          const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
+          state.physicalWorld = createPhysicalWorld(physicalCells);
+          console.info("Grille géophysique initialisée depuis ETOPO :", physicalCells.length, "cellules de 2° environ.");
+        }
+      }
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
     }

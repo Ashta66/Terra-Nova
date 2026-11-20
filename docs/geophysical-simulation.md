@@ -21,7 +21,7 @@ Les calculs sont déterministes, datés et rejouables. La grille est une couche 
 advanceWorldSimulation applique successivement l'événement physique, les conséquences humaines, la planification IA, puis les premières mesures de reconstruction, aide, évacuation ou réinstallation. Les réponses IA sont pour l'instant des règles déterministes et transparentes, pas un modèle génératif. Les transferts de souveraineté restent des événements politiques explicites et sourcés.
 
 ## Données requises pour l'échelle mondiale
-La première grille devra être dérivée d'ETOPO et des côtes, puis enrichie avec altitude/bathymétrie, distance à la côte, identifiants géographiques stables, population, infrastructures et provenance des données. La résolution sera adaptative : grossière à l'échelle mondiale, plus fine autour des événements et zones habitées.
+La première grille est maintenant initialisée depuis ETOPO à environ 2° par cellule (pas de 12 pixels sur le raster 10 minutes), avec altitude, distance côtière approchée et identifiant de tuile géographique stable. Elle devra être affinée localement et enrichie avec population, infrastructures et provenance des données. La résolution sera adaptative : grossière à l'échelle mondiale, plus fine autour des événements et zones habitées.
 
 ## Supabase
 Aucune dépendance Supabase n'est nécessaire pour les calculs. À terme, utiliser Supabase pour comptes, sauvegardes, synchronisation et partage de scénarios ; conserver les calculs dans le moteur local.
