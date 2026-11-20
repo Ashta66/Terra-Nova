@@ -126,3 +126,25 @@ button,select,textarea{font:inherit}
 .era-pulse{width:6px;height:6px;border-radius:50%;background:#d5b56e;box-shadow:0 0 8px #d5b56e99}
 .era-live{margin-left:auto;color:#71888a;font:700 7px Arial,sans-serif;letter-spacing:.12em}
 @media(max-width:1050px){.era-milestones button small{font-size:5.5px}}
+
+/* Préparation de campagne : date, nation et type de partie avant le lancement */
+.campaign-setup{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 35%,#263e45e8,#0b141beF 68%),linear-gradient(135deg,#101820,#172832)}
+.campaign-setup[hidden]{display:none}
+.setup-card{width:min(760px,100%);padding:clamp(24px,5vw,52px);border:1px solid #c8aa704d;background:linear-gradient(145deg,#1c3038f5,#101b22f7);box-shadow:0 28px 100px #0009,inset 0 1px #fff1;position:relative}
+.setup-card:before{content:"";position:absolute;top:0;left:12%;right:12%;height:2px;background:linear-gradient(90deg,transparent,#d9b878,transparent)}
+.setup-card h1{margin:12px 0;font:500 clamp(34px,5vw,58px) Georgia,serif;color:#f1dfb9;letter-spacing:-.035em}
+.setup-lead{max-width:560px;color:#a9b9b5;font-size:14px;line-height:1.65}
+.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:30px 0 18px}
+.setup-grid label{display:flex;flex-direction:column;gap:8px;color:#c8b98f;font-size:9px;font-weight:700;letter-spacing:.13em}
+.setup-grid select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #52676b;background:#102129;color:#e9e0cb;font-size:12px;letter-spacing:0}
+.setup-country{grid-column:1/-1}
+.setup-note{padding:12px 14px;border-left:2px solid #c8aa70;background:#d9b8780d;color:#91a4a1;font-size:11px;line-height:1.5}
+.setup-note span{color:#e2c17c;margin-right:6px}
+.setup-start{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:22px;padding:14px 18px;font-size:12px;letter-spacing:.04em}
+.setup-start span{font-size:18px}
+.sandbox-only{display:none}
+body.sandbox-mode .sandbox-only{display:block}
+body.campaign-started .campaign-setup{display:none}
+body.campaign-started .game-layout{visibility:visible}
+body:not(.campaign-started) .game-layout{visibility:hidden}
+@media(max-width:640px){.setup-grid{grid-template-columns:1fr}.setup-country{grid-column:auto}.setup-card{padding:24px}}

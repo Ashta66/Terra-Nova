@@ -15,6 +15,36 @@
     <div class="topbar-actions"><span class="build-label">PROTO · LOT 1</span><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div>
   </header>
 
+  <section id="campaign-setup" class="campaign-setup" aria-labelledby="setup-title">
+    <div class="setup-card">
+      <p class="eyebrow">TERRA NOVA · NOUVELLE CAMPAGNE</p>
+      <h1 id="setup-title">Écrivez votre histoire.</h1>
+      <p class="setup-lead">Choisissez votre époque, votre nation et la manière dont le monde évoluera.</p>
+      <div class="setup-grid">
+        <label>DATE DE DÉPART
+          <select id="start-year">
+            <option value="1444" selected>1444 · L'âge des royaumes</option>
+            <option value="1492">1492 · L'ère des explorations</option>
+            <option value="1648">1648 · L'équilibre des puissances</option>
+            <option value="1789">1789 · L'âge des révolutions</option>
+            <option value="1914">1914 · Le monde moderne</option>
+            <option value="2026">2026 · Le monde actuel</option>
+          </select>
+        </label>
+        <label>MODE DE PARTIE
+          <select id="campaign-mode">
+            <option value="grand-strategy" selected>Grande stratégie · Une nation, une destinée</option>
+            <option value="sandbox">Sandbox · Temps et nations libres</option>
+          </select>
+        </label>
+        <label class="setup-country">NATION À DIRIGER
+          <select id="player-country"><option value="">Chargement des nations historiques…</option></select>
+        </label>
+      </div>
+      <div class="setup-note"><span>✦</span> En sandbox, vous pourrez changer librement de date et de nation pendant la partie.</div>
+      <button id="begin-campaign" class="button button-primary setup-start" type="button">Entrer dans l'Histoire <span>→</span></button>
+    </div>
+  </section>
   <main class="game-layout">
     <aside class="side-panel time-sidebar" aria-labelledby="clock-title">
       <div class="side-heading"><p class="eyebrow">CHRONOLOGIE MONDIALE</p><h1 id="clock-title">Le temps</h1></div>
@@ -22,7 +52,7 @@
         <div class="run-indicator"><span class="status-dot"></span><span id="run-state">EN PAUSE</span><span class="run-live-label">HORLOGE MONDIALE</span></div>
         <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
         <div class="clock-subline"><span>ANNÉE SIMULÉE</span><strong id="clock-year">1444</strong></div>
-        <div class="timeline-control">
+        <div class="timeline-control sandbox-only">
           <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2100</span></div>
           <input id="year-scrubber" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Choisir l'année de simulation">
           <div class="timeline-ends"><span>1444</span><span>Ère future · 2100</span></div>

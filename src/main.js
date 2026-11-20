@@ -164,6 +164,7 @@ function renderMapFrame() {
     ]).then(([political, administrative, administrativeRegions]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
       territoryFeatures = political?.territories ?? null;
+      populateCampaignCountries();
       administrativeBoundaryFeatures = administrative;
       territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
       boundarySourceLabel = political?.sourceYear
@@ -278,9 +279,50 @@ async function loadWorldMap() {
   }
 }
 
+
+function populateCampaignCountries() {
+  const select = $("player-country");
+  if (!select || !territoryFeatures?.features) return;
+  const names = territoryFeatures.features.map(feature => {
+    const p = feature.properties ?? {};
+    return p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
+  }).filter(name => typeof name === "string" && name.trim());
+  const unique = [...new Set(names)].sort((a,b) => a.localeCompare(b, "fr"));
+  select.innerHTML = '<option value="">Choisir une nation…</option>' + unique.map(name => {
+    const safe = name.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    return '<option value="' + safe + '">' + safe + '</option>';
+  }).join("");
+  const preferred = unique.find(name => /france/i.test(name));
+  if (preferred) select.value = preferred;
+}
+$("begin-campaign").addEventListener("click", () => {
+  const year = Number($("start-year").value);
+  const mode = $("campaign-mode").value;
+  const country = $("player-country").value;
+  if (!country) {
+    $("player-country").focus();
+    $("player-country").setCustomValidity("Choisissez une nation à diriger.");
+    $("player-country").reportValidity();
+    return;
+  }
+  $("player-country").setCustomValidity("");
+  const month = Number(state.clock.date.slice(5,7));
+  const day = Number(state.clock.date.slice(8,10));
+  const safeDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
+  state.clock.date = new Date(Date.UTC(year, month - 1, safeDay)).toISOString().slice(0,10);
+  state.clock.day = 1;
+  state.clock.paused = true;
+  document.body.classList.add("campaign-started");
+  document.body.classList.toggle("sandbox-mode", mode === "sandbox");
+  $("map-title").textContent = country + " · " + year;
+  $("save-status").textContent = "Campagne : " + country + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
+  schedule();
+  render();
+});
+
 function render() {
   $("current-date").textContent = formatDate(state.clock.date);
-  $("map-title").textContent = "Le monde en " + state.clock.date.slice(0, 4);
+  if (document.body.classList.contains("campaign-started")) $("map-title").textContent = "Le monde en " + state.clock.date.slice(0, 4);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
@@ -337,7 +379,7 @@ document.querySelectorAll("[data-year]").forEach(button => button.addEventListen
   const year = Number(button.dataset.year);
   if (Number.isFinite(year)) moveClockToYear(Math.max(1444, Math.min(2100, year)));
 }));
-$("year-scrubber").addEventListener("change", event => {
+$("year-scrubber").addEventListener("input", event => {
   const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
   moveClockToYear(year);
 });

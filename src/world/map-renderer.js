@@ -556,16 +556,37 @@ function drawTerritoryLayer(context, collection, width, height, projection) {
     if (!feature?.geometry) continue;
     const path = getProjectedPath(feature, width, height, projection, profile);
     if (path) {
-      context.fillStyle = territoryColor(feature);
-      context.globalAlpha = 0.88;
+      const nationalColor = territoryColor(feature);
+      context.fillStyle = nationalColor;
+      context.globalAlpha = 0.58;
       context.fill(path, "evenodd");
+      // Saturated national edge, then a dark separator: adjacent similar hues remain distinguishable.
+      context.globalAlpha = 0.98;
+      context.strokeStyle = nationalColor;
+      context.lineWidth = Math.max(1.35, Math.min(3.2, 2.1 * Math.sqrt(projection.viewport?.zoom ?? 1)));
+      context.lineJoin = "round";
+      context.stroke(path);
+      context.globalAlpha = 0.82;
+      context.strokeStyle = "#101820";
+      context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
+      context.stroke(path);
       drawn++;
     } else {
       context.beginPath();
       if (!traceGeometry(context, feature.geometry, width, height, projection, profile)) continue;
-      context.fillStyle = territoryColor(feature);
-      context.globalAlpha = 0.76;
+      const nationalColor = territoryColor(feature);
+      context.fillStyle = nationalColor;
+      context.globalAlpha = 0.58;
       context.fill("evenodd");
+      context.globalAlpha = 0.98;
+      context.strokeStyle = nationalColor;
+      context.lineWidth = Math.max(1.35, Math.min(3.2, 2.1 * Math.sqrt(projection.viewport?.zoom ?? 1)));
+      context.lineJoin = "round";
+      context.stroke();
+      context.globalAlpha = 0.82;
+      context.strokeStyle = "#101820";
+      context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
+      context.stroke();
       drawn++;
     }
   }
