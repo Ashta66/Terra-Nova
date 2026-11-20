@@ -6,7 +6,6 @@ uniform vec2 u_center;
 uniform float u_zoom;
 void main() {
   float longitude = a_coordinate.x;
-  longitude += 360.0 * floor((u_center.x - longitude) / 360.0 + 0.5);
   float x = (longitude - u_center.x) * u_zoom / 180.0;
   float y = (u_center.y - a_coordinate.y) * u_zoom / 90.0;
   gl_Position = vec4(x, y, 0.0, 1.0);
@@ -114,7 +113,8 @@ export function createGeographicWebGLRenderer(gl) {
         batch = makeBatch();
         batches.push(batch);
       }
-      if (!appendMesh(batch, mesh, 0)) {
+      const longitudeShift = 360 * Math.round((centerLongitude - mesh.positions[0]) / 360);
+      if (!appendMesh(batch, mesh, longitudeShift)) {
         skippedFeatures++;
         continue;
       }
