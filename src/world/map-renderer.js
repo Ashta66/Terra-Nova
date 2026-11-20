@@ -649,7 +649,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
  for(const event of world.events??[]){
   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);if(!center)continue;
-  const radiusFor=km=>{const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);if(!north&&!east)return 0;return Math.max(2,Math.min(600,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)));};
+  const radiusFor=km=>{const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);if(!north&&!east)return 0;return Math.max(2,Math.min(600,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));};
   const radius=radiusFor(Number(event.radiusKm)||100);
   if(terrainGrid&&projection.type==="equirectangular"&&radius>1){ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world);ctx.restore();}
   if(event.type==="meteor-impact"){
