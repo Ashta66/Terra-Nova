@@ -443,6 +443,13 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       context.restore();
       for (const layer of gpuLayers) {
         const layerStats = gpuStats.layers[layer.key] ?? { drawnFeatures: 0 };
+        if (layer.type === "lines") {
+          const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsLine(feature));
+          riverCount = layerStats.drawnFeatures + drawLineLayer(context, layer.collection, width, height,
+            projection, theme.colors.accent, 0.7, fallbackFeatures);
+          riverGpuRendered = true;
+          continue;
+        }
         const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
         const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
           layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
@@ -471,7 +478,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
   }
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
-  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
+  if (!riverGpuRendered) riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, elevationFeatures);
   if (dirtyRect && context.rect && context.clip) context.restore();
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount, geographicWebGLStats };
