@@ -553,13 +553,21 @@ export function getTerrainWebGLShaders() {
 
 
 const tileRenderers = new WeakMap();
+const TILE_VERTEX_SHADER = `
+attribute vec2 a_position;
+attribute vec2 a_tileUv;
+varying vec2 v_tileUv;
+void main() {
+  v_tileUv = a_tileUv;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
 const TILE_FRAGMENT_SHADER = `
 precision highp float;
 uniform sampler2D u_elevation;
 uniform vec2 u_tileSize;
-uniform vec4 u_uvBounds;
 uniform float u_opacity;
-varying vec2 v_uv;
+varying vec2 v_tileUv;
 float elevationAt(vec2 uv) {
   vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
   vec4 sampleValue = texture2D(u_elevation, p);
@@ -572,8 +580,8 @@ vec3 ramp(float value, float low, float high, vec3 a, vec3 b) {
   return mix(a,b,t);
 }
 void main() {
-  float localX=mix(u_uvBounds.x,u_uvBounds.y,v_uv.x);
-  float localY=mix(u_uvBounds.w,u_uvBounds.z,v_uv.y);
+  float localX=v_tileUv.x;
+  float localY=v_tileUv.y;
   vec2 uv=(vec2(1.0)+vec2(localX*u_tileSize.x,localY*u_tileSize.y))/(u_tileSize+vec2(2.0));
   vec2 stepUV=vec2(1.0)/(u_tileSize+vec2(2.0));
   float e=elevationAt(uv);
@@ -603,7 +611,7 @@ function createTileRenderer(tileStore) {
     if(context){canvas=candidate;gl=context;break;}
   }
   if(!gl) return null;
-  const vertex=compileShader(gl,gl.VERTEX_SHADER,VERTEX_SHADER);
+  const vertex=compileShader(gl,gl.VERTEX_SHADER,TILE_VERTEX_SHADER);
   const fragment=compileShader(gl,gl.FRAGMENT_SHADER,TILE_FRAGMENT_SHADER);
   if(!vertex||!fragment) return null;
   const program=gl.createProgram();
@@ -614,15 +622,41 @@ function createTileRenderer(tileStore) {
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   gl.useProgram(program);
   const position=gl.getAttribLocation(program,"a_position");
+  const tileUv=gl.getAttribLocation(program,"a_tileUv");
   gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+  gl.vertexAttribPointer(position,2,gl.FLOAT,false,16,0);
+  gl.enableVertexAttribArray(tileUv);
+  gl.vertexAttribPointer(tileUv,2,gl.FLOAT,false,16,8);
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
-  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
+  const renderer={canvas,gl,program,buffer,position,tileUv,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
+}
+
+export function buildTerrainTileBatchVertices(rects, width, height) {
+  if (!Array.isArray(rects) || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return new Float32Array();
+  const vertices = [];
+  const push = (x, y, u, v) => vertices.push(x / width * 2 - 1, 1 - y / height * 2, u, v);
+  for (const rect of rects) {
+    if (!rect || !Number.isFinite(rect.x) || !Number.isFinite(rect.y)
+      || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)
+      || rect.width <= 0 || rect.height <= 0) continue;
+    const left = Math.max(0, rect.x), top = Math.max(0, rect.y);
+    const right = Math.min(width, rect.x + rect.width), bottom = Math.min(height, rect.y + rect.height);
+    if (right <= left || bottom <= top) continue;
+    const tx0 = (left - rect.x) / rect.width, tx1 = (right - rect.x) / rect.width;
+    const ty0 = (top - rect.y) / rect.height, ty1 = (bottom - rect.y) / rect.height;
+    const u0 = rect.u0 + (rect.u1 - rect.u0) * tx0;
+    const u1 = rect.u0 + (rect.u1 - rect.u0) * tx1;
+    const v0 = rect.v0 + (rect.v1 - rect.v0) * ty0;
+    const v1 = rect.v0 + (rect.v1 - rect.v0) * ty1;
+    push(left,top,u0,v0); push(left,bottom,u0,v1); push(right,top,u1,v0);
+    push(right,top,u1,v0); push(left,bottom,u0,v1); push(right,bottom,u1,v1);
+  }
+  return new Float32Array(vertices);
 }
 
 export function getTerrainTileTransitionOpacity(progress) {
@@ -681,21 +715,19 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   const drawLevel=(items,opacity)=>{
     if(!items.length||opacity<=0) return;
     gl.uniform1f(opacityLocation,opacity);
+    gl.bindBuffer(gl.ARRAY_BUFFER,renderer.buffer);
+    gl.vertexAttribPointer(renderer.position,2,gl.FLOAT,false,16,0);
+    gl.vertexAttribPointer(renderer.tileUv,2,gl.FLOAT,false,16,8);
     for(const {tile,rects} of items) {
+      const vertices=buildTerrainTileBatchVertices(rects,width,height);
+      if(vertices.length===0) continue;
       const entry=cache.get(tile,tileStore,protectedKeys);
       if(!entry) continue;
       gl.bindTexture(gl.TEXTURE_2D,entry.texture);
       gl.uniform2f(sizeLocation,tile.width,tile.height);
-      for(const rect of rects) {
-        const x=Math.max(0,Math.floor(rect.x)), y=Math.max(0,Math.floor(rect.y));
-        const right=Math.min(width,Math.ceil(rect.x+rect.width));
-        const bottom=Math.min(height,Math.ceil(rect.y+rect.height));
-        if(right<=x||bottom<=y) continue;
-        gl.viewport(x,height-bottom,right-x,bottom-y);
-        gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
-        gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-        renderer.lastDrawCalls++;
-      }
+      gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);
+      gl.drawArrays(gl.TRIANGLES,0,vertices.length/4);
+      renderer.lastDrawCalls++;
     }
   };
   if(previousVisible.length) drawLevel(previousVisible,1);
