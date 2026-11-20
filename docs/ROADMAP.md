@@ -295,3 +295,4 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 - [x] Transférer le résultat sous forme d'ImageBitmap et coalescer les demandes concurrentes.
 - [x] Préserver un rendu synchrone de secours si OffscreenCanvas ou le Worker est indisponible.
 - [ ] Vérifier le rendu visuel sur Chrome, Firefox et Safari ; mesurer latence et fluidité sur machines modestes.
+\n\n### Densité des villes — 20 novembre 2026\nLes noms de villes sont plafonnés par niveau de zoom (10, 18, 24 puis 30 labels maximum). À nombre égal, les villes de rang cartographique prioritaire puis les plus peuplées sont affichées en premier. Les continents, pays, provinces et autres repères conservent leur priorité ; les villes non retenues restent dans les données et ne sont pas supprimées du monde ni des interactions.\n

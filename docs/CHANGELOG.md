@@ -290,3 +290,4 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Le Worker renvoie un ImageBitmap transférable ; les demandes sont coalescées pour ne garder que la plus récente si un rendu est déjà en cours.
 - Fallback automatique vers le rendu historique sur le thread principal si Worker/OffscreenCanvas ou le transfert des données n'est pas disponible.
 - Validation automatisée de syntaxe et de tests ; vérification visuelle multi-navigateurs et mesures réelles restent à effectuer.
+\n\n### Densité des villes — 20 novembre 2026\nLes noms de villes sont plafonnés par niveau de zoom (10, 18, 24 puis 30 labels maximum). À nombre égal, les villes de rang cartographique prioritaire puis les plus peuplées sont affichées en premier. Les continents, pays, provinces et autres repères conservent leur priorité ; les villes non retenues restent dans les données et ne sont pas supprimées du monde ni des interactions.\n
