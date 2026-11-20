@@ -2,6 +2,7 @@ const DEFAULT_CELL_SIZE = 10;
 const MAX_CELLS_PER_FEATURE = 120;
 const indexCache = new WeakMap();
 const MAX_QUERY_CACHE_ENTRIES = 48;
+const MAX_PREFETCH_RADIUS = 1;
 
 function getBounds(feature) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -132,7 +133,7 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   const zoom = Math.max(1, Number(viewport.zoom) || 1);
   const lonSpan = 360 / zoom;
   const latSpan = 180 / zoom;
-  const steps = Math.max(0, Math.min(1, Math.floor(Number(radius) || 0)));
+  const steps = Math.max(0, Math.min(MAX_PREFETCH_RADIUS, Math.floor(Number(radius) || 0)));
   let prepared = 0;
   for (let y = -steps; y <= steps; y++) {
     for (let x = -steps; x <= steps; x++) {

@@ -194,3 +194,15 @@ Les couches régionales ne partent plus toutes ensemble au même seuil :
 - à partir de 5× : les lacs et les cours d'eau détaillés.
 
 Chaque couche est activée dès sa propre arrivée. Les données mondiales restent le fond de secours tant que les ressources régionales ne sont pas disponibles. Les tentatives sont mémorisées pour ne pas relancer les mêmes téléchargements à chaque mouvement.
+
+
+## Budgets mémoire des caches — étape 4/5
+
+Les caches ont maintenant des plafonds documentés et vérifiables :
+- requêtes spatiales : 48 fenêtres LRU par collection ;
+- préchargement : un seul anneau de voisins (au plus 8 fenêtres par collection) ;
+- chemins projetés : 3 variantes récentes par entité géographique ;
+- surfaces ETOPO : 6 variantes par grille de terrain ;
+- index et chemins attachés aux collections/features via `WeakMap`, afin qu'ils puissent être récupérés par le ramasse-miettes lorsque les données ne sont plus référencées.
+
+Le préchargement ne s'exécute qu'après le rendu complet et est remplacé lorsqu'un nouveau cadrage est demandé. Aucun cache ne conserve une seconde copie du monde.
