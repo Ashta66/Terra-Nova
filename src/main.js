@@ -29,6 +29,7 @@ let lastTerrainRenderZoom = null;
 let terrainTransitionStartAt = null;
 let terrainTransitionZoom = null;
 let mapLabelHits = [];
+let administrativeBoundaryFeatures = null;
 // Les événements (catastrophes, impacts et changements du terrain) s'ajoutent
 // à cette famille sans invalider les couches physiques et politiques statiques.
 const dynamicMapLayers = [];
@@ -114,6 +115,10 @@ function renderMap() {
     rivers: riverFeatures,
     glaciers: glacierFeatures,
     elevationPoints,
+    administrativeBoundaries: administrativeBoundaryFeatures,
+    administrativeBoundaryColor: "rgba(44, 57, 66, 0.52)",
+    administrativeBoundaryWidth: 0.55,
+    administrativeBoundaryAlpha: 0.72,
     labels: mapLabels,
     terrain: terrainTileStore ?? terrainGrid,
     terrainTileStore,
@@ -467,12 +472,13 @@ async function loadWorldMap() {
       fetch("./data/ne_110m_rivers.geojson"),
       fetch("./data/ne_110m_glaciated_areas.geojson"),
       fetch("./data/ne_110m_elevation_points.geojson"),
-      fetch("./data/ne_110m_map_labels.geojson")
+      fetch("./data/ne_110m_map_labels.geojson"),
+      fetch("./data/ne_50m_admin_1_states_provinces_lines.geojson")
     ]);
     for (const response of responses) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
     }
-    [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
+    [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels, administrativeBoundaryFeatures] =
       await Promise.all(responses.map(response => response.json()));
     try {
       const terrainResponse = await fetch("./data/terrain/etopo_global_10m_i16.bin");
