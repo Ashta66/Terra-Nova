@@ -62,21 +62,24 @@ test("les marqueurs visuels des catastrophes expirent sans effacer les déformat
  const next=expirePhysicalSurfaceEffects(w,"1900-01-04");assert.equal(next.events[0].visualExpired,true);assert.ok(next.currentCells[0].elevationDeltaM>0);
 });
 
-\ntest("un cratère terrestre isolé ne se transforme pas en lac",()=>{
+
+test("un cratère terrestre isolé ne se transforme pas en lac",()=>{
  const inland=createPhysicalWorld([{id:"impact-land",longitude:0,latitude:0,elevationM:120,coastalDistanceKm:500},{id:"ocean-far",longitude:8,latitude:0,elevationM:-4000,coastalDistanceKm:0}]);
  const result=applyPhysicalEvent(inland,{id:"dry-crater",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:160,craterRadiusKm:90,craterDepthM:2200,lavaRadiusKm:18});
  assert.equal(result.result.event.waterContact,false);
  assert.ok(result.world.currentCells[0].currentElevationM>0);
  assert.equal(result.world.currentCells[0].permanentlySubmerged,undefined);
 });
-\ntest("un cratère proche de la mer peut devenir un lac permanent",()=>{
+
+test("un cratère proche de la mer peut devenir un lac permanent",()=>{
  const coastal=createPhysicalWorld([{id:"impact-land",longitude:0,latitude:0,elevationM:120,coastalDistanceKm:0},{id:"near-sea",longitude:.3,latitude:0,elevationM:-20,coastalDistanceKm:0}]);
  const result=applyPhysicalEvent(coastal,{id:"wet-crater",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:160,craterRadiusKm:90,craterDepthM:2200,lavaRadiusKm:18});
  assert.equal(result.result.event.waterContact,true);
  assert.equal(result.world.currentCells[0].permanentlySubmerged,true);
  assert.equal(result.world.currentCells[0].inundated,true);
 });
-\ntest("lave météoritique et submersion de tsunami durent un mois de simulation",()=>{
+
+test("lave météoritique et submersion de tsunami durent un mois de simulation",()=>{
  const base=createPhysicalWorld(cells);
  const impact=applyPhysicalEvent(base,{id:"one-month-lava",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,lavaRadiusKm:8,noManLandRadiusKm:55,surfaceDurationMonths:1}).world;
  assert.equal(impact.currentCells[0].surfaceExpiresAt,"1900-02-01");
@@ -85,7 +88,8 @@ test("les marqueurs visuels des catastrophes expirent sans effacer les déformat
  const recovered=expirePhysicalSurfaceEffects(wave,"1900-02-01");
  assert.equal(recovered.currentCells[0].tsunamiWaterDepthM,0);
 });
-\ntest("un séisme soulève un côté de faille et en abaisse l'autre",()=>{
+
+test("un séisme soulève un côté de faille et en abaisse l'autre",()=>{
  const base=createPhysicalWorld([{id:"north",longitude:0,latitude:1,elevationM:100,coastalDistanceKm:50},{id:"south",longitude:0,latitude:-1,elevationM:100,coastalDistanceKm:50}]);
  const result=applyPhysicalEvent(base,{id:"fault",type:"earthquake",date:"1900-01-01",longitude:0,latitude:0,radiusKm:300,magnitude:9,ruptureOffsetM:30,ruptureBearingDeg:0});
  assert.ok(result.world.currentCells[0].elevationDeltaM>0);
