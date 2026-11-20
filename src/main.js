@@ -157,7 +157,10 @@ function renderMapFrame() {
     boundaryLoadPromise = Promise.all([
       loadPoliticalBoundaries(year),
       loadAdministrativeBoundaries(year, mapViewport.zoom),
-      loadAdministrativeRegions(year)
+      loadAdministrativeRegions(year).catch(error => {
+        console.warn("Noms des provinces indisponibles :", error);
+        return null;
+      })
     ]).then(([political, administrative, administrativeRegions]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
       territoryFeatures = political?.territories ?? null;
@@ -277,6 +280,7 @@ async function loadWorldMap() {
 
 function render() {
   $("current-date").textContent = formatDate(state.clock.date);
+  $("map-title").textContent = "Le monde en " + state.clock.date.slice(0, 4);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
@@ -397,7 +401,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
-  const kindNames = { continent: "Continent", ocean: "Océan", city: "Ville historique" };
+  const kindNames = { continent: "Continent", ocean: "Océan", city: "Ville historique", country: "Pays / territoire", province: "Province ou région" };
   tooltip.replaceChildren();
   const title = document.createElement("strong");
   title.textContent = label.name;
