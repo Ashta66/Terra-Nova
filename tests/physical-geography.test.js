@@ -39,7 +39,7 @@ test("un impact affine temporairement la grille autour du point d'impact",()=>{
  assert.ok(refined.revision>base.revision);
  const impact=applyPhysicalEvent(refined,event);
  assert.ok(impact.result.affectedCells.length>0);
- assert.ok(impact.world.currentCells.some(cell=>cell.gridStep===2&&cell.surfaceState==="crater"));
+ assert.ok(impact.world.currentCells.some(cell=>cell.gridStep===2&&cell.noManLand));
 });
 
 test("impact : lave et no man's land temporaires, relief permanent",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"temporary-impact",type:"meteor-impact",date:"1500-01-31",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,lavaRadiusKm:8,noManLandRadiusKm:55,surfaceDurationMonths:3});const core=n.world.currentCells[0];assert.equal(core.surfaceState,"lava-flow");assert.equal(core.noManLand,true);assert.equal(core.surfaceExpiresAt,"1500-04-30");const expired=expirePhysicalSurfaceEffects(n.world,"1500-05-01");assert.equal(expired.currentCells[0].surfaceState,"natural");assert.equal(expired.currentCells[0].noManLand,false);assert.ok(expired.currentCells[0].elevationDeltaM<0);});
