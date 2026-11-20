@@ -875,7 +875,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
   const reliefMode = options.terrainMode === "relief";
-  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
+  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.45)));
   const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
   if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
     context.save();

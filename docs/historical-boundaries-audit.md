@@ -166,3 +166,8 @@ Le raster expose désormais les modes `color`, `tint` et `shade`. Les caches par
 ## Relief en deux passes sur un tracé terrestre partagé (étape 4)
 
 Le renderer construit un Path2D terrestre unique, puis applique une première passe `tint` avant les aplats politiques et une seconde passe `shade` en composition `hard-light` après les aplats. L’exagération (14 par défaut) et la force d’ombrage (0,85) sont transmises depuis `renderMapFrame`. Les deux passes sont désactivées si le relief est désactivé ou si la projection n’est pas équirectangulaire.
+
+
+## Transparence des aplats politiques (étape 5)
+
+L’opacité politique par défaut passe à 0,45 (45 %) afin de laisser davantage de contraste au relief sous-jacent. La valeur est appliquée par le même chemin de peinture, qu’il utilise un Path2D ou le tracé Canvas de repli.

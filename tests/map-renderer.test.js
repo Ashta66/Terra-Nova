@@ -818,3 +818,25 @@ test("le relief utilise une passe de teinte avant les pays et une passe d’ombr
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("l’opacité politique par défaut est réduite à 45 % pour révéler le terrain", () => {
+  let alpha = 1;
+  const territoryFillAlphas = [];
+  const context = {
+    setTransform() {}, setLineDash() {}, fillRect() {}, save() {}, restore() {}, beginPath() {},
+    moveTo() {}, lineTo() {}, closePath() {}, arc() {}, fillText() {}, strokeText() {},
+    measureText(text) { return { width: String(text).length * 6 }; },
+    fill(...args) { if (args[0] === "evenodd") territoryFillAlphas.push(alpha); },
+    clip() {}, stroke() {}, createImageData(width, height) { return { width, height, data: new Uint8ClampedArray(width * height * 4) }; },
+    putImageData() {}
+  };
+  Object.defineProperty(context, "globalAlpha", { get: () => alpha, set: value => { alpha = value; } });
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { NAME: "France" },
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+  }] };
+  const canvas = { clientWidth: 640, getContext: () => context };
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories });
+  assert.ok(territoryFillAlphas.some(value => Math.abs(value - 0.45) < 0.001), territoryFillAlphas.join(", "));
+});

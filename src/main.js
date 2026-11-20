@@ -252,7 +252,7 @@ function renderMapFrame() {
     terrainExaggeration: Number($("terrain-exaggeration")?.value ?? 14),
     reliefStrength: Number($("relief-strength")?.value ?? 85) / 100,
     terrainMode: $("terrain-mode")?.value ?? "political",
-    countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
+    countryOpacity: Number($("country-opacity")?.value ?? 45) / 100,
     pixelRatio: dpr(),
     interactive: false,
     physicalOverlayContext: null,
