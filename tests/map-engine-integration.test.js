@@ -33,7 +33,7 @@ test("le préchargement viewport conserve des identifiants uniques et valides", 
   const ids = store.preloadViewport({ zoom: 1, centerLongitude: 0, centerLatitude: 0 }, { padding: 0.2 });
   assert.ok(ids.length > 0);
   assert.equal(new Set(ids).size, ids.length);
-  assert.ok(ids.every(id => /^0\\/\\d+\\/\\d+$/.test(id)));
+  assert.ok(ids.every(id => /^0\/\d+\/\d+$/.test(id)));
 });
 
 test("le planificateur de zoom prépare les tuiles voisines sans doublons", () => {
