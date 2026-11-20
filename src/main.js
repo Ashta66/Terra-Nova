@@ -17,6 +17,9 @@ let mapLabels = null;
 let terrainGrid = null;
 let terrainTileStore = null;
 let terrainTilePersistence = null;
+let terrainPreloadWorker = null;
+let terrainPreloadRequestId = 0;
+let terrainVisibleTileIds = [];
 let mapLabelHits = [];
 // Les événements (catastrophes, impacts et changements du terrain) s'ajoutent
 // à cette famille sans invalider les couches physiques et politiques statiques.
@@ -74,13 +77,10 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
-  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, {
-    padding: 0.45,
-    zoomLevels: [
-      Math.max(MIN_MAP_ZOOM, mapViewport.zoom * 0.5),
-      Math.min(MAX_MAP_ZOOM, mapViewport.zoom * 2)
-    ]
-  });
+  if (terrainTileStore) {
+    terrainVisibleTileIds = terrainTileStore.preloadViewport(mapViewport, { padding: 0.45 });
+    scheduleTerrainZoomPreload();
+  }
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
@@ -103,6 +103,64 @@ function renderMap() {
   updateMapControls();
 }
 
+
+function scheduleTerrainZoomPreload() {
+  if (!terrainTileStore) return;
+  const requestId = ++terrainPreloadRequestId;
+  const input = {
+    width: terrainTileStore.width,
+    height: terrainTileStore.height,
+    tileSize: terrainTileStore.tileSize,
+    viewport: { ...mapViewport },
+    padding: 0.45,
+    zoomLevels: [
+      Math.max(MIN_MAP_ZOOM, mapViewport.zoom * 0.5),
+      Math.min(MAX_MAP_ZOOM, mapViewport.zoom * 2)
+    ]
+  };
+  const fallback = () => {
+    if (requestId !== terrainPreloadRequestId || !terrainTileStore) return;
+    const ids = terrainTileStore.preloadViewport(mapViewport, {
+      padding: 0.45, zoomLevels: input.zoomLevels, retainExisting: true
+    });
+    terrainTileStore.preloadTileIds(ids, {
+      protectedIds: terrainVisibleTileIds,
+      shouldCancel: () => requestId !== terrainPreloadRequestId
+    });
+  };
+
+  if (typeof Worker === "undefined") {
+    fallback();
+    return;
+  }
+  try {
+    if (!terrainPreloadWorker) {
+      terrainPreloadWorker = new Worker(
+        new URL("./world/terrain-preload-worker.js", import.meta.url),
+        { type: "module" }
+      );
+      terrainPreloadWorker.addEventListener("message", event => {
+        const { requestId: completedId, tileIds } = event.data ?? {};
+        if (completedId !== terrainPreloadRequestId || !terrainTileStore || !Array.isArray(tileIds)) return;
+        terrainTileStore.preloadTileIds(tileIds, {
+          batchSize: 8,
+          protectedIds: terrainVisibleTileIds,
+          shouldCancel: () => completedId !== terrainPreloadRequestId
+        });
+      });
+      terrainPreloadWorker.addEventListener("error", () => {
+        terrainPreloadWorker?.terminate();
+        terrainPreloadWorker = null;
+        fallback();
+      });
+    }
+    terrainPreloadWorker.postMessage({ requestId, input });
+  } catch {
+    terrainPreloadWorker?.terminate();
+    terrainPreloadWorker = null;
+    fallback();
+  }
+}
 
 function beginMapPreview() {
   if (previewBaseViewport) return;
