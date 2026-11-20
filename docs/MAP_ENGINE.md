@@ -20,7 +20,7 @@ Le fond terrestre provient de Natural Earth Vector (`ne_110m_land`, échelle 1:1
 ## Navigation interactive de la carte — lot 2.7 (première étape)
 
 La carte équirectangulaire dispose maintenant d'une navigation utilisateur :
-- zoom progressif avec boutons +/−, de 100 % à 800 % ;
+- zoom progressif avec boutons +/−, de 100 % à 2 400 % ;
 - zoom à la molette autour du pointeur, pour garder la zone visée sous la souris ;
 - déplacement par glisser-déposer à la souris ou au pointeur ;
 - recentrage sur la vue mondiale initiale ;
@@ -31,9 +31,9 @@ Le zoom et le centre sont des paramètres de vue transmis au moteur de projectio
 
 Limites connues :
 - la navigation reste un planisphère 2D ; elle ne constitue pas encore une rotation de globe ;
-- les géométries qui traversent l'antiméridien peuvent être coupées pendant le panoramique ;
+- les géométries vectorielles qui traversent l’antiméridien sont déroulées pour suivre le trajet le plus court ; le raster de relief utilise une longitude périodique ;
 - le zoom augmente le grossissement mais n'ajoute pas encore de nouvelles données régionales : le détail est limité par Natural Earth 1:110m ;
-- les limites de déplacement sont volontairement simples et seront revues avec le globe et les niveaux de détail.
+- la longitude est cyclique au zoom régional ; au zoom mondial, la caméra est recentrée pour conserver un planisphère unique.
 
 
 ## Labels cartographiques progressifs — choix C validé
