@@ -20,3 +20,25 @@ test("tile screen rectangles use the current viewport scale", () => {
   assert.equal(rect.width, 500); assert.equal(rect.height, 250);
   assert.equal(rect.x, 500); assert.equal(rect.y, 0);
 });
+
+import { collectMapTileRenderStack } from "../src/world/map-tile-renderer.js";
+
+test("tile fallback stack draws cached ancestors before detailed children", () => {
+  const plan = { tiles: [
+    { z: 3, x: 2, y: 2, key: "3/2/2", ancestors: [
+      { z: 2, x: 1, y: 1, key: "2/1/1" },
+      { z: 1, x: 0, y: 0, key: "1/0/0" },
+      { z: 0, x: 0, y: 0, key: "0/0/0" }
+    ] },
+    { z: 3, x: 3, y: 2, key: "3/3/2", ancestors: [
+      { z: 2, x: 1, y: 1, key: "2/1/1" },
+      { z: 1, x: 0, y: 0, key: "1/0/0" },
+      { z: 0, x: 0, y: 0, key: "0/0/0" }
+    ] }
+  ] };
+  const available = new Set(["0/0/0", "2/1/1", "3/2/2"]);
+  const stack = collectMapTileRenderStack(plan, key => available.has(key));
+  assert.deepEqual(stack.map(tile => tile.key), ["0/0/0", "2/1/1", "3/2/2"]);
+  assert.equal(stack[0].fallback, true);
+  assert.equal(stack[2].fallback, false);
+});

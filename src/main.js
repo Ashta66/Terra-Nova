@@ -4,7 +4,7 @@ import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
-import { getMapTileScreenRect } from "./world/map-tile-renderer.js";
+import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
@@ -76,6 +76,8 @@ let mapTileWorkerLayers = null;
 let mapTileWorkerQueue = [];
 let mapTileWorkerPending = new Map();
 let mapTileWorkerSequence = 0;
+const mapTileFadeStarts = new Map();
+let mapTileFadeFrame = null;
 const mapTileCache = createMapTileCache({ maxBytes: 64 * 1024 * 1024, maxEntries: 192 });
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
@@ -287,6 +289,22 @@ function scheduleMapPrefetch(collections) {
   }
 }
 
+function animateMapTileRefinements() {
+  if (mapTileFadeFrame !== null) return;
+  const tick = () => {
+    mapTileFadeFrame = null;
+    const now = globalThis.performance?.now?.() ?? Date.now();
+    let active = false;
+    for (const [key, startedAt] of mapTileFadeStarts) {
+      if (now - startedAt < 180) active = true;
+      else mapTileFadeStarts.delete(key);
+    }
+    requestCompose();
+    if (active) mapTileFadeFrame = requestAnimationFrame(tick);
+  };
+  mapTileFadeFrame = requestAnimationFrame(tick);
+}
+
 function pumpMapTileWorkerQueue() {
   if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
   while (mapTileWorkerQueue.length) {
@@ -321,7 +339,9 @@ function requestMapPhysicalTiles(plan, layers) {
           mapTileWorkerPending.delete(message.tile?.key);
           if (message.bitmap) {
             mapTileCache.set(message.tile.key, message.bitmap);
+            mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
             requestCompose();
+            animateMapTileRefinements();
           }
           pumpMapTileWorkerQueue();
           return;
@@ -363,25 +383,31 @@ function requestMapPhysicalTiles(plan, layers) {
 
 function drawMapTileFallbacks(context, width, height, composition) {
   if (!lastMapTilePlan?.tiles?.length) return;
-  // Les tuiles physiques ne remplissent que les zones non couvertes par la
-  // scène complète : elles servent d'aperçu immédiat pendant le déplacement.
+  // Les ancêtres sont dessinés d'abord, puis les enfants détaillés par-dessus.
+  // Lorsqu'un enfant arrive, son fondu révèle progressivement le détail sans
+  // laisser apparaître l'océan entre deux générations de tuiles.
+  const stack = collectMapTileRenderStack(lastMapTilePlan, key => mapTileCache.has(key));
+  if (!stack.length) return;
   context.save();
   context.beginPath();
   context.rect(0, 0, width, height);
   for (const rect of composition.rects) context.rect(rect.x, rect.y, rect.w, rect.h);
   context.clip("evenodd");
-  const drawn = new Set();
-  for (const requested of lastMapTilePlan.tiles) {
-    const available = findAvailableTile(requested, key => Boolean(mapTileCache.get(key)));
-    if (!available || drawn.has(available.key)) continue;
-    drawn.add(available.key);
-    const bitmap = mapTileCache.get(available.key);
+  const now = globalThis.performance?.now?.() ?? Date.now();
+  for (const tile of stack) {
+    const bitmap = mapTileCache.get(tile.key);
     if (!bitmap) continue;
-    const rect = getMapTileScreenRect(available, mapViewport, width, height);
+    const rect = getMapTileScreenRect(tile, mapViewport, width, height);
     const period = width * mapViewport.zoom;
+    const startedAt = mapTileFadeStarts.get(tile.key);
+    const hasParent = tile.ancestors?.some(parent => mapTileCache.has(parent.key)) ?? false;
+    const alpha = startedAt !== undefined && hasParent
+      ? Math.max(0, Math.min(1, (now - startedAt) / 180))
+      : 1;
     for (const offset of [-period, 0, period]) {
       const x = rect.x + offset;
       if (x + rect.width < 0 || x > width) continue;
+      context.globalAlpha = alpha;
       context.drawImage(bitmap, x, rect.y, rect.width, rect.height);
     }
   }

@@ -1,3 +1,10 @@
+## 20 novembre 2026 — remplacement progressif des tuiles parentes
+- La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
+- Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.
+- Le cache expose un test de présence sans toucher l'ordre LRU, ce qui évite de transformer chaque vérification de couverture en accès de lecture.
+- Le rendu des tuiles reste limité aux zones que la scène principale ne couvre pas encore : le moteur historique reste la référence pendant cette transition.
+- Tests dédiés à l'ordre parent/enfant et à la déduplication ; validation visuelle navigateur encore nécessaire pour confirmer l'absence de coutures aux bords des tuiles.
+
 ## 20 novembre 2026 — première génération de tuiles physiques autonomes
 - Ajout d'un Worker dédié qui prépare des bitmaps physiques 512×256 indépendants, à partir des terres, de l'hydrographie, des glaciers, des repères d'altitude et du relief ETOPO.
 - Chaque tuile possède une emprise géographique stable calculée depuis ses coordonnées z/x/y ; le rendu ne contient ni frontières politiques, ni labels politiques, ni événements dynamiques.
