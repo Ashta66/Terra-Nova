@@ -1,6 +1,6 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
-import { drawTerrainRaster } from "./terrain.js";
+import { drawTerrainRaster, sampleElevation } from "./terrain.js";
 import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
@@ -647,13 +647,40 @@ export function classifyPhysicalCellVisual(c){
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;ctx.save();
+ const zoom=Number(projection.viewport?.zoom??1);
  for(const event of world.events??[]){
-  if(terrainGrid&&projection.type==="equirectangular"&&event.radiusKm){
-   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
-   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
-   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
-   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
-   if(center&&radius>1){ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();}
+  const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
+  const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
+  const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
+  const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
+  if(center&&radius>1&&!event.visualExpired){
+   ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)));
+   ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
+   ctx.setLineDash?.(event.type==="earthquake"?[5,4]:[2,3]);
+   for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
+   if(event.type==="earthquake"){
+    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(238,211,170,.78)";ctx.lineWidth=Math.max(1,Math.sqrt(zoom));
+    const angle=(event.ruptureBearingDeg??35)*Math.PI/180;
+    for(const sign of [-1,1]){const dx=Math.cos(angle+Math.PI/2)*radius*.8*sign,dy=Math.sin(angle+Math.PI/2)*radius*.8*sign;ctx.beginPath();ctx.moveTo(center.x-dx,center.y-dy);ctx.lineTo(center.x+dx*.72,center.y+dy*.72);ctx.stroke();}
+   }
+   ctx.restore();
+  }
+  if(event.type==="meteor-impact"&&!event.surfaceExpired&&center&&terrainGrid&&sampleElevation(terrainGrid,event.longitude,event.latitude)>=0){
+   const lavaNorth=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+(event.lavaRadiusKm??8)/111.32)],w,h,projection);
+   const lavaEast=projectCoordinate([event.longitude+(event.lavaRadiusKm??8)/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
+   const lavaRadius=Math.max(3,Math.min(34,Math.hypot((lavaEast?.x??center.x)-center.x,(lavaNorth?.y??center.y)-center.y)/Math.SQRT2));
+   const glow=ctx.createRadialGradient(center.x,center.y,Math.max(1,lavaRadius*.08),center.x,center.y,lavaRadius);
+   glow.addColorStop(0,"rgba(255,250,174,.98)");glow.addColorStop(.24,"rgba(255,119,24,.96)");glow.addColorStop(.62,"rgba(220,45,12,.78)");glow.addColorStop(1,"rgba(110,22,12,0)");
+   ctx.save();ctx.globalCompositeOperation="screen";ctx.fillStyle=glow;ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  if(event.type==="earthquake"&&center&&radius>1){
+   // Cicatrice diffuse permanente : elle reste après la disparition des anneaux.
+   const scar=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,radius);
+   scar.addColorStop(0,"rgba(105,73,55,.15)");scar.addColorStop(.48,"rgba(105,73,55,.075)");scar.addColorStop(1,"rgba(105,73,55,0)");
+   ctx.save();ctx.fillStyle=scar;ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  if(terrainGrid&&projection.type==="equirectangular"&&center&&radius>1){
+   ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();
   }
   if(!event.visualExpired)count++;
  }
@@ -702,7 +729,8 @@ function drawTerritoryLayer(context, collection, width, height, projection, sele
   return drawn;
 }
 
-function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
+function pointLon(value){return Number(value)||0;}
+function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null) {
   if (!collection?.features) return [];
   const hits = [];
   const occupiedCells = new Map();
@@ -716,6 +744,17 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
+    let permanentlySubmerged=false;
+    if(kind==="city"&&physicalWorld?.currentCells?.length){
+      let nearest=null,best=Infinity;
+      for(const cell of physicalWorld.currentCells){
+        const dx=((Number(cell.longitude)-pointLon(feature.geometry.coordinates[0])+540)%360)-180;
+        const dy=Number(cell.latitude)-feature.geometry.coordinates[1];
+        const distance=Math.hypot(dx*Math.cos(feature.geometry.coordinates[1]*Math.PI/180),dy);
+        if(distance<best){best=distance;nearest=cell;}
+      }
+      permanentlySubmerged=Boolean(nearest&&(nearest.inundated||nearest.permanentlySubmerged)&&best<2.2);
+    }
     const fontSize = kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10;
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
     context.save();
@@ -731,7 +770,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     context.lineWidth = kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4;
     context.lineJoin = "round";
     context.strokeStyle = kind === "country" ? "rgba(17,35,47,0.96)" : "rgba(12,29,39,0.94)";
-    context.fillStyle = kind === "country" ? "#fff0c8" : kind === "city" ? "#ffffff" : kind === "ocean" ? "#a9c6cf" : theme.colors.text;
+    context.fillStyle = permanentlySubmerged ? "#92999d" : kind === "country" ? "#fff0c8" : kind === "city" ? "#ffffff" : kind === "ocean" ? "#a9c6cf" : theme.colors.text;
     context.globalAlpha = kind === "city" || kind === "country" ? 1 : kind === "province" ? 0.86 : 0.78;
     if (kind === "country") {
       context.shadowColor = "rgba(0,0,0,0.65)";
@@ -742,7 +781,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     if (kind === "city") {
       context.beginPath();
       context.arc(point.x, point.y - 1, 2.2, 0, Math.PI * 2);
-      context.fillStyle = "#f5d58e";
+      context.fillStyle = permanentlySubmerged ? "#7f898e" : "#f5d58e";
       context.fill();
       context.strokeStyle = "rgba(12,29,39,0.95)";
       context.lineWidth = 1.2;
@@ -851,7 +890,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
     + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true);
   const administrativeBoundaryCount = drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]);
-  const labelHits = drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const labelHits = drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1, options.physicalWorld);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,

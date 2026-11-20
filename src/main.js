@@ -582,9 +582,9 @@ mapCanvas.addEventListener("click", (event) => {
       playDisasterSound(type);
       if(type==="meteor-impact")animateMeteorImpact(x,y);
       const event={id:type+"-"+Date.now()+"-"+(state.physicalWorld?.revision??0),type,date:state.clock.date,longitude,latitude,
-       ...(type==="meteor-impact"?{radiusKm:320,craterRadiusKm:125,craterDepthM:2200,rimHeightM:520,lavaRadiusKm:22,noManLandRadiusKm:65,surfaceDurationMonths:1+Math.floor(Math.random()*6)}:{}),
+       ...(type==="meteor-impact"?{radiusKm:320,craterRadiusKm:125,craterDepthM:2200,rimHeightM:520,lavaRadiusKm:22,noManLandRadiusKm:65,surfaceDurationMonths:1}:{}),
        ...(type==="tsunami"?{radiusKm:900,waveHeightM:24,maxCoastalDistanceKm:420}:{}),
-       ...(type==="earthquake"?{radiusKm:700,magnitude:8.8,ruptureOffsetM:3.5}:{})};
+       ...(type==="earthquake"?{radiusKm:700,magnitude:8.8,ruptureOffsetM:28,ruptureBearingDeg:35}:{})};
       const refined=refinePhysicalWorldForImpact(state.physicalWorld,terrainGrid,event,2);
       const result=applyPhysicalEvent(refined,event);state.physicalWorld=result.world;
       const label=type==="meteor-impact"?"Météorite":type==="tsunami"?"Tsunami":"Séisme";
