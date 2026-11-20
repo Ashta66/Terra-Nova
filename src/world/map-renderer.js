@@ -1,6 +1,64 @@
+import { renderTerrainWebGL, getTerrainWebGLStats, renderTerrainWebGLTiles, getTerrainWebGLTileStats } from "./terrain-webgl.js";
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
+
+
+const spatialIndexes = new WeakMap();
+function coordinateBounds(feature) {
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  const visit=value=>{
+    if(!Array.isArray(value)) return;
+    if(value.length>=2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      minX=Math.min(minX,value[0]); maxX=Math.max(maxX,value[0]);
+      minY=Math.min(minY,value[1]); maxY=Math.max(maxY,value[1]); return;
+    }
+    for(const child of value) visit(child);
+  };
+  visit(feature?.geometry?.coordinates);
+  return Number.isFinite(minX)?{minX,minY,maxX,maxY}:null;
+}
+export function createGeoFeatureIndex(collection, cellSize=10) {
+  if(!collection || !Array.isArray(collection.features)) throw new TypeError("FeatureCollection requise.");
+  if(!Number.isFinite(cellSize) || cellSize<=0 || cellSize>180) throw new RangeError("Taille de cellule invalide.");
+  const columns=Math.ceil(360/cellSize), rows=Math.ceil(180/cellSize), cells=new Map(), global=[];
+  const key=(x,y)=>y*columns+x;
+  for(const feature of collection.features) {
+    const b=coordinateBounds(feature); if(!b) continue;
+    if(b.maxX-b.minX>180) { global.push({feature,b}); continue; }
+    const x0=Math.max(0,Math.floor((b.minX+180)/cellSize)), x1=Math.min(columns-1,Math.floor((b.maxX+180)/cellSize));
+    const y0=Math.max(0,Math.floor((90-b.maxY)/cellSize)), y1=Math.min(rows-1,Math.floor((90-b.minY)/cellSize));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) {
+      const k=key(x,y); if(!cells.has(k)) cells.set(k,[]); cells.get(k).push({feature,b});
+    }
+  }
+  return {featureCount:collection.features.length,query({west=-180,east=180,south=-90,north=90}={}) {
+    if(east-west>=360 || (west<=-180 && east>=180)) return collection.features;
+    const intervals=west<=east
+      ? (west < -180 ? [[west+360,180],[-180,east]] : east>180 ? [[west,180],[-180,east-360]] : [[west,east]])
+      : [[west,180],[-180,east]];
+    const found=new Set(), lo=Math.max(-90,south), hi=Math.min(90,north);
+    if(lo>hi) return [];
+    for(const [left,right] of intervals) {
+      const x0=Math.max(0,Math.floor((left+180)/cellSize)), x1=Math.min(columns-1,Math.floor((right+180)/cellSize));
+      const y0=Math.max(0,Math.floor((90-hi)/cellSize)), y1=Math.min(rows-1,Math.floor((90-lo)/cellSize));
+      for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) for(const e of cells.get(key(x,y))??[]) {
+        if(e.b.maxY>=lo && e.b.minY<=hi && e.b.maxX>=left && e.b.minX<=right) found.add(e.feature);
+      }
+    }
+    for(const e of global) if(e.b.maxY>=lo && e.b.minY<=hi) found.add(e.feature);
+    return [...found];
+  }};
+}
+function visibleFeatures(collection, projection) {
+  if(!collection?.features) return [];
+  if(projection.type!=="equirectangular") return collection.features;
+  let index=spatialIndexes.get(collection);
+  if(!index) { index=createGeoFeatureIndex(collection); spatialIndexes.set(collection,index); }
+  const v=projection.viewport??{}, zoom=Math.max(1,Number(v.zoom??1));
+  const lon=Number(v.centerLongitude??0), lat=Number(v.centerLatitude??0);
+  return index.query({west:lon-180/zoom,east:lon+180/zoom,south:lat-90/zoom,north:lat+90/zoom});
+}
 
 function traceRing(context, ring, width, height, projection) {
   let started = false;
@@ -21,30 +79,34 @@ function traceGeometry(context, geometry, width, height, projection) {
   return true;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
   context.save();
   context.globalAlpha = alpha;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (!feature?.geometry) continue;
     context.beginPath();
     if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
-    context.fillStyle = fill;
-    context.strokeStyle = stroke;
-    context.lineWidth = lineWidth;
-    context.fill("evenodd");
-    context.stroke();
+    if (fill) {
+      context.fillStyle = fill;
+      context.fill("evenodd");
+    }
+    if (stroke) {
+      context.strokeStyle = stroke;
+      context.lineWidth = lineWidth;
+      context.stroke();
+    }
     drawn++;
   }
   context.restore();
   return drawn;
 }
 
-function drawLineLayer(context, collection, width, height, projection, color, lineWidth) {
+function drawLineLayer(context, collection, width, height, projection, color, lineWidth, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     const geometry = feature?.geometry;
     if (!geometry) continue;
     const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
@@ -68,13 +130,13 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
-function drawLandHachures(context, collection, width, height, projection, color) {
+function drawLandHachures(context, collection, width, height, projection, color, features = collection?.features) {
   if (!collection?.features || typeof context.clip !== "function") return;
   context.save();
   context.globalAlpha = 0.12;
   context.strokeStyle = color;
   context.lineWidth = 0.45;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (!feature?.geometry) continue;
     context.save();
     context.beginPath();
@@ -92,10 +154,10 @@ function drawLandHachures(context, collection, width, height, projection, color)
   context.restore();
 }
 
-function drawElevationPoints(context, collection, width, height, projection, theme) {
+function drawElevationPoints(context, collection, width, height, projection, theme, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (feature.geometry?.type !== "Point") continue;
     const [longitude, latitude] = feature.geometry.coordinates;
     const point = projectCoordinate([longitude, latitude], width, height, projection);
@@ -132,11 +194,11 @@ function drawElevationPoints(context, collection, width, height, projection, the
 }
 
 
-function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
+function drawMapLabels(context, collection, width, height, projection, theme, zoom, features = collection?.features) {
   if (!collection?.features) return [];
   const hits = [];
   const occupied = [];
-  const candidates = collection.features
+  const candidates = (features ?? [])
     .filter(feature => Number(feature.properties?.minZoom ?? 1) <= zoom)
     .sort((a, b) => {
       const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : 2;
@@ -173,29 +235,143 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   return hits;
 }
 
-export function renderWorldMap(canvas, featureCollection, options = {}) {
-  if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
-  if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
-    throw new TypeError("Une FeatureCollection GeoJSON est requise.");
+
+
+/**
+ * Transforme l'image du viewport précédent pour prévisualiser le nouveau
+ * cadrage sans recalculer les géométries. Les coordonnées sont en pixels CSS.
+ */
+export function calculateViewportTransform(previous, next, width, height) {
+  const previousZoom = Math.max(0.0001, Number(previous?.zoom ?? 1));
+  const nextZoom = Math.max(0.0001, Number(next?.zoom ?? 1));
+  const scale = nextZoom / previousZoom;
+  return {
+    scale,
+    translateX: width / 2 - scale * width / 2
+      + ((Number(previous?.centerLongitude ?? 0) - Number(next?.centerLongitude ?? 0)) * nextZoom * width / 360),
+    translateY: height / 2 - scale * height / 2
+      + ((Number(next?.centerLatitude ?? 0) - Number(previous?.centerLatitude ?? 0)) * nextZoom * height / 180)
+  };
+}
+
+
+/**
+ * À zoom monde, l'équirectangulaire est périodique en longitude :
+ * les copies latérales prolongent le bitmap sans recalculer les côtes.
+ */
+export function getViewportPreviewWrapCopies(previous, next) {
+  const atWorldScale = viewport => Math.abs(Number(viewport?.zoom ?? 1) - 1) < 1e-6;
+  return atWorldScale(previous) && atWorldScale(next) ? [-1, 0, 1] : [0];
+}
+
+/**
+ * Détermine les bandes révélées par une translation pure du viewport.
+ * Les rectangles sont en pixels CSS et ne se chevauchent pas.
+ * Un zoom, un grand déplacement ou un changement de monde impose un rendu complet.
+ */
+export function calculateExposedRegions(previous, next, width, height) {
+  if (![width, height].every(value => Number.isFinite(value) && value > 0)) return null;
+  const transform = calculateViewportTransform(previous, next, width, height);
+  const longitudeDelta = Math.abs(Number(next?.centerLongitude ?? 0) - Number(previous?.centerLongitude ?? 0));
+  if (Math.abs(transform.scale - 1) > 1e-6 || longitudeDelta >= 180) return null;
+  const dx = Math.round(transform.translateX);
+  const dy = Math.round(transform.translateY);
+  if (Math.abs(dx) >= width || Math.abs(dy) >= height) return null;
+  if (dx === 0 && dy === 0) return [];
+  const regions = [];
+  if (dx > 0) regions.push({ x: 0, y: 0, width: dx, height });
+  if (dx < 0) regions.push({ x: width + dx, y: 0, width: -dx, height });
+  const remainingX = dx > 0 ? dx : 0;
+  const remainingWidth = width - Math.abs(dx);
+  if (dy > 0 && remainingWidth > 0) regions.push({ x: remainingX, y: 0, width: remainingWidth, height: dy });
+  if (dy < 0 && remainingWidth > 0) regions.push({ x: remainingX, y: height + dy, width: remainingWidth, height: -dy });
+  return regions;
+}
+
+export function getTerrainTransitionOpacity(progress) {
+  return Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 1));
+}
+
+const layerCaches = { physical: new Map(), political: new Map() };
+let lastPhysicalFrame = null;
+let zoomTransitionFrame = null;
+let lastPoliticalFrame = null;
+const objectIds = new WeakMap();
+let nextObjectId = 1;
+
+function objectId(value) {
+  if (!value || (typeof value !== "object" && typeof value !== "function")) return String(value);
+  if (!objectIds.has(value)) objectIds.set(value, nextObjectId++);
+  return objectIds.get(value);
+}
+
+function createLayerSurface(width, height) {
+  let surface = null;
+  if (typeof OffscreenCanvas !== "undefined") surface = new OffscreenCanvas(width, height);
+  else if (typeof document !== "undefined") {
+    surface = document.createElement("canvas");
+    surface.width = width;
+    surface.height = height;
   }
-  const width = Math.max(1, options.width ?? canvas.clientWidth ?? 960);
-  const height = Math.max(1, options.height ?? Math.round(width * 0.52));
-  const pixelRatio = Math.min(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1, 2);
-  canvas.width = Math.round(width * pixelRatio);
-  canvas.height = Math.round(height * pixelRatio);
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Contexte Canvas 2D indisponible.");
-  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  const year = options.year ?? 1444;
-  const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
-  const projection = { type: options.projection ?? "equirectangular", viewport: options.viewport ?? {} };
+  if (!surface) return null;
+  const context = surface.getContext("2d");
+  return context ? { surface, context } : null;
+}
 
-  context.fillStyle = theme.colors.ocean;
-  context.fillRect(0, 0, width, height);
-  // Le raster actuel est géoréférencé en équirectangulaire ; ne pas l’afficher sous une autre projection.
-  const terrainEnabled = projection.type === "equirectangular"
-    && drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
+function getCachedLayer(kind, key, width, height, draw) {
+  const cache = layerCaches[kind];
+  const existing = cache.get(key);
+  if (existing) {
+    cache.delete(key);
+    cache.set(key, existing);
+    return { ...existing, hit: true };
+  }
+  const layer = createLayerSurface(width, height);
+  if (!layer) return null;
+  layer.context.clearRect?.(0, 0, width, height);
+  const metadata = draw(layer.context);
+  const cachedLayer = { ...layer, metadata };
+  cache.set(key, cachedLayer);
+  while (cache.size > 3) cache.delete(cache.keys().next().value);
+  return { ...cachedLayer, hit: false };
+}
 
+function viewportKey(viewport) {
+  return [viewport.zoom ?? 1, viewport.centerLongitude ?? 0, viewport.centerLatitude ?? 0].join(",");
+}
+
+function featuresInScreenRect(collection, rect, width, height, projection) {
+  if (!collection?.features) return [];
+  if (projection.type !== "equirectangular") return collection.features;
+  const v = projection.viewport ?? {}, zoom = Math.max(1, Number(v.zoom ?? 1));
+  const westRaw = Number(v.centerLongitude ?? 0) - 180 / zoom + rect.x / width * 360 / zoom;
+  const span = rect.width / width * 360 / zoom;
+  const west = ((westRaw + 180) % 360 + 360) % 360 - 180;
+  const north = Number(v.centerLatitude ?? 0) + 90 / zoom - rect.y / height * 180 / zoom;
+  const south = north - rect.height / height * 180 / zoom;
+  let index = spatialIndexes.get(collection);
+  if (!index) { index = createGeoFeatureIndex(collection); spatialIndexes.set(collection, index); }
+  return index.query({ west, east: west + span, south, north });
+}
+
+function parseWebGLColor(value) {
+  if (typeof value !== "string") return [0.32, 0.39, 0.31, 1];
+  if (/^#[0-9a-f]{6}$/i.test(value)) {
+    return [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16) / 255).concat(1);
+  }
+  const rgba = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+  if (rgba) return [Number(rgba[1]) / 255, Number(rgba[2]) / 255,
+    Number(rgba[3]) / 255, rgba[4] === undefined ? 1 : Number(rgba[4])];
+  return [0.32, 0.39, 0.31, 1];
+}
+
+function drawPoliticalLayers(context, width, height, projection, theme, featureCollection, options, dirtyRect = null) {
+  if (dirtyRect && context.rect && context.clip) {
+    context.save();
+    context.beginPath();
+    context.rect(dirtyRect.x, dirtyRect.y, dirtyRect.width, dirtyRect.height);
+    context.clip();
+  }
   context.save();
   context.strokeStyle = theme.colors.grid;
   context.globalAlpha = 0.28;
@@ -218,17 +394,376 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   context.restore();
 
-  const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85);
-  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
-  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
-  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
-  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
-  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
+  const landFill = options.terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
+  const select = collection => dirtyRect ? featuresInScreenRect(collection, dirtyRect, width, height, projection) : visibleFeatures(collection, projection);
+  const landFeatures = select(featureCollection), glacierFeatures = select(options.glaciers);
+  const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
+  const elevationFeatures = select(options.elevationPoints);
+  const administrativeZoom = Number(options.viewport?.zoom ?? 1);
+  const administrativeBoundaryFeatures = select(options.administrativeBoundaries).filter(feature => {
+    const minimumZoom = Number(feature?.properties?.MIN_ZOOM ?? feature?.properties?.min_zoom ?? 0);
+    return !Number.isFinite(minimumZoom) || minimumZoom <= administrativeZoom;
+  });
+  const administrativeLineFeatures = administrativeBoundaryFeatures.filter(feature =>
+    ["LineString", "MultiLineString"].includes(feature?.geometry?.type));
+  const administrativePolygonFeatures = administrativeBoundaryFeatures.filter(feature =>
+    ["Polygon", "MultiPolygon"].includes(feature?.geometry?.type));
+  const administrativeBoundaryColor = options.administrativeBoundaryColor ?? theme.colors.grid;
+  const administrativeBoundaryWidth = options.administrativeBoundaryWidth ?? 0.55;
+  const administrativeBoundaryAlpha = options.administrativeBoundaryAlpha ?? 0.72;
+  const administrativeGpuColor = parseWebGLColor(administrativeBoundaryColor);
+  administrativeGpuColor[3] *= administrativeBoundaryAlpha;
+  const geographicRenderer = !dirtyRect && projection.type === "equirectangular"
+    ? options.geographicWebGLRenderer : null;
+  let geographicWebGLStats = null;
+  let landCount;
+  let glacierCount;
+  let lakeCount;
+  let riverGpuRendered = false;
+  let riverCount = 0;
+  const gpuLayers = geographicRenderer?.renderLayers ? [
+    { key: "land", collection: featureCollection, features: landFeatures,
+      fill: landFill, stroke: theme.colors.coast, lineWidth: 0.85, alpha: 1,
+      color: parseWebGLColor(landFill) },
+    { key: "glaciers", collection: options.glaciers, features: glacierFeatures,
+      fill: "#dce8e5", stroke: "#9ebfc3", lineWidth: 0.7, alpha: 0.88,
+      color: [220 / 255, 232 / 255, 229 / 255, 0.88] },
+    { key: "lakes", collection: options.lakes, features: lakeFeatures,
+      fill: theme.colors.ocean, stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1,
+      color: parseWebGLColor(theme.colors.ocean) },
+    { key: "land-boundaries", type: "boundaries", collection: featureCollection, features: landFeatures,
+      color: parseWebGLColor(theme.colors.coast), stroke: theme.colors.coast, lineWidth: 0.85, alpha: 1 },
+    { key: "glacier-boundaries", type: "boundaries", collection: options.glaciers, features: glacierFeatures,
+      color: [158 / 255, 191 / 255, 195 / 255, 0.88], stroke: "#9ebfc3", lineWidth: 0.7, alpha: 0.88 },
+    { key: "lake-boundaries", type: "boundaries", collection: options.lakes, features: lakeFeatures,
+      color: parseWebGLColor(theme.colors.accent), stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1 },
+    { key: "rivers", type: "lines", collection: options.rivers, features: riverFeatures,
+      color: parseWebGLColor(theme.colors.accent) },
+    ...(administrativeLineFeatures.length ? [{
+      key: "administrative-boundary-lines", type: "lines",
+      collection: options.administrativeBoundaries, features: administrativeLineFeatures,
+      color: administrativeGpuColor, stroke: administrativeBoundaryColor,
+      lineWidth: administrativeBoundaryWidth, alpha: administrativeBoundaryAlpha
+    }] : []),
+    ...(administrativePolygonFeatures.length ? [{
+      key: "administrative-boundary-polygons", type: "boundaries",
+      collection: options.administrativeBoundaries, features: administrativePolygonFeatures,
+      color: administrativeGpuColor, stroke: administrativeBoundaryColor,
+      lineWidth: administrativeBoundaryWidth, alpha: administrativeBoundaryAlpha
+    }] : [])
+  ] : null;
+  if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
+    try {
+      const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
+      const aggregate = { drawnFeatures: 0, skippedFeatures: 0, fallbackLayerFeatures: 0,
+        drawCalls: 0, triangles: 0, cacheHit: true, bufferUploads: 0, uploadedBytes: 0,
+        cacheBuildMs: 0, drawSubmitMs: 0, totalMs: 0, layers: {} };
+      const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
+        key: layer.key, type: layer.type, features: layer.features, color: layer.color,
+        lineWidth: (layer.lineWidth ?? (layer.key === "rivers" ? 0.7 : 0.55)) * ratio
+      })), Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
+      projection.viewport);
+      aggregate.drawnFeatures = gpuStats.drawnFeatures;
+      aggregate.skippedFeatures = gpuStats.skippedFeatures;
+      aggregate.drawCalls = gpuStats.drawCalls;
+      aggregate.triangles = gpuStats.triangles;
+      aggregate.cacheHit = gpuStats.cacheHit;
+      aggregate.bufferUploads = gpuStats.bufferUploads;
+      aggregate.uploadedBytes = gpuStats.uploadedBytes;
+      aggregate.cacheBuildMs = Number(gpuStats.cacheBuildMs ?? 0);
+      aggregate.drawSubmitMs = Number(gpuStats.drawSubmitMs ?? 0);
+      aggregate.totalMs = Number(gpuStats.totalMs ?? 0);
+      aggregate.layers = gpuStats.layers;
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(geographicRenderer.canvas, 0, 0);
+      context.restore();
+      for (const layer of gpuLayers) {
+        const layerStats = gpuStats.layers[layer.key] ?? { drawnFeatures: 0 };
+        if (layer.type === "lines") {
+          const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsLine(feature));
+          layerStats.fallbackFeatures = fallbackFeatures.length;
+          aggregate.fallbackLayerFeatures += fallbackFeatures.length;
+          if (layer.key === "rivers") {
+            riverCount = layerStats.drawnFeatures + drawLineLayer(context, layer.collection, width, height,
+              projection, theme.colors.accent, 0.7, fallbackFeatures);
+            riverGpuRendered = true;
+          } else if (fallbackFeatures.length) {
+            context.save();
+            context.globalAlpha = layer.alpha ?? 1;
+            drawLineLayer(context, layer.collection, width, height, projection,
+              layer.stroke ?? theme.colors.grid, layer.lineWidth ?? 0.55, fallbackFeatures);
+            context.restore();
+          }
+          continue;
+        }
+        if (layer.type === "boundaries") {
+          const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsBoundary(feature));
+          layerStats.fallbackFeatures = fallbackFeatures.length;
+          aggregate.fallbackLayerFeatures += fallbackFeatures.length;
+          drawPolygonLayer(context, layer.collection, width, height, projection,
+            null, layer.stroke, layer.lineWidth, layer.alpha, fallbackFeatures);
+          continue;
+        }
+        const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
+        layerStats.fallbackFeatures = fallbackFeatures.length;
+        aggregate.fallbackLayerFeatures += fallbackFeatures.length;
+        const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
+          layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
+        if (layer.key === "land") landCount = layerStats.drawnFeatures + fallbackCount;
+        else if (layer.key === "glaciers") glacierCount = layerStats.drawnFeatures + fallbackCount;
+        else lakeCount = layerStats.drawnFeatures + fallbackCount;
+      }
+      geographicWebGLStats = aggregate;
+    } catch {
+      geographicWebGLStats = null;
+      landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
+        landFill, theme.colors.coast, 0.85, 1, landFeatures);
+      glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection,
+        "#dce8e5", "#9ebfc3", 0.7, 0.88, glacierFeatures);
+      lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection,
+        theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
+    }
+  } else {
+    landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
+      landFill, theme.colors.coast, 0.85, 1, landFeatures);
+    glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection,
+      "#dce8e5", "#9ebfc3", 0.7, 0.88, glacierFeatures);
+    lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection,
+      theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
+  }
+  if (options.administrativeBoundaries && !geographicWebGLStats) {
+    context.save();
+    context.globalAlpha = administrativeBoundaryAlpha;
+    drawLineLayer(context, options.administrativeBoundaries, width, height, projection,
+      administrativeBoundaryColor, administrativeBoundaryWidth, administrativeLineFeatures);
+    drawPolygonLayer(context, options.administrativeBoundaries, width, height, projection, null,
+      administrativeBoundaryColor, administrativeBoundaryWidth, 1, administrativePolygonFeatures);
+    context.restore();
+  }
+  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
+  if (!riverGpuRendered) riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
+  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, elevationFeatures);
+  if (dirtyRect && context.rect && context.clip) context.restore();
+  return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount, geographicWebGLStats };
+}
+
+function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null, tileStore = null, onTileReady = null) {
+  if (tileStore && typeof context.drawImage === "function") {
+    try {
+      const surface = renderTerrainWebGLTiles(tileStore, width, height, viewport, { onTileReady });
+      if (surface) {
+        context.drawImage(surface, 0, 0, width, height);
+        return "webgl-tiles";
+      }
+    } catch {
+      // Le cache tuilé reste facultatif : le rendu mondial ou Canvas prend le relais.
+    }
+  }
+  if (webglGrid && typeof context.drawImage === "function") {
+    try {
+      const surface = renderTerrainWebGL(webglGrid, width, height, viewport);
+      if (surface) {
+        context.drawImage(surface, 0, 0, width, height);
+        return "webgl";
+      }
+    } catch {
+      // En cas d'échec GPU, conserver le rendu Canvas 2D.
+    }
+  }
+  drawTerrainRaster(context, width, height, terrain, viewport);
+  return "canvas2d";
+}
+
+function performanceNow() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+export function renderWorldMap(canvas, featureCollection, options = {}) {
+  const frameStartedAt = performanceNow();
+  if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
+  if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
+    throw new TypeError("Une FeatureCollection GeoJSON est requise.");
+  }
+  const width = Math.max(1, options.width ?? canvas.clientWidth ?? 960);
+  const height = Math.max(1, options.height ?? Math.round(width * 0.52));
+  const pixelRatio = Math.min(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1, 2);
+  canvas.width = Math.round(width * pixelRatio);
+  canvas.height = Math.round(height * pixelRatio);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Contexte Canvas 2D indisponible.");
+  context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  const year = options.year ?? 1444;
+  const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
+  const projection = { type: options.projection ?? "equirectangular", viewport: options.viewport ?? {} };
+
+
+  context.fillStyle = theme.colors.ocean;
+  context.fillRect(0, 0, width, height);
+
+  const terrainStartedAt = performanceNow();
+  const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
+  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
+  const webglTerrainTileStore = options.terrainTileStore?.getTileAtLevel ? options.terrainTileStore : null;
+  let terrainRenderer = "canvas2d";
+  const viewKey = viewportKey(projection.viewport);
+  const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
+  let physicalHit = false;
+  if (terrainEnabled && typeof context.drawImage === "function") {
+    const physicalSurface = createLayerSurface(canvas.width, canvas.height);
+    if (physicalSurface) {
+      const previous = lastPhysicalFrame;
+      const currentZoom = Number(projection.viewport.zoom ?? 1);
+      if (previous && previous.terrain === options.terrain
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && currentZoom !== Number(previous.viewport.zoom ?? 1)) {
+        zoomTransitionFrame = previous;
+      }
+      let dirtyRegions = null;
+      if (!webglTerrainGrid && !webglTerrainTileStore && previous
+        && previous.terrain === options.terrain
+        && previous.revision === (options.terrain?.revision ?? 0)
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && Number(projection.viewport.zoom ?? 1) > 1
+        && Number(projection.viewport.zoom ?? 1) === Number(previous.viewport.zoom ?? 1)) {
+        dirtyRegions = calculateExposedRegions(previous.viewport, projection.viewport, width, height);
+        const dirtyArea = dirtyRegions?.reduce((sum, rect) => sum + rect.width * rect.height, 0) ?? Infinity;
+        if (dirtyRegions === null || dirtyArea <= 0 || dirtyArea > width * height * 0.45) dirtyRegions = null;
+      }
+      let incremental = false;
+      if (dirtyRegions?.length && previous?.surface) {
+        const transform = calculateViewportTransform(previous.viewport, projection.viewport, width, height);
+        physicalSurface.context.drawImage(previous.surface, transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        for (const rect of dirtyRegions) {
+          drawTerrainRaster(physicalSurface.context, canvas.width, canvas.height, options.terrain,
+            projection.viewport, { x: rect.x * pixelRatio, y: rect.y * pixelRatio,
+              width: rect.width * pixelRatio, height: rect.height * pixelRatio });
+        }
+        incremental = true;
+      } else {
+        terrainRenderer = drawPhysicalTerrain(physicalSurface.context, canvas.width, canvas.height,
+          options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore, options.onTerrainTileReady);
+      }
+      lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
+        revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
+        pixelRatio, viewport: { ...projection.viewport } };
+      const transitionProgress = getTerrainTransitionOpacity(options.terrainTransitionProgress);
+      const transitionSource = zoomTransitionFrame
+        && zoomTransitionFrame.terrain === options.terrain
+        && zoomTransitionFrame.width === canvas.width && zoomTransitionFrame.height === canvas.height
+        && zoomTransitionFrame.pixelRatio === pixelRatio
+        ? zoomTransitionFrame : null;
+      if (transitionSource && transitionProgress < 1) {
+        const transform = calculateViewportTransform(transitionSource.viewport, projection.viewport, width, height);
+        context.save();
+        context.setTransform(transform.scale, 0, 0, transform.scale,
+          transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        context.globalAlpha = 1 - transitionProgress;
+        context.drawImage(transitionSource.surface, 0, 0);
+        context.restore();
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.globalAlpha = transitionProgress;
+        context.drawImage(physicalSurface.surface, 0, 0);
+        context.restore();
+      } else {
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.drawImage(physicalSurface.surface, 0, 0);
+        context.restore();
+        if (transitionProgress >= 1) zoomTransitionFrame = null;
+      }
+      physicalHit = incremental;
+    } else {
+      lastPhysicalFrame = null;
+      terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
+        options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
+    }
+  } else if (terrainEnabled) {
+    lastPhysicalFrame = null;
+    terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
+      options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
+  } else {
+    lastPhysicalFrame = null;
+  }
+
+  const terrainMs = performanceNow() - terrainStartedAt;
+  const politicalStartedAt = performanceNow();
+  let politicalIncremental = false;
+  let layerCounts;
+  if (typeof context.drawImage === "function") {
+    const surface = createLayerSurface(canvas.width, canvas.height);
+    if (surface) {
+      const dataKey = [objectId(featureCollection), objectId(options.glaciers), objectId(options.lakes),
+        objectId(options.rivers), objectId(options.elevationPoints), objectId(options.administrativeBoundaries)].join("|");
+      const themeKey = [theme.id, theme.texture, JSON.stringify(theme.colors), terrainEnabled, projection.type].join("|");
+      const previous = lastPoliticalFrame;
+      let dirtyRegions = null;
+      if (previous && previous.dataKey === dataKey && previous.themeKey === themeKey
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && Number(previous.viewport.zoom ?? 1) === Number(projection.viewport.zoom ?? 1)
+        && projection.type === "equirectangular" && Number(projection.viewport.zoom ?? 1) > 1) {
+        dirtyRegions = calculateExposedRegions(previous.viewport, projection.viewport, width, height);
+        const area = dirtyRegions?.reduce((sum, rect) => sum + rect.width * rect.height, 0) ?? Infinity;
+        if (dirtyRegions === null || area <= 0 || area > width * height * 0.45) dirtyRegions = null;
+      }
+      if (dirtyRegions?.length && previous?.surface) {
+        const transform = calculateViewportTransform(previous.viewport, projection.viewport, width, height);
+        surface.context.drawImage(previous.surface, transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        layerCounts = previous.metadata;
+        for (const rect of dirtyRegions) {
+          surface.context.save();
+          surface.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+          drawPoliticalLayers(surface.context, width, height, projection, theme, featureCollection,
+            { ...options, terrainEnabled }, rect);
+          surface.context.restore();
+        }
+        politicalIncremental = true;
+      } else {
+        surface.context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        layerCounts = drawPoliticalLayers(surface.context, width, height, projection, theme, featureCollection,
+          { ...options, terrainEnabled });
+      }
+      lastPoliticalFrame = { surface: surface.surface, metadata: layerCounts, dataKey, themeKey,
+        width: canvas.width, height: canvas.height, pixelRatio, viewport: { ...projection.viewport } };
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(surface.surface, 0, 0);
+      context.restore();
+    } else {
+      lastPoliticalFrame = null;
+      layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, { ...options, terrainEnabled });
+    }
+  } else {
+    lastPoliticalFrame = null;
+    layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, { ...options, terrainEnabled });
+  }
+
+  const politicalMs = performanceNow() - politicalStartedAt;
+  const labelsStartedAt = performanceNow();
   const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const labelsMs = performanceNow() - labelsStartedAt;
+  const dynamicStartedAt = performanceNow();
+  let dynamicLayerCount = 0;
+  for (const drawDynamic of options.dynamicLayers ?? []) {
+    if (typeof drawDynamic !== "function") continue;
+    drawDynamic(context, { width, height, projection, theme, viewport: projection.viewport });
+    dynamicLayerCount++;
+  }
+  const dynamicMs = performanceNow() - dynamicStartedAt;
+  const totalMs = performanceNow() - frameStartedAt;
+  const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount, geographicWebGLStats } = layerCounts;
+
 
   return {
+    performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
+    terrainWebGLStats: terrainRenderer === "webgl" ? getTerrainWebGLStats(webglTerrainGrid) : null,
+    terrainWebGLTileStats: webglTerrainTileStore ? getTerrainWebGLTileStats(webglTerrainTileStore) : null,
+    geographicWebGLStats,
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
 }

@@ -12,8 +12,13 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   return { width, height, values, min, max };
 }
 
-export function sampleElevation(grid, longitude, latitude) {
-  if (!grid?.values || !Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+export function sampleElevation(grid, longitude, latitude, level = 0) {
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  // Le magasin de tuiles expose son propre échantillonneur afin que le rendu
+  // lise les révisions locales sans recopier la grille mondiale à chaque frame.
+  if (typeof grid?.sampleLod === "function") return grid.sampleLod(longitude, latitude, level);
+  if (typeof grid?.sampleBilinear === "function") return grid.sampleBilinear(longitude, latitude, level);
+  if (!grid?.values) return null;
   const lon = ((longitude + 180) % 360 + 360) % 360;
   const x = lon / 360 * grid.width - 0.5;
   const y = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
@@ -120,7 +125,16 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
 }
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
+export function getTerrainLod(grid, renderWidth, zoom = 1) {
+  if (!Number.isFinite(grid?.width) || grid.width < 1
+    || !Number.isFinite(renderWidth) || renderWidth < 1
+    || !Number.isFinite(zoom) || zoom <= 0) return 0;
+  // Le LOD suit la densité d'échantillonnage écran, pas un seuil de zoom
+  // arbitraire : les niveaux parents/enfants se mélangent progressivement.
+  return clamp(Math.log2(Math.max(1, grid.width / renderWidth / Math.max(1, zoom))), 0, 4);
+}
+
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, dirtyRect = null) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
   // Cela évite plusieurs millions d'échantillonnages à chaque déplacement/zoom.
@@ -139,37 +153,46 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
     renderContext = surface.getContext("2d");
   }
   if (!renderContext?.createImageData || !renderContext?.putImageData) return false;
-  const image = renderContext.createImageData(renderWidth, renderHeight), pixels = image.data;
+  const scaleX = renderWidth / width, scaleY = renderHeight / height;
+  const x0 = dirtyRect ? Math.max(0, Math.floor(dirtyRect.x * scaleX)) : 0;
+  const y0 = dirtyRect ? Math.max(0, Math.floor(dirtyRect.y * scaleY)) : 0;
+  const x1 = dirtyRect ? Math.min(renderWidth, Math.ceil((dirtyRect.x + dirtyRect.width) * scaleX)) : renderWidth;
+  const y1 = dirtyRect ? Math.min(renderHeight, Math.ceil((dirtyRect.y + dirtyRect.height) * scaleY)) : renderHeight;
+  if (x1 <= x0 || y1 <= y0) return true;
+  const image = renderContext.createImageData(x1 - x0, y1 - y0), pixels = image.data;
   const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0);
   const dx = 360 / grid.width, dy = 180 / grid.height;
-  for (let py = 0; py < renderHeight; py++) {
+  // Choisit un niveau selon la densité de pixels : faible zoom = parent simplifié,
+  // zoom rapproché = retour progressif vers les échantillons natifs.
+  const lod = getTerrainLod(grid, renderWidth, zoom);
+  for (let py = y0; py < y1; py++) {
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
-    for (let px = 0; px < renderWidth; px++) {
+    for (let px = x0; px < x1; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
-      const e = sampleElevation(grid, lon, lat);
+      const e = sampleElevation(grid, lon, lat, lod);
       // Les océans n'effectuent pas les quatre échantillonnages voisins :
       // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
       let shade = 1;
       if (e >= 0) {
-        const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
-        const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
+        const west = sampleElevation(grid, lon - dx, lat, lod), east = sampleElevation(grid, lon + dx, lat, lod);
+        const north = sampleElevation(grid, lon, lat + dy, lod), south = sampleElevation(grid, lon, lat - dy, lod);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const color = terrainColorForElevation(e, shade, landform);
-        const i = (py * renderWidth + px) * 4;
+        const i = ((py - y0) * (x1 - x0) + (px - x0)) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
       }
-      const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
+      const color = terrainColorForElevation(e, shade, "ocean"), i = ((py - y0) * (x1 - x0) + (px - x0)) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
     }
   }
-  renderContext.putImageData(image, 0, 0);
+  renderContext.putImageData(image, x0, y0);
   if (surface && typeof context.drawImage === "function") {
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = true;
-    context.drawImage(surface, 0, 0, width, height);
+    context.drawImage(surface, x0, y0, x1 - x0, y1 - y0, x0 / scaleX, y0 / scaleY, (x1 - x0) / scaleX, (y1 - y0) / scaleY);
     context.restore?.();
   } else if (renderContext === context) {
     // Fallback DOM-less pour les tests et les contextes Canvas minimaux.

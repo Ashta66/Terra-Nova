@@ -1,7 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap } from "../src/world/map-renderer.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
+import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPendingNextKey, getTerrainEvictionKey } from "../src/world/terrain-webgl.js";
+import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
+import { buildGeographicPolygonMesh, buildGeographicLineMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
+import { createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
+import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
+
+
+test("le LOD du relief suit progressivement la densité de pixels du viewport", () => {
+  const grid = { width: 2160 };
+  const world = getTerrainLod(grid, 960, 1);
+  const regional = getTerrainLod(grid, 960, 2);
+  const close = getTerrainLod(grid, 960, 4);
+  assert.ok(world > regional);
+  assert.ok(regional > close);
+  assert.ok(world <= 4 && close >= 0);
+  assert.equal(getTerrainLod(grid, 960, 0), 0);
+});
+
+test("le LOD reste continu au passage entre deux niveaux parent/enfant", () => {
+  const grid = { width: 2048 };
+  const thresholdZoom = 2;
+  const before = getTerrainLod(grid, 1024, thresholdZoom - 1e-6);
+  const after = getTerrainLod(grid, 1024, thresholdZoom + 1e-6);
+  assert.ok(Math.abs(before - after) < 1e-5);
+  assert.equal(getTerrainLod(grid, 1024, Number.NaN), 0);
+});
 
 function createCanvas() {
   const calls = [];
@@ -20,6 +45,7 @@ function createCanvas() {
     measureText: (text) => ({ width: String(text).length * 6 }),
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
+    drawImage: (...args) => calls.push(["drawImage", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)])
@@ -233,4 +259,1302 @@ test("une tuile modifiée reste protégée de l'éviction jusqu'à sa persistanc
   store.getTile(2, 0);
   assert.equal(store.size, 1);
   assert.equal(store.loadedIds.includes("0/0/0"), false);
+});
+
+
+test("le rendu peut échantillonner les révisions locales du magasin de tuiles", () => {
+  const bytes = new Uint8Array(32);
+  const view = new DataView(bytes.buffer);
+  for (let i = 0; i < 16; i++) view.setInt16(i * 2, 100 + i, true);
+  const grid = createTerrainGrid(bytes, 4, 4);
+  const store = createTerrainTileStore(grid, { tileSize: 2, maxTiles: 4 });
+  const before = sampleElevation(grid, -135, 67.5);
+  assert.equal(store.setElevation(-135, 67.5, 2400), true);
+  assert.equal(sampleElevation(store, -135, 67.5), 2400);
+  assert.equal(sampleElevation(grid, -135, 67.5), before);
+});
+
+
+test("une tuile persistée restaure ses valeurs et sa révision sans rester sale", () => {
+  const store = createTerrainTileStore({ width: 4, height: 4, values: new Int16Array(16) }, { tileSize: 2 });
+  const restored = store.restoreTile({
+    id: "0/1/0", x: 1, y: 0, width: 2, height: 2, revision: 7,
+    values: Int16Array.from([11, 12, 13, 14])
+  });
+  assert.equal(restored, true);
+  const tile = store.getTile(1, 0);
+  assert.deepEqual([...tile.values], [11, 12, 13, 14]);
+  assert.equal(tile.revision, 7);
+  assert.equal(tile.dirty, false);
+  assert.equal(store.restoreTile({
+    id: "0/0/0", x: 0, y: 0, width: 1, height: 1, revision: 1,
+    values: Int16Array.from([99])
+  }), false);
+});
+
+test("le magasin transmet un instantané indépendant lors d'une modification", async () => {
+  let saved = null;
+  const store = createTerrainTileStore(
+    { width: 4, height: 4, values: new Int16Array(16) },
+    { tileSize: 2, onTileChange: async snapshot => { saved = snapshot; } }
+  );
+  assert.equal(store.setElevation(-90, 45, 1800), true);
+  await Promise.resolve();
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.values[0], 1800);
+  assert.notEqual(saved.values, store.getTileAt(-90, 45).values);
+});
+
+test("la persistance IndexedDB se désactive proprement hors navigateur", async () => {
+  const { createTerrainTilePersistence } = await import("../src/world/terrain-tile-storage.js");
+  assert.equal(await createTerrainTilePersistence({ indexedDB: null }), null);
+});
+
+
+test("une tuile modifiée reste intacte après éviction puis rechargement du cache", () => {
+  const store = createTerrainTileStore(
+    { width: 4, height: 2, values: new Int16Array(8) },
+    { tileSize: 2, maxTiles: 1 }
+  );
+  assert.equal(store.setElevation(-135, 45, 321), true);
+  const edited = store.getTile(0, 0);
+  assert.equal(store.markPersisted(edited.id, edited.revision), true);
+  store.getTile(1, 0);
+  assert.equal(store.getTile(0, 0).values[0], 321);
+});
+
+
+test("le préchargement couvre le monde puis anticipe une zone proche de l'antiméridien", () => {
+  const store = createTerrainTileStore(
+    { width: 24, height: 12, values: new Int16Array(24 * 12) },
+    { tileSize: 4, maxTiles: 18 }
+  );
+  const worldTiles = store.preloadViewport({ zoom: 1, centerLongitude: 0, centerLatitude: 0 }, { padding: 0 });
+  assert.equal(worldTiles.length, 18);
+  const regionalTiles = store.preloadViewport(
+    { zoom: 4, centerLongitude: 170, centerLatitude: 0 },
+    { padding: 0.2 }
+  );
+  assert.ok(regionalTiles.includes("0/5/0"));
+  assert.ok(regionalTiles.includes("0/0/0"));
+  assert.ok(regionalTiles.length < worldTiles.length);
+  assert.deepEqual(new Set(store.loadedIds), new Set(regionalTiles));
+});
+
+test("le préchargement respecte les limites polaires et les coordonnées invalides", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 2, maxTiles: 24 }
+  );
+  const ids = store.preloadViewport({ zoom: 3, centerLongitude: -540, centerLatitude: 85 }, { padding: 0.5 });
+  assert.ok(ids.length > 0);
+  assert.ok(ids.every(id => { const parts = id.split("/"); return parts.length === 3 && parts[0] === "0" && parts.slice(1).every(part => Number.isInteger(Number(part))); }));
+  assert.ok(ids.every(id => store.loadedIds.includes(id)));
+});
+
+
+test("le niveau de détail du relief interpole progressivement entre les parents et les enfants", () => {
+  const values = Int16Array.from({ length: 64 }, (_, index) => index * 100);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 16 });
+  const fine = store.sampleLod(-135, 67.5, 0);
+  const parent = store.sampleLod(-135, 67.5, 1);
+  const halfway = store.sampleLod(-135, 67.5, 0.5);
+  assert.ok(Number.isFinite(fine));
+  assert.ok(Number.isFinite(parent));
+  assert.ok(Math.abs(halfway - (fine + parent) / 2) < 1e-8);
+  assert.equal(store.sampleLod(-135, 67.5, 0), store.sampleBilinear(-135, 67.5, 0));
+});
+
+test("le niveau de détail reste borné et accepte les coordonnées proches de l'antiméridien", () => {
+  const values = Int16Array.from({ length: 48 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 8, height: 6, values }, { tileSize: 2, maxTiles: 12 });
+  assert.equal(store.sampleLod(179.9, 0, 99), store.sampleLod(179.9, 0, 4));
+  assert.ok(Number.isFinite(store.sampleLod(-180.1, 0, 2.25)));
+});
+
+
+test("les couches dynamiques sont dessinées séparément après les couches statiques", () => {
+  const { canvas, calls } = createCanvas();
+  let received = null;
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    dynamicLayers: [(context, frame) => {
+      received = frame;
+      context.beginPath();
+      context.arc(10, 10, 3, 0, Math.PI * 2);
+      context.stroke();
+    }]
+  });
+  assert.equal(result.dynamicLayerCount, 1);
+  assert.equal(received.projection.type, "equirectangular");
+  assert.ok(calls.some(call => call[0] === "arc"));
+});
+
+test("le magasin de tuiles expose une révision globale pour invalider le cache physique", () => {
+  const store = createTerrainTileStore(
+    { width: 4, height: 4, values: new Int16Array(16) },
+    { tileSize: 2 }
+  );
+  assert.equal(store.revision, 0);
+  assert.equal(store.setElevation(-90, 45, 900), true);
+  assert.equal(store.revision, 1);
+  assert.equal(store.restoreTile({
+    id: "0/1/0", x: 1, y: 0, width: 2, height: 2,
+    revision: 3, values: new Int16Array(4)
+  }), true);
+  assert.equal(store.revision, 2);
+});
+
+
+import { calculateViewportTransform, getViewportPreviewWrapCopies, calculateExposedRegions } from "../src/world/map-renderer.js";
+
+test("les bandes exposées d'un pan pur sont calculées sans chevauchement", () => {
+  const regions = calculateExposedRegions(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 1, centerLongitude: 18, centerLatitude: 9 },
+    360, 180
+  );
+  assert.deepEqual(regions, [
+    { x: 342, y: 0, width: 18, height: 180 },
+    { x: 0, y: 0, width: 342, height: 9 }
+  ]);
+});
+
+test("les bandes exposées refusent zooms et grands déplacements", () => {
+  assert.equal(calculateExposedRegions({ zoom: 1 }, { zoom: 2 }, 360, 180), null);
+  assert.equal(calculateExposedRegions(
+    { zoom: 1, centerLongitude: 0 }, { zoom: 1, centerLongitude: 180 }, 360, 180
+  ), null);
+  assert.deepEqual(calculateExposedRegions({}, {}, 360, 180), []);
+});
+
+
+test("la prévisualisation bitmap traduit correctement un déplacement du viewport", () => {
+  const transform = calculateViewportTransform(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 1, centerLongitude: 90, centerLatitude: 0 },
+    360, 180
+  );
+  assert.equal(transform.scale, 1);
+  assert.equal(transform.translateX, -90);
+  assert.equal(transform.translateY, 0);
+});
+
+test("la prévisualisation bitmap met à l'échelle autour du centre et suit le centre géographique", () => {
+  const transform = calculateViewportTransform(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 2, centerLongitude: 10, centerLatitude: 5 },
+    360, 180
+  );
+  assert.equal(transform.scale, 2);
+  assert.equal(transform.translateX, -200);
+  assert.equal(transform.translateY, -80);
+});
+
+test("la transformation bitmap reste finie pour des viewports incomplets", () => {
+  const transform = calculateViewportTransform({}, {}, 640, 320);
+  assert.deepEqual(transform, { scale: 1, translateX: 0, translateY: 0 });
+});
+
+
+test("la prévisualisation prolonge horizontalement le monde au zoom global", () => {
+  assert.deepEqual(
+    getViewportPreviewWrapCopies({ zoom: 1 }, { zoom: 1 }),
+    [-1, 0, 1]
+  );
+});
+
+test("la prévisualisation ne boucle pas les bords à un zoom rapproché", () => {
+  assert.deepEqual(
+    getViewportPreviewWrapCopies({ zoom: 1.5 }, { zoom: 2 }),
+    [0]
+  );
+});
+
+import { createGeoFeatureIndex } from "../src/world/map-renderer.js";
+test("l'index spatial filtre les géométries selon le viewport",()=>{
+ const a={id:"a",geometry:{type:"Point",coordinates:[-125,15]}};
+ const b={id:"b",geometry:{type:"Point",coordinates:[45,15]}};
+ const index=createGeoFeatureIndex({type:"FeatureCollection",features:[a,b]},10);
+ assert.deepEqual(index.query({west:-140,east:-110,south:0,north:30}),[a]);
+ assert.deepEqual(index.query({west:30,east:60,south:0,north:30}),[b]);
+ assert.equal(index.query().length,2);
+});
+test("l'index spatial conserve les géométries traversant l'antiméridien",()=>{
+ const crossing={id:"cross",geometry:{type:"LineString",coordinates:[[170,0],[-170,5]]}};
+ const ordinary={id:"ordinary",geometry:{type:"Point",coordinates:[0,0]}};
+ const index=createGeoFeatureIndex({type:"FeatureCollection",features:[crossing,ordinary]},10);
+ assert.deepEqual(index.query({west:160,east:200,south:-10,north:10}),[crossing]);
+});
+
+test("l'index spatial filtre aussi les repères de relief et les labels hors viewport",()=>{
+ const {canvas,calls}=createCanvas();
+ const elevationPoints={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{name:"Visible",kind:"mountain",elevation_m:6000},geometry:{type:"Point",coordinates:[0,0]}},
+  {type:"Feature",properties:{name:"Lointain",kind:"mountain",elevation_m:6000},geometry:{type:"Point",coordinates:[140,0]}}
+ ]};
+ const labels={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{name:"Centre",kind:"continent"},geometry:{type:"Point",coordinates:[0,0]}},
+  {type:"Feature",properties:{name:"Ailleurs",kind:"continent"},geometry:{type:"Point",coordinates:[140,0]}}
+ ]};
+ const result=renderWorldMap(canvas,land,{width:640,height:320,pixelRatio:1,viewport:{zoom:4,centerLongitude:0,centerLatitude:0},elevationPoints,labels});
+ assert.equal(result.elevationPointCount,1);
+ assert.deepEqual(result.labelHits.map(item=>item.name),["Centre"]);
+ assert.ok(!calls.some(call=>call[0]==="fillText" && call[1]==="Lointain"));
+});
+
+test("le raster de relief ne calcule et ne place que la région sale demandée",()=>{
+ const bytes=new Uint8Array(16);
+ const view=new DataView(bytes.buffer);
+ for(let i=0;i<8;i++) view.setInt16(i*2,100+i,true);
+ const grid=createTerrainGrid(bytes,4,2);
+ let image=null, placement=null;
+ const context={
+  createImageData(width,height){image={width,height,data:new Uint8ClampedArray(width*height*4)};return image;},
+  putImageData(value,x,y){placement={value,x,y};}
+ };
+ assert.equal(drawTerrainRaster(context,4,2,grid,{zoom:1,centerLongitude:0,centerLatitude:0},{x:1,y:0,width:2,height:2}),true);
+ assert.deepEqual({width:image.width,height:image.height},{width:2,height:2});
+ assert.equal(placement.x,1);
+ assert.equal(placement.y,0);
+ assert.equal(image.data.length,16);
+});
+
+
+test("l'opacité de transition du relief est bornée et progressive", () => {
+  assert.equal(getTerrainTransitionOpacity(-1), 0);
+  assert.equal(getTerrainTransitionOpacity(0), 0);
+  assert.equal(getTerrainTransitionOpacity(0.25), 0.25);
+  assert.equal(getTerrainTransitionOpacity(0.5), 0.5);
+  assert.equal(getTerrainTransitionOpacity(1), 1);
+  assert.equal(getTerrainTransitionOpacity(2), 1);
+  assert.equal(getTerrainTransitionOpacity(Number.NaN), 1);
+});
+
+
+test("le rendu expose des mesures séparées par famille de couches", () => {
+  const { canvas } = createCanvas();
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    dynamicLayers: [(context) => context.fillRect(1, 1, 2, 2)]
+  });
+  for (const key of ["totalMs", "terrainMs", "politicalMs", "labelsMs", "dynamicMs"]) {
+    assert.ok(Number.isFinite(result.performance[key]));
+    assert.ok(result.performance[key] >= 0);
+  }
+  assert.ok(result.performance.totalMs >= result.performance.politicalMs);
+});
+
+
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, collectTerrainPredictiveLodTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices, terrainTileSetFitsAtlas } from "../src/world/terrain-webgl.js";
+
+test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
+  const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
+  const decoded = [];
+  assert.equal(packed.byteLength, 5 * 2);
+  for (let i = 0; i < packed.length; i += 2) {
+    let value = packed[i] + packed[i + 1] * 256;
+    if (value >= 32768) value -= 65536;
+    decoded.push(value);
+  }
+  assert.deepEqual(decoded, [-32768, -1000, 0, 1200, 32767]);
+});
+
+test("le rendu WebGL se désactive proprement si aucune grille exploitable n'est fournie", () => {
+  assert.equal(renderTerrainWebGL(null, 320, 160), null);
+  assert.equal(renderTerrainWebGL({ width: 1, height: 1 }, 320, 160), null);
+  const shaders = getTerrainWebGLShaders();
+  assert.match(shaders.vertex, /gl_Position/);
+  assert.match(shaders.fragment, /elevationAt/);
+  assert.match(shaders.fragment, /sampleA\.a/);
+  assert.match(shaders.fragment, /fract\(p00.x\)/);
+});
+
+test("le shader WebGL tuilé échantillonne les textures locales avec leurs bordures", () => {
+  const shader = getTerrainWebGLShaders().tileFragment;
+  assert.match(shader, /v_atlasUv/);
+  assert.match(shader, /u_opacity/);
+  assert.match(shader, /v_atlasUv/);
+  assert.match(shader, /v_atlasStep/);
+  assert.match(shader, /v_atlasBounds/);
+  assert.match(shader, /clamp\(uv,v_atlasBounds/);
+  assert.match(shader, /s\.a/);
+  assert.match(shader, /v_tileStep/);
+  assert.match(shader, /gl_FragColor/);
+});
+
+test("le moteur conserve Canvas 2D comme rendu de repli sans surface WebGL", () => {
+  const { canvas } = createCanvas();
+  const result = renderWorldMap(canvas, land, {
+    width: 4, height: 2, pixelRatio: 1,
+    terrain: { width: 2, height: 2, values: new Int16Array(4) },
+    terrainWebGLGrid: { width: 2, height: 2, values: new Int16Array(4) }
+  });
+  assert.equal(result.terrainRenderer, "canvas2d");
+});
+
+
+test("le shader WebGL reprend l'éclairage directionnel et les dimensions réelles du MNT", () => {
+  const shader = getTerrainWebGLShaders().fragment;
+  assert.match(shader, /360\.0 \/ u_gridSize\.x/);
+  assert.match(shader, /180\.0 \/ u_gridSize\.y/);
+  assert.match(shader, /radians\(315\.0\)/);
+  assert.match(shader, /radians\(45\.0\)/);
+  assert.match(shader, /0\.65/);
+  assert.match(shader, /relativeHeight/);
+  assert.match(shader, /190\.0,174\.0,157\.0/);
+  assert.match(shader, /tintStrength = 0\.0/);
+});
+
+test("les statistiques GPU restent indisponibles sans renderer initialisé", () => {
+  assert.equal(getTerrainWebGLStats(null), null);
+  assert.equal(getTerrainWebGLStats({ width: 2, height: 2, values: new Int16Array(4) }), null);
+});
+
+
+test("la surface WebGL n'est redimensionnée que lorsque ses dimensions changent", () => {
+  const surface = { width: 800, height: 600 };
+  assert.equal(resizeTerrainWebGLSurface(surface, 800, 600), false);
+  assert.deepEqual(surface, { width: 800, height: 600 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 1024, 600), true);
+  assert.deepEqual(surface, { width: 1024, height: 600 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 1024, 768), true);
+  assert.deepEqual(surface, { width: 1024, height: 768 });
+  assert.equal(resizeTerrainWebGLSurface(surface, 0, 768), false);
+});
+
+
+test("la texture terrain est réduite aux limites GPU sans perdre les extrémités", () => {
+  const values = Int16Array.from([
+    -100, 0, 100, 200, 300,
+    -200, 10, 110, 210, 310,
+    -300, 20, 120, 220, 320
+  ]);
+  const source = { width: 5, height: 3, values };
+  assert.equal(prepareTerrainTextureGrid(source, 8), source);
+  const reduced = prepareTerrainTextureGrid(source, 3);
+  assert.equal(reduced.width, 3);
+  assert.equal(reduced.height, 2);
+  assert.equal(reduced.values[0], -100);
+  assert.equal(reduced.values[2], 300);
+  assert.equal(reduced.values[3], -300);
+  assert.equal(reduced.values[5], 320);
+  assert.equal(reduced.sourceWidth, 5);
+  assert.equal(reduced.sourceHeight, 3);
+  assert.equal(prepareTerrainTextureGrid(source, 1), null);
+});
+
+
+test("les textures GPU des tuiles incluent une bordure continue entre voisines", () => {
+  const width = 12, height = 8, tileSize = 4;
+  const values = new Int16Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) values[y * width + x] = y * 100 + x;
+  }
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 40 });
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const texture = buildTerrainTileTexture(tile, store);
+  assert.equal(texture.width, tile.width + 2);
+  assert.equal(texture.height, tile.height + 2);
+  // Bordure gauche issue de la tuile précédente.
+  assert.equal(texture.values[1 * texture.width], 3);
+  // Bordure droite issue de la tuile suivante.
+  assert.equal(texture.values[1 * texture.width + texture.width - 1], 8);
+  // Bordure nord répliquée au pôle de la grille.
+  assert.equal(texture.values[0 * texture.width + 1], 4);
+  // Coordonnées et niveau conservés pour positionner la tuile sur le globe.
+  assert.equal(texture.originX, tile.originX);
+  assert.equal(texture.originY, tile.originY);
+  assert.equal(texture.level, 0);
+  assert.equal(texture.stride, 1);
+});
+
+test("la bordure GPU des tuiles raccorde correctement l'antiméridien", () => {
+  const width = 12, height = 8, tileSize = 4;
+  const values = Int16Array.from({ length: width * height }, (_, index) => index);
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 40 });
+  const tile = store.getTileAtLevel(0, 0, 0);
+  const texture = buildTerrainTileTexture(tile, store);
+  assert.equal(texture.values[1 * texture.width], 11);
+  assert.equal(texture.values[1 * texture.width + tile.width + 1], 4);
+});
+
+
+test("les bornes géographiques des tuiles parent respectent leur pas de résolution", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(1, 1, 0);
+  assert.deepEqual(getTerrainTileGeoBounds(tile, store), {
+    west: 60, east: 180, north: 90, south: -90
+  });
+});
+
+test("le plan d'affichage GPU découpe les tuiles à la fenêtre visible", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const rects = getTerrainTileScreenRects(tile, store,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 360, 180);
+  assert.equal(rects.length, 1);
+  assert.deepEqual(rects[0], {
+    x: 60, y: 0, width: 240, height: 90,
+    u0: 0, u1: 1, v0: 0.5, v1: 1, longitudeShift: 0
+  });
+});
+
+test("le plan d'affichage GPU répète la tuile qui traverse l'antiméridien", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 4, maxTiles: 40 }
+  );
+  const tile = store.getTileAtLevel(0, 0, 0);
+  const rects = getTerrainTileScreenRects(tile, store,
+    { zoom: 2, centerLongitude: 179, centerLatitude: 0 }, 180, 90);
+  assert.equal(rects.length, 1);
+  assert.equal(rects[0].longitudeShift, 360);
+  assert.equal(rects[0].x, 91);
+  assert.equal(rects[0].width, 89);
+  assert.equal(rects[0].u0, 0);
+  assert.ok(Math.abs(rects[0].u1 - 89 / 120) < 1e-12);
+});
+
+
+function createFakeTerrainGL(maxTextureSize = 64) {
+  let nextTexture = 0;
+  const deleted = [];
+  const uploads = [];
+  return {
+    TEXTURE_2D: 1, TEXTURE_MIN_FILTER: 2, TEXTURE_MAG_FILTER: 3,
+    TEXTURE_WRAP_S: 4, TEXTURE_WRAP_T: 5, LINEAR: 6, CLAMP_TO_EDGE: 7,
+    UNPACK_ALIGNMENT: 8, LUMINANCE_ALPHA: 9, UNSIGNED_BYTE: 10,
+    MAX_TEXTURE_SIZE: 11,
+    deleted, uploads,
+    createTexture() { return { id: ++nextTexture }; },
+    deleteTexture(texture) { deleted.push(texture.id); },
+    bindTexture() {},
+    texParameteri() {},
+    pixelStorei() {},
+    getParameter(parameter) { return parameter === this.MAX_TEXTURE_SIZE ? maxTextureSize : 0; },
+    texImage2D(target, level, internalFormat, width, height, border, format, type, data) {
+      uploads.push({ width, height, bytes: data?.byteLength ?? 0, allocation: data == null });
+    },
+    texSubImage2D(target, level, x, y, width, height, format, type, data) {
+      uploads.push({ x, y, width, height, bytes: data.byteLength, subImage: true });
+    }
+  };
+}
+
+test("l'atlas GPU partage une texture, réutilise ses slots et respecte la capacité", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(18);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 4 });
+  assert.ok(atlas);
+  assert.equal(atlas.capacity, 9);
+  assert.equal(gl.uploads[0].allocation, true);
+  const a = store.getTileAtLevel(0, 0, 0), b = store.getTileAtLevel(0, 1, 0);
+  const first = atlas.get(a);
+  const second = atlas.get(b);
+  assert.equal(first.texture, second.texture);
+  assert.notDeepEqual([first.slotX, first.slotY], [second.slotX, second.slotY]);
+  assert.equal(atlas.get(a), first);
+  assert.equal(atlas.stats.hits, 1);
+  assert.equal(atlas.stats.uploads, 2);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 2);
+  assert.equal(atlas.memoryBytes, atlas.atlasWidth * atlas.atlasHeight * 2);
+  atlas.clear();
+  assert.equal(atlas.size, 0);
+  assert.equal(atlas.get(a).texture, atlas.texture);
+});
+
+test("les tuiles prédictives sont transférées dans l'atlas hors du rendu courant", async () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(64);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 4 });
+  const tile = store.getTileAtLevel(0, 0, 0);
+  const staleTile = store.getTileAtLevel(0, 1, 0);
+  const readyTiles = [];
+  atlas.setOnReady(readyTile => readyTiles.push(readyTile));
+  assert.equal(atlas.enqueue(tile), true);
+  assert.equal(atlas.enqueue(staleTile), true);
+  assert.equal(atlas.pendingCount, 2);
+  assert.equal(atlas.peek(tile), null);
+  assert.equal(atlas.retainPending(new Set(["0/0/0@0"])), 1);
+  assert.equal(atlas.pendingCount, 1);
+  assert.equal(atlas.retainPending(new Set()), 1);
+  assert.equal(atlas.pendingCount, 0);
+  assert.equal(atlas.enqueue(tile), true);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 0);
+  await new Promise(resolve => setTimeout(resolve, 40));
+  assert.equal(atlas.pendingCount, 0);
+  assert.equal(atlas.size, 1);
+  assert.ok(atlas.peek(tile));
+  assert.equal(atlas.peek(staleTile), null);
+  assert.equal(gl.uploads.filter(item => item.subImage).length, 1);
+  assert.equal(atlas.stats.uploads, 1);
+  assert.deepEqual(readyTiles, [tile]);
+  atlas.dispose();
+  assert.equal(gl.deleted.length, 1);
+});
+
+test("le batch atlas regroupe plusieurs tuiles en une seule liste de triangles", () => {
+  const items = [
+    { tile: { level: 0, x: 0, y: 0, width: 4, height: 4 }, rects: [
+      { x: 0, y: 0, width: 50, height: 40, u0: 0, u1: 1, v0: 0, v1: 1 }
+    ] },
+    { tile: { level: 0, x: 1, y: 0, width: 2, height: 4 }, rects: [
+      { x: 50, y: 0, width: 50, height: 40, u0: 0, u1: 1, v0: 0, v1: 1 }
+    ] }
+  ];
+  const entries = new Map([
+    ["0/0/0@0", { slotX: 0, slotY: 0, level: 0, x: 0, y: 0 }],
+    ["0/1/0@0", { slotX: 1, slotY: 0, level: 0, x: 1, y: 0 }]
+  ]);
+  const atlas = { cellSize: 6, atlasWidth: 12, atlasHeight: 12 };
+  const vertices = buildTerrainTileAtlasBatchVertices(items, entries, 100, 40, atlas);
+  assert.equal(vertices.length, 144);
+  assert.deepEqual(Array.from(vertices.slice(0, 2)), [-1, 1]);
+  const expectedFirstVertex = [1/12, 1/12, 1/12, 1/12, 1/6, 1/6, 0, 0, 5/12, 5/12];
+  expectedFirstVertex.forEach((value, index) => assert.ok(Math.abs(vertices[index + 2] - value) < 1e-6));
+  assert.ok(vertices.some((value, index) => index % 8 === 2 && value > 0.5));
+});
+
+test("le cache GPU des tuiles respecte le LRU et son budget mémoire", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 2, maxBytes: 1000 });
+  const a = store.getTileAtLevel(0, 0, 0);
+  const b = store.getTileAtLevel(0, 1, 0);
+  const d = store.getTileAtLevel(0, 2, 0);
+  const first = cache.get(a, store);
+  assert.ok(first);
+  assert.equal(cache.get(a, store), first);
+  cache.get(b, store);
+  cache.get(d, store);
+  assert.equal(cache.size, 2);
+  assert.deepEqual(gl.deleted, [first.texture.id]);
+  assert.equal(cache.stats.overBudget, false);
+  assert.equal(cache.memoryBytes, gl.uploads.slice(-2).reduce((sum, upload) => sum + upload.bytes, 0));
+  assert.equal(cache.stats.hits, 1);
+  assert.equal(cache.stats.misses, 3);
+  assert.equal(cache.stats.uploads, 3);
+  assert.equal(cache.stats.evictions, 1);
+  assert.equal(cache.stats.uploadedBytes, gl.uploads.reduce((sum, upload) => sum + upload.bytes, 0));
+  assert.ok(cache.stats.buildMs >= 0);
+  assert.ok(cache.stats.uploadMs >= 0);
+  cache.clear();
+  assert.equal(cache.size, 0);
+  assert.equal(cache.memoryBytes, 0);
+});
+
+test("le cache GPU expose les transferts et réutilisations sans recompter un hit", () => {
+  const values = new Int16Array(8 * 8);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl);
+  const tile = store.getTileAtLevel(0, 0, 0);
+  cache.get(tile, store);
+  cache.get(tile, store);
+  assert.equal(cache.stats.hits, 1);
+  assert.equal(cache.stats.misses, 1);
+  assert.equal(cache.stats.uploads, 1);
+  assert.equal(cache.stats.uploadedBytes, gl.uploads[0].bytes);
+  assert.equal(cache.stats.tileCount, 1);
+});
+
+test("le cache GPU invalide une texture lorsque la révision du terrain change", () => {
+  const values = Int16Array.from({ length: 12 * 8 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL();
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 8, maxBytes: 4096 });
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const oldEntry = cache.get(tile, store);
+  store.setElevation(15, 67.5, 3000);
+  const refreshedTile = store.getTileAtLevel(0, 1, 0);
+  const newEntry = cache.get(refreshedTile, store);
+  assert.notEqual(newEntry.key, oldEntry.key);
+  assert.notEqual(newEntry.texture, oldEntry.texture);
+  assert.ok(gl.deleted.includes(oldEntry.texture.id));
+});
+
+test("le cache GPU refuse une texture qui dépasse les limites matérielles", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const gl = createFakeTerrainGL(3);
+  const cache = createTerrainWebGLTileCache(gl, { maxTiles: 8, maxBytes: 4096 });
+  assert.equal(cache.get(store.getTileAtLevel(0, 0, 0), store), null);
+  assert.equal(cache.size, 0);
+  assert.equal(gl.uploads.length, 0);
+});
+
+
+test("le LOD GPU choisit le niveau parent selon la densité d'échantillons à l'écran", () => {
+  const store = { width: 21600 };
+  assert.equal(selectTerrainTileLevel(store, { zoom: 1 }, 960), 4);
+  assert.equal(selectTerrainTileLevel(store, { zoom: 8 }, 960), 1);
+  assert.equal(selectTerrainTileLevel(store, { zoom: 32 }, 960), 0);
+});
+
+test("le batch GPU regroupe plusieurs rectangles d'une tuile en quads", () => {
+  const rects = [
+    { x: 0, y: 0, width: 50, height: 40, u0: 0, u1: 0.5, v0: 0, v1: 1 },
+    { x: 50, y: 0, width: 50, height: 40, u0: 0.5, u1: 1, v0: 0, v1: 1 }
+  ];
+  const vertices = buildTerrainTileBatchVertices(rects, 100, 40);
+  assert.equal(vertices.length, 48);
+  assert.deepEqual(Array.from(vertices.slice(0, 4)), [-1, 1, 0, 0]);
+  assert.deepEqual(Array.from(vertices.slice(20, 24)), [0, -1, 0.5, 1]);
+  assert.equal(buildTerrainTileBatchVertices([{ x: -10, y: 0, width: 20, height: 20, u0: 0, u1: 1, v0: 0, v1: 1 }], 100, 100).length, 24);
+  assert.equal(buildTerrainTileBatchVertices(rects, 0, 40).length, 0);
+});
+
+test("la transition LOD GPU est progressive et bornée", () => {
+  assert.equal(getTerrainTileTransitionOpacity(-1), 0);
+  assert.equal(getTerrainTileTransitionOpacity(0), 0);
+  assert.equal(getTerrainTileTransitionOpacity(0.25), 0.25);
+  assert.equal(getTerrainTileTransitionOpacity(1), 1);
+  assert.equal(getTerrainTileTransitionOpacity(2), 1);
+  assert.equal(getTerrainTileTransitionOpacity(Number.NaN), 1);
+});
+
+test("le préchargement GPU sélectionne des tuiles voisines sans dupliquer le viewport", () => {
+  const width = 64, height = 32, tileSize = 4;
+  const values = new Int16Array(width * height);
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 256 });
+  const viewport = { centerLongitude: 0, centerLatitude: 0, zoom: 2 };
+  const visible = collectTerrainViewportTiles(store, viewport, 800, 400, 0);
+  const predictive = collectTerrainPredictiveTiles(store, viewport, 800, 400, 0, 8);
+  const visibleIds = new Set(visible.map(({ tile }) => `${tile.level}/${tile.x}/${tile.y}`));
+  assert.ok(predictive.length > 0);
+  assert.ok(predictive.length <= 8);
+  for (const { tile } of predictive) {
+    assert.equal(visibleIds.has(`${tile.level}/${tile.x}/${tile.y}`), false);
+  }
+  assert.equal(collectTerrainPredictiveTiles(store, viewport, 800, 400, 0, 0).length, 0);
+});
+
+test("le préchargement GPU anticipe les deux niveaux LOD voisins et priorise le sens du zoom", () => {
+  const width = 256, height = 128, tileSize = 8;
+  const store = createTerrainTileStore({ width, height, values: new Int16Array(width * height) },
+    { tileSize, maxTiles: 512 });
+  const viewport = { centerLongitude: 0, centerLatitude: 0, zoom: 2 };
+  const zoomIn = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 1, 0, 12);
+  const zoomOut = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 1, 2, 12);
+  assert.ok(zoomIn.length > 0);
+  assert.ok(zoomOut.length > 0);
+  assert.ok(zoomIn.every(({ tile }) => tile.level === 0 || tile.level === 2));
+  assert.ok(zoomOut.every(({ tile }) => tile.level === 0 || tile.level === 2));
+  assert.equal(zoomIn[0].tile.level, 0);
+  assert.equal(zoomOut[0].tile.level, 2);
+  assert.ok(zoomIn.length <= 12);
+  assert.ok(zoomOut.length <= 12);
+  const edgeLevel = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 0, 1, 8);
+  assert.ok(edgeLevel.length > 0);
+  assert.ok(edgeLevel.every(({ tile }) => tile.level === 1));
+});
+
+test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const visible = collectTerrainViewportTiles(store,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 360, 180, 0);
+  assert.equal(visible.length, 6);
+  assert.deepEqual(visible.map(({ tile }) => `${tile.x}/${tile.y}`).sort(),
+    ["0/0", "0/1", "1/0", "1/1", "2/0", "2/1"]);
+  assert.ok(visible.every(({ rects }) => rects.length > 0));
+});
+
+test("la collecte GPU conserve les tuiles visibles au franchissement de l'antiméridien", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const visible = collectTerrainViewportTiles(store,
+    { zoom: 2, centerLongitude: 179, centerLatitude: 0 }, 180, 90, 0);
+  assert.ok(visible.some(({ tile }) => tile.x === 0));
+  assert.ok(visible.every(({ rects }) => rects.length > 0));
+});
+
+
+test("le rendu GPU exige une capacité suffisante pour couvrir les tuiles visibles et leur niveau parent", () => {
+  assert.equal(terrainTileSetFitsAtlas(24, 24, 64), true);
+  assert.equal(terrainTileSetFitsAtlas(40, 25, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(65, 0, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(0, 0, 64), true);
+  assert.equal(terrainTileSetFitsAtlas(-1, 0, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(1, 1, 0), false);
+});
+
+test("l'atlas GPU augmente sa capacité au-delà de 64 slots sans dépasser son budget mémoire", () => {
+  const store = createTerrainTileStore(
+    { width: 256, height: 128, values: new Int16Array(256 * 128) },
+    { tileSize: 4, maxTiles: 2048 }
+  );
+  const gl = createFakeTerrainGL(256);
+  const maxBytes = 2 * 6 * 6 * 144;
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { maxBytes });
+  assert.ok(atlas.capacity > 64);
+  assert.ok(atlas.memoryBytes <= maxBytes);
+  assert.ok(atlas.atlasWidth <= 256);
+  assert.equal(atlas.capacity, 144);
+  atlas.dispose();
+});
+
+test("l'atlas GPU respecte simultanément la limite matérielle et le budget mémoire", () => {
+  const store = createTerrainTileStore(
+    { width: 64, height: 32, values: new Int16Array(64 * 32) },
+    { tileSize: 8, maxTiles: 512 }
+  );
+  const gl = createFakeTerrainGL(50);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 32, maxBytes: 1024 });
+  assert.ok(atlas.atlasWidth <= 50);
+  assert.ok(atlas.memoryBytes <= 1024);
+  assert.ok(atlas.capacity >= 1);
+  atlas.dispose();
+});
+
+
+test("la construction de texture résout chaque tuile voisine du halo une seule fois", () => {
+  const calls = [];
+  const tileStore = {
+    width: 8,
+    height: 8,
+    tileSize: 4,
+    revision: 0,
+    getTileAtLevel(level, x, y) {
+      calls.push(`${level}/${x}/${y}`);
+      if (level !== 0 || x < 0 || x > 1 || y < 0 || y > 1) return null;
+      const originX = x * 4;
+      const originY = y * 4;
+      const values = new Int16Array(16);
+      for (let localY = 0; localY < 4; localY++) {
+        for (let localX = 0; localX < 4; localX++) {
+          values[localY * 4 + localX] = (originY + localY) * 8 + originX + localX;
+        }
+      }
+      return { originX, originY, width: 4, height: 4, values };
+    }
+  };
+  const tile = { level: 0, x: 0, y: 0, originX: 0, originY: 0, width: 4, height: 4 };
+  const texture = buildTerrainTileTexture(tile, tileStore);
+  assert.ok(texture);
+  assert.equal(new Set(calls).size, calls.length);
+  assert.equal(calls.length, 4);
+  assert.equal(texture.values[0], 7); // halo ouest : retour longitudinal
+  assert.equal(texture.values[1 * 6 + 1], 0); // premier échantillon intérieur
+  assert.equal(texture.values[5 * 6 + 5], 36); // halo sud-est
+});
+
+
+test("le LOD parent couvre le viewport pendant les uploads des tuiles enfant", () => {
+  assert.equal(shouldUseTerrainParentFallback(0, 4, 8, 2, 16), true);
+  assert.equal(shouldUseTerrainParentFallback(3, 1, 8, 4, 12), true);
+  assert.equal(shouldUseTerrainParentFallback(4, 1, 8, 2, 16), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 0, 8, 2, 16), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 12), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 10), false);
+});
+
+
+test("la file GPU traite les tuiles visibles avant le préchargement prédictif", () => {
+  const pending = new Map([
+    ["predictive-a", { priority: 2, sequence: 0 }],
+    ["visible-a", { priority: 0, sequence: 4 }],
+    ["parent-b", { priority: 1, sequence: 2 }],
+    ["visible-b", { priority: 0, sequence: 1 }]
+  ]);
+  assert.equal(getTerrainPendingNextKey(pending), "visible-b");
+  pending.delete("visible-b");
+  assert.equal(getTerrainPendingNextKey(pending), "visible-a");
+  pending.delete("visible-a");
+  assert.equal(getTerrainPendingNextKey(pending), "parent-b");
+  pending.delete("parent-b");
+  assert.equal(getTerrainPendingNextKey(pending), "predictive-a");
+  assert.equal(getTerrainPendingNextKey(new Map()), null);
+});
+
+
+test("les évictions GPU choisissent la plus ancienne tuile non protégée", () => {
+  const entries = new Map([
+    ["parent-visible", { slot: 0 }],
+    ["child-visible", { slot: 1 }],
+    ["old-predictive", { slot: 2 }],
+    ["recent-predictive", { slot: 3 }]
+  ]);
+  const protectedKeys = new Set(["parent-visible", "child-visible"]);
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), "old-predictive");
+  entries.delete("old-predictive");
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), "recent-predictive");
+  entries.delete("recent-predictive");
+  assert.equal(getTerrainEvictionKey(entries, protectedKeys), null);
+  assert.equal(getTerrainEvictionKey(null, protectedKeys), null);
+});
+
+
+test("la triangulation géographique prépare un polygone concave sans trous", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [0, 0], [4, 0], [4, 4], [2, 2], [0, 4], [0, 0]
+    ]] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.vertexCount, 5);
+  assert.equal(mesh.triangleCount, 3);
+  assert.equal(mesh.indices.length, 9);
+  for (const index of mesh.indices) assert.ok(index < mesh.vertexCount);
+});
+
+test("la triangulation géographique déplie l'antiméridien sans grand triangle parasite", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [179, 10], [-179, 10], [-179, 12], [179, 12], [179, 10]
+    ]] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, true);
+  const longitudes = Array.from(mesh.positions).filter((_, index) => index % 2 === 0);
+  assert.ok(Math.max(...longitudes) - Math.min(...longitudes) <= 2);
+});
+
+test("les polygones avec trous restent explicitement au fallback Canvas", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [
+      [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+      [[2, 2], [2, 4], [4, 4], [4, 2], [2, 2]]
+    ] }
+  };
+  const mesh = buildGeographicPolygonMesh(feature);
+  assert.equal(mesh.supported, false);
+  assert.equal(mesh.reason, "polygon-holes-require-canvas");
+});
+
+test("le cache de maillages réutilise la triangulation d'une même feature", () => {
+  const feature = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] }
+  };
+  const cache = createGeographicMeshCache();
+  assert.equal(cache.get(feature), cache.get(feature));
+});
+
+
+test("le renderer WebGL géographique regroupe les polygones et ignore les géométries non supportées", () => {
+  let nextId = 0;
+  const calls = [];
+  const uploadedPositions = [];
+  const gl = {
+    canvas: { width: 300, height: 150 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, FLOAT: 8,
+    TRIANGLES: 9, UNSIGNED_SHORT: 10, COLOR_BUFFER_BIT: 11, BLEND: 12,
+    SRC_ALPHA: 13, ONE_MINUS_SRC_ALPHA: 14,
+    createShader: () => ({ id: ++nextId }),
+    shaderSource() {}, compileShader() {}, getShaderParameter: () => true,
+    deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer(target) { calls.push(["bindBuffer", target]); },
+    enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) {
+      calls.push(["bufferData", target, data.length]);
+      if (target === this.ARRAY_BUFFER) uploadedPositions.push(Array.from(data));
+    },
+    drawElements(mode, count) { calls.push(["drawElements", mode, count]); }
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const polygon = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]] }
+  };
+  const withHole = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [
+      [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]],
+      [[1, 1], [2, 1], [2, 2], [1, 2], [1, 1]]
+    ] }
+  };
+  const stats = renderer.render([polygon, polygon, withHole], 800, 400,
+    { centerLongitude: 0, centerLatitude: 0, zoom: 1 }, [0.2, 0.3, 0.4, 1]);
+  assert.equal(stats.drawnFeatures, 2);
+  assert.equal(stats.skippedFeatures, 1);
+  assert.equal(stats.drawCalls, 1);
+  assert.equal(stats.triangles, 4);
+  assert.equal(calls.filter(call => call[0] === "drawElements").length, 1);
+  assert.ok(calls.some(call => call[0] === "bufferData" && call[1] === gl.ELEMENT_ARRAY_BUFFER));
+  assert.equal(renderer.supports(polygon), true);
+  assert.equal(renderer.supports(withHole), false);
+  assert.equal(stats.cacheHit, false);
+  assert.equal(stats.bufferUploads, 2);
+  const repeatedStats = renderer.render([polygon, polygon, withHole], 800, 400,
+    { centerLongitude: 15, centerLatitude: 5, zoom: 2 }, [0.2, 0.3, 0.4, 1]);
+  assert.equal(repeatedStats.cacheHit, true);
+  assert.equal(repeatedStats.bufferUploads, 0);
+  assert.equal(repeatedStats.uploadedBytes, 0);
+  assert.equal(calls.filter(call => call[0] === "bufferData").length, 2);
+  const dateline = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[179, 10], [-179, 10], [-179, 12], [179, 12], [179, 10]]] }
+  };
+  renderer.render([dateline], 640, 320, { centerLongitude: -180, centerLatitude: 0, zoom: 2 });
+  const datelineLongitudes = uploadedPositions[1].filter((_, index) => index % 2 === 0);
+  assert.ok(Math.max(...datelineLongitudes) - Math.min(...datelineLongitudes) <= 2);
+  assert.equal(gl.canvas.width, 640);
+  assert.equal(gl.canvas.height, 320);
+  renderer.dispose();
+});
+
+
+test("le renderer géographique conserve un cache GPU indépendant pour chaque couche", () => {
+  let nextId = 0;
+  const uploads = [];
+  const gl = {
+    canvas: { width: 1, height: 1 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, FLOAT: 8,
+    TRIANGLES: 9, UNSIGNED_SHORT: 10, COLOR_BUFFER_BIT: 11, BLEND: 12,
+    SRC_ALPHA: 13, ONE_MINUS_SRC_ALPHA: 14,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { uploads.push({ target, bytes: data.byteLength }); },
+    drawElements() {}
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const land = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[0, 0], [8, 0], [8, 8], [0, 8], [0, 0]]] } };
+  const glacier = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[10, 10], [12, 10], [12, 12], [10, 12], [10, 10]]] } };
+  const lakes = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[20, 20], [22, 20], [22, 22], [20, 22], [20, 20]]] } };
+  const layers = [
+    { key: "land", features: [land], color: [0.2, 0.3, 0.4, 1] },
+    { key: "glaciers", features: [glacier], color: [0.8, 0.9, 0.9, 0.88] },
+    { key: "lakes", features: [lakes], color: [0.1, 0.2, 0.3, 1] }
+  ];
+  const first = renderer.renderLayers(layers, 800, 400, { zoom: 1 });
+  assert.equal(first.drawnFeatures, 3);
+  assert.equal(first.drawCalls, 3);
+  assert.equal(first.bufferUploads, 6);
+  assert.equal(first.cacheHit, false);
+  assert.equal(first.layers.land.cacheHit, false);
+  const second = renderer.renderLayers(layers, 800, 400, { zoom: 2, centerLongitude: 10 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.layers.glaciers.cacheHit, true);
+  assert.equal(uploads.length, 6);
+  const changed = renderer.renderLayers([
+    layers[0], { ...layers[1], features: [glacier, land] }, layers[2]
+  ], 800, 400, { zoom: 2 });
+  assert.equal(changed.layers.land.cacheHit, true);
+  assert.equal(changed.layers.glaciers.cacheHit, false);
+  assert.equal(changed.layers.lakes.cacheHit, true);
+  assert.equal(changed.bufferUploads, 2);
+  assert.equal(uploads.length, 8);
+  renderer.dispose();
+});
+
+
+test("les lignes géographiques sont converties en segments GPU avec ruptures et antiméridien", () => {
+  const line = { type: "Feature", geometry: { type: "MultiLineString", coordinates: [
+    [[179, 4], [-179, 5], [-178, 6]],
+    [[20, 0], [21, 1]]
+  ] } };
+  const mesh = buildGeographicLineMesh(line);
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.vertexCount, 6);
+  assert.deepEqual(Array.from(mesh.positions), [
+    179, 4, 181, 5,
+    181, 5, 182, 6,
+    20, 0, 21, 1
+  ]);
+  assert.equal(buildGeographicLineMesh({ type: "Feature", geometry: {
+    type: "Polygon", coordinates: []
+  } }).supported, false);
+  assert.equal(buildGeographicLineMesh({ type: "Feature", geometry: {
+    type: "LineString", coordinates: [[0, 0], [Number.NaN, 2]]
+  } }).supported, false);
+});
+
+
+test("le renderer WebGL met en cache les lignes compatibles et laisse l'antiméridien au Canvas", () => {
+  let nextId = 0;
+  const calls = [];
+  const gl = {
+    canvas: { width: 1, height: 1 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, STATIC_DRAW: 8,
+    FLOAT: 9, TRIANGLES: 10, LINES: 11, UNSIGNED_SHORT: 12, COLOR_BUFFER_BIT: 13,
+    BLEND: 14, SRC_ALPHA: 15, ONE_MINUS_SRC_ALPHA: 16,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f(location, value) { calls.push(["uniform1f", value]); }, uniform4fv() {},
+    bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { calls.push(["upload", target, data.byteLength]); },
+    drawElements() {},
+    drawArrays(mode, first, count) { calls.push(["drawArrays", mode, first, count]); }
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const ordinary = { type: "Feature", geometry: { type: "LineString", coordinates: [[10, 2], [11, 3]] } };
+  const dateline = { type: "Feature", geometry: { type: "LineString", coordinates: [[179, 2], [-179, 3]] } };
+  const layers = [{ key: "rivers", type: "lines", features: [ordinary, dateline], color: [0.2, 0.4, 0.8, 1], lineWidth: 1.25 }];
+  const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  assert.equal(first.drawnFeatures, 1);
+  assert.equal(first.skippedFeatures, 1);
+  assert.equal(first.drawCalls, 1);
+  assert.equal(first.bufferUploads, 1);
+  // Un segment (6 sommets) + deux caps circulaires de 12 triangles (72 sommets).
+  assert.equal(first.layers.rivers.vertices, 78);
+  assert.equal(first.layers.rivers.triangles, 26);
+  assert.equal(first.triangles, 26);
+  assert.equal(first.layers.rivers.uploadedBytes, 2496);
+  assert.ok(Number.isFinite(first.cacheBuildMs) && first.cacheBuildMs >= 0);
+  assert.ok(Number.isFinite(first.drawSubmitMs) && first.drawSubmitMs >= 0);
+  assert.ok(Number.isFinite(first.totalMs) && first.totalMs >= first.drawSubmitMs);
+  assert.equal(first.layers.rivers.cacheHit, false);
+  assert.ok(first.layers.rivers.cacheBuildMs >= 0);
+  assert.ok(Number.isFinite(first.layers.rivers.drawSubmitMs));
+  assert.ok(first.layers.rivers.drawSubmitMs >= 0);
+  assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
+  assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
+  assert.equal(renderer.supportsLine(ordinary), true);
+  assert.equal(renderer.supportsLine(dateline), false);
+  assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
+  const second = renderer.renderLayers(layers, 640, 320, { centerLongitude: 20, centerLatitude: 0, zoom: 2 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.cacheBuildMs, 0);
+  assert.equal(second.layers.rivers.cacheBuildMs, 0);
+
+  const touchingFeatures = [
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [1, 0]] } },
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [2, 0]] } }
+  ];
+  const isolated = renderer.renderLayers([
+    { key: "independent-lines", type: "lines", features: touchingFeatures }
+  ], 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  // Deux tracés indépendants qui se touchent gardent chacun leurs deux caps :
+  // aucun disque de jonction partagé ne doit être ajouté entre les entités.
+  assert.equal(isolated.layers["independent-lines"].vertices, 156);
+  assert.equal(isolated.layers["independent-lines"].triangles, 52);
+
+  const bent = {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: [[0, 0], [1, 0], [1, 1]] }
+  };
+  const bend = renderer.renderLayers([
+    { key: "bent-line", type: "lines", features: [bent] }
+  ], 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  // Deux segments, un raccord interne et deux caps externes.
+  assert.equal(bend.layers["bent-line"].vertices, 120);
+  assert.equal(bend.layers["bent-line"].triangles, 40);
+  renderer.dispose();
+});
+
+
+test("les contours polygonaux sont mis en cache et dessinés en rubans triangulés avec raccords", () => {
+  let nextId = 0;
+  const calls = [];
+  const gl = {
+    canvas: { width: 1, height: 1 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, STATIC_DRAW: 8,
+    FLOAT: 9, TRIANGLES: 10, LINES: 11, UNSIGNED_SHORT: 12, COLOR_BUFFER_BIT: 13,
+    BLEND: 14, SRC_ALPHA: 15, ONE_MINUS_SRC_ALPHA: 16,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { calls.push(["upload", data.byteLength]); },
+    drawElements() {},
+    drawArrays(mode, first, count) { calls.push(["drawArrays", mode, count]); }
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const polygon = { type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]] } };
+  const layers = [{ key: "coast-outline", type: "boundaries", features: [polygon], color: [0.4, 0.5, 0.6, 1] }];
+  const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  assert.equal(first.drawnFeatures, 1);
+  assert.equal(first.layers["coast-outline"].vertices, 168);
+  assert.equal(first.layers["coast-outline"].triangles, 56);
+  assert.equal(first.triangles, 56);
+  assert.equal(first.layers["coast-outline"].uploadedBytes, 5376);
+  assert.ok(Number.isFinite(first.layers["coast-outline"].drawSubmitMs));
+  assert.ok(first.layers["coast-outline"].drawSubmitMs >= 0);
+  assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
+  assert.equal(first.bufferUploads, 1);
+  assert.equal(renderer.supportsBoundary(polygon), true);
+  assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
+  const second = renderer.renderLayers(layers, 640, 320, { centerLongitude: 15, centerLatitude: 0, zoom: 2 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  renderer.dispose();
+});
+
+
+test("les frontières administratives secondaires sont envoyées au renderer WebGL", () => {
+  const { canvas, calls } = createCanvas();
+  const administrativeBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "MultiLineString", coordinates: [[[1, 1], [4, 4]]] } },
+    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[5, 5], [8, 5], [8, 8], [5, 5]]] } }
+  ] };
+  let submittedLayers = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers(layers) {
+      submittedLayers = layers;
+      return {
+        drawnFeatures: 2, skippedFeatures: 0, drawCalls: 2, triangles: 1,
+        cacheHit: false, bufferUploads: 2, uploadedBytes: 32,
+        cacheBuildMs: 3.25, drawSubmitMs: 1.5, totalMs: 5.1,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundary-lines": { drawnFeatures: 1 },
+          "administrative-boundary-polygons": { drawnFeatures: 1 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => true,
+    supportsLine: () => true
+  };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  const lineLayer = submittedLayers.find(layer => layer.key === "administrative-boundary-lines");
+  const polygonLayer = submittedLayers.find(layer => layer.key === "administrative-boundary-polygons");
+  assert.ok(lineLayer);
+  assert.ok(polygonLayer);
+  assert.equal(lineLayer.type, "lines");
+  assert.equal(polygonLayer.type, "boundaries");
+  assert.equal(lineLayer.features[0], administrativeBoundaries.features[0]);
+  assert.equal(polygonLayer.features[0], administrativeBoundaries.features[1]);
+  assert.equal(result.geographicWebGLStats.drawCalls, 2);
+  assert.equal(result.geographicWebGLStats.cacheBuildMs, 3.25);
+  assert.equal(result.geographicWebGLStats.drawSubmitMs, 1.5);
+  assert.equal(result.geographicWebGLStats.totalMs, 5.1);
+  assert.ok(calls.some(call => call[0] === "drawImage"));
+});
+
+test("les frontières administratives non compatibles WebGL conservent le fallback Canvas", () => {
+  const { canvas, calls } = createCanvas();
+  const administrativeBoundaries = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[1, 1], [4, 1], [4, 4], [1, 1]]] }
+  }] };
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers() {
+      return {
+        drawnFeatures: 1, skippedFeatures: 1, drawCalls: 1, triangles: 1,
+        cacheHit: false, bufferUploads: 1, uploadedBytes: 16,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundary-polygons": { drawnFeatures: 0 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => false,
+    supportsLine: () => true
+  };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  assert.ok(calls.some(call => call[0] === "stroke"));
+  // Une entité refusée par le chemin GPU doit être explicitement comptée comme fallback Canvas.
+  assert.equal(result.geographicWebGLStats.fallbackLayerFeatures, 2);
+  assert.equal(result.geographicWebGLStats.layers["administrative-boundary-polygons"].fallbackFeatures, 1);
+});
+
+
+test("les frontières administratives respectent leur seuil MIN_ZOOM", () => {
+  const { canvas } = createCanvas();
+  const visibleAtThree = {
+    type: "Feature",
+    properties: { MIN_ZOOM: 2 },
+    geometry: { type: "LineString", coordinates: [[1, 1], [4, 4]] }
+  };
+  const hiddenUntilFourPointSeven = {
+    type: "Feature",
+    properties: { MIN_ZOOM: 4.7 },
+    geometry: { type: "LineString", coordinates: [[5, 5], [8, 8]] }
+  };
+  const administrativeBoundaries = {
+    type: "FeatureCollection",
+    features: [visibleAtThree, hiddenUntilFourPointSeven]
+  };
+  let submittedLineFeatures = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers(layers) {
+      submittedLineFeatures = layers.find(layer => layer.key === "administrative-boundary-lines")?.features ?? [];
+      return {
+        drawnFeatures: 1, skippedFeatures: 0, drawCalls: 1, triangles: 0,
+        cacheHit: false, bufferUploads: 1, uploadedBytes: 16,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundary-lines": { drawnFeatures: 1 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => true,
+    supportsLine: () => true
+  };
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 },
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  assert.deepEqual(submittedLineFeatures, [visibleAtThree]);
+});
+
+
+test("la préférence du renderer géographique est normalisée sans ambiguïté", () => {
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=canvas"), "canvas");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=webgl"), "webgl");
+  assert.equal(getGeographicRendererPreference(""), "auto");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=unknown"), "auto");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=CANVAS"), "auto");
+});
+
+test("le mode géographique publié correspond au renderer réellement disponible", () => {
+  assert.equal(resolveGeographicRendererMode("canvas", true), "canvas");
+  assert.equal(resolveGeographicRendererMode("canvas", false), "canvas");
+  assert.equal(resolveGeographicRendererMode("webgl", true), "webgl");
+  assert.equal(resolveGeographicRendererMode("webgl", false), "canvas-fallback");
+  assert.equal(resolveGeographicRendererMode("auto", true), "webgl");
+  assert.equal(resolveGeographicRendererMode("auto", false), "canvas-fallback");
 });
