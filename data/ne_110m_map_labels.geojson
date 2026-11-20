@@ -186,7 +186,7 @@
       "properties": {
         "name": "Paris",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -201,7 +201,7 @@
       "properties": {
         "name": "Londres",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -216,7 +216,7 @@
       "properties": {
         "name": "Rome",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -231,7 +231,7 @@
       "properties": {
         "name": "Constantinople",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -246,7 +246,7 @@
       "properties": {
         "name": "Le Caire",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -261,7 +261,7 @@
       "properties": {
         "name": "Tombouctou",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -276,7 +276,7 @@
       "properties": {
         "name": "Delhi",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -291,7 +291,7 @@
       "properties": {
         "name": "Pékin",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 3
       },
       "geometry": {
         "type": "Point",
@@ -306,7 +306,7 @@
       "properties": {
         "name": "Kyoto",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -321,7 +321,7 @@
       "properties": {
         "name": "Tenochtitlan",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -336,7 +336,7 @@
       "properties": {
         "name": "Cuzco",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -351,7 +351,7 @@
       "properties": {
         "name": "Tunis",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -366,7 +366,7 @@
       "properties": {
         "name": "Venise",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -381,7 +381,7 @@
       "properties": {
         "name": "Moscou",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -396,7 +396,7 @@
       "properties": {
         "name": "Samarkand",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -411,7 +411,7 @@
       "properties": {
         "name": "Marrakech",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
@@ -426,7 +426,7 @@
       "properties": {
         "name": "Gênes",
         "kind": "city",
-        "minZoom": 2
+        "minZoom": 5
       },
       "geometry": {
         "type": "Point",
