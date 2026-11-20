@@ -17,6 +17,7 @@ import { constrainEquirectangularViewport } from "./world/projection.js";
 import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
@@ -40,6 +41,8 @@ let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
 let terrainTileStore = null;
+let geographicWebGLRenderer = null;
+let geographicWebGLRendererUnavailable = false;
 let regionalLandFeatures = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
@@ -186,6 +189,25 @@ function failInitialLoading(error){
   $("loading-message").textContent="Certaines données n’ont pas pu être chargées : "+(error?.message??"erreur inconnue");
   $("loading-retry").hidden=false;
   $("loading-retry").addEventListener("click",()=>location.reload(),{once:true});
+}
+
+function getGeographicWebGLRenderer() {
+  if (geographicWebGLRenderer || geographicWebGLRendererUnavailable) return geographicWebGLRenderer;
+  try {
+    const surface = document.createElement("canvas");
+    const gl = surface.getContext("webgl", {
+      alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
+    });
+    if (!gl) {
+      geographicWebGLRendererUnavailable = true;
+      return null;
+    }
+    geographicWebGLRenderer = createGeographicWebGLRenderer(gl);
+  } catch (error) {
+    geographicWebGLRendererUnavailable = true;
+    console.info("Renderer géographique WebGL indisponible : rendu Canvas conservé.", error);
+  }
+  return geographicWebGLRenderer;
 }
 
 function updateMapControls() {
@@ -669,6 +691,7 @@ function renderMapFrame() {
     terrain: terrainGrid,
     terrainTileStore,
     onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
+    geographicWebGLRenderer: getGeographicWebGLRenderer(),
     terrainEnabled: true,
     terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
     terrainMode: $("terrain-mode")?.value ?? "political",
