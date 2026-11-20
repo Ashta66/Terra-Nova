@@ -110,6 +110,7 @@ function renderMap() {
     elevationPoints,
     labels: mapLabels,
     terrain: terrainTileStore ?? terrainGrid,
+    terrainWebGLGrid: terrainTileStore?.revision === 0 ? terrainGrid : null,
     terrainTransitionProgress,
     dynamicLayers: dynamicMapLayers
   });
@@ -120,6 +121,7 @@ function renderMap() {
     canvas.dataset.renderPoliticalMs = result.performance.politicalMs.toFixed(2);
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
+    canvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
     if (terrainTileStore) {
       const cacheStats = terrainTileStore.cacheStats;
       canvas.dataset.terrainCacheBytes = String(cacheStats.byteLength);
