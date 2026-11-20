@@ -169,3 +169,8 @@ Le raster ETOPO conserve également jusqu'à six surfaces calculées par grille 
 ## Cache des tracés hydrographiques — 20 novembre 2026
 
 Les cours d'eau (LineString et MultiLineString) utilisent désormais le même cache de chemins projetés `Path2D` que les polygones. Les segments discontinus restent séparés dans le même chemin ; les navigateurs sans `Path2D` gardent le tracé Canvas classique. La clé conserve les dimensions, la projection et le viewport, et chaque feature reste limitée à trois variantes récentes. Un test confirme que les chemins des rivières ne sont pas reconstruits lors d'un second rendu identique. Cela évite la reprojection répétée des coordonnées hydrographiques sur un cadrage réutilisé, sans constituer encore un cache de tuiles ni une mesure de FPS.
+
+
+## Compatibilité du comptage hydrographique — 20 novembre 2026
+
+Le cache `Path2D` regroupe les sous-lignes d'un `MultiLineString` dans un seul chemin graphique pour réduire les appels Canvas. Le compteur de rendu conserve toutefois le nombre de lignes individuelles, comme avant l'optimisation, afin que les statistiques de couches restent comparables. Un test couvre explicitement les entités hydrographiques multi-segments.

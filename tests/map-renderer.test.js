@@ -369,3 +369,30 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("un MultiLineString conserve le nombre de segments hydrographiques avec Path2D", () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const rivers = { type: "FeatureCollection", features: [
+      { type: "Feature", geometry: { type: "MultiLineString", coordinates: [
+        [[-20, 0], [-10, 5]], [[10, 5], [20, 0]], [[30, 0], [35, 2]]
+      ] } }
+    ] };
+    const { canvas } = createCanvas();
+    const result = renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1, rivers,
+      viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 }
+    });
+    assert.equal(result.riverCount, 3);
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});

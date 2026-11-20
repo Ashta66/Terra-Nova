@@ -107,12 +107,14 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     const cachedPath = getProjectedPath(feature, width, height, projection);
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
+    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
     if (cachedPath) {
       context.stroke(cachedPath);
-      drawn++;
+      // Conserver la sémantique historique : un cours d'eau multi-segments
+      // compte chaque ligne réellement dessinée, même avec un chemin Path2D unique.
+      drawn += lines.length;
       continue;
     }
-    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
     for (const line of lines) {
       context.beginPath();
       let started = false;
