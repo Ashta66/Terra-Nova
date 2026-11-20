@@ -56,7 +56,10 @@ let sceneReady = false;
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
-const MAP_PIXEL_RATIO = Math.min(1.5, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
+// Le rendu cartographique est volontairement plafonné à 1,25× : sur les écrans
+// Retina, cela réduit fortement le nombre de pixels à composer sans dégrader
+// sensiblement la lecture à l'échelle normale.
+const MAP_PIXEL_RATIO = Math.min(1.25, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -203,26 +206,39 @@ function renderMap() {
   });
 }
 
+function cancelMapPrefetch() {
+  if (mapPrefetchHandle === null) return;
+  if (mapPrefetchUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(mapPrefetchHandle);
+  else clearTimeout(mapPrefetchHandle);
+  mapPrefetchHandle = null;
+}
 function scheduleMapPrefetch(collections) {
+  cancelMapPrefetch();
   if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
-  if (mapPrefetchHandle !== null) {
-    if (mapPrefetchUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(mapPrefetchHandle);
-    else clearTimeout(mapPrefetchHandle);
-    mapPrefetchHandle = null;
-  }
-  const prepare = () => {
+  let index = 0;
+  const prepareNext = () => {
     mapPrefetchHandle = null;
     if (mapInteractionActive) return;
-    for (const collection of collections) {
-      if (collection?.features) prefetchGeoSpatialFeatures(collection, mapViewport, 1);
+    while (index < collections.length && !collections[index]?.features) index++;
+    if (index >= collections.length) return;
+    // Une seule famille géographique par tranche de repos : un gros index ne
+    // monopolise plus une frame entière juste après un déplacement.
+    prefetchGeoSpatialFeatures(collections[index++], mapViewport, 1);
+    if (index >= collections.length || mapInteractionActive) return;
+    if (typeof requestIdleCallback === "function") {
+      mapPrefetchUsesIdleCallback = true;
+      mapPrefetchHandle = requestIdleCallback(prepareNext, { timeout: 900 });
+    } else {
+      mapPrefetchUsesIdleCallback = false;
+      mapPrefetchHandle = setTimeout(prepareNext, 32);
     }
   };
   if (typeof requestIdleCallback === "function") {
     mapPrefetchUsesIdleCallback = true;
-    mapPrefetchHandle = requestIdleCallback(prepare, { timeout: 700 });
+    mapPrefetchHandle = requestIdleCallback(prepareNext, { timeout: 700 });
   } else {
     mapPrefetchUsesIdleCallback = false;
-    mapPrefetchHandle = setTimeout(prepare, 90);
+    mapPrefetchHandle = setTimeout(prepareNext, 90);
   }
 }
 
@@ -639,6 +655,7 @@ mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapInteractionActive = true;
+  cancelMapPrefetch();
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
 });
@@ -783,7 +800,7 @@ function scheduleInteractionRender() {
     mapInteractionActive = false;
     lastRenderedMapSignature = null;
     renderMap();
-  }, 140);
+  }, 240);
 }
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
@@ -830,6 +847,7 @@ mapCanvas.addEventListener("wheel", (event) => {
   const anchorX = event.clientX - rect.left;
   const anchorY = event.clientY - rect.top;
   mapInteractionActive = true;
+  cancelMapPrefetch();
   zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchorX, anchorY, false, { width: rect.width, height: rect.height });
   requestCompose();
   scheduleInteractionRender();

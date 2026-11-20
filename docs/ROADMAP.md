@@ -279,3 +279,11 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 - [x] Limiter les labels et repères secondaires selon le niveau de zoom.
 - [x] Charger séparément les couches régionales au besoin plutôt que précharger les quatre couches au démarrage.
 - [ ] Mesurer le temps de rendu par couche et la fluidité réelle du zoom/panoramique sur le navigateur cible ; ajuster les seuils après inspection visuelle.
+
+
+### Priorité aux interactions — 20 novembre 2026
+- [x] Annuler le préchargement spatial au début du déplacement et du zoom.
+- [x] Répartir le préchargement par familles de couches sur plusieurs tranches de repos.
+- [x] Plafonner le pixel ratio de la scène à 1,25× sur les écrans haute densité.
+- [x] Attendre 240 ms de calme avant le rendu vectoriel complet post-interaction.
+- [ ] Mesurer les temps de composition et de rendu sur plusieurs densités d'écran et navigateurs.
