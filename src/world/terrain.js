@@ -158,7 +158,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", changedOnly ? "changed" : "all", physicalWorld?.revision ?? 0].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), physicalWorld?.revision ?? 0].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();

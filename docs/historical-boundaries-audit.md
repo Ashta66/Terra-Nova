@@ -59,3 +59,7 @@ Le séisme produit maintenant une rupture orientée : soulèvement d'un côté, 
 ## Correctifs de stabilité des catastrophes et des performances
 Le contact eau/cratère est déterminé avec une marge de 3 km et privilégie les cellules ETOPO fines ; les cellules de la grille mondiale grossière ne peuvent plus déclarer à tort un impact côtier lorsqu'une grille fine est disponible. Les anneaux visuels du tsunami et de la météorite suivent la durée mensuelle de leurs effets ; ceux du séisme restent une semaine, tandis que la cicatrice et le déplacement de terrain persistent. Un déplacement tectonique non nul est calculé par défaut à partir de la magnitude.
 Le raster de terrain courant est plafonné à 512 × 256 pendant les déplacements et zooms ; la passe de recalcul des côtes modifiées conserve une résolution supérieure. Une seule passe raster partagée est exécutée pour l'ensemble des événements, au lieu d'une passe complète par catastrophe.
+
+
+## Réglage supplémentaire du rendu cartographique
+La résolution du raster courant et de la passe de côte modifiée est plafonnée à 512 × 256 pendant les interactions. Les tests de dimensions sont alignés sur ce budget afin de limiter les allocations et les calculs par image. Le tracé de faille sismique est renforcé pour rester lisible à l'échelle mondiale.

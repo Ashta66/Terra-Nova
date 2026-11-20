@@ -61,7 +61,7 @@ test("la submersion d'un tsunami dure un mois puis se retire",()=>{
 
 test("les marqueurs visuels des catastrophes expirent sans effacer les déformations",()=>{
  const w=applyPhysicalEvent(createPhysicalWorld([{id:"c",longitude:0,latitude:0,elevationM:100,coastalDistanceKm:0}]),{id:"ring-expiry",type:"earthquake",date:"1900-01-01",longitude:0,latitude:0,radiusKm:100,magnitude:8,ruptureOffsetM:2}).world;
- const next=expirePhysicalSurfaceEffects(w,"1900-01-04");assert.equal(next.events[0].visualExpired,true);assert.ok(next.currentCells[0].elevationDeltaM>0);
+ const stillActive=expirePhysicalSurfaceEffects(w,"1900-01-04");assert.equal(stillActive.events[0].visualExpired,undefined);const next=expirePhysicalSurfaceEffects(stillActive,"1900-01-09");assert.equal(next.events[0].visualExpired,true);assert.ok(next.currentCells[0].elevationDeltaM>0);
 });
 
 

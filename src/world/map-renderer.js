@@ -663,9 +663,9 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
    ctx.setLineDash?.(event.type==="earthquake"?[5,4]:[2,3]);
    for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
    if(event.type==="earthquake"){
-    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,.95)";ctx.lineWidth=Math.max(2,1.6*Math.sqrt(zoom));
+    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,1)";ctx.lineWidth=Math.max(3,2.4*Math.sqrt(zoom));
     const angle=(event.ruptureBearingDeg??35)*Math.PI/180;
-    for(const sign of [-1,1]){const dx=Math.cos(angle+Math.PI/2)*radius*.8*sign,dy=Math.sin(angle+Math.PI/2)*radius*.8*sign;ctx.beginPath();ctx.moveTo(center.x-dx,center.y-dy);ctx.lineTo(center.x+dx*.72,center.y+dy*.72);ctx.stroke();}
+    for(const sign of [-1,1]){const dx=Math.cos(angle+Math.PI/2)*radius*.8*sign,dy=Math.sin(angle+Math.PI/2)*radius*.8*sign;ctx.beginPath();ctx.moveTo(center.x-dx,center.y-dy);ctx.lineTo(center.x-dx*.28+Math.cos(angle)*3,center.y-dy*.28+Math.sin(angle)*3);ctx.lineTo(center.x+dx*.18-Math.cos(angle)*2,center.y+dy*.18-Math.sin(angle)*2);ctx.lineTo(center.x+dx*.72,center.y+dy*.72);ctx.stroke();}
    }
    ctx.restore();
   }
