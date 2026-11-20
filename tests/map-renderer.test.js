@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -603,4 +603,25 @@ test("la surface WebGL n'est redimensionnée que lorsque ses dimensions changent
   assert.equal(resizeTerrainWebGLSurface(surface, 1024, 768), true);
   assert.deepEqual(surface, { width: 1024, height: 768 });
   assert.equal(resizeTerrainWebGLSurface(surface, 0, 768), false);
+});
+
+
+test("la texture terrain est réduite aux limites GPU sans perdre les extrémités", () => {
+  const values = Int16Array.from([
+    -100, 0, 100, 200, 300,
+    -200, 10, 110, 210, 310,
+    -300, 20, 120, 220, 320
+  ]);
+  const source = { width: 5, height: 3, values };
+  assert.equal(prepareTerrainTextureGrid(source, 8), source);
+  const reduced = prepareTerrainTextureGrid(source, 3);
+  assert.equal(reduced.width, 3);
+  assert.equal(reduced.height, 2);
+  assert.equal(reduced.values[0], -100);
+  assert.equal(reduced.values[2], 300);
+  assert.equal(reduced.values[3], -300);
+  assert.equal(reduced.values[5], 320);
+  assert.equal(reduced.sourceWidth, 5);
+  assert.equal(reduced.sourceHeight, 3);
+  assert.equal(prepareTerrainTextureGrid(source, 1), null);
 });
