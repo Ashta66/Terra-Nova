@@ -293,15 +293,25 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     }
     for (const line of lines) {
       context.beginPath();
-      let started = false;
+      let segment = [];
+      let drewSegment = false;
+      const flushSegment = () => {
+        const points = simplifyProfile ? simplifyOpenLine(segment, simplifyProfile.tolerance) : segment;
+        if (points.length) {
+          context.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) context.lineTo(points[i].x, points[i].y);
+          drewSegment = true;
+        }
+        segment = [];
+      };
       const project = createContinuousProjector(width, height, projection);
       for (const coordinate of line) {
         const point = project(coordinate);
-        if (!point) { started = false; continue; }
-        if (!started) { context.moveTo(point.x, point.y); started = true; }
-        else context.lineTo(point.x, point.y);
+        if (!point) { flushSegment(); continue; }
+        segment.push(point);
       }
-      if (started) { context.stroke(); drawn++; }
+      flushSegment();
+      if (drewSegment) { context.stroke(); drawn++; }
     }
   }
   return drawn;
