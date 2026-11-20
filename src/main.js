@@ -30,6 +30,7 @@ let previewCanvas = null;
 let previewBaseViewport = null;
 let previewIdleTimer = null;
 let lastPreviewPreloadAt = -Infinity;
+let lastPreviewPreloadViewport = null;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 8;
 const $ = (id) => document.getElementById(id);
@@ -73,7 +74,7 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
-  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 1.0 });
+  if (terrainTileStore) terrainTileStore.preloadViewport(mapViewport, { padding: 0.45 });
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
@@ -108,6 +109,8 @@ function beginMapPreview() {
   if (!snapshotContext) { previewCanvas = null; return; }
   snapshotContext.drawImage(canvas, 0, 0);
   previewBaseViewport = { ...mapViewport };
+  lastPreviewPreloadViewport = { ...mapViewport };
+  lastPreviewPreloadAt = -Infinity;
 }
 
 function drawMapPreview() {
@@ -136,13 +139,27 @@ function scheduleMapPreview() {
     // Le bitmap reste la seule chose dessinée pendant le geste.
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (terrainTileStore && now - lastPreviewPreloadAt >= 100) {
+      const previous = lastPreviewPreloadViewport ?? previewBaseViewport;
+      const elapsed = Math.max(0.1, (now - lastPreviewPreloadAt) / 1000);
+      const longitudeDelta = mapViewport.centerLongitude - previous.centerLongitude;
+      const latitudeDelta = mapViewport.centerLatitude - previous.centerLatitude;
+      const movementFraction = Math.max(
+        Math.abs(longitudeDelta) / Math.max(1, 360 / mapViewport.zoom),
+        Math.abs(latitudeDelta) / Math.max(1, 180 / mapViewport.zoom)
+      );
+      // Une exploration rapide reçoit une avance plus longue; à faible
+      // vitesse, on réduit les tuiles anticipées pour limiter le travail.
+      const lookAhead = movementFraction > 0
+        ? Math.min(0.9, Math.max(0.2, 0.2 + movementFraction * 1.8 * Math.min(1, elapsed / 0.1)))
+        : 0;
       terrainTileStore.preloadViewport(mapViewport, {
-        padding: 1.0,
+        padding: 0.45,
         retainExisting: true,
-        lookAhead: 0.45,
-        directionLongitude: Math.sign(mapViewport.centerLongitude - previewBaseViewport.centerLongitude),
-        directionLatitude: Math.sign(mapViewport.centerLatitude - previewBaseViewport.centerLatitude)
+        lookAhead,
+        directionLongitude: Math.sign(longitudeDelta),
+        directionLatitude: Math.sign(latitudeDelta)
       });
+      lastPreviewPreloadViewport = { ...mapViewport };
       lastPreviewPreloadAt = now;
     }
     drawMapPreview();
