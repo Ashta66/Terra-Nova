@@ -1333,6 +1333,8 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.ok(Number.isFinite(first.totalMs) && first.totalMs >= first.drawSubmitMs);
   assert.equal(first.layers.rivers.cacheHit, false);
   assert.ok(first.layers.rivers.cacheBuildMs >= 0);
+  assert.ok(Number.isFinite(first.layers.rivers.drawSubmitMs));
+  assert.ok(first.layers.rivers.drawSubmitMs >= 0);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
   assert.equal(renderer.supportsLine(ordinary), true);
@@ -1377,6 +1379,8 @@ test("les contours polygonaux sont mis en cache et dessinés en rubans triangul�
   assert.equal(first.drawnFeatures, 1);
   assert.equal(first.layers["coast-outline"].vertices, 168);
   assert.equal(first.layers["coast-outline"].uploadedBytes, 5376);
+  assert.ok(Number.isFinite(first.layers["coast-outline"].drawSubmitMs));
+  assert.ok(first.layers["coast-outline"].drawSubmitMs >= 0);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.equal(first.bufferUploads, 1);
   assert.equal(renderer.supportsBoundary(polygon), true);
