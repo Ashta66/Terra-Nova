@@ -259,3 +259,10 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Les hitboxes des labels sont recalculées après le geste même si aucun nouveau rendu vectoriel n'est nécessaire.
 - Tests ajoutés sur le cache de scène et la quantification du centre.
 - Le rendu vectoriel complet reste sur le thread principal ; l'usage d'un Worker/OffscreenCanvas pour les vecteurs n'est pas encore intégré et dépendra du profilage réel.
+
+
+## 20 novembre 2026 — plafonds mémoire des caches cartographiques
+- Le cache des tuiles ETOPO est désormais limité à 64 Mio, en plus de son plafond de 1 600 entrées.
+- Le cache des surfaces statiques est limité à trois scènes et 48 Mio par canvas. Une scène plus grande que le budget n'est pas conservée en cache.
+- Les caches utilisent un LRU et évacuent les surfaces les plus anciennes dès que le budget est dépassé.
+- Les diagnostics exposent le nombre d'entrées et les octets retenus pour le cache statique ; tests ajoutés sur le budget.
