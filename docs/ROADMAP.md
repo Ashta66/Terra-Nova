@@ -45,7 +45,7 @@ Légende :
 | 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive, hillshade directionnel et premières classes visuelles heuristiques ; validation visuelle à faire |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | EN COURS — classes visuelles initiales montagnes/plateaux/vallées/collines/plaines ; bathymétrie simplifiée ; données et détails régionaux à développer |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
-| 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
+| 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | EN COURS — sélecteur 1:110m/1:10m et chargement à la demande intégrés ; asset régional à préparer et couches hydrographiques/labels à décliner |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
 | 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom regroupé par image ; panoramique visuel via compositeur pendant le geste puis rendu complet au relâchement ; validation FPS et sélection/couches restantes de territoires et couches à faire |
 | 2.8 | Frontières politiques historiques de 1444 et territoires comme couche séparée | À FAIRE |
