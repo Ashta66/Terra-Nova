@@ -1061,8 +1061,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
       target.restore();
     }
-    const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
+    // Le fond terrestre sert uniquement de masque géographique sous les pays.
+    // Une teinte neutre évite le doublon ocre des anciens atlas ; le littoral
+    // reste visible en trait froid discret, sans concurrencer les frontières.
+    const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
+    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, "#344b50", 0.58, 1, true, Infinity, coastProfile));
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));

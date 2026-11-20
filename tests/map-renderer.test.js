@@ -28,6 +28,8 @@ function createCanvas() {
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)]),
     drawImage: (...args) => calls.push(["drawImage", ...args.slice(1)])
   };
+  Object.defineProperty(context, "strokeStyle", { set: value => calls.push(["strokeStyle", value]) });
+  Object.defineProperty(context, "fillStyle", { set: value => calls.push(["fillStyle", value]) });
   return { canvas: { clientWidth: 640, getContext: () => context }, calls };
 }
 
@@ -894,4 +896,12 @@ test("les sommets de montagnes ne dessinent plus de triangles mais gardent les n
   });
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
   assert.equal(calls.some(call => call[0] === "closePath"), false);
+});
+
+
+test("le fond terrestre sous les pays utilise des tons neutres et non la palette ocre", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1, terrainEnabled: false });
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "#53665f"));
+  assert.ok(calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
 });
