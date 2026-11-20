@@ -80,18 +80,22 @@ void main() {
     float slope = length(vec2(slopeX, slopeY));
     float relativeHeight = e - (west + east + north + south) * 0.25;
     vec3 tint = vec3(0.0);
-    float tintStrength = 0.065;
+    float tintStrength = 0.0;
     if (e >= 1800.0 && slope >= 0.08) {
       tint = vec3(190.0,174.0,157.0) / 255.0;
       tintStrength = 0.075;
     } else if (e >= 700.0 && slope < 0.055) {
       tint = vec3(183.0,158.0,121.0) / 255.0;
+      tintStrength = 0.065;
     } else if (relativeHeight <= -90.0 && e < 1800.0) {
       tint = vec3(91.0,116.0,80.0) / 255.0;
+      tintStrength = 0.065;
     } else if (slope < 0.025 && e < 450.0) {
       tint = vec3(137.0,151.0,103.0) / 255.0;
+      tintStrength = 0.065;
     } else if (slope >= 0.055 || e >= 1200.0) {
       tint = vec3(163.0,143.0,113.0) / 255.0;
+      tintStrength = 0.065;
     }
     color = mix(color, tint, tintStrength);
   }
