@@ -216,6 +216,7 @@ export function terrainTileSizeForZoom(zoom = 1, quality = 1) {
 
 const terrainTileCache = new WeakMap();
 const TERRAIN_TILE_CACHE_LIMIT = 1600;
+const TERRAIN_TILE_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly){
  const zoom=Math.max(1,Number(viewport.zoom??1)),cx=Number(viewport.centerLongitude??0),cy=Number(viewport.centerLatitude??0);
  const tileSize=terrainTileSizeForZoom(zoom,quality);
@@ -260,8 +261,15 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
     }
-    tileContext.putImageData(image,0,0);cache.set(key,surface);
-    while(cache.size>TERRAIN_TILE_CACHE_LIMIT)cache.delete(cache.keys().next().value);
+    tileContext.putImageData(image,0,0);
+    const surfaceBytes=tileSize*tileSize*4;
+    cache.set(key,surface);
+    cache.bytes=(cache.bytes??0)+surfaceBytes;
+    while(cache.size>TERRAIN_TILE_CACHE_LIMIT||cache.bytes>TERRAIN_TILE_CACHE_MAX_BYTES){
+     const oldestKey=cache.keys().next().value,oldest=cache.get(oldestKey);
+     cache.delete(oldestKey);
+     cache.bytes-=Math.max(0,(oldest?.width??0)*(oldest?.height??0)*4);
+    }
    }else{cache.delete(key);cache.set(key,surface);}
    context.drawImage(surface,screenX,screenY,destW,destH);drawn=true;
   }
