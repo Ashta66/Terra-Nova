@@ -208,10 +208,11 @@ function getCachedLayer(kind, key, width, height, draw) {
   const layer = createLayerSurface(width, height);
   if (!layer) return null;
   layer.context.clearRect?.(0, 0, width, height);
-  draw(layer.context);
-  cache.set(key, layer);
+  const metadata = draw(layer.context);
+  const cachedLayer = { ...layer, metadata };
+  cache.set(key, cachedLayer);
   while (cache.size > 6) cache.delete(cache.keys().next().value);
-  return { ...layer, hit: false };
+  return { ...cachedLayer, hit: false };
 }
 
 function viewportKey(viewport) {
@@ -248,8 +249,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
-  const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
-  return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount, labelHits };
+  return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
 export function renderWorldMap(canvas, featureCollection, options = {}) {
@@ -318,32 +318,23 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     context.restore();
     politicalHit = political.hit;
     // Les métadonnées sont indépendantes des pixels mis en cache.
-    layerCounts = {
-      landCount: featureCollection.features.filter(feature => Boolean(feature?.geometry)).length,
-      glacierCount: options.glaciers?.features?.length ?? 0,
-      lakeCount: options.lakes?.features?.length ?? 0,
-      riverCount: options.rivers?.features?.reduce((sum, feature) => sum + (feature?.geometry ? 1 : 0), 0) ?? 0,
-      elevationPointCount: options.elevationPoints?.features?.filter(feature => feature.geometry?.type === "Point").length ?? 0,
-      labelHits: []
+    layerCounts = political.metadata ?? {
+      landCount: 0, glacierCount: 0, lakeCount: 0, riverCount: 0, elevationPointCount: 0
     };
-    // Les positions exactes des labels sont recalculées pour conserver les interactions.
-    const labelContext = context;
-    layerCounts.labelHits = drawMapLabels(labelContext, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
-    // Le dessin des labels vient d'être effectué sur le canvas principal : on les retire de la passe visible
-    // et les intègre au cache lors de la prochaine construction de couche.
   } else {
     layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, {
       ...options, terrainEnabled
     });
   }
 
+  const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
   let dynamicLayerCount = 0;
   for (const drawDynamic of options.dynamicLayers ?? []) {
     if (typeof drawDynamic !== "function") continue;
     drawDynamic(context, { width, height, projection, theme, viewport: projection.viewport });
     dynamicLayerCount++;
   }
-  const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits } = layerCounts;
+  const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount } = layerCounts;
 
 
   return {
