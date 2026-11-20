@@ -21,6 +21,10 @@ let terrainTilePersistence = null;
 let terrainPreloadWorker = null;
 let terrainPreloadRequestId = 0;
 let terrainVisibleTileIds = [];
+let lastTerrainPreloadViewportKey = null;
+let lastTerrainRenderZoom = null;
+let terrainTransitionStartAt = null;
+let terrainTransitionZoom = null;
 let mapLabelHits = [];
 // Les événements (catastrophes, impacts et changements du terrain) s'ajoutent
 // à cette famille sans invalider les couches physiques et politiques statiques.
@@ -78,10 +82,21 @@ function resetMapView() {
 
 function renderMap() {
   if (!worldFeatures) return;
-  if (terrainTileStore) {
+  const viewportKey = [mapViewport.zoom, mapViewport.centerLongitude, mapViewport.centerLatitude].join(",");
+  if (terrainTileStore && viewportKey !== lastTerrainPreloadViewportKey) {
     terrainVisibleTileIds = terrainTileStore.preloadViewport(mapViewport, { padding: 0.45 });
     scheduleTerrainZoomPreload();
+    lastTerrainPreloadViewportKey = viewportKey;
   }
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (lastTerrainRenderZoom !== null && mapViewport.zoom !== lastTerrainRenderZoom) {
+    terrainTransitionStartAt = now;
+    terrainTransitionZoom = mapViewport.zoom;
+  }
+  const transitioning = terrainTransitionStartAt !== null && terrainTransitionZoom === mapViewport.zoom;
+  const terrainTransitionProgress = transitioning
+    ? Math.min(1, Math.max(0, (now - terrainTransitionStartAt) / 220))
+    : 1;
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
@@ -95,6 +110,7 @@ function renderMap() {
     elevationPoints,
     labels: mapLabels,
     terrain: terrainTileStore ?? terrainGrid,
+    terrainTransitionProgress,
     dynamicLayers: dynamicMapLayers
   });
   mapLabelHits = result.labelHits ?? [];
@@ -102,6 +118,13 @@ function renderMap() {
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}`;
   updateMapControls();
+  lastTerrainRenderZoom = mapViewport.zoom;
+  if (transitioning && terrainTransitionProgress < 1) {
+    scheduleMapRender();
+  } else if (transitioning) {
+    terrainTransitionStartAt = null;
+    terrainTransitionZoom = null;
+  }
 }
 
 
