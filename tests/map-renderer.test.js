@@ -234,3 +234,16 @@ test("une tuile modifiée reste protégée de l'éviction jusqu'à sa persistanc
   assert.equal(store.size, 1);
   assert.equal(store.loadedIds.includes("0/0/0"), false);
 });
+
+
+test("le rendu peut échantillonner les révisions locales du magasin de tuiles", () => {
+  const bytes = new Uint8Array(32);
+  const view = new DataView(bytes.buffer);
+  for (let i = 0; i < 16; i++) view.setInt16(i * 2, 100 + i, true);
+  const grid = createTerrainGrid(bytes, 4, 4);
+  const store = createTerrainTileStore(grid, { tileSize: 2, maxTiles: 4 });
+  const before = sampleElevation(grid, -135, 67.5);
+  assert.equal(store.setElevation(-135, 67.5, 2400), true);
+  assert.equal(sampleElevation(store, -135, 67.5), 2400);
+  assert.equal(sampleElevation(grid, -135, 67.5), before);
+});
