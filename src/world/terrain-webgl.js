@@ -514,3 +514,122 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
 export function getTerrainWebGLShaders() {
   return { vertex: VERTEX_SHADER, fragment: FRAGMENT_SHADER };
 }
+
+
+const tileRenderers = new WeakMap();
+const TILE_FRAGMENT_SHADER = `
+precision highp float;
+uniform sampler2D u_elevation;
+uniform vec2 u_tileSize;
+uniform vec4 u_uvBounds;
+varying vec2 v_uv;
+float elevationAt(vec2 uv) {
+  vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
+  vec4 sampleValue = texture2D(u_elevation, p);
+  float value = sampleValue.r * 255.0 + sampleValue.a * 65280.0;
+  return mod(value + 32768.0, 65536.0) - 32768.0;
+}
+vec3 ramp(float value, float low, float high, vec3 a, vec3 b) {
+  float t = clamp((value-low)/(high-low),0.0,1.0);
+  t=t*t*(3.0-2.0*t);
+  return mix(a,b,t);
+}
+void main() {
+  float localX=mix(u_uvBounds.x,u_uvBounds.y,v_uv.x);
+  float localY=mix(u_uvBounds.w,u_uvBounds.z,v_uv.y);
+  vec2 uv=(vec2(1.0)+vec2(localX*u_tileSize.x,localY*u_tileSize.y))/(u_tileSize+vec2(2.0));
+  vec2 stepUV=vec2(1.0)/(u_tileSize+vec2(2.0));
+  float e=elevationAt(uv);
+  float west=elevationAt(uv-vec2(stepUV.x,0.0));
+  float east=elevationAt(uv+vec2(stepUV.x,0.0));
+  float north=elevationAt(uv-vec2(0.0,stepUV.y));
+  float south=elevationAt(uv+vec2(0.0,stepUV.y));
+  float slopeX=(east-west)/max(1.0,222640.0*stepUV.x);
+  float slopeY=(north-south)/max(1.0,222640.0*stepUV.y);
+  vec3 normal=normalize(vec3(-slopeX,-slopeY,1.0));
+  vec3 light=normalize(vec3(-0.5,0.5,0.70710678));
+  float shade=clamp(1.0+(dot(normal,light)-0.70710678)*0.65,0.72,1.22);
+  vec3 ocean=ramp(e,-11000.0,-50.0,vec3(25.0,45.0,57.0)/255.0,vec3(46.0,80.0,87.0)/255.0);
+  vec3 lowland=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
+  vec3 highland=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
+  vec3 color=e<0.0?ocean:(e<1000.0?lowland:highland);
+  gl_FragColor=vec4(color*(e<0.0?1.0:shade),1.0);
+}`;
+
+function createTileRenderer(tileStore) {
+  const candidates=[];
+  if(typeof OffscreenCanvas!=="undefined") candidates.push(new OffscreenCanvas(1,1));
+  if(typeof document!=="undefined") candidates.push(document.createElement("canvas"));
+  let canvas=null,gl=null;
+  for(const candidate of candidates) {
+    const context=candidate.getContext?.("webgl",{alpha:false,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:true});
+    if(context){canvas=candidate;gl=context;break;}
+  }
+  if(!gl) return null;
+  const vertex=compileShader(gl,gl.VERTEX_SHADER,VERTEX_SHADER);
+  const fragment=compileShader(gl,gl.FRAGMENT_SHADER,TILE_FRAGMENT_SHADER);
+  if(!vertex||!fragment) return null;
+  const program=gl.createProgram();
+  gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)) return null;
+  const buffer=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.useProgram(program);
+  const position=gl.getAttribLocation(program,"a_position");
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+  gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
+  const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
+  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0};
+  canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
+  canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
+  return renderer;
+}
+
+export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
+  if(!tileStore?.getTileAtLevel||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1) return null;
+  let renderer=tileRenderers.get(tileStore);
+  if(!renderer){renderer=createTileRenderer(tileStore);if(!renderer)return null;tileRenderers.set(tileStore,renderer);}
+  const {canvas,gl,program,cache}=renderer;
+  if(renderer.contextLost||gl.isContextLost?.()){tileRenderers.delete(tileStore);return null;}
+  resizeTerrainWebGLSurface(canvas,width,height);
+  gl.viewport(0,0,width,height);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const level=selectTerrainTileLevel(tileStore,viewport,width);
+  const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
+  const protectedKeys=new Set(visible.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${tileStore.revision??0}`));
+  cache.evict(protectedKeys);
+  gl.useProgram(program);
+  gl.activeTexture(gl.TEXTURE0);
+  const uvLocation=gl.getUniformLocation(program,"u_uvBounds");
+  const sizeLocation=gl.getUniformLocation(program,"u_tileSize");
+  const started=globalThis.performance?.now?.()??Date.now();
+  for(const {tile,rects} of visible) {
+    const entry=cache.get(tile,tileStore,protectedKeys);
+    if(!entry) continue;
+    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
+    gl.uniform2f(sizeLocation,tile.width,tile.height);
+    for(const rect of rects) {
+      const x=Math.max(0,Math.floor(rect.x)), y=Math.max(0,Math.floor(rect.y));
+      const right=Math.min(width,Math.ceil(rect.x+rect.width));
+      const bottom=Math.min(height,Math.ceil(rect.y+rect.height));
+      if(right<=x||bottom<=y) continue;
+      gl.viewport(x,height-bottom,right-x,bottom-y);
+      gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    }
+  }
+  renderer.lastSubmitMs=(globalThis.performance?.now?.()??Date.now())-started;
+  gl.viewport(0,0,width,height);
+  if(gl.isContextLost?.()){renderer.contextLost=true;tileRenderers.delete(tileStore);return null;}
+  return canvas;
+}
+
+export function getTerrainWebGLTileStats(tileStore) {
+  const renderer=tileStore&&tileRenderers.get(tileStore);
+  if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,maxTextureSize:renderer.maxTextureSize};
+}
