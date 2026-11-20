@@ -400,6 +400,15 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
   const elevationFeatures = select(options.elevationPoints);
   const administrativeBoundaryFeatures = select(options.administrativeBoundaries);
+  const administrativeLineFeatures = administrativeBoundaryFeatures.filter(feature =>
+    ["LineString", "MultiLineString"].includes(feature?.geometry?.type));
+  const administrativePolygonFeatures = administrativeBoundaryFeatures.filter(feature =>
+    ["Polygon", "MultiPolygon"].includes(feature?.geometry?.type));
+  const administrativeBoundaryColor = options.administrativeBoundaryColor ?? theme.colors.grid;
+  const administrativeBoundaryWidth = options.administrativeBoundaryWidth ?? 0.55;
+  const administrativeBoundaryAlpha = options.administrativeBoundaryAlpha ?? 0.72;
+  const administrativeGpuColor = parseWebGLColor(administrativeBoundaryColor);
+  administrativeGpuColor[3] *= administrativeBoundaryAlpha;
   const geographicRenderer = !dirtyRect && projection.type === "equirectangular"
     ? options.geographicWebGLRenderer : null;
   let geographicWebGLStats = null;
@@ -426,13 +435,17 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       color: parseWebGLColor(theme.colors.accent), stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1 },
     { key: "rivers", type: "lines", collection: options.rivers, features: riverFeatures,
       color: parseWebGLColor(theme.colors.accent) },
-    ...(options.administrativeBoundaries ? [{
-      key: "administrative-boundaries", type: "boundaries",
-      collection: options.administrativeBoundaries, features: administrativeBoundaryFeatures,
-      color: parseWebGLColor(options.administrativeBoundaryColor ?? theme.colors.grid),
-      stroke: options.administrativeBoundaryColor ?? theme.colors.grid,
-      lineWidth: options.administrativeBoundaryWidth ?? 0.55,
-      alpha: options.administrativeBoundaryAlpha ?? 0.72
+    ...(administrativeLineFeatures.length ? [{
+      key: "administrative-boundary-lines", type: "lines",
+      collection: options.administrativeBoundaries, features: administrativeLineFeatures,
+      color: administrativeGpuColor, stroke: administrativeBoundaryColor,
+      lineWidth: administrativeBoundaryWidth, alpha: administrativeBoundaryAlpha
+    }] : []),
+    ...(administrativePolygonFeatures.length ? [{
+      key: "administrative-boundary-polygons", type: "boundaries",
+      collection: options.administrativeBoundaries, features: administrativePolygonFeatures,
+      color: administrativeGpuColor, stroke: administrativeBoundaryColor,
+      lineWidth: administrativeBoundaryWidth, alpha: administrativeBoundaryAlpha
     }] : [])
   ] : null;
   if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
@@ -460,9 +473,17 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
         const layerStats = gpuStats.layers[layer.key] ?? { drawnFeatures: 0 };
         if (layer.type === "lines") {
           const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsLine(feature));
-          riverCount = layerStats.drawnFeatures + drawLineLayer(context, layer.collection, width, height,
-            projection, theme.colors.accent, 0.7, fallbackFeatures);
-          riverGpuRendered = true;
+          if (layer.key === "rivers") {
+            riverCount = layerStats.drawnFeatures + drawLineLayer(context, layer.collection, width, height,
+              projection, theme.colors.accent, 0.7, fallbackFeatures);
+            riverGpuRendered = true;
+          } else if (fallbackFeatures.length) {
+            context.save();
+            context.globalAlpha = layer.alpha ?? 1;
+            drawLineLayer(context, layer.collection, width, height, projection,
+              layer.stroke ?? theme.colors.grid, layer.lineWidth ?? 0.55, fallbackFeatures);
+            context.restore();
+          }
           continue;
         }
         if (layer.type === "boundaries") {
@@ -497,10 +518,13 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
   }
   if (options.administrativeBoundaries && !geographicWebGLStats) {
+    context.save();
+    context.globalAlpha = administrativeBoundaryAlpha;
+    drawLineLayer(context, options.administrativeBoundaries, width, height, projection,
+      administrativeBoundaryColor, administrativeBoundaryWidth, administrativeLineFeatures);
     drawPolygonLayer(context, options.administrativeBoundaries, width, height, projection, null,
-      options.administrativeBoundaryColor ?? theme.colors.grid,
-      options.administrativeBoundaryWidth ?? 0.55,
-      options.administrativeBoundaryAlpha ?? 0.72, administrativeBoundaryFeatures);
+      administrativeBoundaryColor, administrativeBoundaryWidth, 1, administrativePolygonFeatures);
+    context.restore();
   }
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
   if (!riverGpuRendered) riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
