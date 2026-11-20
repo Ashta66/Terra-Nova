@@ -283,3 +283,18 @@ test("la persistance IndexedDB se désactive proprement hors navigateur", async 
   const { createTerrainTilePersistence } = await import("../src/world/terrain-tile-storage.js");
   assert.equal(await createTerrainTilePersistence({ indexedDB: null }), null);
 });
+
+
+test("une tuile modifiée reste intacte après éviction puis rechargement du cache", () => {
+  const store = createTerrainTileStore(
+    { width: 4, height: 2, values: new Int16Array(8) },
+    { tileSize: 2, maxTiles: 1 }
+  );
+  const edited = store.getTile(0, 0);
+  edited.values[0] = 321;
+  edited.revision = 3;
+  edited.dirty = true;
+  assert.equal(store.markPersisted(edited.id, edited.revision), true);
+  store.getTile(1, 0);
+  assert.equal(store.getTile(0, 0).values[0], 321);
+});
