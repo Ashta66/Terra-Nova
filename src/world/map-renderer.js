@@ -19,9 +19,24 @@ function traceRing(context, ring, width, height, projection) {
 function traceGeometry(context, geometry, width, height, projection) {
   if (!geometry) return false;
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
-  if (!polygons.length) return false;
-  for (const polygon of polygons) for (const ring of polygon) traceRing(context, ring, width, height, projection);
-  return true;
+  if (polygons.length) {
+    for (const polygon of polygons) for (const ring of polygon) traceRing(context, ring, width, height, projection);
+    return true;
+  }
+  const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
+  if (lines.length) {
+    for (const line of lines) {
+      let started = false;
+      for (const coordinate of line) {
+        const point = projectCoordinate(coordinate, width, height, projection);
+        if (!point) { started = false; continue; }
+        if (!started) { context.moveTo(point.x, point.y); started = true; }
+        else context.lineTo(point.x, point.y);
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 const projectedPathCache = new WeakMap();
@@ -88,8 +103,16 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   let drawn = 0;
   for (const feature of collection.features) {
     const geometry = feature?.geometry;
-    if (!geometry) continue;
-    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
+    if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
+    const cachedPath = getProjectedPath(feature, width, height, projection);
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    if (cachedPath) {
+      context.stroke(cachedPath);
+      drawn++;
+      continue;
+    }
+    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
     for (const line of lines) {
       context.beginPath();
       let started = false;
@@ -99,12 +122,7 @@ function drawLineLayer(context, collection, width, height, projection, color, li
         if (!started) { context.moveTo(point.x, point.y); started = true; }
         else context.lineTo(point.x, point.y);
       }
-      if (started) {
-        context.strokeStyle = color;
-        context.lineWidth = lineWidth;
-        context.stroke();
-        drawn++;
-      }
+      if (started) { context.stroke(); drawn++; }
     }
   }
   return drawn;

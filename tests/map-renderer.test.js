@@ -340,3 +340,32 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("les chemins des rivières Path2D sont réutilisés entre deux rendus identiques", () => {
+  const previous = globalThis.Path2D;
+  let constructions = 0;
+  class FakePath2D {
+    constructor() { constructions++; }
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const rivers = { type: "FeatureCollection", features: [
+      { type: "Feature", geometry: { type: "LineString", coordinates: [[-5, 0], [0, 5], [5, 0]] } }
+    ] };
+    const { canvas, calls } = createCanvas();
+    const options = { width: 640, height: 320, pixelRatio: 1, rivers, viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 } };
+    const first = renderWorldMap(canvas, land, options);
+    assert.equal(first.riverCount, 1);
+    assert.equal(constructions, 2);
+    renderWorldMap(canvas, land, options);
+    assert.equal(constructions, 2);
+    assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
