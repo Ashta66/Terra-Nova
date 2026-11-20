@@ -183,6 +183,11 @@ export function createTerrainTileStore(grid, options = {}) {
     tile.values[position.localY * tile.width + position.localX] = Math.round(elevation);
     tile.revision++;
     storeRevision++;
+    // Les tuiles parent sont des dérivés de la grille source : invalider
+    // tous les niveaux dérivés évite de conserver un relief GPU obsolète.
+    for (const [id, cachedTile] of cache) {
+      if (cachedTile.level > 0) cache.delete(id);
+    }
     tile.dirty = true;
     modifiedTiles.set(tile.id, { values: tile.values.slice(), revision: tile.revision });
     if (onTileChange) {
