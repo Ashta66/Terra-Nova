@@ -411,7 +411,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  const entries=new Map(),free=[];
  for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});
  let hits=0,misses=0,uploads=0,uploadedBytes=0,buildMs=0,uploadMs=0,evictions=0;
- const pending=new Map();let pumpScheduled=false,disposed=false;
+ const pending=new Map();let pumpScheduled=false,disposed=false,onReady=null;
  const now=()=>globalThis.performance?.now?.()??Date.now(),key=t=>`${t.level}/${t.x}/${t.y}@${store.revision??0}`;
  function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
  function evict(protectedKeys=new Set()){for(const [k,e] of entries){if(free.length)break;if(!protectedKeys.has(k))release(k,e);}}
@@ -430,13 +430,14 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
   const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
   entries.set(k,entry);return entry;
  }
- function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k))get(item.tile,item.protectedKeys);schedulePump();}
+ function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k)){const entry=get(item.tile,item.protectedKeys);if(entry)onReady?.(item.tile);}schedulePump();}
  function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
+ function setOnReady(callback){onReady=typeof callback==="function"?callback:null;}
  function retainPending(keys){const keep=keys instanceof Set?keys:new Set();for(const k of pending.keys())if(!keep.has(k))pending.delete(k);}
  function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
- return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,peek,enqueue,retainPending,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
+ return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,peek,enqueue,retainPending,setOnReady,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
 }
 
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
@@ -715,7 +716,7 @@ function createTileRenderer(tileStore) {
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:8});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -750,11 +751,12 @@ export function getTerrainTileTransitionOpacity(progress) {
   return Math.min(1, Math.max(0, value));
 }
 
-export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
+export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},options={}) {
   if(!tileStore?.getTileAtLevel||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1) return null;
   let renderer=tileRenderers.get(tileStore);
   if(!renderer){renderer=createTileRenderer(tileStore);if(!renderer)return null;tileRenderers.set(tileStore,renderer);}
   const {canvas,gl,program,cache}=renderer;
+  cache.setOnReady(options.onTileReady);
   if(renderer.contextLost||gl.isContextLost?.()){tileRenderers.delete(tileStore);return null;}
   const revision=tileStore.revision??0;
   if(renderer.revision!==revision) {
@@ -781,9 +783,12 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   let transitionProgress=transitionFrom===null?1:getTerrainTileTransitionOpacity((now-renderer.transitionStartedAt)/220);
   const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
   const previousVisible=transitionFrom!==null?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
+  const missingChildren=transitionFrom!==null?visible.filter(({tile})=>!cache.peek(tile)): [];
+  renderer.waitingForTiles=missingChildren.length>0;
+  renderer.readyChildTiles=visible.length-missingChildren.length;
+  renderer.pendingChildTiles=missingChildren.length;
   if(transitionFrom!==null&&transitionProgress>=1) {
-    const allChildrenReady=visible.every(({tile})=>Boolean(cache.peek(tile)));
-    if(allChildrenReady) renderer.transitionFromLevel=null;
+    if(missingChildren.length===0) renderer.transitionFromLevel=null;
     else transitionProgress=0.92;
   }
   renderer.transitionProgress=transitionProgress;
@@ -845,5 +850,5 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,waitingForTiles:renderer.waitingForTiles,readyChildTiles:renderer.readyChildTiles,pendingChildTiles:renderer.pendingChildTiles,maxTextureSize:renderer.maxTextureSize};
 }
