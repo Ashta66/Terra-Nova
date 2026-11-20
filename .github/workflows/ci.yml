@@ -20,3 +20,5 @@ jobs:
           node-version: 22
       - name: Vérifier la syntaxe et lancer les tests
         run: npm run check
+      - name: Vérifier les scripts shell
+        run: bash -n scripts/build-etopo-overview.sh

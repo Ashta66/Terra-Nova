@@ -8,41 +8,63 @@
   <title>TERRA NOVA</title>
   <link rel="stylesheet" href="./styles/main.css">
 </head>
-<body>
+<body class="game-screen">
   <header class="topbar">
     <a class="brand" href="./" aria-label="Terra Nova accueil"><span class="brand-mark">TN</span><span>TERRA <b>NOVA</b></span></a>
-    <div class="status"><span class="status-dot"></span> Simulation locale · Fondation technique</div>
+    <div class="topbar-center"><span class="status-dot"></span> SIMULATION MONDIALE <span class="topbar-separator">/</span> <span id="map-era">Atlas manuscrit</span></div>
+    <div class="topbar-actions"><span class="build-label">PROTO · LOT 1</span><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div>
   </header>
-  <main class="shell">
-    <section class="intro">
-      <p class="eyebrow">UN MONDE, MILLE DESTINS</p>
-      <h1>Le monde commence<br><em>à se transformer.</em></h1>
-      <p class="lead">Une simulation historique ouverte, du 1er janvier 1444 vers un avenir sans limite.</p>
-    </section>
-    <section class="sim-panel" aria-labelledby="clock-title">
-      <div class="panel-heading"><div><p class="eyebrow">CHRONOLOGIE MONDIALE</p><h2 id="clock-title">Le temps</h2></div><span class="pill" id="run-state">EN PAUSE</span></div>
+
+  <main class="game-layout">
+    <aside class="side-panel time-sidebar" aria-labelledby="clock-title">
+      <div class="side-heading"><p class="eyebrow">CHRONOLOGIE MONDIALE</p><h1 id="clock-title">Le temps</h1></div>
+      <div class="run-indicator"><span class="status-dot"></span><span id="run-state">EN PAUSE</span></div>
       <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
-      <div class="controls">
+      <div class="time-controls">
         <button id="toggle-clock" class="button button-primary">Lancer</button>
         <button id="advance-day" class="button">+ 1 jour</button>
-        <label class="speed-control">Vitesse
-          <select id="speed">
-            <option value="1">1× · Posée</option>
-            <option value="5">5× · Rapide</option>
-            <option value="20">20× · Très rapide</option>
-            <option value="60">60× · Accélérée</option>
-          </select>
-        </label>
       </div>
-      <div class="panel-footer"><span>Début de partie : 01.01.1444</span><span id="elapsed-days">Jour 1</span></div>
+      <label class="speed-control">Vitesse de simulation
+        <select id="speed">
+          <option value="1">1× · Posée</option>
+          <option value="5">5× · Rapide</option>
+          <option value="20">20× · Très rapide</option>
+          <option value="60">60× · Accélérée</option>
+        </select>
+      </label>
+      <div class="time-stats"><span>Début de partie</span><strong>01.01.1444</strong><span>Temps écoulé</span><strong id="elapsed-days">Jour 1</strong></div>
+      <div class="sidebar-divider"></div>
+      <div class="side-section-title">LE MONDE EN DEVENIR</div>
+      <p class="side-copy">Les événements historiques, les découvertes et les bouleversements géographiques prendront place dans cette chronologie.</p>
+      <div class="mini-status"><span class="status-dot muted"></span> Simulation en construction</div>
+      <div class="save-status" id="save-status">Aucune sauvegarde enregistrée.</div>
+    </aside>
+
+    <section class="map-stage" aria-labelledby="map-title">
+      <div class="map-stage-heading"><div><p class="eyebrow">ATLAS VIVANT · TERRE</p><h2 id="map-title">Le monde connu en 1444</h2></div><div class="map-tools" role="group" aria-label="Navigation sur la carte">
+          <button id="map-zoom-out" class="map-tool" type="button" aria-label="Dézoomer" title="Dézoomer">−</button>
+          <span id="map-zoom-level" class="map-zoom-level" aria-live="polite">100 %</span>
+          <button id="map-zoom-in" class="map-tool" type="button" aria-label="Zoomer" title="Zoomer">+</button>
+          <button id="map-reset" class="map-tool map-reset" type="button">Recentrer</button>
+        </div></div>
+      <div class="map-frame"><div id="map-tooltip" class="map-tooltip" role="status" hidden></div><canvas id="world-map" role="img" aria-label="Carte physique du monde, continents et terres émergées"></canvas></div>
+      <div class="map-bottom-bar"><span id="map-status">Chargement des données géographiques locales…</span><span class="map-legend"><i class="legend-land"></i> Terres <i class="legend-water"></i> Eaux <i class="legend-ice"></i> Glaces</span></div>
+      <div class="map-footnote">Géographie physique · Repères d'altitude · Hydrographie · Zones glaciaires</div>
     </section>
-    <section class="foundation-grid">
-      <article class="info-card"><span class="card-index">01</span><h3>Géographie évolutive</h3><p>Une géographie physique indépendante des frontières politiques, conçue pour pouvoir être remodelée par les événements.</p><span class="tag">Architecture préparée</span></article>
-      <article class="info-card"><span class="card-index">02</span><h3>Un temps sans limite</h3><p>Une horloge quotidienne, avec des systèmes qui pourront évoluer à des rythmes différents pour préserver les performances.</p><span class="tag">Horloge active</span></article>
-      <article class="info-card"><span class="card-index">03</span><h3>Monde persistant</h3><p>Des sauvegardes locales versionnées, avec validation des données avant restauration.</p><span class="tag">Sauvegarde locale</span></article>
-    </section>
-    <div class="save-row"><span id="save-status">Aucune sauvegarde enregistrée.</span><div><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div></div>
-    <footer>Prototype technique · Lot 1 · TERRA NOVA</footer>
+
+    <aside class="side-panel ai-sidebar" aria-labelledby="ai-title">
+      <div class="side-heading"><p class="eyebrow">INTELLIGENCE DU MONDE</p><h2 id="ai-title">Le Monde en devenir</h2></div>
+      <div class="ai-orb"><span>TN</span></div>
+      <p class="ai-intro">Imaginez un événement. Le monde pourra réagir à vos décisions et se transformer au fil du temps.</p>
+      <div class="ai-capabilities"><span>✦ Événements historiques</span><span>✦ Découvertes & inventions</span><span>✦ Catastrophes naturelles</span><span>✦ Transformations géographiques</span></div>
+      <div class="chat-preview">
+        <div class="chat-message assistant-message">Je serai votre chroniqueur et votre architecte du monde. Que souhaitez-vous voir advenir sur Terre ?</div>
+        <label for="event-prompt">Votre idée d'événement</label>
+        <textarea id="event-prompt" rows="4" placeholder="Ex. : Une météorite frappe l'Atlantique en 1520…"></textarea>
+        <button class="button ai-send" type="button" disabled title="L'assistant IA sera activé dans un prochain lot">Assistant IA · bientôt disponible</button>
+      </div>
+      <div class="ai-disclaimer">Les propositions seront prévisualisées et validées avant toute modification du monde.</div>
+    </aside>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>

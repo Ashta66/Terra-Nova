@@ -1,0 +1,440 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Amérique du Nord",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -105,
+          43
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Amérique du Sud",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -62,
+          -18
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Europe",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18,
+          52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Afrique",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20,
+          3
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Asie",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92,
+          43
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océanie",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          137,
+          -24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Antarctique",
+        "kind": "continent",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          -78
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océan Atlantique",
+        "kind": "ocean",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -35,
+          8
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océan Pacifique",
+        "kind": "ocean",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -145,
+          0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océan Pacifique",
+        "kind": "ocean",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          160,
+          0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océan Indien",
+        "kind": "ocean",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78,
+          -22
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Océan Arctique",
+        "kind": "ocean",
+        "minZoom": 1
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          78
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Paris",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.35,
+          48.86
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Londres",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.12,
+          51.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Rome",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.5,
+          41.9
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Constantinople",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.97,
+          41.01
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Le Caire",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31.24,
+          30.04
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tombouctou",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3,
+          16.77
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Delhi",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.21,
+          28.61
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Pékin",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.4,
+          39.9
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kyoto",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          135.77,
+          35.01
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tenochtitlan",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.13,
+          19.43
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Cuzco",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -71.97,
+          -13.52
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tunis",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.18,
+          36.8
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Venise",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.33,
+          45.44
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Moscou",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.62,
+          55.75
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Samarkand",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          66.96,
+          39.65
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Marrakech",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.98,
+          31.63
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Gênes",
+        "kind": "city",
+        "minZoom": 2
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.93,
+          44.41
+        ]
+      }
+    }
+  ]
+}
