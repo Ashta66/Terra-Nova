@@ -402,8 +402,8 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
   const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
   entries.set(k,entry);return entry;
  }
- function pump(){pumpScheduled=false;if(disposed||!pending.size)return;const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k))get(item.tile,item.protectedKeys);schedulePump();}
- function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(()=>pump(),{timeout:80});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),0);else pump();}
+ function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k))get(item.tile,item.protectedKeys);schedulePump();}
+ function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
  function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
