@@ -201,7 +201,7 @@ export function createTerrainTileStore(grid, options = {}) {
 
   async function preloadTileIds(ids = [], preloadOptions = {}) {
     const uniqueIds = [...new Set(ids)].filter(id => {
-      const match = /^0\\/(\\d+)\\/(\\d+)$/.exec(id);
+      const match = /^0\/(\d+)\/(\d+)$/.exec(id);
       return match && Number(match[1]) < columns && Number(match[2]) < rows;
     });
     const protectedIds = new Set(preloadOptions.protectedIds ?? []);
