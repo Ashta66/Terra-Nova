@@ -44,6 +44,7 @@ let wheelZoomState = null;
 let wheelZoomTimer = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
+let mapPreviewCanvas = null;
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -152,8 +153,14 @@ function renderMapFrame() {
     ]);
   }
   const canvas = $("world-map");
-  const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
-  const height = Math.round(width * 0.5);
+  const frame = canvas.parentElement;
+  const availableWidth = frame?.clientWidth || canvas.clientWidth || 960;
+  const availableHeight = frame?.clientHeight || availableWidth * 0.5;
+  // Ratio géographique 2:1, ajusté à la largeur ET à la hauteur réellement visibles.
+  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
+  const height = Math.max(1, Math.round(width * 0.5));
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
   const year = Number(String(state.clock.date).slice(0, 4));
   const administrativeDetail = mapViewport.zoom >= 4 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
@@ -497,10 +504,11 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
   mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
   Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
-  // Déplacement GPU du dernier rendu : aucun recalcul GeoJSON pendant le drag.
+  // Le bitmap initial reste visible sous l'aperçu déplacé : aucun bord vide.
   mapInteractionActive = true;
-  mapCanvas.style.willChange = "transform";
-  mapCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  createMapInteractionPreview();
+  mapPreviewCanvas.style.willChange = "transform";
+  mapPreviewCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
 });
 function playDisasterSound(type) {
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
@@ -553,22 +561,46 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
+function createMapInteractionPreview() {
+  if (mapPreviewCanvas || !mapCanvas?.width || !mapCanvas?.height) return;
+  const frame = mapCanvas.parentElement;
+  const frameRect = frame.getBoundingClientRect();
+  const canvasRect = mapCanvas.getBoundingClientRect();
+  const preview = document.createElement("canvas");
+  preview.width = mapCanvas.width;
+  preview.height = mapCanvas.height;
+  preview.getContext("2d")?.drawImage(mapCanvas, 0, 0);
+  Object.assign(preview.style, {
+    position: "absolute",
+    left: (canvasRect.left - frameRect.left) + "px",
+    top: (canvasRect.top - frameRect.top) + "px",
+    width: canvasRect.width + "px",
+    height: canvasRect.height + "px",
+    pointerEvents: "none",
+    zIndex: "2",
+    transformOrigin: "center center"
+  });
+  preview.setAttribute("aria-hidden", "true");
+  frame.append(preview);
+  mapPreviewCanvas = preview;
+}
+function removeMapInteractionPreview() {
+  mapPreviewCanvas?.remove();
+  mapPreviewCanvas = null;
+}
 function clearWheelZoomPreview() {
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = null;
   wheelZoomState = null;
   mapInteractionActive = false;
-  mapCanvas.style.transform = "";
-  mapCanvas.style.transformOrigin = "";
-  mapCanvas.style.willChange = "";
+  removeMapInteractionPreview();
 }
 
 function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
-  mapCanvas.style.transform = "";
-  mapCanvas.style.willChange = "";
+  removeMapInteractionPreview();
   mapInteractionActive = false;
   lastRenderedMapSignature = null;
   if (lastDragMoved) renderMap();
@@ -618,19 +650,18 @@ mapCanvas.addEventListener("wheel", (event) => {
   }
   const anchor = wheelZoomState;
   mapInteractionActive = true;
+  createMapInteractionPreview();
   zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
-  mapCanvas.style.willChange = "transform";
-  mapCanvas.style.transformOrigin = `${anchor.anchorX}px ${anchor.anchorY}px`;
-  mapCanvas.style.transform = `scale(${mapViewport.zoom / anchor.startZoom})`;
+  mapPreviewCanvas.style.willChange = "transform";
+  mapPreviewCanvas.style.transformOrigin = `${anchor.anchorX}px ${anchor.anchorY}px`;
+  mapPreviewCanvas.style.transform = `scale(${mapViewport.zoom / anchor.startZoom})`;
   updateMapControls();
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = setTimeout(() => {
     if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
     wheelZoomTimer = null;
     wheelZoomState = null;
-    mapCanvas.style.transform = "";
-    mapCanvas.style.transformOrigin = "";
-    mapCanvas.style.willChange = "";
+    removeMapInteractionPreview();
     mapInteractionActive = false;
     lastRenderedMapSignature = null;
     renderMap();

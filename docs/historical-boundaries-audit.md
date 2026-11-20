@@ -73,3 +73,9 @@ Le relief est fusionné dans les aplats politiques par un mélange soft-light à
 Le relief ETOPO utilise maintenant quatre éclairages croisés (azimuts 315°, 45°, 135° et 225°), combinés en un ombrage en niveaux de gris à contraste élevé. Cette passe est fusionnée en mode « overlay » au-dessus des couleurs nationales : les versants, crêtes, vallées et plateaux restent visibles quelle que soit leur orientation sans effacer la souveraineté politique. Le raster reste plafonné à 384 × 192 pixels pour contenir le coût mémoire et CPU ; le contraste provient du calcul d'éclairage plutôt que d'une multiplication des pixels.
 
 Pendant un déplacement, le canvas existant est déplacé par transformation GPU et aucun recalcul GeoJSON n'est lancé à chaque événement de pointeur. Pendant le zoom molette, le canvas est mis à l'échelle autour du curseur ; le rendu géographique complet est recalculé une fois le geste terminé. Les couches détaillées, le relief et les étiquettes sont ainsi préservés dans le rendu final, sans imposer leur coût à chaque image intermédiaire.
+
+
+## Correction du cadrage et des aperçus de navigation
+Le canvas est dimensionné selon les deux dimensions réelles du cadre, en conservant le ratio équirectangulaire 2:1. Il ne peut plus être calculé à partir de la seule largeur puis tronqué verticalement dans un cadre moins haut.
+
+Le pan et le zoom temporaires ne transforment plus le canvas principal. Un bitmap de prévisualisation est placé au-dessus du rendu intact ; lorsque son déplacement ou son échelle découvre une bordure, le rendu initial reste visible dessous au lieu de laisser apparaître le fond du conteneur. À la fin du geste, le bitmap temporaire est supprimé et la carte est recalculée à la nouvelle position.
