@@ -19,6 +19,7 @@ export function createTerrainTileStore(grid, options = {}) {
   const rows = Math.ceil(grid.height / tileSize);
   const cache = new Map();
   let clock = 0;
+  let onTileChange = typeof options.onTileChange === "function" ? options.onTileChange : null;
 
   function tileId(x, y) {
     return `0/${x}/${y}`;
@@ -123,6 +124,16 @@ export function createTerrainTileStore(grid, options = {}) {
     tile.values[position.localY * tile.width + position.localX] = Math.round(elevation);
     tile.revision++;
     tile.dirty = true;
+    if (onTileChange) {
+      const snapshot = {
+        id: tile.id, x: tile.x, y: tile.y, width: tile.width, height: tile.height,
+        revision: tile.revision, values: tile.values.slice()
+      };
+      try {
+        const pending = onTileChange(snapshot);
+        if (pending && typeof pending.catch === "function") pending.catch(() => {});
+      } catch { /* Une panne de persistance ne doit pas interrompre la simulation. */ }
+    }
     return true;
   }
 
@@ -131,6 +142,23 @@ export function createTerrainTileStore(grid, options = {}) {
     if (!tile || tile.revision !== revision) return false;
     tile.dirty = false;
     return true;
+  }
+
+  function restoreTile(snapshot) {
+    if (!snapshot || typeof snapshot.id !== "string" || !Number.isInteger(snapshot.x)
+      || !Number.isInteger(snapshot.y) || !Number.isInteger(snapshot.revision)
+      || !(snapshot.values instanceof Int16Array)) return false;
+    const tile = getTile(snapshot.x, snapshot.y);
+    if (!tile || snapshot.id !== tile.id || snapshot.width !== tile.width
+      || snapshot.height !== tile.height || snapshot.values.length !== tile.values.length) return false;
+    tile.values.set(snapshot.values);
+    tile.revision = Math.max(0, snapshot.revision);
+    tile.dirty = false;
+    return true;
+  }
+
+  function setOnTileChange(callback) {
+    onTileChange = typeof callback === "function" ? callback : null;
   }
 
   function evictUnused(keepIds = []) {
@@ -144,7 +172,7 @@ export function createTerrainTileStore(grid, options = {}) {
 
   return {
     tileSize, columns, rows, width: grid.width, height: grid.height,
-    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, evictUnused,
+    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused,
     get size() { return cache.size; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
