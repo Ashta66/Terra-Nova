@@ -61,6 +61,8 @@ function compile(gl, type, source) {
 
 function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
+const now = () => globalThis.performance?.now?.() ?? Date.now();
+
 function hasSupportedLineCoordinates(mesh) {
   if (!mesh?.supported) return false;
   const positions = mesh.positions;
@@ -296,8 +298,9 @@ export function createGeographicWebGLRenderer(gl) {
   }
 
   function renderLayers(layers, width, height, viewport = {}) {
+    const renderStartedAt = now();
     const empty = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
-      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, layers: {} };
+      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, cacheBuildMs: 0, drawSubmitMs: 0, layers: {} };
     if (disposed) return empty;
     const zoom = Number(viewport.zoom ?? 1);
     const centerLongitude = Number(viewport.centerLongitude ?? 0);
@@ -319,8 +322,11 @@ export function createGeographicWebGLRenderer(gl) {
       const signature = type + ":" + features.map(featureId).join(",");
       let cached = layerCaches.get(key);
       const cacheHit = Boolean(cached && cached.signature === signature);
+      let cacheBuildMs = 0;
       if (!cacheHit) {
+        const buildStartedAt = now();
         const next = type === "lines" ? buildLineBatch(features, gl) : type === "boundaries" ? buildBoundaryLineBatch(features, gl) : buildBatches(features);
+        cacheBuildMs = Math.max(0, now() - buildStartedAt);
         releaseBatches(cached?.batches);
         if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
         cached = { signature, type, ...next };
@@ -339,9 +345,10 @@ export function createGeographicWebGLRenderer(gl) {
       triangles += layerTriangles;
       bufferUploads += layerUploads;
       uploadedBytes += layerBytes;
+      empty.cacheBuildMs += cacheBuildMs;
       empty.layers[key] = { type, drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
         drawCalls: layerDrawCalls, triangles: layerTriangles, vertices: cached.vertexCount ?? 0,
-        cacheHit, bufferUploads: layerUploads, uploadedBytes: layerBytes };
+        cacheHit, cacheBuildMs, bufferUploads: layerUploads, uploadedBytes: layerBytes };
     }
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
@@ -352,6 +359,7 @@ export function createGeographicWebGLRenderer(gl) {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    const drawStartedAt = now();
     gl.useProgram(program);
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
@@ -388,8 +396,11 @@ export function createGeographicWebGLRenderer(gl) {
         }
       }
     }
+    empty.drawSubmitMs = Math.max(0, now() - drawStartedAt);
+    empty.totalMs = Math.max(0, now() - renderStartedAt);
     return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
-      bufferUploads, uploadedBytes, layers: empty.layers };
+      bufferUploads, uploadedBytes, cacheBuildMs: empty.cacheBuildMs,
+      drawSubmitMs: empty.drawSubmitMs, totalMs: empty.totalMs, layers: empty.layers };
   }
 
   function render(features, width, height, viewport = {}, color = [0.32, 0.39, 0.31, 1]) {
