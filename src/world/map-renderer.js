@@ -1,7 +1,7 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster, sampleElevation, isTerrainHillshadePrepared } from "./terrain.js";
-import { renderTerrainWebGLTiles } from "./terrain-webgl.js";
+import { renderTerrainWebGLTiles, getTerrainWebGLTileStats } from "./terrain-webgl.js";
 import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
@@ -1042,6 +1042,7 @@ function renderObjectId(value) {
 
 function staticLayerSignature(width, height, pixelRatio, year, theme, projection, options, layers) {
   const view = projection.viewport ?? {};
+  const terrainGpu = getTerrainWebGLTileStats(options.terrainTileStore);
   return [
     width, height, pixelRatio, year, theme.id, options.technologyLevel ?? 0,
     projection.type, Number(view.zoom ?? 1).toFixed(4),
@@ -1051,6 +1052,8 @@ function staticLayerSignature(width, height, pixelRatio, year, theme, projection
     renderObjectId(layers.lakes?.features), renderObjectId(layers.rivers?.features),
     renderObjectId(layers.elevationPoints?.features), renderObjectId(layers.territories?.features),
     renderObjectId(options.terrain), isTerrainHillshadePrepared(options.terrain) ? 1 : 0,
+    renderObjectId(options.terrainTileStore), terrainGpu?.uploads ?? 0, terrainGpu?.tileCount ?? 0,
+    terrainGpu?.lod ?? -1, terrainGpu?.visibleTiles ?? 0,
     options.terrainEnabled !== false ? 1 : 0, options.terrainQuality ?? 1,
     options.terrainMode ?? "political", Number(options.physicalWorld?.revision ?? 0),
     Number(options.countryOpacity ?? 0.52), options.interactive ? 1 : 0
