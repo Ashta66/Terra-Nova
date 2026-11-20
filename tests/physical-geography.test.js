@@ -33,7 +33,7 @@ test("l'IA réinstalle les habitants déplacés vers une région sûre",()=>{
 test("un impact affine temporairement la grille autour du point d'impact",()=>{
  const grid={width:360,height:180,values:new Int16Array(360*180).fill(120)};
  const base=createPhysicalWorld(buildPhysicalCellsFromTerrainGrid(grid,{step:12,maxCoastSearchCells:1}));
- const event={id:"local-refinement",type:"meteor-impact",date:"1444-01-01",longitude:0,latitude:0,radiusKm:1000,craterDepthM:900};
+ const event={id:"local-refinement",type:"meteor-impact",date:"1444-01-01",longitude:0,latitude:0,radiusKm:1000,craterDepthM:900,lavaRadiusKm:100,noManLandRadiusKm:150};
  const refined=refinePhysicalWorldForImpact(base,grid,event,2);
  assert.ok(refined.currentCells.some(cell=>cell.gridStep===2));
  assert.ok(refined.revision>base.revision);
