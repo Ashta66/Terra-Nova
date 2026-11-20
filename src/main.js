@@ -3,6 +3,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
+import { loadOptionalGeoJson, REGIONAL_LAND_DATA_PATH, selectLandDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -13,6 +14,9 @@ let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
 let terrainGrid = null;
+let regionalLandFeatures = null;
+let regionalLandLoadPromise = null;
+let regionalLandLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
 let lastRenderedMapSignature = null;
@@ -75,7 +79,7 @@ function renderMapFrame() {
   const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
-  const result = renderWorldMap(canvas, worldFeatures, {
+  const landDetail = selectLandDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);\n  const result = renderWorldMap(canvas, landDetail.features, {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
     viewport: mapViewport,
