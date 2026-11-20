@@ -539,3 +539,37 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
   }
   assert.ok(result.performance.totalMs >= result.performance.politicalMs);
 });
+
+
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders } from "../src/world/terrain-webgl.js";
+
+test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
+  const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
+  const decoded = [];
+  for (let i = 0; i < packed.length; i += 4) {
+    let value = packed[i] + packed[i + 1] * 256;
+    if (value >= 32768) value -= 65536;
+    decoded.push(value);
+    assert.equal(packed[i + 3], 255);
+  }
+  assert.deepEqual(decoded, [-32768, -1000, 0, 1200, 32767]);
+});
+
+test("le rendu WebGL se désactive proprement si aucune grille exploitable n'est fournie", () => {
+  assert.equal(renderTerrainWebGL(null, 320, 160), null);
+  assert.equal(renderTerrainWebGL({ width: 1, height: 1 }, 320, 160), null);
+  const shaders = getTerrainWebGLShaders();
+  assert.match(shaders.vertex, /gl_Position/);
+  assert.match(shaders.fragment, /elevationAt/);
+  assert.match(shaders.fragment, /fract\(p00.x\)/);
+});
+
+test("le moteur conserve Canvas 2D comme rendu de repli sans surface WebGL", () => {
+  const { canvas } = createCanvas();
+  const result = renderWorldMap(canvas, land, {
+    width: 4, height: 2, pixelRatio: 1,
+    terrain: { width: 2, height: 2, values: new Int16Array(4) },
+    terrainWebGLGrid: { width: 2, height: 2, values: new Int16Array(4) }
+  });
+  assert.equal(result.terrainRenderer, "canvas2d");
+});
