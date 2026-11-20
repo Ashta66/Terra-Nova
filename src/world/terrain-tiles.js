@@ -12,8 +12,10 @@ export function createTerrainTileStore(grid, options = {}) {
 
   const tileSize = options.tileSize ?? 180;
   const maxTiles = options.maxTiles ?? 96;
+  const maxBytes = options.maxBytes ?? maxTiles * tileSize * tileSize * Int16Array.BYTES_PER_ELEMENT;
   if (!Number.isInteger(tileSize) || tileSize < 2) throw new RangeError("La taille des tuiles doit être un entier supérieur ou égal à 2.");
   if (!Number.isInteger(maxTiles) || maxTiles < 1) throw new RangeError("maxTiles doit être un entier positif.");
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new RangeError("maxBytes doit être un budget mémoire positif.");
 
   const columns = Math.ceil(grid.width / tileSize);
   const rows = Math.ceil(grid.height / tileSize);
@@ -47,15 +49,36 @@ export function createTerrainTileStore(grid, options = {}) {
     return tile;
   }
 
+  function cacheByteLength() {
+    let bytes = 0;
+    for (const tile of cache.values()) bytes += tile.values.byteLength;
+    return bytes;
+  }
+
   function evictOverflow(protectedId = null, protectedIds = null) {
-    while (cache.size > maxTiles) {
+    while (cache.size > maxTiles || cacheByteLength() > maxBytes) {
       let candidateId = null;
-      for (const [id] of cache) {
-        if (id !== protectedId && !protectedIds?.has(id) && !cache.get(id)?.dirty) { candidateId = id; break; }
+      for (const [id, tile] of cache) {
+        if (id !== protectedId && !protectedIds?.has(id) && !tile.dirty) { candidateId = id; break; }
       }
       if (candidateId === null) break;
       cache.delete(candidateId);
     }
+  }
+
+  function getCacheStats() {
+    const levels = {};
+    let bytes = 0, dirtyTiles = 0;
+    for (const tile of cache.values()) {
+      bytes += tile.values.byteLength;
+      levels[tile.level] = (levels[tile.level] ?? 0) + 1;
+      if (tile.dirty) dirtyTiles++;
+    }
+    return {
+      tileCount: cache.size, byteLength: bytes, maxTiles, maxBytes,
+      dirtyTiles, overBudget: cache.size > maxTiles || bytes > maxBytes,
+      levels
+    };
   }
 
   function getTileAtLevel(level, x, y, protectedIds = null) {
@@ -333,6 +356,8 @@ export function createTerrainTileStore(grid, options = {}) {
     getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport, preloadTileIds,
     getTileAtLevel,
     get size() { return cache.size; },
+    get memoryBytes() { return cacheByteLength(); },
+    get cacheStats() { return getCacheStats(); },
     get revision() { return storeRevision; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y, level = 0) {
