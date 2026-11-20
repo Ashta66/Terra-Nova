@@ -140,6 +140,22 @@ function renderMap() {
       canvas.dataset.geographicWebglCacheHit = String(result.geographicWebGLStats.cacheHit);
       canvas.dataset.geographicWebglBufferUploads = String(result.geographicWebGLStats.bufferUploads);
       canvas.dataset.geographicWebglUploadedBytes = String(result.geographicWebGLStats.uploadedBytes);
+      for (const layerKey of ["land", "glaciers", "lakes"]) {
+        const layerStats = result.geographicWebGLStats.layers?.[layerKey];
+        const prefix = `geographicWebgl${layerKey[0].toUpperCase()} ${layerKey.slice(1)}`;
+        const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
+        if (layerStats) {
+          canvas.dataset[`${datasetPrefix}Features`] = String(layerStats.drawnFeatures);
+          canvas.dataset[`${datasetPrefix}CacheHit`] = String(layerStats.cacheHit);
+          canvas.dataset[`${datasetPrefix}BufferUploads`] = String(layerStats.bufferUploads);
+          canvas.dataset[`${datasetPrefix}UploadedBytes`] = String(layerStats.uploadedBytes);
+        } else {
+          delete canvas.dataset[`${datasetPrefix}Features`];
+          delete canvas.dataset[`${datasetPrefix}CacheHit`];
+          delete canvas.dataset[`${datasetPrefix}BufferUploads`];
+          delete canvas.dataset[`${datasetPrefix}UploadedBytes`];
+        }
+      }
     } else {
       delete canvas.dataset.geographicWebglFeatures;
       delete canvas.dataset.geographicWebglSkipped;
@@ -148,6 +164,13 @@ function renderMap() {
       delete canvas.dataset.geographicWebglCacheHit;
       delete canvas.dataset.geographicWebglBufferUploads;
       delete canvas.dataset.geographicWebglUploadedBytes;
+      for (const layerKey of ["land", "glaciers", "lakes"]) {
+        const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
+        delete canvas.dataset[`${datasetPrefix}Features`];
+        delete canvas.dataset[`${datasetPrefix}CacheHit`];
+        delete canvas.dataset[`${datasetPrefix}BufferUploads`];
+        delete canvas.dataset[`${datasetPrefix}UploadedBytes`];
+      }
     }
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
