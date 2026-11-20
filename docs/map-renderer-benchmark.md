@@ -89,7 +89,7 @@ Le canvas expose des métriques dédiées pour chaque couche GPU, y compris les 
 - `data-geographic-webgl-layer-{nom}-build-ms` (dataset `geographicWebglLayer{Nom}BuildMs`) : construction des buffers et upload CPU associés, uniquement sur cache miss.
 - `data-geographic-webgl-layer-{nom}-draw-submit-ms` : temps CPU de soumission des commandes pour cette couche.
 - `data-geographic-webgl-layer-{nom}-total-ms` : somme des deux temps précédents.
-- `data-geographic-webgl-layer-{nom}-triangles`, `-uploads` et `-uploaded-bytes` : volume géométrique et transferts.
+- `data-geographic-webgl-layer-{nom}-triangles`, `-uploads` et `-uploaded-bytes` : volume géométrique et transferts. Pour les rubans de lignes et de contours, le nombre de triangles inclut les quads des segments ainsi que les disques de raccord et de cap.
 
 Les noms `{Nom}` correspondent aux clés `land`, `glaciers`, `lakes`, `landBoundaries`, `glacierBoundaries`, `lakeBoundaries`, `rivers`, `administrativeBoundaryLines` et `administrativeBoundaryPolygons`. Ces durées sont des mesures CPU d'instrumentation, pas des temps GPU ni une mesure de FPS.
 
