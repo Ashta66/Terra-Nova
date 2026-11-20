@@ -232,5 +232,5 @@ test("une tuile modifiée reste protégée de l'éviction jusqu'à sa persistanc
   assert.equal(store.markPersisted(dirty.id, dirty.revision), true);
   store.getTile(2, 0);
   assert.equal(store.size, 1);
-  assert.equal(store.getTile(0, 0), null);
+  assert.equal(store.loadedIds.includes("0/0/0"), false);
 });
