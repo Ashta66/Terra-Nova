@@ -109,3 +109,8 @@ Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour
 - Licence : domaine public selon les conditions Natural Earth ; conserver la mention « Natural Earth » dans les crédits du jeu.
 - Préparation : `bash scripts/prepare-natural-earth-lod.sh` (curl, unzip, GDAL/ogr2ogr).
 - Sortie attendue : `data/ne_10m_land.geojson`. L'asset n'est pas encore présent dans le dépôt ; la carte utilise donc le fond 1:110m tant qu'il n'a pas été préparé.
+
+
+## Couches régionales Natural Earth 1:10m — téléchargement à la demande
+
+Le jeu télécharge depuis le dépôt officiel `nvkelso/natural-earth-vector` les terres, lacs, cours d’eau et lieux peuplés à l’échelle 1:10m. Les trois premières couches sont conservées en GeoJSON ; la couche des lieux peuplés est réduite à des labels de villes avec nom, population et seuil de zoom. Le bouton de la carte stocke les GeoJSON dans IndexedDB, sans écrire dans le système de fichiers de l’utilisateur. Les données restent locales au profil du navigateur et peuvent être supprimées en effaçant les données du site. Source et licence : Natural Earth Vector, domaine public.

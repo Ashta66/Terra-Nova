@@ -111,4 +111,9 @@ Le fichier régional est chargé à la demande, uniquement au premier passage du
 
 À partir de 4×, le moteur tente de charger séparément les couches Natural Earth 1:10m pour les terres, les lacs, les rivières et les labels de villes. Chaque couche conserve son propre repli sur les données mondiales 1:110m : une donnée régionale absente n'empêche pas les autres couches de gagner en précision. Les labels de villes sont filtrés selon le rang et la population puis révélés progressivement à 4×, 6× et 8×. Les téléchargements sont déclenchés une seule fois au premier franchissement du seuil et ne bloquent pas le premier affichage de la carte.
 
-Préparation locale : `bash scripts/prepare-natural-earth-lod.sh`. Les données régionales restent des fichiers locaux facultatifs et ne sont pas ajoutées automatiquement au dépôt Git.
+Installation simplifiée : le bouton « Télécharger le détail régional » dans l’interface récupère ces quatre couches depuis Natural Earth et les conserve dans IndexedDB (stockage du navigateur). Elles sont réutilisées automatiquement aux prochaines visites sur le même navigateur. Aucune installation de Python, Bash ou WSL, aucun fichier à déplacer et aucun ajout volumineux au dépôt Git ne sont nécessaires. Une connexion Internet est requise uniquement lors du premier téléchargement.
+
+
+## Installation des données régionales depuis le navigateur
+
+La carte propose un bouton « Télécharger le détail régional ». Il récupère les couches Natural Earth 1:10m à la demande, valide chaque FeatureCollection et les stocke dans IndexedDB. Les labels de villes sont dérivés de la couche Natural Earth des lieux peuplés. Les données déjà enregistrées sont réutilisées automatiquement ; un téléchargement interrompu peut être repris sans recommencer les fichiers déjà mis en cache. Le stockage est propre au navigateur et à l’origine du site : les données ne sont pas écrites dans le dossier du dépôt ni synchronisées entre appareils. La vue mondiale 1:110m reste disponible si le navigateur ne prend pas en charge IndexedDB ou si les données ne peuvent pas être téléchargées.

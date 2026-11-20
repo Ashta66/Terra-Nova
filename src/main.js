@@ -3,7 +3,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { loadOptionalGeoJson, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, downloadRegionalMapData, getRegionalCacheStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -138,6 +138,29 @@ function renderMapFrame() {
   updateMapControls();
 }
 
+async function installRegionalMapData() {
+  const button = $("install-regional-data");
+  const status = $("regional-data-status");
+  button.disabled = true;
+  try {
+    const collections = await downloadRegionalMapData(progress => {
+      status.textContent = "Téléchargement " + progress.current + "/" + progress.total + " : " + progress.label + "…";
+    });
+    [regionalLandFeatures, regionalHydroFeatures, regionalRiverFeatures, regionalLabelFeatures] = collections;
+    regionalLandLoadAttempted = true;
+    regionalLayersLoadAttempted = true;
+    lastRenderedMapSignature = null;
+    button.textContent = "Données régionales installées";
+    status.textContent = "Données enregistrées dans ce navigateur. Elles seront réutilisées automatiquement.";
+    renderMap();
+  } catch (error) {
+    status.textContent = "Installation interrompue : " + error.message;
+    button.textContent = "Reprendre le téléchargement";
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadWorldMap() {
   try {
     const responses = await Promise.all([
@@ -158,6 +181,14 @@ async function loadWorldMap() {
       if (terrainResponse.ok) terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
+    }
+    const cacheStatus = await getRegionalCacheStatus();
+    if (cacheStatus.ready) {
+      $("install-regional-data").textContent = "Données régionales installées";
+      $("regional-data-status").textContent = "Données déjà enregistrées dans ce navigateur.";
+    } else if (cacheStatus.count > 0) {
+      $("install-regional-data").textContent = "Reprendre le téléchargement";
+      $("regional-data-status").textContent = cacheStatus.count + "/4 fichiers déjà téléchargés.";
     }
     renderMap();
   } catch (error) {
@@ -223,6 +254,8 @@ $("load-game").addEventListener("click", () => {
     $("save-status").textContent = "Sauvegarde illisible : " + error.message;
   }
 });
+
+$("install-regional-data").addEventListener("click", installRegionalMapData);
 
 const mapCanvas = $("world-map");
 $("map-zoom-in").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1.5); });

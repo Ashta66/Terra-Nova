@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 
 const world = { type: "FeatureCollection", features: [{ id: "world" }] };
 const regional = { type: "FeatureCollection", features: [{ id: "regional" }] };
@@ -57,4 +57,17 @@ test("les couches régionales restent inutilisées avant le seuil", () => {
   const selected = selectMapLayerDetailLevel(3.99, world, regional);
   assert.equal(selected.features, world);
   assert.equal(selected.isFallback, false);
+});
+
+
+test("les labels régionaux filtrent les villes et calculent leur seuil de zoom", () => {
+  const places = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Paris", scalerank: 2, pop_max: 2000000 }, geometry: { type: "Point", coordinates: [2.3, 48.8] } },
+    { type: "Feature", properties: { name: "Ville moyenne", scalerank: 6, pop_max: 300000 }, geometry: { type: "Point", coordinates: [1, 2] } },
+    { type: "Feature", properties: { name: "Hameau", scalerank: 10, pop_max: 100 }, geometry: { type: "Point", coordinates: [3, 4] } }
+  ] };
+  const labels = buildRegionalCityLabels(places);
+  assert.equal(labels.features.length, 2);
+  assert.equal(labels.features[0].properties.minZoom, 4);
+  assert.equal(labels.features[1].properties.minZoom, 6);
 });
