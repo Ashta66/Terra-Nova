@@ -94,19 +94,19 @@ function renderMapFrame() {
   }
   if (mapViewport.zoom >= 4 && !regionalLayersLoadAttempted) {
     regionalLayersLoadAttempted = true;
-    Promise.all([
-      loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH),
-      loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH),
-      loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH)
-    ]).then(([lakes, rivers, labels]) => {
-      regionalHydroFeatures = lakes;
-      regionalRiverFeatures = rivers;
-      regionalLabelFeatures = labels;
-      if (lakes || rivers || labels) {
-        lastRenderedMapSignature = null;
-        renderMap();
-      }
+    // Chaque couche régionale est activée dès sa propre arrivée : une rivière lente
+    // ne bloque plus l'affichage des lacs ou des noms déjà disponibles.
+    const activateRegionalLayer = (loader, assign) => loader.then(features => {
+      if (!features) return;
+      assign(features);
+      lastRenderedMapSignature = null;
+      renderMap();
     });
+    Promise.all([
+      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH), features => { regionalHydroFeatures = features; }),
+      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }),
+      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; })
+    ]).catch(error => console.warn("Chargement progressif des couches régionales interrompu :", error));
   }
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
