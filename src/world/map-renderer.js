@@ -872,7 +872,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // Ombres multidirectionnelles en niveaux de gris : le mode overlay creuse
     // fortement les vallées et éclaire les crêtes sans recolorer les nations.
     context.globalCompositeOperation = "overlay";
-    context.globalAlpha = reliefMode ? 0.98 : 0.82;
+    context.globalAlpha = reliefMode ? 0.90 : 0.72;
     measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
     context.restore();
   }

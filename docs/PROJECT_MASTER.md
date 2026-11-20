@@ -255,3 +255,7 @@ Le rendu ETOPO est allégé à 512 × 256 pixels en qualité normale, avec un hi
 - Le chargement régional est différé jusqu'au zoom utile et ne bloque jamais la carte mondiale.
 - Script de préparation : `scripts/prepare-natural-earth-lod.sh`; fichier généré : `data/ne_10m_land.geojson`.
 - L'asset régional n'est pas encore intégré ; les autres couches restent au niveau 1:110m. Le zoom 24× peut donc encore afficher des détails incomplets jusqu'à la préparation du fond régional.
+
+
+### Refonte du relief ETOPO — 20 novembre 2026
+Le hillshade utilise désormais une exagération verticale par défaut de 18×, paramétrable, et un éclairage cohérent dominé par le nord-ouest avec appoint nord-est. La sortie reste normalisée entre 0,48 et 1,52 pour rester compatible avec le worker. La palette terrestre évolue progressivement des teintes de terrain vers les roches claires puis la neige en altitude, sans frontière artificielle à 2 000 m. Le contraste de la couleur de base est limité à 35 % de l'écart du hillshade, tandis que la passe overlay est légèrement adoucie. Les tests automatisés couvrent la neutralité, les orientations et les bornes ; le rendu doit encore être inspecté dans un navigateur.

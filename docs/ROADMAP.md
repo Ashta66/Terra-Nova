@@ -193,3 +193,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Relief ETOPO allégé : plafond normal 512 × 256, ombrage et teintes des classes moins contrastés.
 - Zoom maximal interactif augmenté de 8× à 24× dans les commandes et les projections 2D.
 - Le zoom supplémentaire sert à explorer plus précisément une zone, mais ne remplace pas l'intégration de côtes et frontières à échelle régionale ; le fond vectoriel mondial 1:110m reste sa limite de précision.
+
+
+### Refonte du relief ETOPO — 20 novembre 2026
+- Hillshade renforcé avec exagération verticale par défaut 18× et éclairage nord-ouest dominant ; plage de sortie 0,48–1,52 conservée pour le worker.
+- Palette altimétrique progressive vers les roches claires et la neige en altitude, sans seuil neige uniforme à 2 000 m.
+- Couleur de base adoucie à 35 % du contraste de hillshade et passe overlay moins agressive.
+- Tests unitaires ajoutés ; inspection visuelle réelle à effectuer après mise à disposition de la branche.
