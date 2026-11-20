@@ -102,3 +102,11 @@ Après chaque rendu complet, le moteur prépare pendant le temps libre un bitmap
 - Une catastrophe incrémente les révisions des tuiles contenant les cellules affectées et de leur voisinage immédiat (halo d'une tuile), nécessaire aux calculs de pente et d'ombrage.
 - Le calcul gère l'enroulement des longitudes à l'antiméridien.
 - Cette étape prépare l'invalidation sélective des futurs caches raster/vectoriels. Elle ne prétend pas encore précalculer les tuiles ni déplacer leur rasterisation dans un Worker : le moteur de rendu existant reste la source d'affichage.
+
+
+## Optimisations du cache de relief et des sauvegardes (20 novembre 2026)
+
+- Le cache raster de relief est désormais indexé par les révisions des tuiles visibles plutôt que par la révision globale du monde physique. Une modification située hors de la vue n'invalide donc pas inutilement son image précalculée.
+- L'expiration des effets temporaires (lave, zone d'impact, eau de tsunami) incrémente également les révisions des tuiles réellement modifiées et de leur voisinage, afin que le relief et les côtes se rafraîchissent à la fin d'un événement.
+- Les sauvegardes sérialisent les cellules physiques modifiées sous forme de différences indexées par rapport aux cellules de base. Le chargement reconstruit le tableau complet avant validation. Les sauvegardes anciennes non compactées restent acceptées.
+- Cette compression concerne les données physiques dérivées ; elle ne modifie ni la simulation, ni les identifiants des cellules.
