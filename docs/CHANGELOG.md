@@ -221,3 +221,10 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Écran d'ouverture : animation orbitale de l'emblème, reflet animé de la barre et progression numérique interpolée par `requestAnimationFrame`. Les préférences de mouvement réduit sont respectées.
 - Les couches régionales sont facultatives : un échec de téléchargement ou l'absence d'IndexedDB ne bloque pas le démarrage ni le fond mondial.
 - Validation navigateur visuelle et mesure FPS sur la machine cible à effectuer ; le préchargement ne promet pas un mode hors ligne complet.
+
+
+## 20 novembre 2026 — panneau de nouvelle campagne compact
+- Réduction de la hauteur occupée par le titre, la date, le mode et les filtres de nation.
+- Liste des nations et fiche stratégique plus courtes, avec défilement interne indépendant pour conserver l'accès aux informations sans faire défiler toute la fenêtre.
+- Sur mobile, date et mode restent côte à côte ; la sélection de nation conserve toute la largeur.
+- Ajustements supplémentaires pour les écrans bas et les petits mobiles.

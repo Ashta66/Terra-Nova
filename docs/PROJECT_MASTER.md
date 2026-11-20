@@ -283,3 +283,7 @@ Chaque sélection ouvre une fiche de campagne : capitale lorsqu'elle est documen
 - Les index spatiaux et secteurs voisins des couches mondiales sont préparés par tranches de travail inactif pendant la sélection du pays, afin de réduire le coût du premier zoom sans monopoliser le thread d'interface.
 - La progression initiale et son pourcentage sont interpolés sur animation frame ; l'emblème du démarrage reçoit une animation orbitale légère. Le respect de `prefers-reduced-motion` désactive ces animations.
 - Limite : le cache navigateur accélère les chargements ultérieurs sur le même navigateur/origine, mais ne garantit ni fonctionnement hors ligne complet, ni FPS constants, ni persistance après effacement des données du site. Le parsing JSON et la préparation des index consomment toujours du CPU.
+
+
+## Ergonomie du démarrage — 20 novembre 2026
+Le panneau de nouvelle campagne est volontairement compact : date et mode tiennent sur la même rangée, la liste des nations possède une hauteur plafonnée, et la fiche stratégique défile dans sa propre zone. L'objectif est de rendre le choix du départ plus rapide sans supprimer les informations de nation. Sur petit écran, les zones restent utilisables et adaptent leurs hauteurs.

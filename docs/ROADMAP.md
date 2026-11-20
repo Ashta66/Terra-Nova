@@ -225,3 +225,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - [x] Animer l'emblème et lisser la progression de l'écran d'ouverture, avec prise en charge de `prefers-reduced-motion`.
 - [ ] Mesurer le temps de démarrage, le coût CPU du parsing/indexation et les FPS sur plusieurs navigateurs et machines.
 - [ ] Vérifier visuellement le rendu du préchargement régional à partir du zoom 4×.
+
+
+## Ergonomie de la sélection initiale — 20 novembre 2026
+- [x] Réduire l'encombrement vertical de la date et du mode de départ.
+- [x] Limiter la hauteur de la liste des nations et de la fiche stratégique avec défilement interne.
+- [x] Conserver une disposition compacte sur mobile et petits écrans.
+- [ ] Vérifier visuellement sur les résolutions desktop et mobile cibles.
