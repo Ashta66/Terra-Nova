@@ -69,16 +69,20 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
   if (!index?.collection) throw new TypeError("Index spatial invalide.");
   const zoom = Math.max(1, Number(viewport.zoom) || 1);
   if (zoom <= 1.001) return index.collection;
-  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const centerLongitude = ((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360 - 180;
   const centerLatitude = Number(viewport.centerLatitude ?? 0);
-  const west = Math.max(-180, centerLongitude - 180 / zoom);
-  const east = Math.min(180, centerLongitude + 180 / zoom);
+  const halfSpan = 180 / zoom;
+  const rawWest = centerLongitude - halfSpan;
+  const rawEast = centerLongitude + halfSpan;
   const south = Math.max(-90, centerLatitude - 90 / zoom);
   const north = Math.min(90, centerLatitude + 90 / zoom);
-  const minX = longitudeCell(west, index.columns, index.cellSize);
-  const maxX = longitudeCell(east, index.columns, index.cellSize);
   const minY = latitudeCell(north, index.rows, index.cellSize);
   const maxY = latitudeCell(south, index.rows, index.cellSize);
+  const longitudeRanges = rawWest < -180
+    ? [[rawWest + 360, 180], [-180, rawEast]]
+    : rawEast > 180
+      ? [[rawWest, 180], [-180, rawEast - 360]]
+      : [[rawWest, rawEast]];
 
   // Les positions voisines qui restent dans les mêmes cellules réutilisent
   // exactement la même sélection, sans recréer le tableau GeoJSON à chaque frame.
@@ -91,9 +95,13 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
   }
 
   const selected = new Set(index.global);
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) selected.add(featureIndex);
+  for (const [west, east] of longitudeRanges) {
+    const minX = longitudeCell(Math.max(-180, west), index.columns, index.cellSize);
+    const maxX = longitudeCell(Math.min(180, east), index.columns, index.cellSize);
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) selected.add(featureIndex);
+      }
     }
   }
   const ordered = [...selected].sort((a, b) => a - b);
@@ -138,9 +146,9 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   for (let y = -steps; y <= steps; y++) {
     for (let x = -steps; x <= steps; x++) {
       if (x === 0 && y === 0) continue;
-      const centerLongitude = Number(viewport.centerLongitude ?? 0) + x * lonSpan;
+      const rawLongitude = Number(viewport.centerLongitude ?? 0) + x * lonSpan;
+      const centerLongitude = ((rawLongitude + 180) % 360 + 360) % 360 - 180;
       const centerLatitude = Math.max(-90, Math.min(90, Number(viewport.centerLatitude ?? 0) + y * latSpan));
-      if (centerLongitude < -180 || centerLongitude > 180) continue;
       queryGeoSpatialIndex(index, { zoom, centerLongitude, centerLatitude });
       prepared++;
     }
