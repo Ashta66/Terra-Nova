@@ -394,10 +394,10 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
-function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null, tileStore = null) {
+function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null, tileStore = null, onTileReady = null) {
   if (tileStore && typeof context.drawImage === "function") {
     try {
-      const surface = renderTerrainWebGLTiles(tileStore, width, height, viewport);
+      const surface = renderTerrainWebGLTiles(tileStore, width, height, viewport, { onTileReady });
       if (surface) {
         context.drawImage(surface, 0, 0, width, height);
         return "webgl-tiles";
@@ -490,7 +490,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         incremental = true;
       } else {
         terrainRenderer = drawPhysicalTerrain(physicalSurface.context, canvas.width, canvas.height,
-          options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
+          options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore, options.onTerrainTileReady);
       }
       lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
         revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
