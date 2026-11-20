@@ -232,3 +232,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - [x] Limiter la hauteur de la liste des nations et de la fiche stratégique avec défilement interne.
 - [x] Conserver une disposition compacte sur mobile et petits écrans.
 - [ ] Vérifier visuellement sur les résolutions desktop et mobile cibles.
+
+
+## 20 novembre 2026 — correction du panoramique cartographique
+- Le compositeur pouvait demander un rendu vectoriel complet toutes les 250 ms lorsque le bitmap ne couvrait plus l'écran, notamment pendant un déplacement vertical au zoom mondial ×1.
+- Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
+- Ajout de tests sur la décision de recalcul pendant et après le geste.
+- Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
