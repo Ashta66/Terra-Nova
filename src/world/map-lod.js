@@ -161,8 +161,10 @@ export function buildRegionalCityLabels(places) {
     if (!name || !geometry || geometry.type !== "Point" || !Array.isArray(geometry.coordinates)) continue;
     const rank = Number(property(properties, "scalerank", "SCALERANK") || 99);
     const population = Number(property(properties, "pop_max", "POP_MAX") || 0);
-    if (!Number.isFinite(rank) || !Number.isFinite(population) || (rank > 8 && population < 100000)) continue;
-    const minZoom = rank <= 4 || population >= 1000000 ? 4 : rank <= 6 || population >= 250000 ? 6 : 8;
+    if (!Number.isFinite(rank) || !Number.isFinite(population) || (rank > 7 && population < 300000)) continue;
+    // Les très grandes villes arrivent en premier ; les villes secondaires
+    // attendent un zoom plus rapproché pour éviter de surcharger la carte.
+    const minZoom = rank <= 2 || population >= 2000000 ? 4 : rank <= 4 || population >= 750000 ? 6 : 9;
     features.push({
       type: "Feature",
       properties: { name: String(name), kind: "city", minZoom, population },

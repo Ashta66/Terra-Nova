@@ -26,6 +26,16 @@ function createContinuousProjector(width, height, projection) {
   };
 }
 
+// Profil volontairement plus léger : le coût des contours augmente fortement
+// avec les données 1:10m ; les micro-îlots restent masqués même au zoom rapproché.
+export function getCoastSimplificationProfile(zoom = 1) {
+  const level = Math.max(1, Number(zoom) || 1);
+  if (level <= 1.5) return { tolerance: 1.2, minRingArea: 2 };
+  if (level <= 4) return { tolerance: 1.5, minRingArea: 2.8 };
+  if (level <= 10) return { tolerance: 1.9, minRingArea: 4 };
+  return { tolerance: 2.3, minRingArea: 5.5 };
+}
+
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
 // constante visuellement : en zoomant, les détails géographiques réapparaissent.
 export function simplifyClosedRing(points, tolerance = 0.55) {
@@ -88,7 +98,7 @@ function projectedRingArea(points) {
   return Math.abs(area) / 2;
 }
 
-function traceRing(context, ring, width, height, projection) {
+function traceRing(context, ring, width, height, projection, coastProfile) {
   const project = createContinuousProjector(width, height, projection);
   const projected = [];
   for (const coordinate of ring) {
@@ -96,28 +106,29 @@ function traceRing(context, ring, width, height, projection) {
     if (point) projected.push(point);
   }
   if (projected.length < 4) return 0;
-  const simplified = simplifyClosedRing(projected, 0.55);
-  // Les îlots plus petits qu'un pixel carré n'apportent pas de silhouette
-  // lisible à cette échelle. Ils réapparaissent automatiquement en zoomant.
-  if (projectedRingArea(simplified) < 0.7) return 0;
+  const simplified = simplifyClosedRing(projected, coastProfile.tolerance);
+  // Les petits anneaux sous le seuil visuel sont ignorés à petite échelle.
+  // Les grandes îles restent visibles ; les anneaux fins reviennent au zoom.
+  if (projectedRingArea(simplified) < coastProfile.minRingArea) return 0;
   context.moveTo(simplified[0].x, simplified[0].y);
   for (let i = 1; i < simplified.length; i++) context.lineTo(simplified[i].x, simplified[i].y);
   context.closePath();
   return simplified.length;
 }
 
-function traceGeometry(context, geometry, width, height, projection) {
+function traceGeometry(context, geometry, width, height, projection, coastProfile = null) {
   if (!geometry) return false;
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
   if (polygons.length) {
     let vertices = 0;
+    const polygonProfile = coastProfile ?? { tolerance: 0.55, minRingArea: 0.7 };
     for (const polygon of polygons) {
       const exterior = polygon[0];
       if (!exterior) continue;
-      const exteriorCount = traceRing(context, exterior, width, height, projection);
+      const exteriorCount = traceRing(context, exterior, width, height, projection, polygonProfile);
       if (!exteriorCount) continue;
       vertices += exteriorCount;
-      for (const hole of polygon.slice(1)) vertices += traceRing(context, hole, width, height, projection);
+      for (const hole of polygon.slice(1)) vertices += traceRing(context, hole, width, height, projection, polygonProfile);
     }
     return vertices;
   }
@@ -152,7 +163,7 @@ function touchProjectedPath(entry, feature) {
   projectedPathCacheLru.set(entry, feature);
 }
 
-function getProjectedPath(feature, width, height, projection) {
+function getProjectedPath(feature, width, height, projection, coastProfile = null) {
   if (typeof Path2D === "undefined" || !feature?.geometry) return null;
   const viewport = projection.viewport ?? {};
   const key = [
@@ -172,7 +183,7 @@ function getProjectedPath(feature, width, height, projection) {
     return cached.path;
   }
   const path = new Path2D();
-  const vertexCount = traceGeometry(path, feature.geometry, width, height, projection);
+  const vertexCount = traceGeometry(path, feature.geometry, width, height, projection, coastProfile);
   if (!vertexCount) return null;
   const entry = { key, path, vertexCount };
   entries.set(key, entry);
@@ -194,14 +205,15 @@ function getProjectedPath(feature, width, height, projection) {
   return path;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false) {
   if (!collection?.features) return 0;
   let drawn = 0;
   context.save();
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
-    const cachedPath = getProjectedPath(feature, width, height, projection);
+    const coastProfile = simplifyCoast ? getCoastSimplificationProfile(projection.viewport?.zoom ?? 1) : null;
+    const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
       context.beginPath();
       if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
@@ -243,9 +255,8 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     for (const line of lines) {
       context.beginPath();
       let started = false;
-      const project = createContinuousProjector(width, height, projection);
       for (const coordinate of line) {
-        const point = project(coordinate);
+        const point = projectCoordinate(coordinate, width, height, projection);
         if (!point) { started = false; continue; }
         if (!started) { context.moveTo(point.x, point.y); started = true; }
         else context.lineTo(point.x, point.y);
@@ -467,7 +478,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleElevationPoints = selectVisibleFeatures(options.elevationPoints, projection.viewport);
   const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85);
+  const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);

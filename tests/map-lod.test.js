@@ -65,13 +65,14 @@ test("les couches régionales restent inutilisées avant le seuil", () => {
 test("les labels régionaux filtrent les villes et calculent leur seuil de zoom", () => {
   const places = { type: "FeatureCollection", features: [
     { type: "Feature", properties: { name: "Paris", scalerank: 2, pop_max: 2000000 }, geometry: { type: "Point", coordinates: [2.3, 48.8] } },
-    { type: "Feature", properties: { name: "Ville moyenne", scalerank: 6, pop_max: 300000 }, geometry: { type: "Point", coordinates: [1, 2] } },
-    { type: "Feature", properties: { name: "Hameau", scalerank: 10, pop_max: 100 }, geometry: { type: "Point", coordinates: [3, 4] } }
+    { type: "Feature", properties: { name: "Grande ville", scalerank: 3, pop_max: 800000 }, geometry: { type: "Point", coordinates: [1, 2] } },
+    { type: "Feature", properties: { name: "Ville secondaire", scalerank: 6, pop_max: 300000 }, geometry: { type: "Point", coordinates: [3, 4] } },
+    { type: "Feature", properties: { name: "Petite ville", scalerank: 8, pop_max: 200000 }, geometry: { type: "Point", coordinates: [4, 5] } },
+    { type: "Feature", properties: { name: "Hameau", scalerank: 10, pop_max: 100 }, geometry: { type: "Point", coordinates: [5, 6] } }
   ] };
   const labels = buildRegionalCityLabels(places);
-  assert.equal(labels.features.length, 2);
-  assert.equal(labels.features[0].properties.minZoom, 4);
-  assert.equal(labels.features[1].properties.minZoom, 6);
+  assert.equal(labels.features.length, 3);
+  assert.deepEqual(labels.features.map(feature => feature.properties.minZoom), [4, 6, 9]);
 });
 
 

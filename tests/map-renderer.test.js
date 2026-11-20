@@ -557,3 +557,16 @@ test("les rivières traversant l'antiméridien restent continues sans Path2D", (
     else globalThis.Path2D = previous;
   }
 });
+
+test("la simplification des côtes adapte le niveau de détail au zoom", async () => {
+  const { getCoastSimplificationProfile } = await import("../src/world/map-renderer.js");
+  const world = getCoastSimplificationProfile(1);
+  const regional = getCoastSimplificationProfile(3);
+  const close = getCoastSimplificationProfile(12);
+  assert.deepEqual(world, { tolerance: 1.2, minRingArea: 2 });
+  assert.deepEqual(regional, { tolerance: 1.5, minRingArea: 2.8 });
+  assert.deepEqual(close, { tolerance: 2.3, minRingArea: 5.5 });
+  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 1.9, minRingArea: 4 });
+  assert.ok(world.tolerance < regional.tolerance && regional.tolerance < close.tolerance);
+  assert.ok(world.minRingArea < regional.minRingArea && regional.minRingArea < close.minRingArea);
+});
