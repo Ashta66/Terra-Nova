@@ -249,6 +249,8 @@ function renderMapFrame() {
     terrain: terrainGrid,
     terrainEnabled: true,
     terrainQuality: 1,
+    terrainExaggeration: Number($("terrain-exaggeration")?.value ?? 14),
+    reliefStrength: Number($("relief-strength")?.value ?? 85) / 100,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: dpr(),

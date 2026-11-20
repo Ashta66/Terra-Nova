@@ -793,3 +793,28 @@ test("les modes tint et shade séparent la couleur d’altitude de l’ombrage",
   assert.ok(tint.image.data[0] !== shade.image.data[0] || tint.image.data[1] !== shade.image.data[1]);
   assert.equal(shade.image.data[3], 255);
 });
+
+
+test("le relief utilise une passe de teinte avant les pays et une passe d’ombrage après", () => {
+  const previous = globalThis.Path2D;
+  const constructed = [];
+  class FakePath2D {
+    constructor() { this.commands = []; constructed.push(this); }
+    moveTo(...args) { this.commands.push(["moveTo", ...args]); }
+    lineTo(...args) { this.commands.push(["lineTo", ...args]); }
+    closePath() { this.commands.push(["closePath"]); }
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { canvas, calls } = createCanvas();
+    const terrain = { width: 4, height: 2, values: new Int16Array([100, 500, 1200, 2500, 100, 500, 1200, 2500]) };
+    const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, terrain, terrainEnabled: true, terrainExaggeration: 14, reliefStrength: 0.85 });
+    assert.equal(result.terrainEnabled, true);
+    assert.equal(calls.filter(call => call[0] === "putImageData").length, 2);
+    assert.ok(calls.filter(call => call[0] === "clip").length >= 2);
+    assert.ok(constructed.some(path => path.commands.length > 0));
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});

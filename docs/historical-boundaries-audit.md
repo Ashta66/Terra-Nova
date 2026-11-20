@@ -161,3 +161,8 @@ La rampe terrestre a été remplacée par une palette sans neige jusqu’à 1 99
 ## Rendu du relief en trois modes (étape 3)
 
 Le raster expose désormais les modes `color`, `tint` et `shade`. Les caches par tuiles et par surface incluent le mode et le facteur d’exagération. Le calcul pré-calculé par Worker est indexé par facteur d’exagération. Le chemin de repli limite le raster à 1 024 × 512 pixels, ou à la taille de la grille lorsqu’elle est plus petite.
+
+
+## Relief en deux passes sur un tracé terrestre partagé (étape 4)
+
+Le renderer construit un Path2D terrestre unique, puis applique une première passe `tint` avant les aplats politiques et une seconde passe `shade` en composition `hard-light` après les aplats. L’exagération (14 par défaut) et la force d’ombrage (0,85) sont transmises depuis `renderMapFrame`. Les deux passes sont désactivées si le relief est désactivé ou si la projection n’est pas équirectangulaire.
