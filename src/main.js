@@ -41,6 +41,7 @@ let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
 let terrainTileStore = null;
+let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
 let regionalLandFeatures = null;
@@ -443,6 +444,8 @@ function updateMapDiagnostics(result) {
   const layers = $("map-perf-layers");
   if (!total || !layers) return;
   total.textContent = (result.totalRenderMs ?? 0).toFixed(1) + " ms";
+  const mapCanvas = $("world-map");
+  if (mapCanvas?.dataset) mapCanvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
   const labels = {
     "relief-base": "Relief de base", "terres-et-cotes": "Terres et côtes",
     territoires: "Territoires", "ombrage-multidirectionnel": "Ombrage du relief",
@@ -627,6 +630,17 @@ function renderMapFrame() {
   const snappedSceneViewport = snapSceneViewportCenter(mapViewport, renderViewport.zoom);
   renderViewport.centerLongitude = snappedSceneViewport.centerLongitude;
   renderViewport.centerLatitude = snappedSceneViewport.centerLatitude;
+  if (terrainTileStore) {
+    const preloadKey = [renderViewport.zoom, renderViewport.centerLongitude, renderViewport.centerLatitude].join(":");
+    if (preloadKey !== lastTerrainStorePreloadKey) {
+      lastTerrainStorePreloadKey = preloadKey;
+      terrainTileStore.preloadViewport(renderViewport, {
+        padding: 0.55,
+        zoomLevels: [renderViewport.zoom * 1.35, Math.max(1, renderViewport.zoom / 1.35)],
+        lookAhead: 0.2
+      });
+    }
+  }
   const year = Number(String(state.clock.date).slice(0, 4));
   const administrativeDetail = mapViewport.zoom >= 7 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
