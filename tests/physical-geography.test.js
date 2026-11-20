@@ -18,3 +18,13 @@ test("la grille physique peut être initialisée depuis un raster ETOPO",()=>{
  const cells=buildPhysicalCellsFromTerrainGrid(grid,{step:1,maxCoastSearchCells:2});
  assert.equal(cells.length,8);assert.equal(cells[0].elevationM,100);assert.ok(cells[0].coastalDistanceKm>0);assert.equal(cells[2].coastalDistanceKm,0);assert.ok(cells[0].regionId.startsWith("geo-"));
 });
+
+test("l'IA réinstalle les habitants déplacés vers une région sûre",()=>{
+ const society=createSocietyState([{regionId:"damaged",countryId:"fr",population:10000,infrastructure:.1,habitability:.1,foodSecurity:.2},{regionId:"safe",countryId:"fr",population:20000,infrastructure:.9,habitability:.95,foodSecurity:.9}]);
+ society.regions[0].displacedPopulation=3000;
+ const actions=planAiResponses(society,{year:1801}),move=actions.find(a=>a.type==="resettle");
+ assert.equal(move.targetRegionId,"safe");
+ const result=applyAiResponses(society,[move]);
+ assert.ok(result.society.regions[1].incomingMigrants>0);
+ assert.ok(result.society.regions[0].migratedOutPopulation>0);
+});
