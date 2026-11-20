@@ -89,7 +89,11 @@ Le canvas expose des métriques dédiées pour chaque couche GPU, y compris les 
 - `data-geographic-webgl-layer-{nom}-build-ms` (dataset `geographicWebglLayer{Nom}BuildMs`) : construction des buffers et upload CPU associés, uniquement sur cache miss.
 - `data-geographic-webgl-layer-{nom}-draw-submit-ms` : temps CPU de soumission des commandes pour cette couche.
 - `data-geographic-webgl-layer-{nom}-total-ms` : somme des deux temps précédents.
+- `data-geographic-webgl-layer-{nom}-features` et `-skipped-features` : entités dessinées par le GPU et entités non prises en charge par ce chemin (à contrôler côté fallback Canvas).
+- `data-geographic-webgl-layer-{nom}-draw-calls` et `-cache-hit` : commandes GPU soumises et état du cache de buffers.
 - `data-geographic-webgl-layer-{nom}-triangles`, `-uploads` et `-uploaded-bytes` : volume géométrique et transferts. Pour les rubans de lignes et de contours, le nombre de triangles inclut les quads des segments ainsi que les disques de raccord et de cap.
+
+Les métriques de chaque couche sont réinitialisées lorsqu'elle n'est plus soumise au renderer ou lorsque le rendu géographique repasse entièrement sur Canvas, afin de ne pas conserver des valeurs obsolètes entre deux frames.
 
 Les noms `{Nom}` correspondent aux clés `land`, `glaciers`, `lakes`, `landBoundaries`, `glacierBoundaries`, `lakeBoundaries`, `rivers`, `administrativeBoundaryLines` et `administrativeBoundaryPolygons`. Ces durées sont des mesures CPU d'instrumentation, pas des temps GPU ni une mesure de FPS.
 
