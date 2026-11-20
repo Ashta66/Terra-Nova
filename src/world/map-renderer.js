@@ -697,7 +697,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  }
  ctx.restore();return count;
 }
-function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
+function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.45){
  if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.viewport?.zoom??1),zoom=Number(projection.viewport?.zoom??1);context.save();
  for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
   const paint=path=>{
@@ -837,17 +837,31 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
   const coastProfile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
-  // Le raster ETOPO est limité à la géométrie terrestre effectivement affichée.
-  // Ainsi, le trait de côte, le remplissage et le relief partagent le même contour
-  // simplifié : la côte du raster ne peut plus apparaître décalée sous le trait orange.
-  if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
-    context.save();
-    context.beginPath();
+  // Un unique Path2D de terres sert aux deux passes de relief.
+  const shouldRenderTerrain = options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length && options.terrain?.values;
+  const landPath = shouldRenderTerrain && typeof Path2D === "function" ? new Path2D() : null;
+  if (landPath) {
     for (const feature of visibleLand.features) {
-      if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
+      if (feature?.geometry) traceGeometry(landPath, feature.geometry, width, height, projection, coastProfile);
     }
-    context.clip("evenodd");
-    terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
+  }
+  const clipLand = () => {
+    if (landPath) context.clip(landPath, "evenodd");
+    else {
+      context.beginPath();
+      for (const feature of visibleLand.features) {
+        if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
+      }
+      context.clip("evenodd");
+    }
+  };
+  if (shouldRenderTerrain) {
+    context.save();
+    clipLand();
+    terrainEnabled = measureLayer("relief-teinte-altitude", () => drawTerrainRaster(
+      context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1,
+      true, options.physicalWorld, false, false, "tint", options.terrainExaggeration ?? 14
+    ));
     context.restore();
   }
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
@@ -862,18 +876,19 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
   const reliefMode = options.terrainMode === "relief";
-  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
+  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.45)));
   const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
   if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
     context.save();
-    context.beginPath();
-    for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
-    context.clip("evenodd");
-    // Ombres multidirectionnelles en niveaux de gris : le mode overlay creuse
-    // fortement les vallées et éclaire les crêtes sans recolorer les nations.
-    context.globalCompositeOperation = "overlay";
-    context.globalAlpha = reliefMode ? 0.98 : 0.82;
-    measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
+    clipLand();
+    context.globalCompositeOperation = "hard-light";
+    context.globalAlpha = options.reliefStrength ?? 0.85;
+    measureLayer("ombrage-exagere", () => drawTerrainRaster(
+      context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1,
+      true, options.physicalWorld, false, false, "shade", options.terrainExaggeration ?? 14
+    ));
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
     context.restore();
   }
   const territoryOutlineCount = measureLayer("frontieres-territoriales", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", countryOpacity));

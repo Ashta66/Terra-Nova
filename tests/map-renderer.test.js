@@ -111,7 +111,10 @@ test("le raster de terrain produit des pixels sans dépendre du DOM", () => {
   const bytes = new Uint8Array(8);
   const view = new DataView(bytes.buffer);
   [-1000, 500, 1200, 3200].forEach((value, index) => view.setInt16(index * 2, value, true));
-  const grid = createTerrainGrid(bytes, 2, 2);
+  const expanded = new Uint8Array(16);
+  const expandedView = new DataView(expanded.buffer);
+  [-1000, 500, 1200, 3200, -1000, 500, 1200, 3200].forEach((value, index) => expandedView.setInt16(index * 2, value, true));
+  const grid = createTerrainGrid(expanded, 4, 2);
   let image = null, placed = false;
   const context = {
     createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
@@ -149,14 +152,18 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
 });
 
 
-test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
-  assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
-  const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
-  const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
-  assert.notEqual(illuminatedSlope, 1);
-  assert.notEqual(oppositeSlope, 1);
-  assert.ok(illuminatedSlope >= 0.48 && illuminatedSlope <= 1.52);
-  assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
+test("le hillshade exagéré est neutre sur le plat et distingue les versants éclairés et ombragés", () => {
+  assert.ok(Math.abs(calculateHillshade(100, 100, 100, 100, 45) - 1) < 0.001);
+  const illuminatedSlope = calculateHillshade(0, 1800, 0, 0, 45);
+  const shadedSlope = calculateHillshade(1800, 0, 0, 0, 45);
+  assert.ok(illuminatedSlope > 1, `versant éclairé : ${illuminatedSlope}`);
+  assert.ok(shadedSlope < 1, `versant ombragé : ${shadedSlope}`);
+  assert.ok(illuminatedSlope >= 0.4 && illuminatedSlope <= 1.6);
+  assert.ok(shadedSlope >= 0.4 && shadedSlope <= 1.6);
+  const normalContrast = Math.abs(calculateHillshade(0, 1800, 0, 0, 45, 1 / 6, 1) - 1);
+  const exaggeratedContrast = Math.abs(illuminatedSlope - 1);
+  assert.ok(exaggeratedContrast > normalContrast);
+  assert.equal(calculateHillshade(NaN, 1, 1, 1, 45), 1);
 });
 
 
@@ -166,6 +173,16 @@ test("les classes de relief distinguent montagnes, plateaux, vallées et plaines
   assert.equal(classifyLandform(1200, 1190, 1210, 1200, 1200, 30), "plateaus");
   assert.equal(classifyLandform(400, 700, 700, 700, 700, 40), "valleys");
   assert.equal(classifyLandform(100, 100, 100, 100, 100, 40), "plains");
+});
+
+
+test("la neige commence exactement à 2000 m quelle que soit la latitude", () => {
+  const belowSnow = terrainColorForElevation(1999);
+  const snowLine = terrainColorForElevation(2000);
+  const highSnow = terrainColorForElevation(4000);
+  assert.ok(belowSnow[0] < 200 && belowSnow[1] < 200 && belowSnow[2] < 200);
+  assert.deepEqual(snowLine, [214, 218, 220]);
+  assert.ok(highSnow.every(channel => channel >= 248));
 });
 
 test("les classes terrestres modulent discrètement la palette sans toucher la bathymétrie", () => {
@@ -180,7 +197,7 @@ test("les classes terrestres modulent discrètement la palette sans toucher la b
 
 
 test("la qualité du raster peut être réduite pendant le glissement pour préserver la fluidité", () => {
-  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  const grid = createTerrainGrid(new Uint8Array(1200 * 600 * 2), 1200, 600);
   let dimensions = null;
   const context = {
     createImageData(width, height) {
@@ -194,7 +211,7 @@ test("la qualité du raster peut être réduite pendant le glissement pour prés
 });
 
 test("le rendu du terrain courant augmente la résolution sans dépasser 1024 × 512", () => {
-  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  const grid = createTerrainGrid(new Uint8Array(1200 * 600 * 2), 1200, 600);
   let dimensions = null;
   const context = {
     createImageData(width, height) {
@@ -760,4 +777,82 @@ test("le rendu expose des mesures de temps par couche et un temps total", () => 
   assert.ok(result.renderTimings && typeof result.renderTimings === "object");
   assert.ok(Object.hasOwn(result.renderTimings, "terres-et-cotes"));
   assert.ok(Object.hasOwn(result.renderTimings, "etiquettes"));
+});
+
+
+test("les modes tint et shade séparent la couleur d’altitude de l’ombrage", () => {
+  const grid = { width: 4, height: 2, values: new Int16Array([100, 500, 1200, 2500, 100, 500, 1200, 2500]) };
+  const makeContext = () => {
+    let image;
+    return { get image() { return image; }, context: {
+      createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
+      putImageData() {}
+    }};
+  };
+  const tint = makeContext();
+  const shade = makeContext();
+  assert.equal(drawTerrainRaster(tint.context, 4, 2, grid, {}, 1, false, null, false, false, "tint"), true);
+  assert.equal(drawTerrainRaster(shade.context, 4, 2, grid, {}, 1, false, null, false, false, "shade"), true);
+  assert.ok(tint.image.data[0] !== shade.image.data[0] || tint.image.data[1] !== shade.image.data[1]);
+  assert.equal(shade.image.data[3], 255);
+});
+
+
+test("le relief utilise une passe de teinte avant les pays et une passe d’ombrage après", () => {
+  const previous = globalThis.Path2D;
+  const constructed = [];
+  class FakePath2D {
+    constructor() { this.commands = []; constructed.push(this); }
+    moveTo(...args) { this.commands.push(["moveTo", ...args]); }
+    lineTo(...args) { this.commands.push(["lineTo", ...args]); }
+    closePath() { this.commands.push(["closePath"]); }
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { canvas, calls } = createCanvas();
+    const terrain = { width: 4, height: 2, values: new Int16Array([100, 500, 1200, 2500, 100, 500, 1200, 2500]) };
+    const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, terrain, terrainEnabled: true, terrainExaggeration: 14, reliefStrength: 0.85 });
+    assert.equal(result.terrainEnabled, true);
+    assert.equal(calls.filter(call => call[0] === "putImageData").length, 2);
+    assert.ok(calls.filter(call => call[0] === "clip").length >= 2);
+    assert.ok(constructed.some(path => path.commands.length > 0));
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
+
+
+test("l’opacité politique par défaut est réduite à 45 % pour révéler le terrain", () => {
+  let alpha = 1;
+  const territoryFillAlphas = [];
+  const context = {
+    setTransform() {}, setLineDash() {}, fillRect() {}, save() {}, restore() {}, beginPath() {},
+    moveTo() {}, lineTo() {}, closePath() {}, arc() {}, fillText() {}, strokeText() {},
+    measureText(text) { return { width: String(text).length * 6 }; },
+    fill(...args) { if (args[0] === "evenodd") territoryFillAlphas.push(alpha); },
+    clip() {}, stroke() {}, createImageData(width, height) { return { width, height, data: new Uint8ClampedArray(width * height * 4) }; },
+    putImageData() {}
+  };
+  Object.defineProperty(context, "globalAlpha", { get: () => alpha, set: value => { alpha = value; } });
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { NAME: "France" },
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+  }] };
+  const canvas = { clientWidth: 640, getContext: () => context };
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories });
+  assert.ok(territoryFillAlphas.some(value => Math.abs(value - 0.45) < 0.001), territoryFillAlphas.join(", "));
+});
+
+
+test("le mode shade conserve la transparence des océans quand seul le terrain est demandé", () => {
+  const grid = { width: 4, height: 2, values: new Int16Array([-100, 100, 200, -50, -100, 100, 200, -50]) };
+  let image;
+  const context = {
+    createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
+    putImageData() {}
+  };
+  assert.equal(drawTerrainRaster(context, 4, 2, grid, {}, 1, true, null, false, false, "shade"), true);
+  assert.equal(image.data[3], 0);
+  assert.equal(image.data[(1 * 4 + 1) * 4 + 3], 255);
 });

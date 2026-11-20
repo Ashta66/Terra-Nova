@@ -203,3 +203,8 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
   will-change: auto !important;
 }
 .map-frame .map-physical-overlay { display: none !important; }
+
+
+.map-relief-slider{display:inline-flex;align-items:center;gap:5px;color:#a9b8b7;font-size:10px;white-space:nowrap}
+.map-relief-slider input{width:64px;accent-color:#d9b878}
+.map-relief-slider output{min-width:28px;color:#e8d4a8;font-variant-numeric:tabular-nums}

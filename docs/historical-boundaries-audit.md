@@ -146,3 +146,41 @@ Le raster ETOPO est désormais précalculé et mis en cache par tuiles géograph
 - Après 140 ms sans interaction, la scène est recalculée à la résolution DPR (plafonnée à 2), puis la référence de viewport est synchronisée.
 - Les couches physiques sont dessinées dans le canvas de scène lui-même afin d'éviter un second canvas visible.
 - Le canvas visible conserve une taille CSS indépendante de sa résolution bitmap. Le fond et le ratio 2:1 sont pilotés par CSS.
+
+
+## Relief : éclairage exagéré (étape 1)
+
+Le calcul du hillshade amplifie désormais les pentes par défaut d’un facteur 14 et combine une lumière principale à 315°/40° (70 %) et une lumière d’appoint à 20°/50° (30 %). La réponse est normalisée sur une surface plane et bornée entre 0,4 et 1,6. Le Worker reçoit le même facteur d’exagération afin que le relief pré-calculé et le calcul de secours restent cohérents.
+
+
+## Palette d’altitude : ligne de neige à 2 000 m (étape 2)
+
+La rampe terrestre a été remplacée par une palette sans neige jusqu’à 1 999 m, avec un seuil net à 2 000 m puis une neige presque blanche à 4 000 m. Cette règle est identique à toutes les latitudes ; la palette océanique reste inchangée.
+
+
+## Rendu du relief en trois modes (étape 3)
+
+Le raster expose désormais les modes `color`, `tint` et `shade`. Les caches par tuiles et par surface incluent le mode et le facteur d’exagération. Le calcul pré-calculé par Worker est indexé par facteur d’exagération. Le chemin de repli limite le raster à 1 024 × 512 pixels, ou à la taille de la grille lorsqu’elle est plus petite.
+
+
+## Relief en deux passes sur un tracé terrestre partagé (étape 4)
+
+Le renderer construit un Path2D terrestre unique, puis applique une première passe `tint` avant les aplats politiques et une seconde passe `shade` en composition `hard-light` après les aplats. L’exagération (14 par défaut) et la force d’ombrage (0,85) sont transmises depuis `renderMapFrame`. Les deux passes sont désactivées si le relief est désactivé ou si la projection n’est pas équirectangulaire.
+
+
+## Transparence des aplats politiques (étape 5)
+
+L’opacité politique par défaut passe à 0,45 (45 %) afin de laisser davantage de contraste au relief sous-jacent. La valeur est appliquée par le même chemin de peinture, qu’il utilise un Path2D ou le tracé Canvas de repli.
+
+
+## Réglages visuels du relief (étape 6)
+
+Deux curseurs permettent d’ajuster l’exagération verticale (1 à 30, valeur initiale 14) et la force de la passe d’ombrage (0 à 100 %, valeur initiale 85 %). Les changements redessinent la carte ; à la validation du curseur d’exagération, le Worker recalcule aussi sa variante pré-calculée. Aucun champ de sauvegarde n’est ajouté ou modifié.
+
+
+## Correctif de validation du relief
+
+Le Path2D terrestre n’est désormais construit que si une grille de terrain est effectivement disponible et que la projection équirectangulaire autorise les passes de relief. Les tests de résolution utilisent des dimensions de grille réalistes ou adaptées au viewport, tout en conservant un cas de grille plus petite pour vérifier le plafonnement.
+
+
+Le raster par tuiles respecte également la résolution source lorsque celle-ci est inférieure à 48 pixels par tuile, au lieu de suréchantillonner artificiellement les petites grilles.

@@ -249,8 +249,10 @@ function renderMapFrame() {
     terrain: terrainGrid,
     terrainEnabled: true,
     terrainQuality: 1,
+    terrainExaggeration: Number($("terrain-exaggeration")?.value ?? 14),
+    reliefStrength: Number($("relief-strength")?.value ?? 85) / 100,
     terrainMode: $("terrain-mode")?.value ?? "political",
-    countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
+    countryOpacity: Number($("country-opacity")?.value ?? 45) / 100,
     pixelRatio: dpr(),
     interactive: false,
     physicalOverlayContext: null,
@@ -371,6 +373,32 @@ function populateCampaignCountries() {
 }
 $("player-country").addEventListener("change", event => {
   previewCountry = event.target.value;
+  renderMap();
+});
+
+$("terrain-mode")?.addEventListener("change", () => {
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("country-opacity")?.addEventListener("input", event => {
+  $("country-opacity-value").textContent = event.target.value + " %";
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("terrain-exaggeration")?.addEventListener("input", event => {
+  $("terrain-exaggeration-value").textContent = event.target.value + "×";
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("terrain-exaggeration")?.addEventListener("change", event => {
+  if (!terrainGrid) return;
+  prepareTerrainHillshade(terrainGrid, Number(event.target.value)).then(ready => {
+    if (ready) { lastRenderedMapSignature = null; renderMap(); }
+  });
+});
+$("relief-strength")?.addEventListener("input", event => {
+  $("relief-strength-value").textContent = event.target.value + " %";
+  lastRenderedMapSignature = null;
   renderMap();
 });
 $("sandbox-country").addEventListener("change", event => {
