@@ -117,6 +117,7 @@ function renderMap() {
     labels: mapLabels,
     terrain: terrainTileStore ?? terrainGrid,
     terrainTileStore,
+    geographicWebGLRenderer,
     terrainWebGLGrid: terrainTileStore?.revision === 0 ? terrainGrid : null,
     terrainTransitionProgress,
     onTerrainTileReady: () => scheduleMapRender(),
@@ -527,7 +528,10 @@ const geographicCanvas = document.createElement("canvas");
 const geographicGL = geographicCanvas.getContext("webgl", {
   alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: false
 });
-if (geographicGL) geographicWebGLRenderer = createGeographicWebGLRenderer(geographicGL);
+if (geographicGL) {
+  try { geographicWebGLRenderer = createGeographicWebGLRenderer(geographicGL); }
+  catch { geographicWebGLRenderer = null; }
+}
 $("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
 $("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
