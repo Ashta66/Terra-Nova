@@ -89,6 +89,35 @@ export function simplifyClosedRing(points, tolerance = 0.55) {
   result.push(result[0]);
   return result;
 }
+ 
+function simplifyOpenLine(points, tolerance = 0.5) {
+  if (!Array.isArray(points) || points.length <= 2 || tolerance <= 0) return points ?? [];
+  const distanceToSegmentSquared = (point, start, end) => {
+    const dx = end.x - start.x, dy = end.y - start.y;
+    if (dx === 0 && dy === 0) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
+    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+    const x = start.x + t * dx, y = start.y + t * dy;
+    return (point.x - x) ** 2 + (point.y - y) ** 2;
+  };
+  const keep = new Uint8Array(points.length);
+  keep[0] = 1;
+  keep[points.length - 1] = 1;
+  const stack = [[0, points.length - 1]];
+  const threshold = tolerance * tolerance;
+  while (stack.length) {
+    const [first, last] = stack.pop();
+    let maxDistance = threshold, farthest = -1;
+    for (let i = first + 1; i < last; i++) {
+      const distance = distanceToSegmentSquared(points[i], points[first], points[last]);
+      if (distance > maxDistance) { maxDistance = distance; farthest = i; }
+    }
+    if (farthest !== -1) {
+      keep[farthest] = 1;
+      stack.push([first, farthest], [farthest, last]);
+    }
+  }
+  return points.filter((_, index) => keep[index]);
+}
 
 function projectedRingArea(points) {
   let area = 0;
@@ -136,15 +165,23 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
   if (lines.length) {
     let vertices = 0;
     for (const line of lines) {
-      let started = false;
+      let segment = [];
+      const flushSegment = () => {
+        const points = coastProfile ? simplifyOpenLine(segment, coastProfile.tolerance) : segment;
+        if (points.length) {
+          context.moveTo(points[0].x, points[0].y);
+          for (let i = 1; i < points.length; i++) context.lineTo(points[i].x, points[i].y);
+          vertices += points.length;
+        }
+        segment = [];
+      };
       const project = createContinuousProjector(width, height, projection);
       for (const coordinate of line) {
         const point = project(coordinate);
-        if (!point) { started = false; continue; }
-        if (!started) { context.moveTo(point.x, point.y); started = true; }
-        else context.lineTo(point.x, point.y);
-        vertices++;
+        if (!point) { flushSegment(); continue; }
+        segment.push(point);
       }
+      flushSegment();
     }
     return vertices;
   }
@@ -237,13 +274,13 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   return drawn;
 }
 
-function drawLineLayer(context, collection, width, height, projection, color, lineWidth) {
+function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null) {
   if (!collection?.features) return 0;
   let drawn = 0;
   for (const feature of collection.features) {
     const geometry = feature?.geometry;
     if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
-    const cachedPath = getProjectedPath(feature, width, height, projection);
+    const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
     const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
@@ -270,6 +307,14 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
+function getBoundarySimplificationProfile(zoom = 1) {
+  const level = Math.max(1, Number(zoom) || 1);
+  if (level <= 1.5) return { tolerance: 0.75 };
+  if (level <= 4) return { tolerance: 0.5 };
+  if (level <= 10) return { tolerance: 0.28 };
+  return { tolerance: 0.12 };
+}
+
 function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false) {
   if (!collection?.features) return 0;
   let count = 0;
@@ -277,10 +322,11 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
   context.strokeStyle = color;
   context.lineWidth = lineWidth;
   context.globalAlpha = 0.92;
+  const simplifyProfile = getBoundarySimplificationProfile(projection.viewport?.zoom ?? 1);
   for (const feature of collection.features) {
     const precision = Number(feature?.properties?.BORDERPRECISION ?? feature?.properties?.borderPrecision ?? 3);
     context.setLineDash?.(precisionAware && precision < 3 ? [3, 2] : dash);
-    count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth);
+    count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth, simplifyProfile);
   }
   context.restore();
   return count;
