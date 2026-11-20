@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -772,4 +772,32 @@ test("le cache GPU refuse une texture qui dépasse les limites matérielles", ()
   assert.equal(cache.get(store.getTileAtLevel(0, 0, 0), store), null);
   assert.equal(cache.size, 0);
   assert.equal(gl.uploads.length, 0);
+});
+
+
+test("le LOD GPU choisit le niveau parent selon la densité d'échantillons à l'écran", () => {
+  const store = { width: 21600 };
+  assert.equal(selectTerrainTileLevel(store, { zoom: 1 }, 960), 4);
+  assert.equal(selectTerrainTileLevel(store, { zoom: 8 }, 960), 1);
+  assert.equal(selectTerrainTileLevel(store, { zoom: 32 }, 960), 0);
+});
+
+test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const visible = collectTerrainViewportTiles(store,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 }, 360, 180, 0);
+  assert.equal(visible.length, 4);
+  assert.deepEqual(visible.map(({ tile }) => `${tile.x}/${tile.y}`).sort(),
+    ["1/0", "1/1", "2/0", "2/1"]);
+  assert.ok(visible.every(({ rects }) => rects.length > 0));
+});
+
+test("la collecte GPU conserve les tuiles visibles au franchissement de l'antiméridien", () => {
+  const values = new Int16Array(12 * 8);
+  const store = createTerrainTileStore({ width: 12, height: 8, values }, { tileSize: 4, maxTiles: 40 });
+  const visible = collectTerrainViewportTiles(store,
+    { zoom: 2, centerLongitude: 179, centerLatitude: 0 }, 180, 90, 0);
+  assert.ok(visible.some(({ tile }) => tile.x === 0));
+  assert.ok(visible.every(({ rects }) => rects.length > 0));
 });
