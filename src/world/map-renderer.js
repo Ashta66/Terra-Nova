@@ -572,6 +572,7 @@ const FRENCH_HISTORICAL_NAMES = {
 const frenchRegionNames = typeof Intl !== "undefined" && Intl.DisplayNames
   ? new Intl.DisplayNames(["fr"], { type: "region" })
   : null;
+const ISO3_TO_ISO2 = {"AFG":"AF","ALB":"AL","DZA":"DZ","AND":"AD","AGO":"AO","ATG":"AG","ARG":"AR","ARM":"AM","AUS":"AU","AUT":"AT","AZE":"AZ","BHS":"BS","BHR":"BH","BGD":"BD","BRB":"BB","BLR":"BY","BEL":"BE","BLZ":"BZ","BEN":"BJ","BTN":"BT","BOL":"BO","BIH":"BA","BWA":"BW","BRA":"BR","BRN":"BN","BGR":"BG","BFA":"BF","BDI":"BI","CPV":"CV","KHM":"KH","CMR":"CM","CAN":"CA","CAF":"CF","TCD":"TD","CHL":"CL","CHN":"CN","COL":"CO","COM":"KM","COG":"CG","COD":"CD","CRI":"CR","CIV":"CI","HRV":"HR","CUB":"CU","CYP":"CY","CZE":"CZ","DNK":"DK","DJI":"DJ","DMA":"DM","DOM":"DO","ECU":"EC","EGY":"EG","SLV":"SV","GNQ":"GQ","ERI":"ER","EST":"EE","SWZ":"SZ","ETH":"ET","FJI":"FJ","FIN":"FI","FRA":"FR","GAB":"GA","GMB":"GM","GEO":"GE","DEU":"DE","GHA":"GH","GRC":"GR","GRD":"GD","GTM":"GT","GIN":"GN","GNB":"GW","GUY":"GY","HTI":"HT","HND":"HN","HUN":"HU","ISL":"IS","IND":"IN","IDN":"ID","IRN":"IR","IRQ":"IQ","IRL":"IE","ISR":"IL","ITA":"IT","JAM":"JM","JPN":"JP","JOR":"JO","KAZ":"KZ","KEN":"KE","KIR":"KI","PRK":"KP","KOR":"KR","KWT":"KW","KGZ":"KG","LAO":"LA","LVA":"LV","LBN":"LB","LSO":"LS","LBR":"LR","LBY":"LY","LIE":"LI","LTU":"LT","LUX":"LU","MDG":"MG","MWI":"MW","MYS":"MY","MDV":"MV","MLI":"ML","MLT":"MT","MHL":"MH","MRT":"MR","MUS":"MU","MEX":"MX","FSM":"FM","MDA":"MD","MCO":"MC","MNG":"MN","MNE":"ME","MAR":"MA","MOZ":"MZ","MMR":"MM","NAM":"NA","NRU":"NR","NPL":"NP","NLD":"NL","NZL":"NZ","NIC":"NI","NER":"NE","NGA":"NG","MKD":"MK","NOR":"NO","OMN":"OM","PAK":"PK","PLW":"PW","PAN":"PA","PNG":"PG","PRY":"PY","PER":"PE","PHL":"PH","POL":"PL","PRT":"PT","QAT":"QA","ROU":"RO","RUS":"RU","RWA":"RW","KNA":"KN","LCA":"LC","VCT":"VC","WSM":"WS","SMR":"SM","STP":"ST","SAU":"SA","SEN":"SN","SRB":"RS","SYC":"SC","SLE":"SL","SGP":"SG","SVK":"SK","SVN":"SI","SLB":"SB","SOM":"SO","ZAF":"ZA","SSD":"SS","ESP":"ES","LKA":"LK","SDN":"SD","SUR":"SR","SWE":"SE","CHE":"CH","SYR":"SY","TWN":"TW","TJK":"TJ","TZA":"TZ","THA":"TH","TLS":"TL","TGO":"TG","TON":"TO","TTO":"TT","TUN":"TN","TUR":"TR","TKM":"TM","TUV":"TV","UGA":"UG","UKR":"UA","ARE":"AE","GBR":"GB","USA":"US","URY":"UY","UZB":"UZ","VUT":"VU","VAT":"VA","VEN":"VE","VNM":"VN","YEM":"YE","ZMB":"ZM","ZWE":"ZW","XKX":"XK"};
 
 export function frenchTerritoryName(value, properties = {}) {
   const raw = String(value ?? territoryName(properties) ?? "").trim();
@@ -581,7 +582,8 @@ export function frenchTerritoryName(value, properties = {}) {
   if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
   if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
   if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
-  const iso2 = String(properties.ISO_A2 ?? properties.iso_a2 ?? "").toUpperCase();
+  const iso3 = String(properties.ISO_A3 ?? properties.ADM0_A3 ?? properties.SOV_A3 ?? "").toUpperCase();
+  const iso2 = String(properties.ISO_A2 ?? properties.iso_a2 ?? ISO3_TO_ISO2[iso3] ?? "").toUpperCase();
   if (frenchRegionNames && /^[A-Z]{2}$/.test(iso2) && iso2 !== "-99") {
     const localized = frenchRegionNames.of(iso2);
     if (localized && localized !== iso2) return localized;
@@ -640,49 +642,21 @@ export function classifyHistoricalTerritoryStyle(feature){
  if(["unclaimed","unoccupied","no-claim"].includes(s))return "unclaimed";return "sovereign";
 }
 export function classifyPhysicalCellVisual(c){
- if(!c)return null;
- // Les impacts sont rendus en une forme continue à partir de l'événement,
- // jamais comme une mosaïque de cellules bleues/oranges.
- if(["crater","impact-zone","lava-flow"].includes(c.surfaceState))return null;
- // Ne jamais peindre l'océan de base : seule une terre réellement submergée
- // par un événement doit recevoir le voile bleu.
- const crossedSeaLevel=Number.isFinite(c.baseElevationM)&&c.baseElevationM>=0&&Number.isFinite(c.currentElevationM)&&c.currentElevationM<0;
- if(c.inundated||crossedSeaLevel)return {fill:"rgba(44,145,190,.58)",stroke:"#69c5e8",kind:"submerged"};
- if(c.surfaceState==="lava-flow")return {fill:"rgba(210,55,35,.72)",stroke:"#ff9b63",kind:"lava"};
- if(["crater","impact-zone"].includes(c.surfaceState))return {fill:"rgba(91,61,51,.52)",stroke:"#e6a36d",kind:"impact"};
- if(Number(c.ashLoad)>.05)return {fill:"rgba(112,105,102,.32)",stroke:"#d1c6bc",kind:"ash"};
- if(Number(c.damage)>.08)return {fill:"rgba(224,151,58,.32)",stroke:"#ffd18a",kind:"damage"};
- if(Number(c.elevationDeltaM)>.5)return {fill:"rgba(174,139,84,.3)",stroke:"#e5c18b",kind:"uplift"};
- return null;
+  // Les cellules sont un support de calcul : elles ne sont jamais dessinées en rectangles.
+  return null;
 }
-function drawPhysicalWorldLayer(ctx,world,w,h,projection){
+function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
- for(const c of world.currentCells??[]){const style=classifyPhysicalCellVisual(c);if(!style)continue;
-  const dx=Number(c.gridStep??12)*360/2160/2,dy=Number(c.gridStep??12)*180/1080/2;
-  const pts=[[c.longitude-dx,c.latitude-dy],[c.longitude+dx,c.latitude-dy],[c.longitude+dx,c.latitude+dy],[c.longitude-dx,c.latitude+dy]].map(p=>projectCoordinate(p,w,h,projection));
-  if(pts.some(p=>!p))continue;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();
-  ctx.fillStyle=style.fill;ctx.fill();ctx.strokeStyle=style.stroke;ctx.globalAlpha=.85;ctx.lineWidth=Math.max(.35,Math.min(1.4,.55*Math.sqrt(zoom)));ctx.stroke();ctx.globalAlpha=1;count++;
- }
- // Un cratère est suggéré par des anneaux continus, indépendants de la grille
- // de calcul qui ne sert qu'à modifier l'altitude réelle du terrain.
  for(const event of world.events??[]){
-  if(event.type!=="meteor-impact")continue;
-  const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
-  if(!center)continue;
-  const radiusFor=km=>{
-   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);
-   const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
-   if(!north&&!east)return 0;
-   return Math.max(2,Math.min(500,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));
-  };
+  const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);if(!center)continue;
+  const radiusFor=km=>{const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);if(!north&&!east)return 0;return Math.max(2,Math.min(600,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2);};
   const radius=radiusFor(Number(event.radiusKm)||100);
-  if(!event.surfaceExpired){
-   const exclusionRadius=radiusFor(Number(event.noManLandRadiusKm)||55);
-   const lavaRadius=radiusFor(Number(event.lavaRadiusKm)||8);
-   if(exclusionRadius>0){ctx.beginPath();ctx.arc(center.x,center.y,exclusionRadius,0,Math.PI*2);ctx.fillStyle="rgba(75,48,39,.24)";ctx.fill();ctx.strokeStyle="rgba(202,151,111,.82)";ctx.setLineDash([5,4]);ctx.lineWidth=Math.max(1,Math.min(2.5,1.3*Math.sqrt(zoom)));ctx.stroke();ctx.setLineDash([]);}
-   if(lavaRadius>0){ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fillStyle="rgba(223,65,25,.78)";ctx.fill();ctx.strokeStyle="rgba(255,190,104,.95)";ctx.lineWidth=Math.max(1,Math.min(2.8,1.5*Math.sqrt(zoom)));ctx.stroke();}
-  }
-  if(radius>0){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.42)";ctx.lineWidth=Math.max(1,Math.min(3,1.2*Math.sqrt(zoom)));ctx.stroke();}
+  if(terrainGrid&&projection.type==="equirectangular"&&radius>1){ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world);ctx.restore();}
+  if(event.type==="meteor-impact"){
+   if(!event.surfaceExpired){const ex=radiusFor(Number(event.noManLandRadiusKm)||55),lava=radiusFor(Number(event.lavaRadiusKm)||8);if(ex>0){ctx.beginPath();ctx.arc(center.x,center.y,ex,0,Math.PI*2);ctx.fillStyle="rgba(75,48,39,.2)";ctx.fill();ctx.strokeStyle="rgba(202,151,111,.8)";ctx.setLineDash([5,4]);ctx.lineWidth=1.3;ctx.stroke();ctx.setLineDash([]);}if(lava>0){ctx.beginPath();ctx.arc(center.x,center.y,lava,0,Math.PI*2);ctx.fillStyle="rgba(223,65,25,.5)";ctx.fill();ctx.strokeStyle="rgba(255,190,104,.9)";ctx.lineWidth=1.5;ctx.stroke();}}
+   if(radius>0){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.7)";ctx.lineWidth=Math.max(1,1.2*Math.sqrt(zoom));ctx.stroke();}
+  }else if(event.type==="tsunami"){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(76,190,224,.8)";ctx.lineWidth=Math.max(1.5,2*Math.sqrt(zoom));ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc(center.x,center.y,radius*.68,0,Math.PI*2);ctx.strokeStyle="rgba(76,190,224,.42)";ctx.lineWidth=1.2;ctx.stroke();}
+  else if(event.type==="earthquake"){for(const factor of [.35,.65,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*factor,0,Math.PI*2);ctx.strokeStyle="rgba(238,160,91,"+(0.72-factor*.35)+")";ctx.lineWidth=Math.max(1,1.6*Math.sqrt(zoom));ctx.stroke();}}
   count++;
  }
  ctx.restore();return count;
@@ -870,7 +844,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
     context.restore();
   }
-  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection);
+  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection, options.terrain);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);

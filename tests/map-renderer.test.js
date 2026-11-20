@@ -697,16 +697,16 @@ test("les colonies peuvent hériter de la puissance souveraine sans perdre leur 
  assert.equal(result.features[0].properties.historicalStatus,"sovereign");
 });
 test("les changements géophysiques disposent d'un rendu distinct",()=>{
- assert.equal(classifyPhysicalCellVisual({inundated:true,waterDepthM:3}).kind,"submerged");
+ assert.equal(classifyPhysicalCellVisual({inundated:true,waterDepthM:3}),null);
  // L'océan naturel est déjà bleu dans le fond : il ne doit jamais être repeint en carrés.
  assert.equal(classifyPhysicalCellVisual({baseElevationM:-4200,currentElevationM:-4200,elevationDeltaM:0}),null);
- assert.equal(classifyPhysicalCellVisual({baseElevationM:120,currentElevationM:-2,elevationDeltaM:-122}).kind,"submerged");
+ assert.equal(classifyPhysicalCellVisual({baseElevationM:120,currentElevationM:-2,elevationDeltaM:-122}),null);
  assert.equal(classifyPhysicalCellVisual({surfaceState:"lava-flow"}),null);
  assert.equal(classifyPhysicalCellVisual({surfaceState:"crater"}),null);
  assert.equal(classifyPhysicalCellVisual({surfaceState:"impact-zone",damage:.9}),null);
- assert.equal(classifyPhysicalCellVisual({ashLoad:.7}).kind,"ash");
- assert.equal(classifyPhysicalCellVisual({damage:.8}).kind,"damage");
- assert.equal(classifyPhysicalCellVisual({elevationDeltaM:10}).kind,"uplift");
+ assert.equal(classifyPhysicalCellVisual({ashLoad:.7}),null);
+ assert.equal(classifyPhysicalCellVisual({damage:.8}),null);
+ assert.equal(classifyPhysicalCellVisual({elevationDeltaM:10}),null);
  assert.equal(classifyPhysicalCellVisual({damage:.01}),null);
 });
 
@@ -732,6 +732,8 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("New France"),"Nouvelle-France");
  assert.equal(frenchTerritoryName("Aquitaine",{NAME:"Aquitaine",SUBJECTO:"Kingdom of England"}),"Aquitaine anglaise");
  assert.equal(frenchTerritoryName("British Raj"),"Inde britannique");
+ assert.equal(frenchTerritoryName("Republic of Korea",{ADMIN:"Republic of Korea",ISO_A3:"KOR"}),"Corée du Sud");
+ assert.equal(frenchTerritoryName("United Republic of Tanzania",{ADMIN:"United Republic of Tanzania",ISO_A3:"TZA"}),"Tanzanie");
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[

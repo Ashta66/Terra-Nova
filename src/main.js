@@ -44,7 +44,7 @@ let wheelZoomState = null;
 let wheelZoomTimer = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
-let meteorPlacementMode = false;
+let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 const MIN_MAP_ZOOM = 1;
@@ -510,18 +510,18 @@ function animateMeteorImpact(x, y) {
   mapCanvas.parentElement.append(marker);
   setTimeout(() => marker.remove(), 1500);
 }
-function setMeteorPlacementMode(active) {
-  meteorPlacementMode = Boolean(active);
-  const button = $("meteor-test");
-  if (button) {
-    button.classList.toggle("is-active", meteorPlacementMode);
-    button.setAttribute("aria-pressed", String(meteorPlacementMode));
-    button.textContent = meteorPlacementMode ? "Clique sur la carte…" : "☄ Météorite · test";
+function setGeoEventPlacementMode(type) {
+  activeGeoEventMode = activeGeoEventMode === type ? null : type;
+  for (const [id,eventType] of [["meteor-test","meteor-impact"],["tsunami-test","tsunami"],["earthquake-test","earthquake"]]) {
+    const button = $(id); if (!button) continue;
+    const active = activeGeoEventMode === eventType;
+    button.classList.toggle("is-active",active);button.setAttribute("aria-pressed",String(active));
+    button.textContent = active ? "Clique sur la carte…" : eventType==="meteor-impact" ? "☄ Météorite · test" : eventType==="tsunami" ? "〰 Tsunami · test" : "ϟ Séisme · test";
   }
-  mapCanvas.style.cursor = meteorPlacementMode ? "crosshair" : "grab";
-  if (meteorPlacementMode) $("save-status").textContent = "Mode test : choisis un point sur la carte pour déclencher l’impact.";
+  mapCanvas.style.cursor = activeGeoEventMode ? "crosshair" : "grab";
+  if (activeGeoEventMode) $("save-status").textContent = "Clique sur la carte pour placer "+(activeGeoEventMode==="meteor-impact"?"la météorite":activeGeoEventMode==="tsunami"?"le tsunami":"le séisme")+".";
 }
-$("meteor-test").addEventListener("click", () => setMeteorPlacementMode(!meteorPlacementMode));
+for(const [id,type] of [["meteor-test","meteor-impact"],["tsunami-test","tsunami"],["earthquake-test","earthquake"]]) $(id).addEventListener("click",()=>setGeoEventPlacementMode(type));
 
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
@@ -564,33 +564,22 @@ mapCanvas.addEventListener("click", (event) => {
   const rect = mapCanvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  if (meteorPlacementMode) {
-    const longitude = ((mapViewport.centerLongitude + (x / rect.width - 0.5) * 360 / mapViewport.zoom + 540) % 360) - 180;
-    const latitude = Math.max(-89.5, Math.min(89.5, mapViewport.centerLatitude - (y / rect.height - 0.5) * 180 / mapViewport.zoom));
+  if (activeGeoEventMode) {
+    const longitude=((mapViewport.centerLongitude+(x/rect.width-.5)*360/mapViewport.zoom+540)%360)-180;
+    const latitude=Math.max(-89.5,Math.min(89.5,mapViewport.centerLatitude-(y/rect.height-.5)*180/mapViewport.zoom));
+    const type=activeGeoEventMode;
     try {
-      animateMeteorImpact(x, y);
-      const event = {
-        id: "meteor-" + Date.now() + "-" + (state.physicalWorld?.revision ?? 0),
-        type: "meteor-impact",
-        date: state.clock.date,
-        longitude,
-        latitude,
-        radiusKm: 140,
-        craterDepthM: 950,
-        lavaRadiusKm: 25,
-        noManLandRadiusKm: 65,
-        surfaceDurationMonths: 1 + Math.floor(Math.random() * 6)
-      };
-      const refinedWorld = refinePhysicalWorldForImpact(state.physicalWorld, terrainGrid, event, 2);
-      const impact = applyPhysicalEvent(refinedWorld, event);
-      state.physicalWorld = impact.world;
-      $("save-status").textContent = "Impact météoritique : " + latitude.toFixed(2) + "°, " + longitude.toFixed(2) + "° · " + impact.result.affectedCells.length + " cellules touchées.";
-      setMeteorPlacementMode(false);
-      lastRenderedMapSignature = null;
-      renderMap();
-    } catch (error) {
-      $("save-status").textContent = "Impact impossible : " + error.message;
-    }
+      if(type==="meteor-impact")animateMeteorImpact(x,y);
+      const event={id:type+"-"+Date.now()+"-"+(state.physicalWorld?.revision??0),type,date:state.clock.date,longitude,latitude,
+       ...(type==="meteor-impact"?{radiusKm:320,craterRadiusKm:125,craterDepthM:2200,rimHeightM:520,lavaRadiusKm:22,noManLandRadiusKm:65,surfaceDurationMonths:1+Math.floor(Math.random()*6)}:{}),
+       ...(type==="tsunami"?{radiusKm:900,waveHeightM:24,maxCoastalDistanceKm:420}:{}),
+       ...(type==="earthquake"?{radiusKm:700,magnitude:8.8,ruptureOffsetM:3.5}:{})};
+      const refined=refinePhysicalWorldForImpact(state.physicalWorld,terrainGrid,event,2);
+      const result=applyPhysicalEvent(refined,event);state.physicalWorld=result.world;
+      const label=type==="meteor-impact"?"Météorite":type==="tsunami"?"Tsunami":"Séisme";
+      $("save-status").textContent=label+" : "+latitude.toFixed(2)+"°, "+longitude.toFixed(2)+"° · "+result.result.affectedCells.length+" cellules touchées.";
+      setGeoEventPlacementMode(null);lastRenderedMapSignature=null;renderMap();
+    }catch(error){$("save-status").textContent="Événement impossible : "+error.message;}
     return;
   }
   const hit = [...mapLabelHits].reverse().find(label =>

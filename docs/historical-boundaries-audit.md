@@ -36,3 +36,9 @@ Les cellules fines de calcul d'un impact ne sont plus dessinées comme des aplat
 
 ## Relief lisible sous la souveraineté politique et impacts temporaires
 Une seconde passe ETOPO en mode de composition « luminosité » restitue ombres et éclaircies au-dessus des aplats nationaux sans remplacer leurs teintes. Les impacts météoritiques de test sont ramenés à un rayon de 140 km (au lieu de 650 km), avec une couronne de lave de 10 km et une zone interdite de 55 km. La durée de l'état de surface est tirée entre 1 et 6 mois ; à expiration, lave et interdiction disparaissent, tandis que la déformation du relief reste inscrite dans la géographie. Les durées sont stockées sur les cellules et expirées selon la date de simulation.
+
+
+## Révision des catastrophes et de la nomenclature française
+Le rendu des cellules physiques en rectangles est supprimé : submersion, cendres, dégâts et soulèvement ne produisent plus de mosaïque de carrés. Les cellules restent un support de calcul. Lors d'un événement, le raster ETOPO est recalculé dans l'emprise locale et dessiné comme une surface continue ; les altitudes simulées peuvent déplacer la ligne de côte lorsque la surface franchit le niveau marin. Le résultat dépend de la résolution du MNT et du zoom : c'est une géomorphologie de jeu dérivée d'ETOPO, pas une reconstruction géologique scientifique.
+Les impacts comprennent une cuvette et un bourrelet périphérique d'éjectas. Les boutons permettent de placer une météorite, un tsunami ou un séisme par clic sur la carte. Les tsunamis utilisent la distance côtière calculée depuis ETOPO ; les séismes modifient les altitudes et les dégâts dans leur rayon.
+Les noms de pays utilisent les codes ISO-3/ISO-2 disponibles dans les propriétés GeoJSON pour obtenir une traduction française via Intl.DisplayNames, avec le dictionnaire historique en priorité. Les entités historiques sans code ISO restent à compléter au cas par cas.

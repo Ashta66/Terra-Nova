@@ -43,3 +43,9 @@ test("un impact affine temporairement la grille autour du point d'impact",()=>{
 });
 
 test("impact : lave et no man's land temporaires, relief permanent",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"temporary-impact",type:"meteor-impact",date:"1500-01-31",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,lavaRadiusKm:8,noManLandRadiusKm:55,surfaceDurationMonths:3});const core=n.world.currentCells[0];assert.equal(core.surfaceState,"lava-flow");assert.equal(core.noManLand,true);assert.equal(core.surfaceExpiresAt,"1500-04-30");const expired=expirePhysicalSurfaceEffects(n.world,"1500-05-01");assert.equal(expired.currentCells[0].surfaceState,"natural");assert.equal(expired.currentCells[0].noManLand,false);assert.ok(expired.currentCells[0].elevationDeltaM<0);});
+
+test("impact météoritique : cratère et bourrelet modifient le profil altimétrique",()=>{
+ const base=createPhysicalWorld([{id:"centre",longitude:0,latitude:0,elevationM:120,coastalDistanceKm:0},{id:"rim",longitude:.8,latitude:0,elevationM:120,coastalDistanceKm:0}]);
+ const result=applyPhysicalEvent(base,{id:"rim-test",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:150,craterRadiusKm:60,craterDepthM:1800,rimHeightM:600});
+ assert.ok(result.world.currentCells[0].elevationDeltaM<0);assert.ok(result.world.currentCells[1].elevationDeltaM>0);
+});
