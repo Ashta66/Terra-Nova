@@ -224,6 +224,14 @@ export function getTerrainWebGLStats(grid) {
   };
 }
 
+export function resizeTerrainWebGLSurface(canvas, width, height) {
+  if (!canvas || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return false;
+  let changed = false;
+  if (canvas.width !== width) { canvas.width = width; changed = true; }
+  if (canvas.height !== height) { canvas.height = height; changed = true; }
+  return changed;
+}
+
 export function renderTerrainWebGL(grid, width, height, viewport = {}) {
   if (!grid?.values || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return null;
   let renderer = renderers.get(grid);
@@ -238,8 +246,7 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
   }
   const { canvas, gl, program } = renderer;
   pollGpuQueries(renderer);
-  canvas.width = width;
-  canvas.height = height;
+  resizeTerrainWebGLSurface(canvas, width, height);
   gl.viewport(0, 0, width, height);
   gl.useProgram(program);
   gl.activeTexture(gl.TEXTURE0);
