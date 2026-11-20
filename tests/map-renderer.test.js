@@ -533,3 +533,27 @@ test("le cache des tuiles vectorielles reste borné et peut être vidé", async 
   assert.equal(clearGeoSpatialQueryCache(collection), true);
   assert.equal(getGeoSpatialIndexStats(collection).cachedTiles, 0);
 });
+
+
+test("les rivières traversant l'antiméridien restent continues sans Path2D", () => {
+  const previous = globalThis.Path2D;
+  try {
+    delete globalThis.Path2D;
+    const { canvas, calls } = createCanvas();
+    const rivers = { type: "FeatureCollection", features: [
+      { type: "Feature", geometry: { type: "LineString", coordinates: [[179, 0], [-179, 0]] } }
+    ] };
+    renderWorldMap(canvas, { type: "FeatureCollection", features: [] }, {
+      width: 640, height: 320, pixelRatio: 1, rivers,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 }
+    });
+    const points = calls.filter(call => call[0] === "moveTo" || call[0] === "lineTo");
+    const riverPoints = points.slice(-2);
+    assert.equal(riverPoints.length, 2);
+    assert.ok(Math.abs(riverPoints[1][1] - riverPoints[0][1]) < 5);
+    assert.ok(riverPoints.every(point => point[1] > 630));
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
