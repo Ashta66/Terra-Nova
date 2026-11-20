@@ -213,6 +213,74 @@ export function buildTerrainTileTexture(tile, tileStore) {
   };
 }
 
+export function createTerrainWebGLTileCache(gl, options = {}) {
+  if (!gl || typeof gl.createTexture !== "function" || typeof gl.deleteTexture !== "function") return null;
+  const maxTiles = Number.isInteger(options.maxTiles) && options.maxTiles > 0 ? options.maxTiles : 128;
+  const maxBytes = Number.isSafeInteger(options.maxBytes) && options.maxBytes > 0 ? options.maxBytes : 64 * 1024 * 1024;
+  const entries = new Map();
+  let byteLength = 0;
+  const keyFor = (tile, store) => `${tile.level}/${tile.x}/${tile.y}@${store.revision ?? 0}`;
+
+  function evict(protectedKeys = new Set()) {
+    for (const [key, entry] of entries) {
+      if (entries.size <= maxTiles && byteLength <= maxBytes) break;
+      if (protectedKeys.has(key)) continue;
+      gl.deleteTexture(entry.texture);
+      entries.delete(key);
+      byteLength -= entry.byteLength;
+    }
+  }
+
+  function get(tile, store, protectedKeys = new Set()) {
+    if (!tile || !store) return null;
+    const key = keyFor(tile, store);
+    const cached = entries.get(key);
+    if (cached) {
+      entries.delete(key);
+      entries.set(key, cached);
+      return cached;
+    }
+    const data = buildTerrainTileTexture(tile, store);
+    if (!data) return null;
+    const packed = encodeTerrainTexture(data.values);
+    const bytes = packed.byteLength;
+    const maxTextureSize = gl.getParameter?.(gl.MAX_TEXTURE_SIZE) ?? Infinity;
+    if (data.width > maxTextureSize || data.height > maxTextureSize || bytes > maxBytes) return null;
+    const texture = gl.createTexture();
+    if (!texture) return null;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, data.width, data.height, 0,
+      gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
+    const entry = { key, texture, width: data.width, height: data.height,
+      byteLength: bytes, level: tile.level, x: tile.x, y: tile.y, revision: store.revision ?? 0 };
+    entries.set(key, entry);
+    byteLength += bytes;
+    evict(new Set([...protectedKeys, key]));
+    return entries.has(key) ? entry : null;
+  }
+
+  function clear() {
+    for (const entry of entries.values()) gl.deleteTexture(entry.texture);
+    entries.clear();
+    byteLength = 0;
+  }
+
+  return {
+    get,
+    clear,
+    evict,
+    get size() { return entries.size; },
+    get memoryBytes() { return byteLength; },
+    get stats() { return { tileCount: entries.size, byteLength, maxTiles, maxBytes,
+      overBudget: entries.size > maxTiles || byteLength > maxBytes }; }
+  };
+}
+
 export function prepareTerrainTextureGrid(grid, maxTextureSize) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)
     || grid.width < 2 || grid.height < 2 || grid.values.length < grid.width * grid.height
