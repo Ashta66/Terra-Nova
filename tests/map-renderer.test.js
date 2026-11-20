@@ -322,6 +322,6 @@ test("le préchargement respecte les limites polaires et les coordonnées invali
   );
   const ids = store.preloadViewport({ zoom: 3, centerLongitude: -540, centerLatitude: 85 }, { padding: 0.5 });
   assert.ok(ids.length > 0);
-  assert.ok(ids.every(id => /^0\\/\\d+\\/\\d+$/.test(id)));
+  assert.ok(ids.every(id => { const parts = id.split("/"); return parts.length === 3 && parts[0] === "0" && parts.slice(1).every(part => Number.isInteger(Number(part))); }));
   assert.ok(ids.every(id => store.loadedIds.includes(id)));
 });
