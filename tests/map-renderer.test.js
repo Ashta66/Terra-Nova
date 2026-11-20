@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileTexture } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileTexture, shouldUseTerrainParentFallback } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 
@@ -1043,4 +1043,14 @@ test("la construction de texture résout chaque tuile voisine du halo une seule 
   assert.equal(texture.values[0], 7); // halo ouest : retour longitudinal
   assert.equal(texture.values[1 * 6 + 1], 0); // premier échantillon intérieur
   assert.equal(texture.values[5 * 6 + 5], 36); // halo sud-est
+});
+
+
+test("le LOD parent couvre le viewport pendant les uploads des tuiles enfant", () => {
+  assert.equal(shouldUseTerrainParentFallback(0, 4, 8, 2, 16), true);
+  assert.equal(shouldUseTerrainParentFallback(3, 1, 8, 4, 12), true);
+  assert.equal(shouldUseTerrainParentFallback(4, 1, 8, 2, 16), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 0, 8, 2, 16), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 12), false);
+  assert.equal(shouldUseTerrainParentFallback(1, 2, 8, 5, 10), false);
 });
