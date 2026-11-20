@@ -116,6 +116,7 @@ function renderMap() {
     terrainTileStore,
     terrainWebGLGrid: terrainTileStore?.revision === 0 ? terrainGrid : null,
     terrainTransitionProgress,
+    onTerrainTileReady: () => scheduleMapRender(),
     dynamicLayers: dynamicMapLayers
   });
   mapLabelHits = result.labelHits ?? [];
@@ -203,7 +204,8 @@ function renderMap() {
   updateMapControls();
   lastTerrainRenderZoom = mapViewport.zoom;
   const tileLodTransitioning = (result.terrainWebGLTileStats?.transitionProgress ?? 1) < 1;
-  if ((transitioning && terrainTransitionProgress < 1) || tileLodTransitioning) {
+  const waitingForTerrainTiles = Boolean(result.terrainWebGLTileStats?.waitingForTiles);
+  if ((transitioning && terrainTransitionProgress < 1) || (tileLodTransitioning && !waitingForTerrainTiles)) {
     scheduleMapRender();
   } else if (transitioning) {
     terrainTransitionStartAt = null;
