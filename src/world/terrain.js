@@ -12,11 +12,12 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   return { width, height, values, min, max };
 }
 
-export function sampleElevation(grid, longitude, latitude) {
+export function sampleElevation(grid, longitude, latitude, level = 0) {
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
   // Le magasin de tuiles expose son propre échantillonneur afin que le rendu
   // lise les révisions locales sans recopier la grille mondiale à chaque frame.
-  if (typeof grid?.sampleBilinear === "function") return grid.sampleBilinear(longitude, latitude);
+  if (typeof grid?.sampleLod === "function") return grid.sampleLod(longitude, latitude, level);
+  if (typeof grid?.sampleBilinear === "function") return grid.sampleBilinear(longitude, latitude, level);
   if (!grid?.values) return null;
   const lon = ((longitude + 180) % 360 + 360) % 360;
   const x = lon / 360 * grid.width - 0.5;
@@ -146,17 +147,20 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
   const image = renderContext.createImageData(renderWidth, renderHeight), pixels = image.data;
   const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0);
   const dx = 360 / grid.width, dy = 180 / grid.height;
+  // Choisit un niveau selon la densité de pixels : faible zoom = parent simplifié,
+  // zoom rapproché = retour progressif vers les échantillons natifs.
+  const lod = clamp(Math.log2(Math.max(1, grid.width / renderWidth / Math.max(1, zoom))), 0, 4);
   for (let py = 0; py < renderHeight; py++) {
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
     for (let px = 0; px < renderWidth; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
-      const e = sampleElevation(grid, lon, lat);
+      const e = sampleElevation(grid, lon, lat, lod);
       // Les océans n'effectuent pas les quatre échantillonnages voisins :
       // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
       let shade = 1;
       if (e >= 0) {
-        const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
-        const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
+        const west = sampleElevation(grid, lon - dx, lat, lod), east = sampleElevation(grid, lon + dx, lat, lod);
+        const north = sampleElevation(grid, lon, lat + dy, lod), south = sampleElevation(grid, lon, lat - dy, lod);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const color = terrainColorForElevation(e, shade, landform);
