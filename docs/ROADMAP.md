@@ -287,3 +287,11 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 - [x] Plafonner le pixel ratio de la scène à 1,25× sur les écrans haute densité.
 - [x] Attendre 240 ms de calme avant le rendu vectoriel complet post-interaction.
 - [ ] Mesurer les temps de composition et de rendu sur plusieurs densités d'écran et navigateurs.
+
+
+### Rendu hors thread principal — 20 novembre 2026
+- [x] Ajouter un Worker module dédié avec OffscreenCanvas pour le rendu vectoriel complet.
+- [x] Conserver les collections et le cache de couches statiques côté Worker entre les rendus.
+- [x] Transférer le résultat sous forme d'ImageBitmap et coalescer les demandes concurrentes.
+- [x] Préserver un rendu synchrone de secours si OffscreenCanvas ou le Worker est indisponible.
+- [ ] Vérifier le rendu visuel sur Chrome, Firefox et Safari ; mesurer latence et fluidité sur machines modestes.

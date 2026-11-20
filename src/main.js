@@ -53,6 +53,13 @@ let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
 let sceneLabelHits = [];
 let sceneReady = false;
+let mapRenderWorker = null;
+let mapRenderWorkerDisabled = false;
+let mapRenderWorkerBusy = false;
+let mapRenderWorkerPending = null;
+let mapRenderWorkerActive = null;
+let mapRenderWorkerSequence = 0;
+let mapRenderWorkerLayerRefs = Object.create(null);
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
@@ -261,6 +268,132 @@ function updateMapDiagnostics(result) {
   }));
 }
 
+const MAP_WORKER_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "labels", "territories", "physicalWorld", "politicalBoundaries", "administrativeBoundaries", "terrain"];
+function getMapRenderWorker() {
+  if (mapRenderWorkerDisabled || typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
+  if (mapRenderWorker) return mapRenderWorker;
+  try {
+    mapRenderWorker = new Worker(new URL("./world/map-render-worker.js", import.meta.url), { type: "module" });
+    mapRenderWorker.addEventListener("message", event => {
+      const active = mapRenderWorkerActive;
+      mapRenderWorkerActive = null;
+      mapRenderWorkerBusy = false;
+      const message = event.data ?? {};
+      if (message.error) {
+        mapRenderWorkerDisabled = true;
+        mapRenderWorker?.terminate();
+        mapRenderWorker = null;
+        const latest = mapRenderWorkerPending ?? active;
+        mapRenderWorkerPending = null;
+        if (latest) latest.onFallback();
+        return;
+      }
+      const pending = mapRenderWorkerPending;
+      if (pending) {
+        message.bitmap?.close?.();
+        mapRenderWorkerPending = null;
+        dispatchMapWorkerRender(pending);
+        return;
+      }
+      if (!active || message.id !== active.id) {
+        message.bitmap?.close?.();
+        return;
+      }
+      const bitmap = message.bitmap;
+      if (!bitmap) {
+        active.onFallback();
+        return;
+      }
+      sceneCanvas.width = bitmap.width;
+      sceneCanvas.height = bitmap.height;
+      const context = sceneCanvas.getContext("2d");
+      context?.drawImage(bitmap, 0, 0);
+      bitmap.close?.();
+      active.onDone(message.result);
+    });
+    mapRenderWorker.addEventListener("error", () => {
+      mapRenderWorkerDisabled = true;
+      mapRenderWorker?.terminate();
+      mapRenderWorker = null;
+      mapRenderWorkerBusy = false;
+      const latest = mapRenderWorkerPending ?? mapRenderWorkerActive;
+      mapRenderWorkerPending = null;
+      mapRenderWorkerActive = null;
+      latest?.onFallback();
+    });
+  } catch (error) {
+    console.info("Rendu cartographique déporté indisponible, rendu local conservé :", error);
+    mapRenderWorkerDisabled = true;
+    mapRenderWorker = null;
+  }
+  return mapRenderWorker;
+}
+function dispatchMapWorkerRender(job) {
+  if (!mapRenderWorker || mapRenderWorkerDisabled) {
+    job.onFallback();
+    return;
+  }
+  const layerUpdates = {};
+  for (const key of MAP_WORKER_LAYER_KEYS) {
+    if (mapRenderWorkerLayerRefs[key] !== job.layers[key]) {
+      layerUpdates[key] = job.layers[key];
+    }
+  }
+  const {
+    lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
+    politicalBoundaries, administrativeBoundaries, terrain, ...options
+  } = job.options;
+  try {
+    mapRenderWorker.postMessage({ id: job.id, layerUpdates, options });
+    for (const key of Object.keys(layerUpdates)) mapRenderWorkerLayerRefs[key] = layerUpdates[key];
+    mapRenderWorkerBusy = true;
+    mapRenderWorkerActive = job;
+  } catch (error) {
+    console.warn("Transfert des données cartographiques au Worker impossible :", error);
+    mapRenderWorkerDisabled = true;
+    mapRenderWorker.terminate();
+    mapRenderWorker = null;
+    job.onFallback();
+  }
+}
+function renderMapOffThread(land, options, onDone, onFallback) {
+  const worker = getMapRenderWorker();
+  if (!worker) return false;
+  const layers = {
+    land, lakes: options.lakes, rivers: options.rivers, glaciers: options.glaciers,
+    elevationPoints: options.elevationPoints, labels: options.labels,
+    territories: options.territories, physicalWorld: options.physicalWorld,
+    politicalBoundaries: options.politicalBoundaries,
+    administrativeBoundaries: options.administrativeBoundaries, terrain: options.terrain
+  };
+  const job = { id: ++mapRenderWorkerSequence, layers, options, onDone, onFallback };
+  if (mapRenderWorkerBusy) mapRenderWorkerPending = job;
+  else dispatchMapWorkerRender(job);
+  return true;
+}
+function completeMapRender(result, context) {
+  if (!result) return;
+  sceneViewport = context.sceneViewport;
+  sceneSize = context.sceneSize;
+  sceneOcean = result.theme.colors.ocean;
+  sceneLabelHits = result.labelHits ?? [];
+  sceneReady = true;
+  sceneRecenterPending = false;
+  composeScene();
+  updateMapDiagnostics(result);
+  if (territoryFeatures) completeInitialLoading();
+  $("map-era").textContent = result.theme.label;
+  const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
+  const regionalLayerCount = [context.landDetail, context.lakeDetail, context.riverDetail, context.labelDetail].filter(layer => layer.level === "regional-10m").length;
+  const fallbackLayerCount = [context.landDetail, context.lakeDetail, context.riverDetail, context.labelDetail].filter(layer => layer.isFallback).length;
+  const detailStatus = regionalLayerCount
+    ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
+    : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
+  $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
+  updateMapControls();
+  scheduleMapPrefetch([context.landDetail.features, context.lakeDetail.features, context.riverDetail.features, context.labelDetail.features]);
+}
+
 function renderMapFrame() {
   // Un chargement régional ou une invalidation asynchrone ne doit jamais
   // lancer un rendu complet pendant que le joueur manipule la carte.
@@ -371,26 +504,15 @@ function renderMapFrame() {
     interactive: false,
     physicalOverlayContext: null,
   };
-  const result = renderWorldMap(sceneCanvas, landDetail.features, renderOptions);
-  sceneViewport = { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude };
-  sceneSize = { w: Ws, h: Hs, f };
-  sceneOcean = result.theme.colors.ocean;
-  sceneLabelHits = result.labelHits ?? [];
-  sceneReady = true;
-  sceneRecenterPending = false;
-  composeScene();
-  updateMapDiagnostics(result);
-  if (territoryFeatures) completeInitialLoading();
-  $("map-era").textContent = result.theme.label;
-  const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  const regionalLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.level === "regional-10m").length;
-  const fallbackLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.isFallback).length;
-  const detailStatus = regionalLayerCount
-    ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
-    : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
-  $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
-  updateMapControls();
-  scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
+  const completionContext = {
+    sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
+    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail
+  };
+  const fallback = () => {
+    try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
+    catch (error) { console.error("Échec du rendu cartographique local :", error); }
+  };
+  if (!renderMapOffThread(landDetail.features, renderOptions, result => completeMapRender(result, completionContext), fallback)) fallback();
 }
 
 async function installFullMapPack() {
