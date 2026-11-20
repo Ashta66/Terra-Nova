@@ -160,6 +160,9 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
 
 export function selectGeoSpatialFeatures(collection, viewport = {}) {
   if (!collection?.features) return collection;
+  // À l'échelle mondiale, toutes les entités sont visibles : construire l'index
+  // ici ne ferait qu'ajouter un gros travail synchrone au premier affichage.
+  if (Math.max(1, Number(viewport.zoom) || 1) <= 1.001) return collection;
   let index = indexCache.get(collection);
   if (!index) {
     index = buildGeoSpatialIndex(collection);
