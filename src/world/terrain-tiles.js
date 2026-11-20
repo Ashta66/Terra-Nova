@@ -34,18 +34,18 @@ export function createTerrainTileStore(grid, options = {}) {
     return tile;
   }
 
-  function evictOverflow(protectedId = null) {
+  function evictOverflow(protectedId = null, protectedIds = null) {
     while (cache.size > maxTiles) {
       let candidateId = null;
       for (const [id] of cache) {
-        if (id !== protectedId && !cache.get(id)?.dirty) { candidateId = id; break; }
+        if (id !== protectedId && !protectedIds?.has(id) && !cache.get(id)?.dirty) { candidateId = id; break; }
       }
       if (candidateId === null) break;
       cache.delete(candidateId);
     }
   }
 
-  function getTile(x, y) {
+  function getTile(x, y, protectedIds = null) {
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= columns || y < 0 || y >= rows) return null;
     const id = tileId(x, y);
     const cached = cache.get(id);
@@ -67,7 +67,7 @@ export function createTerrainTileStore(grid, options = {}) {
       revision: saved?.revision ?? 0, dirty: false, lastUsed: 0
     };
     touch(tile);
-    evictOverflow(id);
+    evictOverflow(id, protectedIds);
     return tile;
   }
 
@@ -199,6 +199,31 @@ export function createTerrainTileStore(grid, options = {}) {
     return removed;
   }
 
+  async function preloadTileIds(ids = [], preloadOptions = {}) {
+    const uniqueIds = [...new Set(ids)].filter(id => {
+      const match = /^0\\/(\\d+)\\/(\\d+)$/.exec(id);
+      return match && Number(match[1]) < columns && Number(match[2]) < rows;
+    });
+    const protectedIds = new Set(preloadOptions.protectedIds ?? []);
+    const batchSize = Math.max(1, Math.floor(preloadOptions.batchSize ?? 8));
+    const shouldCancel = typeof preloadOptions.shouldCancel === "function"
+      ? preloadOptions.shouldCancel : () => false;
+    let loaded = 0;
+    for (let offset = 0; offset < uniqueIds.length; offset += batchSize) {
+      if (shouldCancel()) return { loaded, cancelled: true };
+      const batch = uniqueIds.slice(offset, offset + batchSize);
+      for (const id of batch) {
+        if (shouldCancel()) return { loaded, cancelled: true };
+        const [, x, y] = id.split("/").map(Number);
+        if (getTile(x, y, protectedIds)) loaded++;
+      }
+      if (offset + batchSize < uniqueIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+    return { loaded, cancelled: false };
+  }
+
   function preloadViewport(viewport = {}, preloadOptions = {}) {
     const zoom = Math.max(0.01, Number(viewport.zoom) || 1);
     const centerLongitude = Number(viewport.centerLongitude) || 0;
@@ -283,7 +308,7 @@ export function createTerrainTileStore(grid, options = {}) {
 
   return {
     tileSize, columns, rows, width: grid.width, height: grid.height,
-    getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport,
+    getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport, preloadTileIds,
     get size() { return cache.size; },
     get revision() { return storeRevision; },
     get loadedIds() { return [...cache.keys()]; },
