@@ -1,4 +1,4 @@
-import { createGeographicMeshCache } from "./geographic-webgl.js";
+import { createGeographicMeshCache, buildGeographicLineMesh } from "./geographic-webgl.js";
 
 const VERTEX_SHADER = `
 attribute vec2 a_coordinate;
