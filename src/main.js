@@ -93,6 +93,11 @@ function resetMapView() {
 
 function renderMap() {
   if (state.physicalWorld) state.physicalWorld = expirePhysicalSurfaceEffects(state.physicalWorld, state.clock.date);
+  // Un ancien tampon ne doit jamais être réutilisé après un changement d'état/date/vue.
+  if (!mapInteractionActive) {
+    mapOverscanVersion++;
+    mapOverscanCanvas = null;
+  }
   if (!worldFeatures || mapRenderFrame !== null) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = null;
