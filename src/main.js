@@ -14,6 +14,7 @@ let elevationPoints = null;
 let mapLabels = null;
 let terrainGrid = null;
 let mapLabelHits = [];
+let mapRenderFrame = null;
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -55,6 +56,14 @@ function resetMapView() {
 }
 
 function renderMap() {
+  if (!worldFeatures || mapRenderFrame !== null) return;
+  mapRenderFrame = requestAnimationFrame(() => {
+    mapRenderFrame = null;
+    renderMapFrame();
+  });
+}
+
+function renderMapFrame() {
   if (!worldFeatures) return;
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
@@ -68,7 +77,8 @@ function renderMap() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: mapLabels,
-    terrain: terrainGrid
+    terrain: terrainGrid,
+    terrainQuality: mapDrag ? 0.5 : 1
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
@@ -218,6 +228,7 @@ function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
+  if (lastDragMoved) renderMap();
 }
 mapCanvas.addEventListener("click", (event) => {
   if (lastDragMoved) { lastDragMoved = false; return; }
