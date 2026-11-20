@@ -80,6 +80,19 @@ function compileShader(gl, type, source) {
   return shader;
 }
 
+export function encodeTerrainTexture(values) {
+  if (!ArrayBuffer.isView(values)) throw new TypeError("Les altitudes doivent être un tableau typé.");
+  const packed = new Uint8Array(values.length * 4);
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i] & 0xffff;
+    const offset = i * 4;
+    packed[offset] = value & 255;
+    packed[offset + 1] = value >>> 8;
+    packed[offset + 3] = 255;
+  }
+  return packed;
+}
+
 function createRenderer(grid) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)) return null;
   const canvas = typeof OffscreenCanvas !== "undefined"
@@ -96,14 +109,7 @@ function createRenderer(grid) {
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
 
-  const packed = new Uint8Array(grid.values.length * 4);
-  for (let i = 0; i < grid.values.length; i++) {
-    const value = grid.values[i] & 0xffff;
-    const offset = i * 4;
-    packed[offset] = value & 255;
-    packed[offset + 1] = value >>> 8;
-    packed[offset + 3] = 255;
-  }
+  const packed = encodeTerrainTexture(grid.values);
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
