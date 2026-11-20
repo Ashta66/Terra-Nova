@@ -452,8 +452,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   context.save();
   context.strokeStyle = theme.colors.grid;
-  context.globalAlpha = 0.28;
-  context.lineWidth = 0.55;
+  context.globalAlpha = 0.10;
+  context.lineWidth = 0.35;
   for (let longitude = -150; longitude <= 180; longitude += 30) {
     const a = projectCoordinate([longitude, -85], width, height, projection);
     const b = projectCoordinate([longitude, 85], width, height, projection);

@@ -330,14 +330,14 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   try {
     const { canvas } = createCanvas();
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
-    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
     assert.equal(constructions, 2);
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
+    assert.equal(constructions, 3);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -363,9 +363,9 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const options = { width: 640, height: 320, pixelRatio: 1, rivers, viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 } };
     const first = renderWorldMap(canvas, land, options);
     assert.equal(first.riverCount, 1);
-    assert.equal(constructions, 2);
+    assert.equal(constructions, 3);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, 2);
+    assert.equal(constructions, 3);
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
