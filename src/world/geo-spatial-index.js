@@ -86,7 +86,11 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
 
   // Les positions voisines qui restent dans les mêmes cellules réutilisent
   // exactement la même sélection, sans recréer le tableau GeoJSON à chaque frame.
-  const cacheKey = `${minX}:${maxX}:${minY}:${maxY}`;
+  const longitudeCellRanges = longitudeRanges.map(([west, east]) => [
+    longitudeCell(Math.max(-180, west), index.columns, index.cellSize),
+    longitudeCell(Math.min(180, east), index.columns, index.cellSize)
+  ]);
+  const cacheKey = `${longitudeCellRanges.map(range => range.join("-")).join("|")}:${minY}:${maxY}`;
   const cached = index.queryCache.get(cacheKey);
   if (cached) {
     index.queryCache.delete(cacheKey);
