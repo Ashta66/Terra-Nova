@@ -406,39 +406,49 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   let glacierCount;
   let lakeCount;
   const gpuLayers = geographicRenderer?.renderLayers ? [
-    { key: "land", features: landFeatures, color: parseWebGLColor(landFill) },
-    { key: "glaciers", features: glacierFeatures, color: [220 / 255, 232 / 255, 229 / 255, 0.88] },
-    { key: "lakes", features: lakeFeatures, color: parseWebGLColor(theme.colors.ocean) }
+    { key: "land", collection: featureCollection, features: landFeatures,
+      fill: landFill, stroke: theme.colors.coast, lineWidth: 0.85, alpha: 1,
+      color: parseWebGLColor(landFill) },
+    { key: "glaciers", collection: options.glaciers, features: glacierFeatures,
+      fill: "#dce8e5", stroke: "#9ebfc3", lineWidth: 0.7, alpha: 0.88,
+      color: [220 / 255, 232 / 255, 229 / 255, 0.88] },
+    { key: "lakes", collection: options.lakes, features: lakeFeatures,
+      fill: theme.colors.ocean, stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1,
+      color: parseWebGLColor(theme.colors.ocean) }
   ] : null;
   if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
     try {
       const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
-      geographicWebGLStats = geographicRenderer.renderLayers(gpuLayers,
-        Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
+      const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
+        cacheHit: true, bufferUploads: 0, uploadedBytes: 0, layers: {} };
+      for (const layer of gpuLayers) {
+        const gpuStats = geographicRenderer.renderLayers([{
+          key: layer.key, features: layer.features, color: layer.color
+        }], Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)),
         projection.viewport);
-      context.save();
-      context.setTransform(1, 0, 0, 1, 0, 0);
-      context.drawImage(geographicRenderer.canvas, 0, 0);
-      context.restore();
-      const fallbackFor = (features) => features.filter(feature => !geographicRenderer.supports(feature));
-      const landFallback = fallbackFor(landFeatures);
-      const glacierFallback = fallbackFor(glacierFeatures);
-      const lakeFallback = fallbackFor(lakeFeatures);
-      const landFallbackCount = drawPolygonLayer(context, featureCollection, width, height, projection,
-        landFill, null, 0.85, 1, landFallback);
-      const glacierFallbackCount = drawPolygonLayer(context, options.glaciers, width, height, projection,
-        "#dce8e5", null, 0.7, 0.88, glacierFallback);
-      const lakeFallbackCount = drawPolygonLayer(context, options.lakes, width, height, projection,
-        theme.colors.ocean, null, 0.55, 1, lakeFallback);
-      drawPolygonLayer(context, featureCollection, width, height, projection,
-        null, theme.colors.coast, 0.85, 1, landFeatures);
-      drawPolygonLayer(context, options.glaciers, width, height, projection,
-        null, "#9ebfc3", 0.7, 0.88, glacierFeatures);
-      drawPolygonLayer(context, options.lakes, width, height, projection,
-        null, theme.colors.accent, 0.55, 1, lakeFeatures);
-      landCount = geographicWebGLStats.layers.land.drawnFeatures + landFallbackCount;
-      glacierCount = geographicWebGLStats.layers.glaciers.drawnFeatures + glacierFallbackCount;
-      lakeCount = geographicWebGLStats.layers.lakes.drawnFeatures + lakeFallbackCount;
+        const layerStats = gpuStats.layers[layer.key];
+        aggregate.drawnFeatures += gpuStats.drawnFeatures;
+        aggregate.skippedFeatures += gpuStats.skippedFeatures;
+        aggregate.drawCalls += gpuStats.drawCalls;
+        aggregate.triangles += gpuStats.triangles;
+        aggregate.cacheHit = aggregate.cacheHit && gpuStats.cacheHit;
+        aggregate.bufferUploads += gpuStats.bufferUploads;
+        aggregate.uploadedBytes += gpuStats.uploadedBytes;
+        aggregate.layers[layer.key] = layerStats;
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.drawImage(geographicRenderer.canvas, 0, 0);
+        context.restore();
+        const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
+        const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
+          layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
+        drawPolygonLayer(context, layer.collection, width, height, projection,
+          null, layer.stroke, layer.lineWidth, layer.alpha, layer.features);
+        if (layer.key === "land") landCount = layerStats.drawnFeatures + fallbackCount;
+        else if (layer.key === "glaciers") glacierCount = layerStats.drawnFeatures + fallbackCount;
+        else lakeCount = layerStats.drawnFeatures + fallbackCount;
+      }
+      geographicWebGLStats = aggregate;
     } catch {
       geographicWebGLStats = null;
       landCount = drawPolygonLayer(context, featureCollection, width, height, projection,
