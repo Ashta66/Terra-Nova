@@ -74,7 +74,7 @@ Le raster ETOPO est maintenant interprété avec des classes locales légères d
 ## Fluidité de navigation — optimisation initiale
 
 - Les événements de déplacement et de molette sont regroupés sur une seule image via `requestAnimationFrame` : plusieurs événements reçus entre deux images ne déclenchent plus plusieurs rendus complets.
-- Pendant un glisser-déposer, le raster ETOPO est calculé à une qualité réduite (plafond 384 × 192), puis redessiné à la qualité normale à la fin du geste (plafond 768 px de large / 384 px de haut).
+- Pendant un glisser-déposer, le canvas déjà rendu est déplacé par transformation GPU/compositeur (`translate3d`) : aucun recalcul du raster ou des géométries n'est nécessaire pendant le geste. Le rendu géographique complet est relancé au relâchement.
 - Le relief est généré sur une surface hors écran lorsque le navigateur le permet, puis composé dans le canvas à l'échelle logique CSS. Cela évite de mélanger les coordonnées physiques du canvas haute densité et les coordonnées logiques du moteur.
-- Les géométries vectorielles et les labels restent rendus à chaque image affichée ; une mise en cache des couches statiques et un vrai niveau de détail régional restent des optimisations ultérieures.
+- Les géométries vectorielles et les labels sont recalculés une seule fois à la fin du déplacement. Une mise en cache des couches statiques et un vrai niveau de détail régional restent des optimisations ultérieures.
 - Limite : le gain doit encore être mesuré dans un navigateur réel sur plusieurs configurations ; la CI ne mesure pas les FPS.
