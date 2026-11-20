@@ -546,11 +546,11 @@ import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTe
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
   const decoded = [];
-  for (let i = 0; i < packed.length; i += 4) {
+  assert.equal(packed.byteLength, 5 * 2);
+  for (let i = 0; i < packed.length; i += 2) {
     let value = packed[i] + packed[i + 1] * 256;
     if (value >= 32768) value -= 65536;
     decoded.push(value);
-    assert.equal(packed[i + 3], 255);
   }
   assert.deepEqual(decoded, [-32768, -1000, 0, 1200, 32767]);
 });
