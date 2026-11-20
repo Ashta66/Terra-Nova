@@ -146,3 +146,8 @@ Le raster ETOPO est désormais précalculé et mis en cache par tuiles géograph
 - Après 140 ms sans interaction, la scène est recalculée à la résolution DPR (plafonnée à 2), puis la référence de viewport est synchronisée.
 - Les couches physiques sont dessinées dans le canvas de scène lui-même afin d'éviter un second canvas visible.
 - Le canvas visible conserve une taille CSS indépendante de sa résolution bitmap. Le fond et le ratio 2:1 sont pilotés par CSS.
+
+
+## Scène cartographique surdimensionnée — calculs purs (étape 1)
+
+Le module `src/world/scene-compose.js` isole les paramètres de rendu d'une scène avec surdimensionnement et le calcul des rectangles de composition. Il gère la répétition horizontale du monde lorsque la scène couvre déjà la planète entière, la normalisation de l'antiméridien et la détection de couverture complète de l'écran. Les fonctions sont pures et couvertes par des tests unitaires dédiés.
