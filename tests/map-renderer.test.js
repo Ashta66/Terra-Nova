@@ -1348,6 +1348,29 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(second.uploadedBytes, 0);
   assert.equal(second.cacheBuildMs, 0);
   assert.equal(second.layers.rivers.cacheBuildMs, 0);
+
+  const touchingFeatures = [
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [1, 0]] } },
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [2, 0]] } }
+  ];
+  const isolated = renderer.renderLayers([
+    { key: "independent-lines", type: "lines", features: touchingFeatures }
+  ], 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  // Deux tracés indépendants qui se touchent gardent chacun leurs deux caps :
+  // aucun disque de jonction partagé ne doit être ajouté entre les entités.
+  assert.equal(isolated.layers["independent-lines"].vertices, 156);
+  assert.equal(isolated.layers["independent-lines"].triangles, 52);
+
+  const bent = {
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: [[0, 0], [1, 0], [1, 1]] }
+  };
+  const bend = renderer.renderLayers([
+    { key: "bent-line", type: "lines", features: [bent] }
+  ], 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  // Deux segments, un raccord interne et deux caps externes.
+  assert.equal(bend.layers["bent-line"].vertices, 120);
+  assert.equal(bend.layers["bent-line"].triangles, 40);
   renderer.dispose();
 });
 
