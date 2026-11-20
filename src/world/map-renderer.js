@@ -653,6 +653,9 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
+  if(terrainGrid&&projection.type==="equirectangular"&&center&&radius>1){
+   ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();
+  }
   if(center&&radius>1&&!event.visualExpired){
    ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)));
    ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
@@ -669,18 +672,15 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
    const lavaNorth=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+(event.lavaRadiusKm??8)/111.32)],w,h,projection);
    const lavaEast=projectCoordinate([event.longitude+(event.lavaRadiusKm??8)/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
    const lavaRadius=Math.max(3,Math.min(34,Math.hypot((lavaEast?.x??center.x)-center.x,(lavaNorth?.y??center.y)-center.y)/Math.SQRT2));
-   const glow=ctx.createRadialGradient(center.x,center.y,Math.max(1,lavaRadius*.08),center.x,center.y,lavaRadius);
+   if(typeof ctx.createRadialGradient==="function"){const glow=ctx.createRadialGradient(center.x,center.y,Math.max(1,lavaRadius*.08),center.x,center.y,lavaRadius);
    glow.addColorStop(0,"rgba(255,250,174,.98)");glow.addColorStop(.24,"rgba(255,119,24,.96)");glow.addColorStop(.62,"rgba(220,45,12,.78)");glow.addColorStop(1,"rgba(110,22,12,0)");
-   ctx.save();ctx.globalCompositeOperation="screen";ctx.fillStyle=glow;ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fill();ctx.restore();
+   ctx.save();ctx.globalCompositeOperation="screen";ctx.fillStyle=glow;ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fill();ctx.restore();}
   }
   if(event.type==="earthquake"&&center&&radius>1){
    // Cicatrice diffuse permanente : elle reste après la disparition des anneaux.
-   const scar=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,radius);
+   if(typeof ctx.createRadialGradient==="function"){const scar=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,radius);
    scar.addColorStop(0,"rgba(105,73,55,.15)");scar.addColorStop(.48,"rgba(105,73,55,.075)");scar.addColorStop(1,"rgba(105,73,55,0)");
-   ctx.save();ctx.fillStyle=scar;ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
-  if(terrainGrid&&projection.type==="equirectangular"&&center&&radius>1){
-   ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();
+   ctx.save();ctx.fillStyle=scar;ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.fill();ctx.restore();}
   }
   if(!event.visualExpired)count++;
  }
