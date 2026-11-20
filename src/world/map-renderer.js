@@ -848,7 +848,19 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");;
+  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");
+  // Passe de relief en luminosité : elle sculpte les couleurs politiques sans
+  // remplacer leur teinte nationale (ombres dans les vallées, lumière sur les crêtes).
+  if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+    context.save();
+    context.beginPath();
+    for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
+    context.clip("evenodd");
+    context.globalCompositeOperation = "luminosity";
+    context.globalAlpha = 0.46;
+    drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
+    context.restore();
+  }
   const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);

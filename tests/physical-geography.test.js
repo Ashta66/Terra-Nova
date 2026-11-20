@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,refinePhysicalWorldForImpact} from "../src/world/physical-geography.js";
+import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects} from "../src/world/physical-geography.js";
 import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResponses} from "../src/world/society-engine.js";
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"},{id:"ocean",longitude:.02,latitude:0,elevationM:-80,coastalDistanceKm:0,regionId:"sea"}];
@@ -41,3 +41,5 @@ test("un impact affine temporairement la grille autour du point d'impact",()=>{
  assert.ok(impact.result.affectedCells.length>0);
  assert.ok(impact.world.currentCells.some(cell=>cell.gridStep===2&&cell.surfaceState==="crater"));
 });
+
+test("impact : lave et no man's land temporaires, relief permanent",()=>{const n=applyPhysicalEvent(createPhysicalWorld(cells),{id:"temporary-impact",type:"meteor-impact",date:"1500-01-31",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,lavaRadiusKm:8,noManLandRadiusKm:55,surfaceDurationMonths:3});const core=n.world.currentCells[0];assert.equal(core.surfaceState,"lava-flow");assert.equal(core.noManLand,true);assert.equal(core.surfaceExpiresAt,"1500-04-30");const expired=expirePhysicalSurfaceEffects(n.world,"1500-05-01");assert.equal(expired.currentCells[0].surfaceState,"natural");assert.equal(expired.currentCells[0].noManLand,false);assert.ok(expired.currentCells[0].elevationDeltaM<0);});

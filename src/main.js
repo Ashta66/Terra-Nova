@@ -5,7 +5,7 @@ import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./wor
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact } from "./world/physical-geography.js";
+import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
@@ -87,6 +87,7 @@ function resetMapView() {
 }
 
 function renderMap() {
+  if (state.physicalWorld) state.physicalWorld = expirePhysicalSurfaceEffects(state.physicalWorld, state.clock.date);
   if (!worldFeatures || mapRenderFrame !== null) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = null;
@@ -574,8 +575,11 @@ mapCanvas.addEventListener("click", (event) => {
         date: state.clock.date,
         longitude,
         latitude,
-        radiusKm: 650,
-        craterDepthM: 1800
+        radiusKm: 140,
+        craterDepthM: 950,
+        lavaRadiusKm: 10,
+        noManLandRadiusKm: 55,
+        surfaceDurationMonths: 1 + Math.floor(Math.random() * 6)
       };
       const refinedWorld = refinePhysicalWorldForImpact(state.physicalWorld, terrainGrid, event, 2);
       const impact = applyPhysicalEvent(refinedWorld, event);

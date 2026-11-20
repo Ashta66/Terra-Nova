@@ -32,3 +32,7 @@ Lors d'un impact météoritique de test, le moteur remplace localement les cellu
 
 ## Rendu continu des impacts météoritiques
 Les cellules fines de calcul d'un impact ne sont plus dessinées comme des aplats bleus/oranges. Les cellules crater/impact-zone restent utilisées par le moteur d'altitude, tandis que le rendu ajoute des anneaux continus centrés sur l'événement. Cela supprime la mosaïque visuelle sans annuler la déformation géologique. Les autres événements (submersion, lave, cendres et soulèvement) conservent leurs couches dédiées.
+
+
+## Relief lisible sous la souveraineté politique et impacts temporaires
+Une seconde passe ETOPO en mode de composition « luminosité » restitue ombres et éclaircies au-dessus des aplats nationaux sans remplacer leurs teintes. Les impacts météoritiques de test sont ramenés à un rayon de 140 km (au lieu de 650 km), avec une couronne de lave de 10 km et une zone interdite de 55 km. La durée de l'état de surface est tirée entre 1 et 6 mois ; à expiration, lave et interdiction disparaissent, tandis que la déformation du relief reste inscrite dans la géographie. Les durées sont stockées sur les cellules et expirées selon la date de simulation.
