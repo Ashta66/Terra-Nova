@@ -125,13 +125,13 @@ function physicalLookup(world) {
  if(!world?.currentCells)return null;
  const old=physicalLookupCache.get(world);if(old?.revision===world.revision)return old.lookup;
  const levels=new Map();for(const c of world.currentCells)if(Number.isInteger(c.gridX)&&Number.isInteger(c.gridY)){const step=Number(c.gridStep)||12;if(!levels.has(step))levels.set(step,new Map());levels.get(step).set(c.gridY+":"+c.gridX,c);}
- const lookup={levels};physicalLookupCache.set(world,{revision:world.revision,lookup});return lookup;
+ const lookup={levels,steps:[...levels.keys()].sort((a,b)=>a-b)};physicalLookupCache.set(world,{revision:world.revision,lookup});return lookup;
 }
 export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
  let c=null;
- if(lookup.levels instanceof Map){for(const [step,level] of [...lookup.levels.entries()].sort((a,b)=>a[0]-b[0])){c=level.get(Math.floor(y/step)+":"+Math.floor(x/step));if(c)break;}}
+ if(lookup.levels instanceof Map){for(const step of lookup.steps??[...lookup.levels.keys()].sort((a,b)=>a-b)){const level=lookup.levels.get(step);c=level?.get(Math.floor(y/step)+":"+Math.floor(x/step));if(c)break;}}
  else c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));
  if(!c)return base;
  if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);
