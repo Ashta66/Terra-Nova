@@ -643,7 +643,7 @@ export function classifyPhysicalCellVisual(c){
  if(!c)return null;
  // Les impacts sont rendus en une forme continue à partir de l'événement,
  // jamais comme une mosaïque de cellules bleues/oranges.
- if(["crater","impact-zone"].includes(c.surfaceState))return null;
+ if(["crater","impact-zone","lava-flow"].includes(c.surfaceState))return null;
  // Ne jamais peindre l'océan de base : seule une terre réellement submergée
  // par un événement doit recevoir le voile bleu.
  const crossedSeaLevel=Number.isFinite(c.baseElevationM)&&c.baseElevationM>=0&&Number.isFinite(c.currentElevationM)&&c.currentElevationM<0;
@@ -668,12 +668,21 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection){
  for(const event of world.events??[]){
   if(event.type!=="meteor-impact")continue;
   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
-  const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+(Number(event.radiusKm)||100)/111.32)],w,h,projection);
-  const east=projectCoordinate([event.longitude+(Number(event.radiusKm)||100)/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
-  if(!center||(!north&&!east))continue;
-  const radius=Math.max(3,Math.min(500,Math.hypot((east?.x??center.x)-center.x,(east?.y??center.y)-center.y,(north?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));
-  ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.48)";ctx.lineWidth=Math.max(1,Math.min(3,1.4*Math.sqrt(zoom)));ctx.stroke();
-  ctx.beginPath();ctx.arc(center.x,center.y,radius*.42,0,Math.PI*2);ctx.strokeStyle="rgba(232,177,119,.5)";ctx.lineWidth=Math.max(.8,Math.min(2,1.1*Math.sqrt(zoom)));ctx.stroke();
+  if(!center)continue;
+  const radiusFor=km=>{
+   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+km/111.32)],w,h,projection);
+   const east=projectCoordinate([event.longitude+km/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
+   if(!north&&!east)return 0;
+   return Math.max(2,Math.min(500,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2));
+  };
+  const radius=radiusFor(Number(event.radiusKm)||100);
+  if(!event.surfaceExpired){
+   const exclusionRadius=radiusFor(Number(event.noManLandRadiusKm)||55);
+   const lavaRadius=radiusFor(Number(event.lavaRadiusKm)||8);
+   if(exclusionRadius>0){ctx.beginPath();ctx.arc(center.x,center.y,exclusionRadius,0,Math.PI*2);ctx.fillStyle="rgba(75,48,39,.24)";ctx.fill();ctx.strokeStyle="rgba(202,151,111,.82)";ctx.setLineDash([5,4]);ctx.lineWidth=Math.max(1,Math.min(2.5,1.3*Math.sqrt(zoom)));ctx.stroke();ctx.setLineDash([]);}
+   if(lavaRadius>0){ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fillStyle="rgba(223,65,25,.78)";ctx.fill();ctx.strokeStyle="rgba(255,190,104,.95)";ctx.lineWidth=Math.max(1,Math.min(2.8,1.5*Math.sqrt(zoom)));ctx.stroke();}
+  }
+  if(radius>0){ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.strokeStyle="rgba(92,61,47,.42)";ctx.lineWidth=Math.max(1,Math.min(3,1.2*Math.sqrt(zoom)));ctx.stroke();}
   count++;
  }
  ctx.restore();return count;
