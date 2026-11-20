@@ -305,7 +305,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (typeof context.drawImage === "function") {
     political = getCachedLayer("political", politicalKey, canvas.width, canvas.height, layerContext => {
       layerContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      drawPoliticalLayers(layerContext, width, height, projection, theme, featureCollection, {
+      return drawPoliticalLayers(layerContext, width, height, projection, theme, featureCollection, {
         ...options, terrainEnabled
       });
     });
