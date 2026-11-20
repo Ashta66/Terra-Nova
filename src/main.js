@@ -6,7 +6,7 @@ import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { sceneRenderParams, composeRects, shouldRecenterScene } from "./world/scene-compose.js";
+import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
@@ -291,6 +291,9 @@ function renderMapFrame() {
   }
   const { width, height } = viewSize();
   const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
+  const snappedSceneViewport = snapSceneViewportCenter(mapViewport, renderViewport.zoom);
+  renderViewport.centerLongitude = snappedSceneViewport.centerLongitude;
+  renderViewport.centerLatitude = snappedSceneViewport.centerLatitude;
   const year = Number(String(state.clock.date).slice(0, 4));
   const administrativeDetail = mapViewport.zoom >= 4 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
@@ -320,8 +323,17 @@ function renderMapFrame() {
       failInitialLoading(error);
     }).finally(() => { boundaryLoadPromise = null; });
   }
-  const signature = [width, height, year, state.physicalWorld?.revision ?? 0, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
-  if (signature === lastRenderedMapSignature) return;
+  const signature = [
+    width, height, year, state.physicalWorld?.revision ?? 0, mapViewport.zoom.toFixed(4),
+    snappedSceneViewport.centerLongitude.toFixed(4), snappedSceneViewport.centerLatitude.toFixed(4),
+    playerCountry || previewCountry, $("terrain-mode")?.value ?? "political",
+    Number($("country-opacity")?.value ?? 52)
+  ].join(':');
+  if (signature === lastRenderedMapSignature) {
+    // Le bitmap suffit toujours ; reconstruire uniquement les hitboxes après le relâchement.
+    composeScene();
+    return;
+  }
   lastRenderedMapSignature = signature;
   const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures);
@@ -353,7 +365,7 @@ function renderMapFrame() {
     physicalOverlayContext: null,
   };
   const result = renderWorldMap(sceneCanvas, landDetail.features, renderOptions);
-  sceneViewport = { ...mapViewport };
+  sceneViewport = { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude };
   sceneSize = { w: Ws, h: Hs, f };
   sceneOcean = result.theme.colors.ocean;
   sceneLabelHits = result.labelHits ?? [];
