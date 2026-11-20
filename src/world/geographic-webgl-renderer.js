@@ -42,8 +42,13 @@ function buildLineBatch(features, gl) {
   const data = new Float32Array(positions);
   const lineBuffer = gl.createBuffer();
   if (!lineBuffer) throw new Error("Impossible de créer le buffer de lignes géographiques.");
-  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+  try {
+    gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+  } catch (error) {
+    gl.deleteBuffer(lineBuffer);
+    throw error;
+  }
   return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
 }
 
