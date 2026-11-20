@@ -364,8 +364,12 @@ export function createGeographicWebGLRenderer(gl) {
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
     for (const layer of prepared) {
+      const layerDrawStartedAt = now();
       if (layer.type === "lines" || layer.type === "boundaries") {
-        if (!layer.cached.lineBuffer || !layer.cached.vertexCount) continue;
+        if (!layer.cached.lineBuffer || !layer.cached.vertexCount) {
+          empty.layers[layer.key].drawSubmitMs = 0;
+          continue;
+        }
         gl.useProgram(lineProgram);
         gl.uniform2f(lineCenterLocation, centerLongitude, centerLatitude);
         gl.uniform1f(lineZoomLocation, zoom);
@@ -395,6 +399,7 @@ export function createGeographicWebGLRenderer(gl) {
           gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
         }
       }
+      empty.layers[layer.key].drawSubmitMs = Math.max(0, now() - layerDrawStartedAt);
     }
     empty.drawSubmitMs = Math.max(0, now() - drawStartedAt);
     empty.totalMs = Math.max(0, now() - renderStartedAt);
