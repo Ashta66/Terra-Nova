@@ -1023,6 +1023,17 @@ function hasPhysicalTerrainChanges(world) {
   return changed;
 }
 
+function parseWebGLColor(value) {
+  if (typeof value !== "string") return [0.32, 0.39, 0.31, 1];
+  if (/^#[0-9a-f]{6}$/i.test(value)) {
+    return [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16) / 255).concat(1);
+  }
+  const rgba = value.match(/^rgba?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*,\\s*([\\d.]+)(?:\\s*,\\s*([\\d.]+))?\\s*\\)$/i);
+  if (rgba) return [Number(rgba[1]) / 255, Number(rgba[2]) / 255,
+    Number(rgba[3]) / 255, rgba[4] === undefined ? 1 : Number(rgba[4])];
+  return [0.32, 0.39, 0.31, 1];
+}
+
 const renderObjectIds = new WeakMap();
 let nextRenderObjectId = 1;
 const staticLayerCache = new WeakMap();
@@ -1205,6 +1216,28 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // reste visible en trait froid discret, sans concurrencer les frontières.
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
     const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, null, 0, 1, true, Infinity, coastProfile));
+    const geographicRenderer = options.geographicWebGLRenderer;
+    if (geographicRenderer?.renderLayers && geographicRenderer.canvas && projection.type === "equirectangular") {
+      try {
+        const ratio = backingWidth / width;
+        geographicRenderer.renderLayers([{
+          key: "land-coast", type: "boundaries", features: visibleLand.features,
+          color: parseWebGLColor(theme.colors.coast), lineWidth: 0.85 * ratio
+        }], backingWidth, backingHeight, projection.viewport);
+        target.save();
+        target.setTransform(1, 0, 0, 1, 0, 0);
+        target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
+        target.restore();
+        const unsupportedCoasts = visibleLand.features.filter(feature => !geographicRenderer.supportsBoundary(feature));
+        if (unsupportedCoasts.length) {
+          drawPolygonLayer(target, { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
+            "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+        }
+      } catch {
+        drawPolygonLayer(target, visibleLand, width, height, projection,
+          "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+      }
+    }
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
