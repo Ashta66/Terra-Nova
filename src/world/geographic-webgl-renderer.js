@@ -161,31 +161,33 @@ export function createGeographicWebGLRenderer(gl) {
       if (seenKeys.has(key)) throw new Error("Chaque couche WebGL doit avoir une clé unique.");
       seenKeys.add(key);
       const features = layer.features ?? [];
-      const signature = features.map(featureId).join(",");
+      const type = layer.type === "lines" ? "lines" : "polygons";
+      const signature = type + ":" + features.map(featureId).join(",");
       let cached = layerCaches.get(key);
       const cacheHit = Boolean(cached && cached.signature === signature);
       if (!cacheHit) {
-        const next = buildBatches(features);
+        const next = type === "lines" ? buildLineBatch(features, gl) : buildBatches(features);
         releaseBatches(cached?.batches);
-        cached = { signature, ...next };
+        if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+        cached = { signature, type, ...next };
         layerCaches.set(key, cached);
       }
       allCacheHits = allCacheHits && cacheHit;
-      const layerDrawCalls = cached.batches.length;
-      const layerTriangles = cached.batches.reduce((sum, batch) => sum + batch.triangles, 0);
-      const layerBytes = cacheHit ? 0 : cached.batches.reduce(
-        (sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
-      const layerUploads = cacheHit ? 0 : cached.batches.length * 2;
-      prepared.push({ key, color: layer.color ?? [0.32, 0.39, 0.31, 1], cached });
+      const layerDrawCalls = type === "lines" ? (cached.vertexCount ? 1 : 0) : cached.batches.length;
+      const layerTriangles = cached.batches?.reduce((sum, batch) => sum + batch.triangles, 0) ?? 0;
+      const layerBytes = cacheHit ? 0 : type === "lines" ? (cached.positions?.byteLength ?? 0) :
+        cached.batches.reduce((sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
+      const layerUploads = cacheHit ? 0 : type === "lines" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
+      prepared.push({ key, type, color: layer.color ?? [0.32, 0.39, 0.31, 1], cached });
       drawnFeatures += cached.drawnFeatures;
       skippedFeatures += cached.skippedFeatures;
       drawCalls += layerDrawCalls;
       triangles += layerTriangles;
       bufferUploads += layerUploads;
       uploadedBytes += layerBytes;
-      empty.layers[key] = { drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
-        drawCalls: layerDrawCalls, triangles: layerTriangles, cacheHit, bufferUploads: layerUploads,
-        uploadedBytes: layerBytes };
+      empty.layers[key] = { type, drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
+        drawCalls: layerDrawCalls, triangles: layerTriangles, vertices: cached.vertexCount ?? 0,
+        cacheHit, bufferUploads: layerUploads, uploadedBytes: layerBytes };
     }
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
@@ -201,12 +203,20 @@ export function createGeographicWebGLRenderer(gl) {
     gl.uniform1f(zoomLocation, zoom);
     for (const layer of prepared) {
       gl.uniform4fv(colorLocation, layer.color);
-      for (const batch of layer.cached.batches) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
+      if (layer.type === "lines") {
+        if (!layer.cached.lineBuffer || !layer.cached.vertexCount) continue;
+        gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
         gl.enableVertexAttribArray(positionLocation);
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.elementBuffer);
-        gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
+        gl.drawArrays(gl.LINES, 0, layer.cached.vertexCount);
+      } else {
+        for (const batch of layer.cached.batches) {
+          gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
+          gl.enableVertexAttribArray(positionLocation);
+          gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.elementBuffer);
+          gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
+        }
       }
     }
     return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
