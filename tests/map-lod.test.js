@@ -86,7 +86,7 @@ test("la navigation mondiale se recentre et la caméra régionale conserve sa lo
   const { constrainEquirectangularViewport } = await import("../src/world/projection.js");
   const world = constrainEquirectangularViewport({ zoom: 1, centerLongitude: 999, centerLatitude: -999 }, 24);
   assert.equal(Math.abs(world.centerLongitude), 0);
-  assert.equal(world.centerLatitude, 0);
+  assert.equal(Math.abs(world.centerLatitude), 0);
   const regional = constrainEquirectangularViewport({ zoom: 24, centerLongitude: 999, centerLatitude: -999 }, 24);
   assert.equal(regional.centerLongitude, 999);
   assert.ok(regional.centerLatitude >= -86.25);
