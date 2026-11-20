@@ -152,6 +152,7 @@ function scheduleMapRender() {
   if (pendingMapFrame !== null) return;
   pendingMapFrame = window.requestAnimationFrame(() => {
     pendingMapFrame = null;
+    if (previewBaseViewport) return;
     renderMap();
   });
 }
