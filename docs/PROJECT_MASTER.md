@@ -380,3 +380,12 @@ Le rendu principal de l'atlas peut désormais être exécuté dans un Web Worker
 
 ### Hiérarchie des détails secondaires — 20 novembre 2026
 L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altitude suivent désormais un profil LOD progressif. À faible zoom, seuls les cours d'eau et lacs de rang majeur sont dessinés, les glaciers sont masqués et les repères d'altitude sont fortement limités. Le détail augmente aux zooms régionaux puis locaux. Les frontières administratives secondaires sont également masquées plus longtemps et les frontières politiques restent prioritaires. Ces filtres ne suppriment aucune donnée source.
+
+
+## Préchargement prédictif et cache multi-échelle — 20 novembre 2026
+
+Le préchargement spatial prépare désormais une emprise d'environ 1,6× le viewport, puis décale son centre dans la direction du dernier déplacement connu. Le calcul est cyclique en longitude, borné aux latitudes utiles et plafonné à 24 secteurs candidats par collection. Il s'exécute uniquement au repos, une famille de données par tranche, et s'interrompt dès qu'une nouvelle interaction commence. Les données sources ne sont pas dupliquées.
+
+Le cache multi-échelle réutilise les sélections spatiales LRU existantes par collection et les couches Natural Earth mondiales/régionales déjà gérées par le LOD. Les seuils régionaux restent progressifs : le préchargement spatial ne force pas le chargement simultané de toutes les géométries détaillées. Les surfaces pré-rendues restent dans leur budget indépendant existant (trois scènes et 48 Mio par canvas) ; aucune image hors écran supplémentaire n'est créée par cette évolution.
+
+Le préchargement est prédictif à partir du dernier déplacement achevé, pas une prédiction de trajectoire complexe. Le navigateur peut abandonner une tranche inactive au profit de l'interaction ; les téléchargements de données déjà commencés restent réutilisables dans le cache local. Les performances réelles et la mémoire doivent être vérifiées sur les navigateurs cibles.

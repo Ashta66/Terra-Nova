@@ -43,6 +43,7 @@ let mapLabelHits = [];
 let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
+let lastMapPrefetchViewport = null;
 let lastRenderedMapSignature = null;
 let interactionRenderTimer = null;
 let interactionPreviewTimer = null;
@@ -228,15 +229,26 @@ function cancelMapPrefetch() {
 function scheduleMapPrefetch(collections) {
   cancelMapPrefetch();
   if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
+  const previous = lastMapPrefetchViewport;
+  const direction = previous ? {
+    x: mapViewport.centerLongitude - previous.centerLongitude,
+    y: previous.centerLatitude - mapViewport.centerLatitude
+  } : { x: 0, y: 0 };
+  // Les différences de longitude sont cycliques autour de l'antiméridien.
+  if (direction.x > 180) direction.x -= 360;
+  if (direction.x < -180) direction.x += 360;
+  lastMapPrefetchViewport = { ...mapViewport };
   let index = 0;
   const prepareNext = () => {
     mapPrefetchHandle = null;
     if (mapInteractionActive) return;
     while (index < collections.length && !collections[index]?.features) index++;
     if (index >= collections.length) return;
-    // Une seule famille géographique par tranche de repos : un gros index ne
-    // monopolise plus une frame entière juste après un déplacement.
-    prefetchGeoSpatialFeatures(collections[index++], mapViewport, 1);
+    // Priorité à l'emprise élargie, avec un biais vers la trajectoire récente.
+    // Une famille par tranche inactive : le rendu visible reste prioritaire.
+    prefetchGeoSpatialFeatures(collections[index++], mapViewport, 1, {
+      coverage: 1.6, lookAhead: 0.55, direction
+    });
     if (index >= collections.length || mapInteractionActive) return;
     if (typeof requestIdleCallback === "function") {
       mapPrefetchUsesIdleCallback = true;

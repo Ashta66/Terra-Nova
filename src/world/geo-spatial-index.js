@@ -171,29 +171,60 @@ export function selectGeoSpatialFeatures(collection, viewport = {}) {
   return queryGeoSpatialIndex(index, viewport);
 }
 
-/** Prépare les tuiles voisines au repos ; aucune donnée source n'est dupliquée. */
-export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1) {
+/**
+ * Prépare au repos les secteurs qui entourent le viewport et ceux situés
+ * devant le mouvement. Les sélections restent dans le cache LRU existant :
+ * aucune géométrie ni image supplémentaire n'est conservée.
+ */
+export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1, options = {}) {
   if (!collection?.features || !Number.isFinite(Number(viewport.zoom)) || Number(viewport.zoom) <= 1.001) return 0;
   let index = indexCache.get(collection);
   if (!index) {
     index = buildGeoSpatialIndex(collection);
     indexCache.set(collection, index);
   }
-  const steps = Math.max(0, Math.min(MAX_PREFETCH_RADIUS, Math.floor(Number(radius) || 0)));
-  const centerLongitude = wrapLongitude(Number(viewport.centerLongitude ?? 0));
-  const centerLatitude = Number(viewport.centerLatitude ?? 0);
-  const x = longitudeCell(centerLongitude, index.columns, index.cellSize);
-  const y = latitudeCell(centerLatitude, index.rows, index.cellSize);
-  let prepared = 0;
-  for (let dy = -steps; dy <= steps; dy++) {
-    for (let dx = -steps; dx <= steps; dx++) {
-      if (dx === 0 && dy === 0) continue;
-      const tileY = y + dy;
-      if (tileY < 0 || tileY >= index.rows) continue;
-      const tileX = (x + dx + index.columns) % index.columns;
-      getTileFeatureIndices(index, tileX, tileY);
-      prepared++;
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const coverage = Math.max(1, Math.min(2.2, Number(options.coverage) || 1.6));
+  const lookAhead = Math.max(0, Math.min(1, Number(options.lookAhead) || 0.55));
+  const direction = options.direction ?? {};
+  const dx = Number(direction.x) || 0;
+  const dy = Number(direction.y) || 0;
+  const magnitude = Math.hypot(dx, dy);
+  const nx = magnitude > 0.001 ? dx / magnitude : 0;
+  const ny = magnitude > 0.001 ? dy / magnitude : 0;
+  const centerLongitude = wrapLongitude(Number(viewport.centerLongitude ?? 0) + nx * (180 / zoom) * lookAhead);
+  const centerLatitude = Math.max(-89.9, Math.min(89.9,
+    Number(viewport.centerLatitude ?? 0) - ny * (90 / zoom) * lookAhead));
+  const halfLon = Math.min(180, (180 / zoom) * coverage);
+  const halfLat = Math.min(90, (90 / zoom) * coverage);
+  const minX = Math.max(1, Math.ceil(halfLon * 2 / index.cellSize / 2));
+  const minY = Math.max(1, Math.ceil(halfLat * 2 / index.cellSize / 2));
+  const spanX = Math.min(4, minX + Math.min(2, Math.floor(Number(radius) || 0)));
+  const spanY = Math.min(4, minY + Math.min(2, Math.floor(Number(radius) || 0)));
+  const centerX = longitudeCell(centerLongitude, index.columns, index.cellSize);
+  const centerY = latitudeCell(centerLatitude, index.rows, index.cellSize);
+  const candidates = [];
+  const seen = new Set();
+  for (let oy = -spanY; oy <= spanY; oy++) {
+    const tileY = centerY + oy;
+    if (tileY < 0 || tileY >= index.rows) continue;
+    for (let ox = -spanX; ox <= spanX; ox++) {
+      const tileX = (centerX + ox + index.columns) % index.columns;
+      const key = tileY * index.columns + tileX;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const distance = Math.hypot(ox / Math.max(1, spanX), oy / Math.max(1, spanY));
+      const forward = ox * nx + oy * ny;
+      candidates.push({ tileX, tileY, score: distance - forward * 0.35 });
     }
+  }
+  // Le plafond empêche le préchargement d'évincer tout le cache utile.
+  candidates.sort((a, b) => a.score - b.score);
+  const budget = Math.min(24, Math.max(8, (MAX_TILE_CACHE_ENTRIES / 4)));
+  let prepared = 0;
+  for (const tile of candidates.slice(0, budget)) {
+    getTileFeatureIndices(index, tile.tileX, tile.tileY);
+    prepared++;
   }
   return prepared;
 }

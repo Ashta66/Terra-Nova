@@ -352,3 +352,12 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 
 ### Hiérarchie des détails secondaires — 20 novembre 2026
 L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altitude suivent désormais un profil LOD progressif. À faible zoom, seuls les cours d'eau et lacs de rang majeur sont dessinés, les glaciers sont masqués et les repères d'altitude sont fortement limités. Le détail augmente aux zooms régionaux puis locaux. Les frontières administratives secondaires sont également masquées plus longtemps et les frontières politiques restent prioritaires. Ces filtres ne suppriment aucune donnée source.
+
+
+## 20 novembre 2026 — préchargement prédictif et cache multi-échelle
+- Préparation au repos d'une zone élargie autour du viewport (environ 1,6×) plutôt que du seul anneau immédiat.
+- Orientation du préchargement selon le dernier déplacement effectué, y compris au passage de l'antiméridien.
+- Limite de 24 secteurs par collection et par passe, en s'appuyant sur les caches LRU bornés déjà en place.
+- Les tâches sont annulées/remplacées à l'arrivée d'une nouvelle interaction ; une seule famille géographique est traitée par tranche inactive.
+- Conservation des niveaux LOD mondiaux/régionaux et des budgets d'images pré-rendues : aucun grand bitmap anticipé n'est ajouté.
+- Les gains de temps de chargement et la consommation mémoire restent à mesurer dans un navigateur réel.
