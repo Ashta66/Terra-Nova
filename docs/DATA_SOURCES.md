@@ -119,3 +119,11 @@ Le jeu télécharge depuis le dépôt officiel `nvkelso/natural-earth-vector` le
 ## Pack cartographique complet
 
 Le pack optionnel regroupe les six couches mondiales Natural Earth 1:110m, la grille ETOPO binaire déjà préparée (4 665 600 octets) et les quatre couches régionales Natural Earth 1:10m. Les couches mondiales et ETOPO sont mises en cache avec Cache Storage ; les couches régionales sont stockées dans IndexedDB. Le joueur peut continuer à jouer avec les couches mondiales légères sans télécharger le pack. Le cache est local à l’origine du site et peut être supprimé depuis les paramètres de stockage du navigateur.
+
+
+## Frontières et chronologie
+
+- Les frontières politiques modernes proviennent des lignes terrestres Admin 0 de Natural Earth (échelle 1:110m, domaine public).
+- Les frontières administratives modernes proviennent des lignes Admin 1 de Natural Earth (échelle 1:110m, domaine public). Elles ne sont affichées qu'à partir de 2011 afin de ne pas projeter les divisions administratives actuelles dans les siècles précédents.
+- Les frontières politiques historiques proviennent de [Historical Basemaps](https://github.com/aourednik/historical-basemaps), distribuées sous GPL-3.0. Le jeu choisit le cliché temporel le plus proche de l'année simulée ; il ne crée pas de frontière interpolée entre deux clichés.
+- Pour les périodes anciennes, les frontières peuvent être des zones d'influence reconstruites et leur précision varie. Les propriétés de précision disponibles dans les données commandent un style de trait différencié. Les limites physiques (côtes, lacs et relief) restent issues des couches géographiques Natural Earth/ETOPO et ne sont pas assimilées à des frontières politiques.

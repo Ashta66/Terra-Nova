@@ -8,6 +8,7 @@ function createCanvas() {
   const calls = [];
   const context = {
     setTransform: (...args) => calls.push(["setTransform", ...args]),
+    setLineDash: (...args) => calls.push(["setLineDash", ...args]),
     fillRect: (...args) => calls.push(["fillRect", ...args]),
     save: () => calls.push(["save"]),
     restore: () => calls.push(["restore"]),
@@ -589,4 +590,22 @@ test("les polygones historiques deviennent des lignes politiques en conservant l
   assert.equal(result.features[0].geometry.type, "MultiLineString");
   assert.equal(result.features[0].geometry.coordinates.length, 1);
   assert.equal(result.features[0].properties.NAME, "Corsica");
+});
+
+test("les frontières politiques et administratives sont rendues comme deux couches distinctes", () => {
+  const { canvas, calls } = createCanvas();
+  const politicalBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { BORDERPRECISION: 3 }, geometry: { type: "LineString", coordinates: [[0, 0], [5, 5]] } }
+  ] };
+  const administrativeBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [6, 5]] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    politicalBoundaries, administrativeBoundaries
+  });
+  assert.equal(result.politicalBoundaryCount, 1);
+  assert.equal(result.administrativeBoundaryCount, 1);
+  assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 0));
+  assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
 });

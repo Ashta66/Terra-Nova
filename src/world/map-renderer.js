@@ -517,8 +517,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
-  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d7a65b", 0.95, [], true);
-  const administrativeBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#a8c1c9", 0.65, [2.2, 2.4]);
+  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d06f61", 0.95, [], true);
+  const administrativeBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", 0.65, [2.2, 2.4]);
   const labelHits = options.interactive ? [] : drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
