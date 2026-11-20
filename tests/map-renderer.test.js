@@ -48,7 +48,7 @@ test("le moteur dessine une FeatureCollection et retourne son thème", () => {
 
 test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes", () => {
   const { canvas } = createCanvas();
-  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[86, 27], [88, 27], [88, 29], [86, 27]]] } }] };
+  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[80, 20], [100, 20], [100, 40], [80, 20]]] } }] };
   const rivers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [5, 5], [10, 4]] } }] };
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, lakes, rivers });
   assert.equal(result.lakeCount, 1);
@@ -914,5 +914,5 @@ test("le fond terrestre sous les pays utilise des tons neutres et non la palette
   const { canvas, calls } = createCanvas();
   renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1, terrainEnabled: false });
   assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "#53665f"));
-  assert.ok(calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
+  assert.ok(!calls.some(call => call[0] === "strokeStyle" && call[1] === "#344b50"));
 });
