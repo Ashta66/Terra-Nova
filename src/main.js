@@ -137,11 +137,17 @@ function renderMap() {
       canvas.dataset.geographicWebglSkipped = String(result.geographicWebGLStats.skippedFeatures);
       canvas.dataset.geographicWebglDrawCalls = String(result.geographicWebGLStats.drawCalls);
       canvas.dataset.geographicWebglTriangles = String(result.geographicWebGLStats.triangles);
+      canvas.dataset.geographicWebglCacheHit = String(result.geographicWebGLStats.cacheHit);
+      canvas.dataset.geographicWebglBufferUploads = String(result.geographicWebGLStats.bufferUploads);
+      canvas.dataset.geographicWebglUploadedBytes = String(result.geographicWebGLStats.uploadedBytes);
     } else {
       delete canvas.dataset.geographicWebglFeatures;
       delete canvas.dataset.geographicWebglSkipped;
       delete canvas.dataset.geographicWebglDrawCalls;
       delete canvas.dataset.geographicWebglTriangles;
+      delete canvas.dataset.geographicWebglCacheHit;
+      delete canvas.dataset.geographicWebglBufferUploads;
+      delete canvas.dataset.geographicWebglUploadedBytes;
     }
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
