@@ -456,7 +456,8 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
     try {
       const ratio = context.canvas?.width && width ? context.canvas.width / width : 1;
       const aggregate = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
-        cacheHit: true, bufferUploads: 0, uploadedBytes: 0, layers: {} };
+        cacheHit: true, bufferUploads: 0, uploadedBytes: 0,
+        cacheBuildMs: 0, drawSubmitMs: 0, totalMs: 0, layers: {} };
       const gpuStats = geographicRenderer.renderLayers(gpuLayers.map(layer => ({
         key: layer.key, type: layer.type, features: layer.features, color: layer.color,
         lineWidth: (layer.lineWidth ?? (layer.key === "rivers" ? 0.7 : 0.55)) * ratio
@@ -469,6 +470,9 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       aggregate.cacheHit = gpuStats.cacheHit;
       aggregate.bufferUploads = gpuStats.bufferUploads;
       aggregate.uploadedBytes = gpuStats.uploadedBytes;
+      aggregate.cacheBuildMs = Number(gpuStats.cacheBuildMs ?? 0);
+      aggregate.drawSubmitMs = Number(gpuStats.drawSubmitMs ?? 0);
+      aggregate.totalMs = Number(gpuStats.totalMs ?? 0);
       aggregate.layers = gpuStats.layers;
       context.save();
       context.setTransform(1, 0, 0, 1, 0, 0);
