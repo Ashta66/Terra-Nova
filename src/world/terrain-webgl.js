@@ -27,10 +27,14 @@ float elevationAt(vec2 uv) {
   vec2 p11 = p00 + vec2(1.0 / u_gridSize.x, 1.0 / u_gridSize.y);
   p00.x = fract(p00.x); p10.x = fract(p10.x);
   p01.x = fract(p01.x); p11.x = fract(p11.x);
-  float a = texture2D(u_elevation, p00).r * 255.0 + texture2D(u_elevation, p00).g * 65280.0;
-  float b = texture2D(u_elevation, p10).r * 255.0 + texture2D(u_elevation, p10).g * 65280.0;
-  float c = texture2D(u_elevation, p01).r * 255.0 + texture2D(u_elevation, p01).g * 65280.0;
-  float d = texture2D(u_elevation, p11).r * 255.0 + texture2D(u_elevation, p11).g * 65280.0;
+  vec4 sampleA = texture2D(u_elevation, p00);
+  vec4 sampleB = texture2D(u_elevation, p10);
+  vec4 sampleC = texture2D(u_elevation, p01);
+  vec4 sampleD = texture2D(u_elevation, p11);
+  float a = sampleA.r * 255.0 + sampleA.a * 65280.0;
+  float b = sampleB.r * 255.0 + sampleB.a * 65280.0;
+  float c = sampleC.r * 255.0 + sampleC.a * 65280.0;
+  float d = sampleD.r * 255.0 + sampleD.a * 65280.0;
   a = mod(a + 32768.0, 65536.0) - 32768.0;
   b = mod(b + 32768.0, 65536.0) - 32768.0;
   c = mod(c + 32768.0, 65536.0) - 32768.0;
@@ -116,13 +120,12 @@ function compileShader(gl, type, source) {
 
 export function encodeTerrainTexture(values) {
   if (!ArrayBuffer.isView(values)) throw new TypeError("Les altitudes doivent être un tableau typé.");
-  const packed = new Uint8Array(values.length * 4);
+  const packed = new Uint8Array(values.length * 2);
   for (let i = 0; i < values.length; i++) {
     const value = values[i] & 0xffff;
-    const offset = i * 4;
+    const offset = i * 2;
     packed[offset] = value & 255;
     packed[offset + 1] = value >>> 8;
-    packed[offset + 3] = 255;
   }
   return packed;
 }
@@ -165,7 +168,7 @@ function createRenderer(grid) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, grid.width, grid.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, packed);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, grid.width, grid.height, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
   const textureUploadMs = (globalThis.performance?.now?.() ?? Date.now()) - uploadStartedAt;
   const timerExtension = gl.getExtension("EXT_disjoint_timer_query");
 
