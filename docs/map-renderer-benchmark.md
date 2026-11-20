@@ -89,7 +89,10 @@ Le canvas expose des métriques dédiées pour chaque couche GPU, y compris les 
 - `data-geographic-webgl-layer-{nom}-build-ms` (dataset `geographicWebglLayer{Nom}BuildMs`) : construction des buffers et upload CPU associés, uniquement sur cache miss.
 - `data-geographic-webgl-layer-{nom}-draw-submit-ms` : temps CPU de soumission des commandes pour cette couche.
 - `data-geographic-webgl-layer-{nom}-total-ms` : somme des deux temps précédents.
-- `data-geographic-webgl-layer-{nom}-features` et `-skipped-features` : entités dessinées par le GPU et entités non prises en charge par ce chemin (à contrôler côté fallback Canvas).
+- `data-geographic-webgl-layer-{nom}-features` et `-skipped-features` : entités dessinées par le GPU et entités refusées lors de la construction du mesh.
+- `data-geographic-webgl-layer-{nom}-fallback-features` : nombre d'entités redessinées par Canvas parce que le chemin WebGL ne les prend pas en charge. Le compteur global est exposé par `geographicWebglFallbackFeatures`.
+
+Le compteur de fallback compte les entités dirigées vers Canvas, pas seulement celles dont la géométrie produit effectivement des pixels dans le viewport. Il mesure donc la charge de compatibilité, pas le nombre de primitives visibles.
 - `data-geographic-webgl-layer-{nom}-draw-calls` et `-cache-hit` : commandes GPU soumises et état du cache de buffers.
 - `data-geographic-webgl-layer-{nom}-triangles`, `-uploads` et `-uploaded-bytes` : volume géométrique et transferts. Pour les rubans de lignes et de contours, le nombre de triangles inclut les quads des segments ainsi que les disques de raccord et de cap.
 
