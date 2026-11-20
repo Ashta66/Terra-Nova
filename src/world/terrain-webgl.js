@@ -433,7 +433,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const [k,item]=pending.entries().next().value;pending.delete(k);if(!entries.has(k)){const entry=get(item.tile,item.protectedKeys);if(entry)onReady?.(item.tile);}schedulePump();}
  function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
  function setOnReady(callback){onReady=typeof callback==="function"?callback:null;}
- function retainPending(keys){const keep=keys instanceof Set?keys:new Set();for(const k of pending.keys())if(!keep.has(k))pending.delete(k);}
+ function retainPending(keys){const keep=keys instanceof Set?keys:new Set();let removed=0;for(const k of pending.keys())if(!keep.has(k)){pending.delete(k);removed++;}return removed;}
  function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
@@ -845,6 +845,11 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
   gl.viewport(0,0,width,height);
   if(gl.isContextLost?.()){renderer.contextLost=true;tileRenderers.delete(tileStore);return null;}
   return canvas;
+}
+
+export function cancelTerrainWebGLPending(tileStore) {
+  const renderer=tileStore&&tileRenderers.get(tileStore);
+  return renderer?renderer.cache.retainPending(new Set()):0;
 }
 
 export function getTerrainWebGLTileStats(tileStore) {
