@@ -1147,7 +1147,9 @@ test("le cache de maillages réutilise la triangulation d'une même feature", ()
 test("le renderer WebGL géographique regroupe les polygones et ignore les géométries non supportées", () => {
   let nextId = 0;
   const calls = [];
+  const uploadedPositions = [];
   const gl = {
+    canvas: { width: 300, height: 150 },
     VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
     ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, FLOAT: 8,
     TRIANGLES: 9, UNSIGNED_SHORT: 10, COLOR_BUFFER_BIT: 11, BLEND: 12,
@@ -1163,7 +1165,10 @@ test("le renderer WebGL géographique regroupe les polygones et ignore les géom
     useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
     bindBuffer(target) { calls.push(["bindBuffer", target]); },
     enableVertexAttribArray() {}, vertexAttribPointer() {},
-    bufferData(target, data) { calls.push(["bufferData", target, data.length]); },
+    bufferData(target, data) {
+      calls.push(["bufferData", target, data.length]);
+      if (target === this.ARRAY_BUFFER) uploadedPositions.push(Array.from(data));
+    },
     drawElements(mode, count) { calls.push(["drawElements", mode, count]); }
   };
   const renderer = createGeographicWebGLRenderer(gl);
@@ -1186,5 +1191,16 @@ test("le renderer WebGL géographique regroupe les polygones et ignore les géom
   assert.equal(stats.triangles, 4);
   assert.equal(calls.filter(call => call[0] === "drawElements").length, 1);
   assert.ok(calls.some(call => call[0] === "bufferData" && call[1] === gl.ELEMENT_ARRAY_BUFFER));
+  assert.equal(renderer.supports(polygon), true);
+  assert.equal(renderer.supports(withHole), false);
+  const dateline = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[179, 10], [-179, 10], [-179, 12], [179, 12], [179, 10]]] }
+  };
+  renderer.render([dateline], 640, 320, { centerLongitude: -180, centerLatitude: 0, zoom: 2 });
+  const datelineLongitudes = uploadedPositions[1].filter((_, index) => index % 2 === 0);
+  assert.ok(Math.max(...datelineLongitudes) - Math.min(...datelineLongitudes) <= 2);
+  assert.equal(gl.canvas.width, 640);
+  assert.equal(gl.canvas.height, 320);
   renderer.dispose();
 });
