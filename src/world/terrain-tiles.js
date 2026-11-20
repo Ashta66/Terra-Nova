@@ -204,12 +204,23 @@ export function createTerrainTileStore(grid, options = {}) {
     const centerLongitude = Number(viewport.centerLongitude) || 0;
     const centerLatitude = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
     const padding = clamp(Number(preloadOptions.padding ?? 0.5), 0, 2);
-    const longitudeHalfSpan = 180 / zoom * (1 + padding);
-    const latitudeHalfSpan = 90 / zoom * (1 + padding);
-    const firstColumn = Math.floor((centerLongitude - longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
-    const lastColumn = Math.ceil((centerLongitude + longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
-    const firstRow = clamp(Math.floor((90 - Math.min(90, centerLatitude + latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
-    const lastRow = clamp(Math.ceil((90 - Math.max(-90, centerLatitude - latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+    const baseLongitudeHalfSpan = 180 / zoom;
+    const baseLatitudeHalfSpan = 90 / zoom;
+    const longitudeHalfSpan = baseLongitudeHalfSpan * (1 + padding);
+    const latitudeHalfSpan = baseLatitudeHalfSpan * (1 + padding);
+    // Décale la fenêtre de préchargement vers le mouvement sans abandonner
+    // la couverture du viewport courant.
+    const lookAhead = clamp(Number(preloadOptions.lookAhead ?? 0), 0, 1);
+    const directionLongitude = Math.sign(Number(preloadOptions.directionLongitude) || 0);
+    const directionLatitude = Math.sign(Number(preloadOptions.directionLatitude) || 0);
+    const preloadCenterLongitude = centerLongitude + directionLongitude * baseLongitudeHalfSpan * lookAhead;
+    const preloadCenterLatitude = clamp(
+      centerLatitude + directionLatitude * baseLatitudeHalfSpan * lookAhead, -90, 90
+    );
+    const firstColumn = Math.floor((preloadCenterLongitude - longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
+    const lastColumn = Math.ceil((preloadCenterLongitude + longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
+    const firstRow = clamp(Math.floor((90 - Math.min(90, preloadCenterLatitude + latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+    const lastRow = clamp(Math.ceil((90 - Math.max(-90, preloadCenterLatitude - latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
     const tileXs = new Set();
     if (lastColumn - firstColumn + 1 >= grid.width) {
       for (let x = 0; x < columns; x++) tileXs.add(x);
@@ -228,7 +239,7 @@ export function createTerrainTileStore(grid, options = {}) {
         if (tile) keepIds.push(tile.id);
       }
     }
-    evictUnused(keepIds);
+    if (!preloadOptions.retainExisting) evictUnused(keepIds);
     return keepIds;
   }
 
