@@ -156,3 +156,12 @@ Le module `src/world/scene-compose.js` isole les paramètres de rendu d'une scè
 ## Scène cartographique surdimensionnée (étape 2)
 
 Le canvas hors écran est rendu avec un facteur `OVERSCAN = 1.4`, limité à `min(1.4, zoom)` afin de respecter le zoom minimal 1 de la projection. Le bitmap de scène utilise un ratio de pixels fixe plafonné à 1,5 pendant les gestes. Le canvas visible garde une taille CSS indépendante (100 %, ratio 2:1) ; seul son bitmap est redimensionné dans `composeScene`. La composition remplit d'abord le fond avec la couleur océan du thème puis dessine les rectangles calculés en coordonnées CSS, avec lissage bas. Lorsque la scène ne couvre plus tout l'écran, un seul recentrage est demandé après un délai de garde de 250 ms ; un verrou empêche les demandes en boucle.
+
+
+## Composition de la scène, labels et échelle de rendu (étape 3)
+
+Les zones de survol et de clic des étiquettes sont recalculées à chaque composition à partir des rectangles réellement dessinés, y compris les copies cycliques au passage de l'antiméridien. Les coordonnées de placement des catastrophes continuent d'utiliser directement le viewport écran `mapViewport`.
+
+Le renderer reçoit deux informations séparées : `lodZoom` conserve le niveau de détail correspondant au vrai zoom utilisateur, tandis que `renderScale` remet à l'échelle les traits, pointillés, symboles et polices dessinés dans le bitmap surdimensionné. Le filtrage géographique continue, lui, d'utiliser le viewport de rendu plus large.
+
+Une comparaison de performance initiale est mesurée avec `performance.now()` au premier zoom où l'overscan est supérieur à 1 : un rendu de référence à la taille écran est comparé au rendu surdimensionné, en tâche différée, puis affiché dans le panneau de diagnostic. La mesure est ponctuelle pour éviter de doubler le coût de chaque rendu.

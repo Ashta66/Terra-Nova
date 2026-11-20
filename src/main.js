@@ -51,6 +51,7 @@ let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
 let sceneLabelHits = [];
 let sceneReady = false;
+let renderComparisonScheduled = false;
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
@@ -242,6 +243,8 @@ function renderMapFrame() {
     width: Ws, height: Hs, year,
     projection: "equirectangular",
     viewport: renderViewport,
+    lodZoom: mapViewport.zoom,
+    renderScale: Ws / width,
     lakes: lakeDetail.features,
     rivers: riverDetail.features,
     glaciers: glacierFeatures,
@@ -271,6 +274,7 @@ function renderMapFrame() {
   sceneReady = true;
   sceneRecenterPending = false;
   composeScene();
+  scheduleRenderComparisonBenchmark(landDetail.features, renderOptions, width, height, fullRenderMs, { ...mapViewport }, f);
   updateMapDiagnostics(result);
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
@@ -617,6 +621,39 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
+function scheduleRenderComparisonBenchmark(features, renderOptions, width, height, overscanRenderMs, viewSnapshot, factor) {
+  if (renderComparisonScheduled || factor <= 1.001) return;
+  renderComparisonScheduled = true;
+  const measure = () => {
+    const baselineCanvas = document.createElement("canvas");
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    try {
+      renderWorldMap(baselineCanvas, features, {
+        ...renderOptions,
+        width,
+        height,
+        viewport: viewSnapshot,
+        lodZoom: viewSnapshot.zoom,
+        renderScale: 1,
+        pixelRatio: MAP_PIXEL_RATIO
+      });
+      const baselineMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
+      const output = $("map-perf-comparison");
+      if (output) output.textContent =
+        `Comparatif initial (zoom ${viewSnapshot.zoom.toFixed(2)}) : sans overscan ${baselineMs.toFixed(1)} ms · avec ×${factor.toFixed(2)} ${overscanRenderMs.toFixed(1)} ms`;
+    } catch (error) {
+      const output = $("map-perf-comparison");
+      if (output) output.textContent = "Comparatif de rendu indisponible : " + error.message;
+      renderComparisonScheduled = false;
+    } finally {
+      baselineCanvas.width = 1;
+      baselineCanvas.height = 1;
+    }
+  };
+  if (typeof requestIdleCallback === "function") requestIdleCallback(measure, { timeout: 1800 });
+  else setTimeout(measure, 500);
+}
+
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
   const { width, height } = viewSize();
@@ -635,6 +672,26 @@ function composeScene() {
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+  }
+  mapLabelHits = [];
+  for (const rect of composition.rects) {
+    const scaleX = rect.w / sceneSize.w;
+    const scaleY = rect.h / sceneSize.h;
+    for (const hit of sceneLabelHits) {
+      const bounds = {
+        left: rect.x + hit.bounds.left * scaleX,
+        right: rect.x + hit.bounds.right * scaleX,
+        top: rect.y + hit.bounds.top * scaleY,
+        bottom: rect.y + hit.bounds.bottom * scaleY
+      };
+      if (bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
+      mapLabelHits.push({
+        ...hit,
+        x: rect.x + hit.x * scaleX,
+        y: rect.y + hit.y * scaleY,
+        bounds
+      });
+    }
   }
   if (!composition.covered) {
     const now = globalThis.performance?.now?.() ?? Date.now();

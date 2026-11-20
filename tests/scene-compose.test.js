@@ -56,7 +56,7 @@ test("une scène couvrant le monde répète le bitmap par périodes ±W×zoom", 
   assert.ok(east.rects.some(rect => Math.abs(rect.x - (east.rects[0].x + period)) < 1e-6));
   const westView = { ...scene, centerLongitude: -100 };
   const west = composeRects(westView, scene, { w: params.Ws, h: params.Hs, f: params.f }, 1000, 500);
-  assert.ok(west.rects.some(rect => Math.abs(rect.x - (west.rects[0].x - period)) < 1e-6));
+  assert.ok(west.rects.some(rect => Math.abs(rect.x - (west.rects.at(-1).x - period)) < 1e-6));
   assert.equal(east.covered, true);
 });
 
@@ -83,4 +83,23 @@ test("le zoom de rendu reste supérieur ou égal à 1 et conserve l'échelle éc
   const zoomed = sceneRenderParams({ ...view, zoom: 8 }, 1000, 500, 1.4);
   assert.ok(zoomed.renderViewport.zoom >= 1);
   close(zoomed.Ws * zoomed.renderViewport.zoom, 1000 * 8);
+});
+
+test("la marge d'overscan couvre les quatre directions aux zooms usuels", () => {
+  for (const zoom of [1, 1.2, 2, 8, 35]) {
+    const scene = { zoom, centerLongitude: 0, centerLatitude: 0 };
+    const params = sceneRenderParams(scene, 1000, 500, 1.4);
+    const size = { w: params.Ws, h: params.Hs, f: params.f };
+    assert.equal(composeRects(scene, scene, size, 1000, 500).covered, true, `centré à zoom ${zoom}`);
+    const lonStep = 360 * 0.05 / zoom;
+    const latStep = 180 * 0.05 / zoom;
+    for (const direction of [-1, 1]) {
+      const horizontal = composeRects({ ...scene, centerLongitude: direction * lonStep }, scene, size, 1000, 500);
+      assert.equal(horizontal.covered, true, `longitude ${direction} à zoom ${zoom}`);
+      if (zoom > 1.001) {
+        const vertical = composeRects({ ...scene, centerLatitude: direction * latStep }, scene, size, 1000, 500);
+        assert.equal(vertical.covered, true, `latitude ${direction} à zoom ${zoom}`);
+      }
+    }
+  }
 });
