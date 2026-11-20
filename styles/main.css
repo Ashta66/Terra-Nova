@@ -182,3 +182,8 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 
 .map-frame .map-physical-overlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;pointer-events:none;flex:none;max-width:100%;max-height:100%;object-fit:contain}
 .map-frame #world-map{position:relative;z-index:0}
+
+.map-relief-control,.map-relief-opacity{display:inline-flex;align-items:center;gap:5px;color:#a9b8b7;font-size:10px;white-space:nowrap}
+.map-relief-control select{max-width:92px;background:#14232c;color:#e8eee9;border:1px solid #40545b;border-radius:5px;padding:4px}
+.map-relief-opacity input{width:72px;accent-color:#d9b878}
+.map-relief-opacity output{min-width:28px;color:#e8d4a8}

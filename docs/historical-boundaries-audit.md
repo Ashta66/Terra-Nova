@@ -122,3 +122,12 @@ Après chaque rendu complet, le moteur prépare pendant le temps libre un bitmap
 ### Cache raster : test de non-invalidation hors champ
 
 Le cache de relief calcule une signature à partir des seules tuiles géographiques visibles. Les révisions hors champ ne changent pas cette signature ; une tuile visible modifiée la change. Le calcul tient compte du passage de l'antiméridien. Ces tests valident la clé d'invalidation, pas encore un précalcul de chaque tuile dans un Worker.
+
+
+## Optimisation complémentaire du relief et des catastrophes (20 novembre 2026)
+
+- Les aplats politiques et les contours territoriaux sont rendus en deux passes. Les aplats précèdent l'ombrage indépendant ; les contours fins et la mise en évidence de la nation choisie sont dessinés ensuite.
+- Les contours territoriaux ont été affinés. L'opacité des aplats est réglable en jeu, avec un mode politique et un mode relief.
+- La résolution du raster de relief passe à 1024 × 512 pixels au maximum pour une vue mondiale à pleine qualité.
+- Un Web Worker précalcule les ombres multidirectionnelles à la résolution native de la grille ETOPO. En cas d'indisponibilité, le calcul synchrone reste disponible.
+- Les cellules géophysiques distinguent l'océan connecté au bord du monde des plans d'eau intérieurs isolés. Les distances côtières et les impacts marins se fondent sur les eaux connectées à la résolution de la grille géophysique.

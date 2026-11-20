@@ -18,7 +18,7 @@ function nextWaterContact(world,e){
   if(Number.isInteger(c.gridStep)&&c.gridStep>2)return false;
   if(distance(e,c)>reach)return false;
   const elevation=Number(c.baseElevationM??c.elevationM);
-  return elevation<0||(elevation>=0&&Number(c.coastalDistanceKm)<=3);
+  return c.oceanConnected===true||(elevation>=0&&Number(c.coastalDistanceKm)<=3)||(c.oceanConnected==null&&elevation<0);
  });
 }
 function effect(e,c,d){if(e.type==="sea-level-rise"){if(c.baseElevationM+c.elevationDeltaM<0)return null;const depth=e.seaLevelM-(c.baseElevationM+c.elevationDeltaM);return depth>0?{severity:clamp(depth/5,0,1),waterDepthM:depth}:null;}if(e.type==="tsunami"){if(c.baseElevationM<0||d>e.radiusKm||c.coastalDistanceKm>e.maxCoastalDistanceKm)return null;const coast=Math.exp(-c.coastalDistanceKm/Math.max(1,e.maxCoastalDistanceKm/3)),radial=Math.max(.15,1-d/e.radiusKm),height=e.waveHeightM*coast*radial;return height>.15?{severity:clamp(height/12,0,1),waterDepthM:height}:null;}if(d===null||d>e.radiusKm)return null;const f=Math.max(0,1-d/e.radiusKm);return {severity:e.type==="earthquake"?clamp(e.magnitude/10*f,0,1):f};}
@@ -52,6 +52,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
  const xSpan = Math.ceil(lonSpan / 360 * grid.width) + pixelStep;
  const ySpan = Math.ceil(latSpan / 180 * grid.height) + pixelStep;
  const fineCells = [];
+ const ocean = buildOceanConnectivityMask(grid, 12);
  const seen = new Set();
  for (let row = Math.max(0, Math.floor(centerY - ySpan)); row <= Math.min(grid.height - 1, Math.ceil(centerY + ySpan)); row += pixelStep) {
   for (let offset = -xSpan; offset <= xSpan; offset += pixelStep) {
@@ -70,7 +71,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
      for (let oy = -ring; oy <= ring; oy++) for (let ox = -ring; ox <= ring; ox++) {
       if (Math.max(Math.abs(ox), Math.abs(oy)) !== ring) continue;
       const nx = (column + ox + grid.width) % grid.width, ny = row + oy;
-      if (ny < 0 || ny >= grid.height || Number(grid.values[ny * grid.width + nx]) >= 0) continue;
+      if (ny < 0 || ny >= grid.height || !ocean.mask[Math.max(0,Math.min(ocean.rows-1,Math.floor(ny/ocean.step)))*ocean.cols+(((Math.floor(nx/ocean.step)%ocean.cols)+ocean.cols)%ocean.cols)]) continue;
       const nlon = (nx + .5) / grid.width * 360 - 180, nlat = 90 - (ny + .5) / grid.height * 180;
       coastalDistanceKm = Math.min(coastalDistanceKm, distance({longitude:lon,latitude:lat},{longitude:nlon,latitude:nlat}));
      }
@@ -79,6 +80,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
    }
    fineCells.push({
     ...cell, elevationM, coastalDistanceKm,
+    oceanConnected: Boolean(ocean.mask[Math.max(0,Math.min(ocean.rows-1,Math.floor(row/ocean.step)))*ocean.cols+(((Math.floor(column/ocean.step)%ocean.cols)+ocean.cols)%ocean.cols)]),
     regionId: "impact-zone-" + event.id,
     gridX: Math.floor(column / pixelStep), gridY: Math.floor(row / pixelStep), gridStep: pixelStep
    });
@@ -98,19 +100,33 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
  return next;
 }
 
+export function buildOceanConnectivityMask(grid,step=12){
+ if(!grid?.values||!Number.isInteger(step)||step<1)throw TypeError("Grille de relief invalide.");
+ const cols=Math.ceil(grid.width/step),rows=Math.ceil(grid.height/step),mask=new Uint8Array(cols*rows),queue=new Int32Array(cols*rows);
+ const elevationAt=(gx,gy)=>grid.values[Math.min(grid.height-1,gy*step+Math.floor(step/2))*grid.width+Math.min(grid.width-1,gx*step+Math.floor(step/2))];
+ let head=0,tail=0;
+ const seed=(gx,gy)=>{const index=gy*cols+gx;if(!mask[index]&&elevationAt(gx,gy)<0){mask[index]=1;queue[tail++]=index;}};
+ for(let x=0;x<cols;x++){seed(x,0);if(rows>1)seed(x,rows-1);}
+ while(head<tail){const index=queue[head++],x=index%cols,y=Math.floor(index/cols);
+  const visit=(nx,ny)=>{if(ny<0||ny>=rows)return;nx=(nx+cols)%cols;const next=ny*cols+nx;if(!mask[next]&&elevationAt(nx,ny)<0){mask[next]=1;queue[tail++]=next;}};
+  visit(x-1,y);visit(x+1,y);visit(x,y-1);visit(x,y+1);
+ }
+ return {mask,cols,rows,step};
+}
+
 export function buildPhysicalCellsFromTerrainGrid(grid,{step=12,maxCoastSearchCells=4,regionAt=null}={}){
  if(!grid?.values||!Number.isInteger(grid.width)||!Number.isInteger(grid.height)||!Number.isInteger(step)||step<1)throw TypeError("Grille de relief invalide.");
- const cols=Math.ceil(grid.width/step),rows=Math.ceil(grid.height/step),cells=[],elevationAt=(x,y)=>grid.values[clamp(y,0,grid.height-1)*grid.width+((x%grid.width)+grid.width)%grid.width];
+ const cols=Math.ceil(grid.width/step),rows=Math.ceil(grid.height/step),cells=[],ocean=buildOceanConnectivityMask(grid,step),elevationAt=(x,y)=>grid.values[clamp(y,0,grid.height-1)*grid.width+((x%grid.width)+grid.width)%grid.width];
  for(let gy=0;gy<rows;gy++)for(let gx=0;gx<cols;gx++){
   const px=Math.min(grid.width-1,gx*step+Math.floor(step/2)),py=Math.min(grid.height-1,gy*step+Math.floor(step/2));
-  const longitude=(px+.5)/grid.width*360-180,latitude=90-(py+.5)/grid.height*180,elevationM=elevationAt(px,py);
+  const longitude=(px+.5)/grid.width*360-180,latitude=90-(py+.5)/grid.height*180,elevationM=elevationAt(px,py),oceanConnected=Boolean(ocean.mask[gy*cols+gx]);
   let coastalDistanceKm=elevationM<0?0:Infinity;
   if(elevationM>=0){
    for(let ring=1;ring<=maxCoastSearchCells&&coastalDistanceKm===Infinity;ring++){
     for(let oy=-ring;oy<=ring;oy++)for(let ox=-ring;ox<=ring;ox++){
      if(Math.max(Math.abs(ox),Math.abs(oy))!==ring)continue;
      const nx=gx*step+Math.floor(step/2)+ox*step,ny=gy*step+Math.floor(step/2)+oy*step;
-     if(ny<0||ny>=grid.height||elevationAt(nx,ny)>=0)continue;
+     if(ny<0||ny>=grid.height||!ocean.mask[Math.max(0,Math.min(rows-1,Math.floor(ny/step)))*cols+(((Math.floor(nx/step)%cols)+cols)%cols)])continue;
      const lon=(nx+.5)/grid.width*360-180,lat=90-(ny+.5)/grid.height*180;
      coastalDistanceKm=Math.min(coastalDistanceKm,distance({longitude,latitude},{longitude:lon,latitude:lat}));
     }
@@ -118,7 +134,7 @@ export function buildPhysicalCellsFromTerrainGrid(grid,{step=12,maxCoastSearchCe
    if(coastalDistanceKm===Infinity)coastalDistanceKm=maxCoastSearchCells*step/grid.width*360*111.32;
   }
   const regionId=typeof regionAt==="function"?regionAt({longitude,latitude,gx,gy}):"geo-"+gy+"-"+gx;
-  cells.push({id:"cell-"+gy+"-"+gx,regionId,longitude,latitude,elevationM,coastalDistanceKm,gridX:gx,gridY:gy,gridStep:step});
+  cells.push({id:"cell-"+gy+"-"+gx,regionId,longitude,latitude,elevationM,coastalDistanceKm,oceanConnected,gridX:gx,gridY:gy,gridStep:step});
  }
  return cells;
 }

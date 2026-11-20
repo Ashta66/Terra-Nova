@@ -697,47 +697,21 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  }
  ctx.restore();return count;
 }
-function drawTerritoryLayer(context, collection, width, height, projection, selectedCountry = "") {
-  if (!collection?.features) return 0;
-  let drawn = 0;
-  const profile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
-  context.save();
-  for (const feature of collection.features) {
-    if (!feature?.geometry) continue;
-    const status = classifyHistoricalTerritoryStyle(feature);
-    const nationalColor = territoryColor(feature);
-    const fill = path => {
-      context.fillStyle = nationalColor;
-      context.globalAlpha = status === "influence" ? 0.17 : status === "contested" ? 0.42 : status === "unclaimed" ? 0.08 : 0.58;
-      context.fill(path, "evenodd");
-      context.globalAlpha = status === "influence" ? 0.52 : 0.98;
-      context.setLineDash?.(status === "influence" ? [4, 3] : status === "contested" ? [2.5, 2] : []);
-      context.strokeStyle = nationalColor;
-      context.lineWidth = Math.max(1.35, Math.min(3.2, 2.1 * Math.sqrt(projection.viewport?.zoom ?? 1)));
-      context.lineJoin = "round"; context.stroke(path);
-      context.setLineDash?.([]);
-      context.globalAlpha = status === "influence" ? 0.3 : 0.82;
-      context.strokeStyle = "#101820";
-      context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
-      context.stroke(path);
-      if (territoryMatchesSelectedCountry(feature, selectedCountry)) {
-        context.globalAlpha = 0.22; context.fillStyle = "#fff4c2"; context.fill(path, "evenodd");
-        context.globalAlpha = 1; context.strokeStyle = "#fff1b0";
-        context.lineWidth = Math.max(3.2, Math.min(7, 4.2 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
-        context.strokeStyle = "#fff"; context.lineWidth = Math.max(1.1, Math.min(2.2, 1.45 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
-      }
-    };
-    const path = getProjectedPath(feature, width, height, projection, profile);
-    if (path) fill(path);
-    else {
-      context.beginPath();
-      if (!traceGeometry(context, feature.geometry, width, height, projection, profile)) continue;
-      fill(context);
-    }
-    drawn++;
-  }
-  context.restore();
-  return drawn;
+function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
+ if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.viewport?.zoom??1),zoom=Number(projection.viewport?.zoom??1);context.save();
+ for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
+  const paint=path=>{
+   const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};
+   const strokePath=()=>{if(path)context.stroke(path);else context.stroke();};
+   if(pass!=="outlines"){const statusOpacity=status==="influence"?.28:status==="contested"?.72:status==="unclaimed"?.12:1;context.globalCompositeOperation="source-over";context.globalAlpha=fillOpacity*statusOpacity;context.fillStyle=nationalColor;fillPath();}
+   if(pass!=="fill"){context.globalCompositeOperation="source-over";context.globalAlpha=status==="influence"?.42:.78;context.setLineDash?.(status==="influence"?[3,3]:status==="contested"?[2,2]:[]);context.strokeStyle=nationalColor;context.lineWidth=Math.max(.72,Math.min(1.45,.88*Math.sqrt(zoom)));context.lineJoin="round";strokePath();context.setLineDash?.([]);context.globalAlpha=.46;context.strokeStyle="#14232c";context.lineWidth=Math.max(.45,Math.min(.85,.55*Math.sqrt(zoom)));strokePath();
+    if(selected){context.globalAlpha=.96;context.strokeStyle="#fff0b4";context.lineWidth=Math.max(1.5,Math.min(2.8,1.7*Math.sqrt(zoom)));strokePath();context.globalAlpha=.9;context.strokeStyle="#fff";context.lineWidth=.65;strokePath();}
+   }
+  };
+  const path=getProjectedPath(feature,width,height,projection,profile);if(path)paint(path);else{context.beginPath();if(!traceGeometry(context,feature.geometry,width,height,projection,profile))continue;paint(null);}
+  drawn++;
+ }
+ context.restore();return drawn;
 }
 
 function pointLon(value){return Number(value)||0;}
@@ -887,9 +861,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = measureLayer("territoires", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? ""));
-  // Passe de relief en luminosité : elle sculpte les couleurs politiques sans
-  // remplacer leur teinte nationale (ombres dans les vallées, lumière sur les crêtes).
+  const reliefMode = options.terrainMode === "relief";
+  const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
+  const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
   if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
     context.save();
     context.beginPath();
@@ -898,10 +872,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // Ombres multidirectionnelles en niveaux de gris : le mode overlay creuse
     // fortement les vallées et éclaire les crêtes sans recolorer les nations.
     context.globalCompositeOperation = "overlay";
-    context.globalAlpha = 0.88;
+    context.globalAlpha = reliefMode ? 0.98 : 0.82;
     measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
     context.restore();
   }
+  const territoryOutlineCount = measureLayer("frontieres-territoriales", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", countryOpacity));
   const physicalContext = options.physicalOverlayContext ?? context;
   if (options.physicalOverlayContext) {
     const overlayCanvas = physicalContext.canvas;
@@ -925,7 +900,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     renderTimings, totalRenderMs: Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt),
-    landCount, territoryCount, physicalChangeCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
+    landCount, territoryCount, territoryOutlineCount, physicalChangeCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
   };
 }
 

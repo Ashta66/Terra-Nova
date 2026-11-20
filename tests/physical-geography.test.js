@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects} from "../src/world/physical-geography.js";
+import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,buildOceanConnectivityMask,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects} from "../src/world/physical-geography.js";
 import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResponses} from "../src/world/society-engine.js";
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"},{id:"ocean",longitude:.02,latitude:0,elevationM:-80,coastalDistanceKm:0,regionId:"sea"}];
@@ -131,4 +131,11 @@ test("une catastrophe incrémente les révisions des seules tuiles locales et de
  assert.ok(result.world.lastInvalidatedTileKeys.includes("18:9"));
  assert.equal(result.world.tileRevisions["20:10"]??0,0);
  assert.ok(result.world.lastInvalidatedTileKeys.length<30);
+});
+
+test("le masque de connexion réelle à l'océan exclut les lacs intérieurs isolés",()=>{
+ const values=new Int16Array([-10,-10,-10,-10,-10,-10,100,100,100,-10,-10,100,-5,100,-10,-10,100,100,100,-10,-10,-10,-10,-10,-10]);
+ const ocean=buildOceanConnectivityMask({width:5,height:5,values},1);
+ assert.equal(ocean.mask[0],1);
+ assert.equal(ocean.mask[12],0);
 });

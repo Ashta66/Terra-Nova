@@ -155,6 +155,27 @@ export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
   return entries.sort().join(",");
 }
 
+const hillshadeGridCache = new WeakMap();
+export function prepareTerrainHillshade(grid) {
+ if(!grid?.values)return Promise.resolve(false);
+ const existing=hillshadeGridCache.get(grid);if(existing)return existing;
+ if(typeof Worker==="undefined")return Promise.resolve(false);
+ const task=new Promise(resolve=>{let worker;try{
+  worker=new Worker(new URL("./terrain-worker.js",import.meta.url),{type:"module"});
+  const values=grid.values.slice();
+  worker.onmessage=event=>{if(event.data?.ok&&event.data.width===grid.width&&event.data.height===grid.height){hillshadeGridCache.set(grid,event.data.shades);resolve(true);}else resolve(false);worker.terminate();};
+  worker.onerror=()=>{worker.terminate();resolve(false);};
+  worker.postMessage({width:grid.width,height:grid.height,values:values.buffer},[values.buffer]);
+ }catch{worker?.terminate?.();resolve(false);}});
+ hillshadeGridCache.set(grid,task);return task;
+}
+function samplePreparedHillshade(grid,longitude,latitude){
+ const shades=hillshadeGridCache.get(grid);if(!(shades instanceof Uint8Array))return null;
+ const x=(((longitude+180)%360+360)%360)/360*grid.width-.5,y=clamp((90-latitude)/180*grid.height-.5,0,grid.height-1);
+ const rawX=Math.floor(x),x0=((rawX%grid.width)+grid.width)%grid.width,x1=(x0+1)%grid.width,y0=Math.floor(y),y1=Math.min(grid.height-1,y0+1),fx=x-rawX,fy=y-y0;
+ const at=(ix,iy)=>shades[iy*grid.width+ix]/255,a=at(x0,y0)*(1-fx)+at(x1,y0)*fx,b=at(x0,y1)*(1-fx)+at(x1,y1)*fx;
+ return .48+(a*(1-fy)+b*fy)*1.04;
+}
 const physicalLookupCache = new WeakMap();
 function physicalLookup(world) {
  if(!world?.currentCells)return null;
@@ -186,7 +207,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Raster compact : l'ombrage multidirectionnel donne le détail, pas une haute résolution brute.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
-  const scale = Math.min(1, (384 * qualityScale) / width, (192 * qualityScale) / height);
+  const scale = Math.min(1, (1024 * qualityScale) / width, (512 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
@@ -236,7 +257,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
       if (e >= 0) {
         const west = samplePhysicalElevation(grid, lon - dx, lat, physical), east = samplePhysicalElevation(grid, lon + dx, lat, physical);
         const north = samplePhysicalElevation(grid, lon, lat + dy, physical), south = samplePhysicalElevation(grid, lon, lat - dy, physical);
-        shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
+        shade = samplePreparedHillshade(grid, lon, lat) ?? calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
         const gray = Math.round(28 + relief * 214);

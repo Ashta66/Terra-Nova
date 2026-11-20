@@ -4,7 +4,7 @@ import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { createTerrainGrid } from "./world/terrain.js";
+import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
@@ -266,6 +266,8 @@ function renderMapFrame() {
     terrain: terrainGrid,
     terrainEnabled: !mapInteractionActive,
     terrainQuality: 1,
+    terrainMode: $("terrain-mode")?.value ?? "political",
+    countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: mapInteractionActive ? 1 : undefined,
     interactive: mapInteractionActive,
     physicalOverlayContext: mapInteractionActive ? null : ensurePhysicalOverlayCanvas(canvas, width, height).getContext("2d"),
@@ -337,6 +339,7 @@ async function loadWorldMap() {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) {
         terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        prepareTerrainHillshade(terrainGrid).then(ready => { if (ready) { lastRenderedMapSignature = null; renderMap(); } });
         if (!state.physicalWorld?.currentCells?.length) {
           const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
           state.physicalWorld = createPhysicalWorld(physicalCells);
@@ -532,6 +535,11 @@ $("load-game").addEventListener("click", () => {
 
 $("install-map-pack").addEventListener("click", installFullMapPack);
 
+$("terrain-mode")?.addEventListener("change", () => { lastRenderedMapSignature = null; renderMap(); });
+$("country-opacity")?.addEventListener("input", event => {
+ const output=$("country-opacity-value");if(output)output.textContent=event.target.value+" %";
+ lastRenderedMapSignature=null;renderMap();
+});
 const mapCanvas = $("world-map");
 $("map-zoom-in").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1.5); });
 $("map-zoom-out").addEventListener("click", () => { clearWheelZoomPreview(); zoomMap(1 / 1.5); });
