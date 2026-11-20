@@ -18,6 +18,9 @@ let terrainGrid = null;
 let terrainTileStore = null;
 let terrainTilePersistence = null;
 let mapLabelHits = [];
+// Les événements (catastrophes, impacts et changements du terrain) s'ajoutent
+// à cette famille sans invalider les couches physiques et politiques statiques.
+const dynamicMapLayers = [];
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -73,7 +76,8 @@ function renderMap() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: mapLabels,
-    terrain: terrainTileStore ?? terrainGrid
+    terrain: terrainTileStore ?? terrainGrid,
+    dynamicLayers: dynamicMapLayers
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
