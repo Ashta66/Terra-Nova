@@ -78,7 +78,6 @@ function renderMapFrame() {
     elevationPoints,
     labels: mapLabels,
     terrain: terrainGrid,
-    terrainQuality: mapDrag ? 0.5 : 1
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
