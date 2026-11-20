@@ -131,7 +131,7 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 1.65, 0.48, 1.52);
 }
 
-function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
+export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
   const zoom = Math.max(1, Number(viewport.zoom ?? 1));
   const centerLon = Number(viewport.centerLongitude ?? 0);
   const centerLat = Number(viewport.centerLatitude ?? 0);

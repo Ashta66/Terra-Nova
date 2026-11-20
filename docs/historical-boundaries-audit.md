@@ -117,3 +117,8 @@ Après chaque rendu complet, le moteur prépare pendant le temps libre un bitmap
 - Les effets géophysiques (déformations visibles, zones d'impact, inondations et marqueurs) peuvent maintenant être rendus dans un canvas transparent indépendant, superposé au canvas cartographique.
 - Pendant un déplacement ou un zoom, cette couche est masquée et le tampon de navigation inclut les effets physiques ; elle est réaffichée après le rendu stabilisé.
 - Le relief, les frontières et les territoires restent dans le canvas principal à ce stade. La séparation progressive évite de déplacer toutes les couches simultanément et limite le risque de régression.
+
+
+### Cache raster : test de non-invalidation hors champ
+
+Le cache de relief calcule une signature à partir des seules tuiles géographiques visibles. Les révisions hors champ ne changent pas cette signature ; une tuile visible modifiée la change. Le calcul tient compte du passage de l'antiméridien. Ces tests valident la clé d'invalidation, pas encore un précalcul de chaque tuile dans un Worker.
