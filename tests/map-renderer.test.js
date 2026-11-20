@@ -431,3 +431,33 @@ test("le cache spatial LRU reste borné à 48 requêtes et peut être vidé", as
   assert.equal(clearGeoSpatialQueryCache(collection), true);
   assert.equal(getGeoSpatialIndexStats(collection).cachedQueries, 0);
 });
+
+test("les tracés qui traversent l'antiméridien suivent le court chemin au bord du planisphère", () => {
+  const previous = globalThis.Path2D;
+  const paths = [];
+  class FakePath2D {
+    constructor() { this.commands = []; paths.push(this); }
+    moveTo(x, y) { this.commands.push(["moveTo", x, y]); }
+    lineTo(x, y) { this.commands.push(["lineTo", x, y]); }
+    closePath() { this.commands.push(["closePath"]); }
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { canvas } = createCanvas();
+    const rivers = { type: "FeatureCollection", features: [
+      { type: "Feature", geometry: { type: "LineString", coordinates: [[179, 0], [-179, 0]] } }
+    ] };
+    renderWorldMap(canvas, { type: "FeatureCollection", features: [] }, {
+      width: 640, height: 320, pixelRatio: 1, rivers,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 }
+    });
+    const riverPath = paths.find(path => path.commands.some(command => command[0] === "lineTo"));
+    const points = riverPath.commands.filter(command => command[0] === "moveTo" || command[0] === "lineTo");
+    assert.equal(points.length, 2);
+    assert.ok(Math.abs(points[1][1] - points[0][1]) < 5);
+    assert.ok(points.every(point => point[1] > 630));
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});

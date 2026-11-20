@@ -5,10 +5,32 @@ import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
 
+function createContinuousProjector(width, height, projection) {
+  const viewport = projection.viewport ?? {};
+  const unwrappedProjection = projection.type === "orthographic"
+    ? projection
+    : { ...projection, viewport: { ...viewport, wrapLongitude: false } };
+  let previousLongitude = null;
+  return coordinate => {
+    let longitude = coordinate[0];
+    if (projection.type !== "orthographic") {
+      if (previousLongitude === null) {
+        longitude += 360 * Math.round((Number(viewport.centerLongitude ?? 0) - longitude) / 360);
+      } else {
+        while (longitude - previousLongitude > 180) longitude -= 360;
+        while (longitude - previousLongitude < -180) longitude += 360;
+      }
+      previousLongitude = longitude;
+    }
+    return projectCoordinate([longitude, coordinate[1]], width, height, unwrappedProjection);
+  };
+}
+
 function traceRing(context, ring, width, height, projection) {
   let started = false;
+  const project = createContinuousProjector(width, height, projection);
   for (const coordinate of ring) {
-    const point = projectCoordinate(coordinate, width, height, projection);
+    const point = project(coordinate);
     if (!point) { started = false; continue; }
     if (!started) { context.moveTo(point.x, point.y); started = true; }
     else context.lineTo(point.x, point.y);
@@ -27,8 +49,9 @@ function traceGeometry(context, geometry, width, height, projection) {
   if (lines.length) {
     for (const line of lines) {
       let started = false;
+      const project = createContinuousProjector(width, height, projection);
       for (const coordinate of line) {
-        const point = projectCoordinate(coordinate, width, height, projection);
+        const point = project(coordinate);
         if (!point) { started = false; continue; }
         if (!started) { context.moveTo(point.x, point.y); started = true; }
         else context.lineTo(point.x, point.y);

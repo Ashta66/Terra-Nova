@@ -166,7 +166,7 @@ function renderMapFrame() {
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
-  const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
+  const terrainStatus = mapInteractionActive ? " · relief allégé pendant le déplacement" : result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
   const regionalLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.level === "regional-10m").length;
   const fallbackLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.isFallback).length;
   const detailStatus = regionalLayerCount
