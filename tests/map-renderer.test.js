@@ -1493,7 +1493,7 @@ test("les frontières administratives non compatibles WebGL conservent le fallba
   });
   assert.ok(calls.some(call => call[0] === "stroke"));
   // Une entité refusée par le chemin GPU doit être explicitement comptée comme fallback Canvas.
-  assert.equal(result.geographicWebGLStats.fallbackFeatures, 1);
+  assert.equal(result.geographicWebGLStats.fallbackLayerFeatures, 2);
   assert.equal(result.geographicWebGLStats.layers["administrative-boundary-polygons"].fallbackFeatures, 1);
 });
 
