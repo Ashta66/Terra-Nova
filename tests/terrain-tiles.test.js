@@ -123,3 +123,31 @@ test("les niveaux de zoom invalides ou identiques sont ignorés", () => {
   assert.deepEqual(withInvalidLevels, normal);
 });
 
+
+test("la préparation asynchrone des tuiles cède le thread entre les lots", async () => {
+  const store = createStore();
+  let checks = 0;
+  const ids = Array.from({ length: 24 }, (_, index) => store.getTileId(index % store.columns, Math.floor(index / store.columns)));
+  const result = await store.preloadTileIds(ids, {
+    batchSize: 2,
+    shouldCancel: () => ++checks > 5
+  });
+  assert.equal(result.cancelled, true);
+  assert.ok(result.loaded > 0);
+  assert.ok(result.loaded < ids.length);
+});
+
+test("le préchargement asynchrone protège les tuiles visibles de l'éviction", async () => {
+  const store = createTerrainTileStore(
+    { width: 72, height: 36, values: new Int16Array(72 * 36) },
+    { tileSize: 6, maxTiles: 8 }
+  );
+  const visible = store.preloadViewport(
+    { zoom: 8, centerLongitude: 0, centerLatitude: 0 },
+    { padding: 0 }
+  );
+  const candidates = Array.from({ length: 30 }, (_, index) => store.getTileId(index % store.columns, Math.floor(index / store.columns)));
+  await store.preloadTileIds(candidates, { batchSize: 3, protectedIds: visible });
+  assert.ok(visible.every(id => store.loadedIds.includes(id)));
+});
+
