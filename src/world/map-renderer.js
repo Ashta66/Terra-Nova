@@ -217,7 +217,7 @@ export function calculateExposedRegions(previous, next, width, height) {
   if (Math.abs(dx) >= width || Math.abs(dy) >= height) return null;
   if (dx === 0 && dy === 0) return [];
   const regions = [];
-  if (dx > 0) regions.push({ x::0, y: 0, width: dx, height });
+  if (dx > 0) regions.push({ x: 0, y: 0, width: dx, height });
   if (dx < 0) regions.push({ x: width + dx, y: 0, width: -dx, height });
   const remainingX = dx > 0 ? dx : 0;
   const remainingWidth = width - Math.abs(dx);
