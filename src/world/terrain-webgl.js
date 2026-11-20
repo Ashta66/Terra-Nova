@@ -130,6 +130,52 @@ export function encodeTerrainTexture(values) {
   return packed;
 }
 
+export function getTerrainTileGeoBounds(tile, tileStore) {
+  if (!tile || !tileStore || !Number.isInteger(tile.level)
+    || !Number.isInteger(tile.originX) || !Number.isInteger(tile.originY)
+    || !Number.isInteger(tile.width) || !Number.isInteger(tile.height)
+    || !Number.isInteger(tileStore.width) || !Number.isInteger(tileStore.height)) return null;
+  const stride = 2 ** tile.level;
+  const levelWidth = Math.ceil(tileStore.width / stride);
+  const levelHeight = Math.ceil(tileStore.height / stride);
+  return {
+    west: -180 + tile.originX * 360 / levelWidth,
+    east: -180 + (tile.originX + tile.width) * 360 / levelWidth,
+    north: 90 - tile.originY * 180 / levelHeight,
+    south: 90 - (tile.originY + tile.height) * 180 / levelHeight
+  };
+}
+
+export function getTerrainTileScreenRects(tile, tileStore, viewport, width, height) {
+  const bounds = getTerrainTileGeoBounds(tile, tileStore);
+  const zoom = Number(viewport?.zoom);
+  if (!bounds || !Number.isFinite(zoom) || zoom <= 0
+    || !Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) return [];
+  const viewWest = Number(viewport.centerLongitude ?? 0) - 180 / zoom;
+  const viewEast = Number(viewport.centerLongitude ?? 0) + 180 / zoom;
+  const viewNorth = Number(viewport.centerLatitude ?? 0) + 90 / zoom;
+  const viewSouth = Number(viewport.centerLatitude ?? 0) - 90 / zoom;
+  const rects = [];
+  for (const shift of [-360, 0, 360]) {
+    const west = bounds.west + shift, east = bounds.east + shift;
+    const overlapWest = Math.max(west, viewWest), overlapEast = Math.min(east, viewEast);
+    const overlapNorth = Math.min(bounds.north, viewNorth), overlapSouth = Math.max(bounds.south, viewSouth);
+    if (overlapEast <= overlapWest || overlapNorth <= overlapSouth) continue;
+    rects.push({
+      x: (overlapWest - viewWest) / (360 / zoom) * width,
+      y: (viewNorth - overlapNorth) / (180 / zoom) * height,
+      width: (overlapEast - overlapWest) / (360 / zoom) * width,
+      height: (overlapNorth - overlapSouth) / (180 / zoom) * height,
+      u0: (overlapWest - west) / (east - west),
+      u1: (overlapEast - west) / (east - west),
+      v0: (bounds.north - overlapNorth) / (bounds.north - bounds.south),
+      v1: (bounds.north - overlapSouth) / (bounds.north - bounds.south),
+      longitudeShift: shift
+    });
+  }
+  return rects;
+}
+
 export function buildTerrainTileTexture(tile, tileStore) {
   if (!tile || !tileStore?.getTileAtLevel || !Number.isInteger(tile.level)
     || !Number.isInteger(tile.x) || !Number.isInteger(tile.y)
