@@ -264,3 +264,10 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 - [x] Actualiser les hitboxes après relâchement sans forcer un nouveau rendu vectoriel.
 - [ ] Mesurer les gains de temps de rendu et la mémoire consommée sur navigateur réel.
 - [ ] Si les couches vectorielles restent le goulot d'étranglement, prototyper leur rendu dans un Worker avec OffscreenCanvas et transfert minimal des données.
+
+
+### Budgets mémoire — 20 novembre 2026
+- [x] Borner le cache des tuiles ETOPO à 64 Mio et 1 600 entrées.
+- [x] Borner le cache statique à 48 Mio et trois surfaces par canvas.
+- [x] Exposer les octets retenus dans les diagnostics et tester le plafond statique.
+- [ ] Vérifier l'utilisation mémoire réelle dans les outils de développement du navigateur sur une session longue.
