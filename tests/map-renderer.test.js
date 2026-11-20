@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, collectTerrainPredictiveLodTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -923,6 +923,24 @@ test("le préchargement GPU sélectionne des tuiles voisines sans dupliquer le v
     assert.equal(visibleIds.has(`${tile.level}/${tile.x}/${tile.y}`), false);
   }
   assert.equal(collectTerrainPredictiveTiles(store, viewport, 800, 400, 0, 0).length, 0);
+});
+
+test("le préchargement GPU anticipe les deux niveaux LOD voisins et priorise le sens du zoom", () => {
+  const width = 256, height = 128, tileSize = 8;
+  const store = createTerrainTileStore({ width, height, values: new Int16Array(width * height) },
+    { tileSize, maxTiles: 512 });
+  const viewport = { centerLongitude: 0, centerLatitude: 0, zoom: 2 };
+  const zoomIn = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 1, 0, 12);
+  const zoomOut = collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 1, 2, 12);
+  assert.ok(zoomIn.length > 0);
+  assert.ok(zoomOut.length > 0);
+  assert.ok(zoomIn.every(({ tile }) => tile.level === 0 || tile.level === 2));
+  assert.ok(zoomOut.every(({ tile }) => tile.level === 0 || tile.level === 2));
+  assert.equal(zoomIn[0].tile.level, 0);
+  assert.equal(zoomOut[0].tile.level, 2);
+  assert.ok(zoomIn.length <= 12);
+  assert.ok(zoomOut.length <= 12);
+  assert.deepEqual(collectTerrainPredictiveLodTiles(store, viewport, 512, 256, 0, 1, 8), []);
 });
 
 test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", () => {
