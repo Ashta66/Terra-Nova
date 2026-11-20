@@ -253,7 +253,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const shade=samplePreparedHillshade(grid,lon,lat)??1;
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
         else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
-       }else color=terrainColorForElevation(e,1);
+       }else color=hillshadeOnly?[128,128,128]:terrainColorForElevation(e,1);
       }else color=terrainColorForElevation(e,1,"ocean");
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
