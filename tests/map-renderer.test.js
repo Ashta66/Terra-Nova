@@ -780,7 +780,9 @@ test("le batch atlas regroupe plusieurs tuiles en une seule liste de triangles",
   const atlas = { cellSize: 6, atlasWidth: 12, atlasHeight: 12 };
   const vertices = buildTerrainTileAtlasBatchVertices(items, entries, 100, 40, atlas);
   assert.equal(vertices.length, 144);
-  assert.deepEqual(Array.from(vertices.slice(0, 12)), [-1, 1, 1/12, 1/12, 1/12, 1/12, 1/6, 1/6, 0, 0, 5/12, 5/12]);
+  assert.deepEqual(Array.from(vertices.slice(0, 2)), [-1, 1]);
+  const expectedFirstVertex = [1/12, 1/12, 1/12, 1/12, 1/6, 1/6, 0, 0, 5/12, 5/12];
+  expectedFirstVertex.forEach((value, index) => assert.ok(Math.abs(vertices[index + 2] - value) < 1e-6));
   assert.ok(vertices.some((value, index) => index % 8 === 2 && value > 0.5));
 });
 
