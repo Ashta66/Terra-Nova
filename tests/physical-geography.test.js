@@ -123,3 +123,12 @@ test("le séisme calcule un déplacement tectonique par défaut",()=>{
  assert.ok(w.events[0].ruptureOffsetM>0);
  assert.ok(w.currentCells.some(c=>Math.abs(c.elevationDeltaM)>0));
 });
+
+test("une catastrophe incrémente les révisions des seules tuiles locales et de leur halo",()=>{
+ const base=createPhysicalWorld(cells);
+ const result=applyPhysicalEvent(base,{id:"tile-local-impact",type:"earthquake",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,magnitude:8});
+ assert.ok(result.world.tileRevisions["18:9"]>0);
+ assert.ok(result.world.lastInvalidatedTileKeys.includes("18:9"));
+ assert.equal(result.world.tileRevisions["20:10"]??0,0);
+ assert.ok(result.world.lastInvalidatedTileKeys.length<30);
+});
