@@ -69,7 +69,7 @@ function applyLandformTint(color, landform) {
   };
   const tint = tints[landform];
   if (!tint) return color;
-  const strength = landform === "mountains" ? 0.075 : 0.065;
+  const strength = landform === "mountains" ? 0.04 : 0.035;
   return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
 }
 
@@ -117,15 +117,15 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
   const lightUp = Math.sin(altitude);
   const illumination = normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp;
-  return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
+  return clamp(1 + (illumination - lightUp) * 0.45, 0.84, 1.16);
 }
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
-  // Cela évite plusieurs millions d'échantillonnages à chaque déplacement/zoom.
+  // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
+  // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
-  const scale = Math.min(1, (768 * qualityScale) / width, (384 * qualityScale) / height);
+  const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   let renderContext = context;
