@@ -105,3 +105,10 @@ Le rendu du fond terrestre dispose maintenant d'un sélecteur LOD :
 - si le fichier est absent ou invalide : maintien du fond mondial, sans bloquer la carte.
 
 Le fichier régional est chargé à la demande, uniquement au premier passage du seuil. Il n'est pas encore embarqué par défaut afin de ne pas augmenter le poids initial du jeu. Pour le préparer, exécuter `bash scripts/prepare-natural-earth-lod.sh` avec `curl` et Python 3 installés. Le résultat attendu est `data/ne_10m_land.geojson`. Le script utilise le jeu Natural Earth 1:10m « Land », libre d'utilisation. Les autres couches (lacs, rivières, glaciers et labels) restent actuellement au niveau 1:110m ; leur déclinaison régionale sera traitée séparément.
+
+
+## LOD régional multi-couches — lot 2.8
+
+À partir de 4×, le moteur tente de charger séparément les couches Natural Earth 1:10m pour les terres, les lacs, les rivières et les labels de villes. Chaque couche conserve son propre repli sur les données mondiales 1:110m : une donnée régionale absente n'empêche pas les autres couches de gagner en précision. Les labels de villes sont filtrés selon le rang et la population puis révélés progressivement à 4×, 6× et 8×. Les téléchargements sont déclenchés une seule fois au premier franchissement du seuil et ne bloquent pas le premier affichage de la carte.
+
+Préparation locale : `bash scripts/prepare-natural-earth-lod.sh`. Les données régionales restent des fichiers locaux facultatifs et ne sont pas ajoutées automatiquement au dépôt Git.

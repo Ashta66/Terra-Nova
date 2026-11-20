@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadOptionalGeoJson, selectLandDetailLevel, REGIONAL_ZOOM_THRESHOLD_VALUE } from "../src/world/map-lod.js";
+import { loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 
 const world = { type: "FeatureCollection", features: [{ id: "world" }] };
 const regional = { type: "FeatureCollection", features: [{ id: "regional" }] };
@@ -39,4 +39,22 @@ test("le chargement facultatif ignore erreurs HTTP, JSON et réseau", async () =
     ok: true, json: async () => ({ type: "Feature", geometry: null })
   })), null);
   assert.equal(await loadOptionalGeoJson("./offline.geojson", async () => { throw new Error("offline"); }), null);
+});
+
+test("le même sélecteur LOD commute les lacs, rivières et labels régionaux", () => {
+  for (const path of [REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH]) {
+    assert.match(path, /^\.\/data\/ne_10m_/);
+  }
+  const regional = selectMapLayerDetailLevel(4, world, { ...world, features: [{ id: "regional-hydro" }] });
+  assert.equal(regional.level, "regional-10m");
+  assert.equal(regional.features.features[0].id, "regional-hydro");
+  const fallback = selectMapLayerDetailLevel(24, world, null);
+  assert.equal(fallback.features, world);
+  assert.equal(fallback.isFallback, true);
+});
+
+test("les couches régionales restent inutilisées avant le seuil", () => {
+  const selected = selectMapLayerDetailLevel(3.99, world, regional);
+  assert.equal(selected.features, world);
+  assert.equal(selected.isFallback, false);
 });

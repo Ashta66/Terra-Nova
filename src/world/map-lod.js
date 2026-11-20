@@ -1,6 +1,6 @@
 const REGIONAL_ZOOM_THRESHOLD = 4;
 
-export function selectLandDetailLevel(zoom, worldFeatures, regionalFeatures = null) {
+export function selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures = null) {
   const useRegional = Number.isFinite(zoom) && zoom >= REGIONAL_ZOOM_THRESHOLD
     && regionalFeatures?.type === "FeatureCollection"
     && Array.isArray(regionalFeatures.features);
@@ -9,6 +9,10 @@ export function selectLandDetailLevel(zoom, worldFeatures, regionalFeatures = nu
     features: useRegional ? regionalFeatures : worldFeatures,
     isFallback: !useRegional && Number.isFinite(zoom) && zoom >= REGIONAL_ZOOM_THRESHOLD
   };
+}
+
+export function selectLandDetailLevel(zoom, worldFeatures, regionalFeatures = null) {
+  return selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures);
 }
 
 export async function loadOptionalGeoJson(url, fetcher = globalThis.fetch) {
@@ -25,4 +29,7 @@ export async function loadOptionalGeoJson(url, fetcher = globalThis.fetch) {
 }
 
 export const REGIONAL_LAND_DATA_PATH = "./data/ne_10m_land.geojson";
+export const REGIONAL_LAKES_DATA_PATH = "./data/ne_10m_lakes.geojson";
+export const REGIONAL_RIVERS_DATA_PATH = "./data/ne_10m_rivers.geojson";
+export const REGIONAL_LABELS_DATA_PATH = "./data/ne_10m_map_labels.geojson";
 export const REGIONAL_ZOOM_THRESHOLD_VALUE = REGIONAL_ZOOM_THRESHOLD;

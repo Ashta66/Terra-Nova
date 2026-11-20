@@ -3,7 +3,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { loadOptionalGeoJson, REGIONAL_LAND_DATA_PATH, selectLandDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -17,6 +17,10 @@ let terrainGrid = null;
 let regionalLandFeatures = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
+let regionalHydroFeatures = null;
+let regionalRiverFeatures = null;
+let regionalLabelFeatures = null;
+let regionalLayersLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
 let lastRenderedMapSignature = null;
@@ -85,13 +89,32 @@ function renderMapFrame() {
       }
     });
   }
+  if (mapViewport.zoom >= 4 && !regionalLayersLoadAttempted) {
+    regionalLayersLoadAttempted = true;
+    Promise.all([
+      loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH),
+      loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH),
+      loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH)
+    ]).then(([lakes, rivers, labels]) => {
+      regionalHydroFeatures = lakes;
+      regionalRiverFeatures = rivers;
+      regionalLabelFeatures = labels;
+      if (lakes || rivers || labels) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      }
+    });
+  }
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
   const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
-  const landDetail = selectLandDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
+  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
+  const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures);
+  const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures);
+  const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures);
   const result = renderWorldMap(canvas, landDetail.features, {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
@@ -100,13 +123,17 @@ function renderMapFrame() {
     rivers: riverFeatures,
     glaciers: glacierFeatures,
     elevationPoints,
-    labels: mapLabels,
+    labels: labelDetail.features,
     terrain: terrainGrid,
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  const detailStatus = landDetail.level === "regional-10m" ? " · côtes régionales 1:10m" : landDetail.isFallback ? " · fond mondial simplifié (données régionales absentes)" : " · fond mondial";
+  const regionalLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.level === "regional-10m").length;
+  const fallbackLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.isFallback).length;
+  const detailStatus = regionalLayerCount
+    ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
+    : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}${detailStatus}`;
   updateMapControls();
 }
