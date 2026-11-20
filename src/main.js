@@ -1,6 +1,6 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
 import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
-import { createMapLayerFamilies } from "./world/map-layer-families.js";
+import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
@@ -364,10 +364,9 @@ function dispatchMapWorkerRender(job) {
     return;
   }
   const familyUpdates = {};
+  const changedFamilies = new Set(getChangedMapLayerFamilies(mapRenderWorkerLayerRefs, job.families));
   for (const family of MAP_WORKER_LAYER_FAMILIES) {
-    if (mapRenderWorkerLayerRefs[family] !== job.families[family]) {
-      familyUpdates[family] = job.families[family];
-    }
+    if (changedFamilies.has(family)) familyUpdates[family] = job.families[family];
   }
   const {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,

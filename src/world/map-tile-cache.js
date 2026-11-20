@@ -3,7 +3,7 @@ const DEFAULT_MAX_ENTRIES = 192;
 
 /** Cache LRU pondéré pour bitmaps encodés / payloads de tuiles. */
 export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
-  const budget = Math.max(1024, Number(maxBytes) || DEFAULT_MAX_BYTES);
+  const budget = Math.max(1, Number(maxBytes) || DEFAULT_MAX_BYTES);
   const limit = Math.max(1, Math.floor(Number(maxEntries) || DEFAULT_MAX_ENTRIES));
   const entries = new Map();
   let bytes = 0;
