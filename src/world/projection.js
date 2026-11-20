@@ -21,7 +21,7 @@ export function projectMercator(longitude, latitude, width, height, viewport = {
   const centerY = Math.log(Math.tan(Math.PI / 4 + centerPhi / 2));
   const worldY = clamp((1 - mercatorY / Math.PI) / 2, 0, 1);
   const centerWorldY = clamp((1 - centerY / Math.PI) / 2, 0, 1);
-  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 12);
+  const zoom = clamp(Number(viewport.zoom ?? 1), 1, 24);
   return {
     x: width / 2 + ((longitude - centerLongitude) / 360) * width * zoom,
     y: height / 2 + (worldY - centerWorldY) * height * zoom
