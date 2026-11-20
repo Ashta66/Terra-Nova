@@ -1,4 +1,5 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
+import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
@@ -405,7 +406,7 @@ function renderMapFrame() {
   if (mapViewport.zoom >= 6 && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
-      regionalLandFeatures = filterSmallIslandComponents(features,100,false);
+      regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
       if (features) {
         lastRenderedMapSignature = null;
         renderMap();
@@ -428,7 +429,7 @@ function renderMapFrame() {
   }
   if (mapViewport.zoom >= 8 && !regionalRiverLoadAttempted) {
     regionalRiverLoadAttempted = true;
-    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières");
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières");
   }
   const { width, height } = viewSize();
   const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
@@ -448,10 +449,10 @@ function renderMapFrame() {
         return null;
       })
     ]).then(([political, administrative, administrativeRegions]) => {
-      politicalBoundaryFeatures = political?.collection ?? null;
-      territoryFeatures = filterSmallIslandComponents(political?.territories ?? null,100,true);
+      politicalBoundaryFeatures = simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
+      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
       populateCampaignCountries();
-      administrativeBoundaryFeatures = administrative;
+      administrativeBoundaryFeatures = simplifyGeoJsonCollection(administrative,0.0045);
       territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
       boundarySourceLabel = political?.sourceYear
         ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
@@ -559,8 +560,10 @@ async function loadWorldMap() {
     }
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
-    worldFeatures = filterSmallIslandComponents(worldFeatures,100,false);
-    lakeFeatures = filterMajorLakeFeatures(lakeFeatures,500);
+    worldFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(worldFeatures,100,false),0.008);
+    lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
+    riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
+    glacierFeatures = simplifyGeoJsonCollection(glacierFeatures,0.008);
     setInitialLoading(2,"Atlas mondial assemblé · préparation du relief…");
     if(typeof requestIdleCallback==="function")requestIdleCallback(()=>{void startMapWarmup();},{timeout:1400});else setTimeout(()=>{void startMapWarmup();},350);
     try {

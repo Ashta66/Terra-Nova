@@ -30,20 +30,20 @@ function createContinuousProjector(width, height, projection) {
 // avec les données 1:10m ; les micro-îlots restent masqués même au zoom rapproché.
 export function getCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 1.2, minRingArea: 2 };
-  if (level <= 4) return { tolerance: 1.5, minRingArea: 2.8 };
-  if (level <= 10) return { tolerance: 1.9, minRingArea: 4 };
-  return { tolerance: 2.3, minRingArea: 5.5 };
+  if (level <= 1.5) return { tolerance: 1.3, minRingArea: 2.2 };
+  if (level <= 4) return { tolerance: 1.65, minRingArea: 3.1 };
+  if (level <= 10) return { tolerance: 2.05, minRingArea: 4.4 };
+  return { tolerance: 2.5, minRingArea: 6 };
 }
 
 // Le littoral physique et le masque du relief sont moins détaillés que les
 // frontières territoriales : les micro-îles ne justifient pas leur coût.
 export function getLandCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 3.2, minRingArea: 24 };
-  if (level <= 4) return { tolerance: 3.6, minRingArea: 36 };
-  if (level <= 10) return { tolerance: 4, minRingArea: 52 };
-  return { tolerance: 4.4, minRingArea: 72 };
+  if (level <= 1.5) return { tolerance: 3.3, minRingArea: 25 };
+  if (level <= 4) return { tolerance: 3.75, minRingArea: 38 };
+  if (level <= 10) return { tolerance: 4.15, minRingArea: 55 };
+  return { tolerance: 4.6, minRingArea: 78 };
 }
 
 // Les rives des lacs et mers intérieures suivent le même niveau de
@@ -444,10 +444,10 @@ function drawLineLayer(context, collection, width, height, projection, color, li
 
 export function getBoundarySimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 1.8 };
-  if (level <= 4) return { tolerance: 1.1 };
-  if (level <= 10) return { tolerance: 0.55 };
-  return { tolerance: 0.2 };
+  if (level <= 1.5) return { tolerance: 2 };
+  if (level <= 4) return { tolerance: 1.25 };
+  if (level <= 10) return { tolerance: 0.65 };
+  return { tolerance: 0.25 };
 }
 
 function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false, administrative = false) {
