@@ -429,6 +429,61 @@ function drawElevationPoints(context, collection, width, height, projection, the
 
 const sortedLabelCollections = new WeakMap();
 const LABEL_COLLISION_CELL_SIZE = 64;
+const PHYSICAL_LABEL_BUCKET_SIZE = 2;
+const PHYSICAL_LABEL_BUCKET_COLUMNS = 180;
+const physicalLabelStatusCache = new WeakMap();
+
+function getPhysicalLabelIndex(world) {
+  if (!world?.currentCells?.length) return null;
+  const cached = physicalLabelStatusCache.get(world);
+  if (cached?.revision === world.revision) return cached;
+  const buckets = new Map();
+  for (const cell of world.currentCells) {
+    if (!Number.isFinite(Number(cell.longitude)) || !Number.isFinite(Number(cell.latitude))) continue;
+    const longitude = ((Number(cell.longitude) + 180) % 360 + 360) % 360 - 180;
+    const latitude = Math.max(-90, Math.min(90, Number(cell.latitude)));
+    const x = Math.min(PHYSICAL_LABEL_BUCKET_COLUMNS - 1, Math.floor((longitude + 180) / PHYSICAL_LABEL_BUCKET_SIZE));
+    const y = Math.max(0, Math.min(89, Math.floor((latitude + 90) / PHYSICAL_LABEL_BUCKET_SIZE)));
+    const key = y * PHYSICAL_LABEL_BUCKET_COLUMNS + x;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(cell);
+  }
+  const index = { revision: world.revision, buckets, results: new Map() };
+  physicalLabelStatusCache.set(world, index);
+  return index;
+}
+
+export function isCityPermanentlySubmerged(feature, world) {
+  const coordinates = feature?.geometry?.coordinates;
+  // Le monde physique initial est neutre : aucun index de cellules à construire.
+  if (Number(world?.revision ?? 0) <= 0 || !Array.isArray(coordinates) || !world?.currentCells?.length) return false;
+  const longitude = Number(coordinates[0]), latitude = Number(coordinates[1]);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false;
+  const index = getPhysicalLabelIndex(world);
+  if (!index) return false;
+  const resultKey = longitude.toFixed(4) + ":" + latitude.toFixed(4);
+  if (index.results.has(resultKey)) return index.results.get(resultKey);
+  const wrappedLongitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+  const centerX = Math.min(PHYSICAL_LABEL_BUCKET_COLUMNS - 1, Math.floor((wrappedLongitude + 180) / PHYSICAL_LABEL_BUCKET_SIZE));
+  const centerY = Math.max(0, Math.min(89, Math.floor((latitude + 90) / PHYSICAL_LABEL_BUCKET_SIZE)));
+  let nearest = null, best = Infinity;
+  for (let dy = -2; dy <= 2; dy++) {
+    const y = centerY + dy;
+    if (y < 0 || y >= 90) continue;
+    for (let dx = -2; dx <= 2; dx++) {
+      const x = (centerX + dx + PHYSICAL_LABEL_BUCKET_COLUMNS) % PHYSICAL_LABEL_BUCKET_COLUMNS;
+      for (const cell of index.buckets.get(y * PHYSICAL_LABEL_BUCKET_COLUMNS + x) ?? []) {
+        const deltaLongitude = ((Number(cell.longitude) - longitude + 540) % 360) - 180;
+        const deltaLatitude = Number(cell.latitude) - latitude;
+        const distance = Math.hypot(deltaLongitude * Math.cos(latitude * Math.PI / 180), deltaLatitude);
+        if (distance < best) { best = distance; nearest = cell; }
+      }
+    }
+  }
+  const submerged = Boolean(nearest && (nearest.inundated || nearest.permanentlySubmerged) && best < 2.2);
+  index.results.set(resultKey, submerged);
+  return submerged;
+}
 
 function getSortedLabelCandidates(collection) {
   let candidates = sortedLabelCollections.get(collection);
@@ -737,17 +792,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
-    let permanentlySubmerged=false;
-    if(kind==="city"&&physicalWorld?.currentCells?.length){
-      let nearest=null,best=Infinity;
-      for(const cell of physicalWorld.currentCells){
-        const dx=((Number(cell.longitude)-pointLon(feature.geometry.coordinates[0])+540)%360)-180;
-        const dy=Number(cell.latitude)-feature.geometry.coordinates[1];
-        const distance=Math.hypot(dx*Math.cos(feature.geometry.coordinates[1]*Math.PI/180),dy);
-        if(distance<best){best=distance;nearest=cell;}
-      }
-      permanentlySubmerged=Boolean(nearest&&(nearest.inundated||nearest.permanentlySubmerged)&&best<2.2);
-    }
+    const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = (kind === "continent" ? 13 : kind === "country" ? (zoom < 3 ? 13 : 15) : kind === "province" ? 9 : 10) * renderScale;
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
     context.save();

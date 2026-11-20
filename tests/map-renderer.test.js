@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
-import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
+import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
@@ -93,7 +93,7 @@ test("les labels géographiques apparaissent selon le niveau de zoom", () => {
 });
 
 
-import { createTerrainGrid, sampleElevation, drawTerrainRaster } from "../src/world/terrain.js";
+import { createTerrainGrid, sampleElevation, drawTerrainRaster, terrainTileSizeForZoom } from "../src/world/terrain.js";
 
 test("la grille ETOPO lit les entiers signés little-endian et interpole les coordonnées", () => {
   const bytes = new Uint8Array(8);
@@ -760,4 +760,42 @@ test("le rendu expose des mesures de temps par couche et un temps total", () => 
   assert.ok(result.renderTimings && typeof result.renderTimings === "object");
   assert.ok(Object.hasOwn(result.renderTimings, "terres-et-cotes"));
   assert.ok(Object.hasOwn(result.renderTimings, "etiquettes"));
+});
+
+
+test("la résolution des tuiles de relief utilise trois paliers stables au lieu de varier à chaque zoom", () => {
+  assert.equal(terrainTileSizeForZoom(1), 48);
+  assert.equal(terrainTileSizeForZoom(2.49), 48);
+  assert.equal(terrainTileSizeForZoom(2.5), 96);
+  assert.equal(terrainTileSizeForZoom(7.99), 96);
+  assert.equal(terrainTileSizeForZoom(8), 144);
+  assert.equal(terrainTileSizeForZoom(8, 0.5), 72);
+});
+
+test("les labels de villes vérifient la submersion avec un index spatial local", () => {
+  const city = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  const world = { revision: 1, currentCells: [
+    { longitude: 139.7, latitude: 35.6, permanentlySubmerged: true },
+    { longitude: 2.4, latitude: 48.9, permanentlySubmerged: true }
+  ] };
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+  world.currentCells[1].permanentlySubmerged = false;
+  world.revision++;
+  assert.equal(isCityPermanentlySubmerged(city, world), false);
+});
+
+test("l'index des villes gère le voisinage de l'antiméridien", () => {
+  const city = { geometry: { type: "Point", coordinates: [-179.6, 12] } };
+  const world = { revision: 1, currentCells: [
+    { longitude: 179.7, latitude: 12.1, inundated: true }
+  ] };
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+});
+
+test("la vue mondiale n'indexe pas les GeoJSON avant qu'un zoom régional soit nécessaire", () => {
+  const collection = { type: "FeatureCollection", features: Array.from({ length: 100 }, (_, i) => ({
+    type: "Feature", geometry: { type: "Point", coordinates: [-170 + i, 10] }
+  })) };
+  assert.strictEqual(selectVisibleFeatures(collection, { zoom: 1, centerLongitude: 0, centerLatitude: 0 }), collection);
+  assert.equal(getGeoSpatialIndexStats(collection).indexed, false);
 });

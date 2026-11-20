@@ -205,12 +205,18 @@ export function samplePhysicalElevation(grid,lon,lat,lookup){
  return base;
 }
 
+export function terrainTileSizeForZoom(zoom = 1, quality = 1) {
+ const level=Math.max(1,Number(zoom)||1),qualityScale=clamp(Number(quality)||1,.25,1);
+ const base=level<2.5?48:level<8?96:144;
+ return Math.max(32,Math.min(192,Math.round(base*qualityScale)));
+}
+
 const terrainTileCache = new WeakMap();
-const TERRAIN_TILE_CACHE_LIMIT = 2200;
+const TERRAIN_TILE_CACHE_LIMIT = 1600;
 function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly){
  const zoom=Math.max(1,Number(viewport.zoom??1)),cx=Number(viewport.centerLongitude??0),cy=Number(viewport.centerLatitude??0);
- const qualityScale=clamp(Number(quality)||1,.25,1),tileSize=Math.max(32,Math.min(192,Math.round(48*Math.sqrt(zoom)*qualityScale)));
- const dx=360/grid.width,dy=180/grid.height,physical=physicalLookup(physicalWorld);
+ const tileSize=terrainTileSizeForZoom(zoom,quality);
+ const dx=360/grid.width,dy=180/grid.height,hasPhysicalChanges=Number(physicalWorld?.revision??0)>0,physical=hasPhysicalChanges?physicalLookup(physicalWorld):null;
  let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
  const revisions=physicalWorld?.tileRevisions,hasLocalRevisions=revisions&&Object.keys(revisions).length>0;
  const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array;
@@ -231,15 +237,22 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
     for(let py=0;py<tileSize;py++){
      const lat=north-(py+.5)/tileSize*10;
      for(let px=0;px<tileSize;px++){
-      const lon=west+(px+.5)/tileSize*10,e=samplePhysicalElevation(grid,lon,lat,physical),base=sampleElevation(grid,lon,lat),index=(py*tileSize+px)*4;
+      const lon=west+(px+.5)/tileSize*10,base=sampleElevation(grid,lon,lat),e=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat,physical):base,index=(py*tileSize+px)*4;
       const changedCoast=changedOnly&&base!==null&&((base>=0)!==(e>=0));
       if((changedOnly&&!changedCoast)||(landOnly&&e<0)){pixels[index+3]=0;continue;}
-      let shade=1,color;
+      let color;
       if(e>=0){
-       const w=samplePhysicalElevation(grid,lon-dx,lat,physical),east=samplePhysicalElevation(grid,lon+dx,lat,physical),n=samplePhysicalElevation(grid,lon,lat+dy,physical),southE=samplePhysicalElevation(grid,lon,lat-dy,physical);
-       shade=samplePreparedHillshade(grid,lon,lat)??calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
-       if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-       else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
+       // Avant la fin du pré-calcul Worker, afficher un relief hypsométrique simple
+       // plutôt que bloquer le thread principal avec des millions de hillshades.
+       if(precomputed){
+        const w=hasPhysicalChanges?samplePhysicalElevation(grid,lon-dx,lat,physical):sampleElevation(grid,lon-dx,lat);
+        const east=hasPhysicalChanges?samplePhysicalElevation(grid,lon+dx,lat,physical):sampleElevation(grid,lon+dx,lat);
+        const n=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat+dy,physical):sampleElevation(grid,lon,lat+dy);
+        const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
+        const shade=samplePreparedHillshade(grid,lon,lat)??1;
+        if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
+        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
+       }else color=hillshadeOnly?[128,128,128]:terrainColorForElevation(e,1);
       }else color=terrainColorForElevation(e,1,"ocean");
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }

@@ -235,3 +235,17 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
 - Ajout de tests sur la décision de recalcul pendant et après le geste.
 - Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
+
+
+## 20 novembre 2026 — optimisation profonde du moteur cartographique
+- Suppression du benchmark comparatif automatique qui lançait un deuxième rendu complet du monde après le premier zoom : ce test perturbait lui-même la fluidité.
+- Les index géographiques ne sont plus construits au premier affichage mondial ; ils sont préparés pendant les périodes inactives et utilisés seulement au zoom régional.
+- Les rendus et chargements de couches asynchrones sont différés tant qu'un glisser ou un zoom à la molette est en cours.
+- Pendant un glisser, le compositeur ne reconstruit plus les hitboxes de labels à chaque mouvement.
+- Les tuiles ETOPO utilisent trois paliers de résolution stables (48, 96, 144 px) au lieu de changer à presque chaque zoom, ce qui améliore la réutilisation du cache.
+- Le cache de tuiles est plafonné à 1 600 entrées au lieu de 2 200.
+- Tant que le Worker ETOPO n'a pas terminé, le moteur affiche une hypsométrie légère plutôt que de calculer synchroniquement le hillshade sur le thread principal. Le relief ombré est appliqué à la fin du pré-calcul.
+- Le Worker calcule maintenant les vecteurs d'éclairage une seule fois, et non pour chaque pixel du raster.
+- La détection des villes durablement submergées utilise un index spatial local des cellules physiques, construit uniquement après une modification géographique, au lieu de parcourir toutes les cellules pour chaque ville.
+- Tests ajoutés pour les paliers de résolution, l'index de submersion, l'antiméridien et l'absence d'indexation au zoom mondial.
+- La validation réelle des FPS, de la mémoire et du rendu visuel reste à effectuer dans un navigateur sur la machine cible ; aucune valeur de performance n'est inventée.

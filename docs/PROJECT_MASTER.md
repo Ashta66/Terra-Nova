@@ -294,3 +294,7 @@ Le panneau de nouvelle campagne est volontairement compact : date et mode tienne
 - Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
 - Ajout de tests sur la décision de recalcul pendant et après le geste.
 - Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
+
+
+## Priorité technique — fluidité cartographique (20 novembre 2026)
+La navigation cartographique est prioritaire sur l'ajout de fonctionnalités. Le moteur doit privilégier un compositeur léger pendant les interactions, différer les rendus complets jusqu'à la fin du geste, éviter les recalculs de couches statiques et construire les index seulement lorsqu'ils sont utiles. Le relief ETOPO doit être pré-calculé en Worker ; aucun calcul de hillshade massif ne doit bloquer le thread d'interface. Les caches doivent être bornés et réutilisés par paliers de niveau de détail. Les recherches de cellules physiques (notamment pour les villes submergées) doivent utiliser des index spatiaux. Si les mesures navigateur montrent encore des coûts excessifs, réduire d'abord la qualité du relief, les couches administratives et les labels secondaires pendant les interactions, sans supprimer d'emblée les informations stratégiques.

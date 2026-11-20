@@ -239,3 +239,19 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
 - Ajout de tests sur la décision de recalcul pendant et après le geste.
 - Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
+
+
+## Priorité absolue — performance de la carte (20 novembre 2026)
+- [x] Supprimer le second rendu comparatif automatique qui doublait ponctuellement le coût du premier zoom.
+- [x] Ne plus construire les index spatiaux au zoom mondial ; les préparer au repos avant les usages régionaux.
+- [x] Différer les rendus complets et les changements de couches pendant le glisser/zoom.
+- [x] Réduire le travail du compositeur pendant le glisser en supprimant le recalcul des hitboxes de labels.
+- [x] Stabiliser les résolutions des tuiles ETOPO sur trois paliers et borner le cache.
+- [x] Éviter le hillshade synchrone sur le thread principal avant la fin du Worker.
+- [x] Pré-calculer les constantes lumineuses du Worker hors de sa boucle pixel.
+- [x] Remplacer le balayage de toutes les cellules physiques pour chaque ville par un index spatial local.
+- [ ] Profiler les couches par temps de rendu et mémoire sur navigateur réel et ordinateur moyen.
+- [ ] Si nécessaire, réduire dynamiquement le détail du relief, les frontières administratives et les labels secondaires pendant les interactions.
+- [ ] Étudier la séparation des couches statiques et dynamiques en surfaces indépendantes, puis un rendu Worker/OffscreenCanvas pour les couches vectorielles si les mesures le justifient.
+
+Les optimisations de code et les tests automatisés ne remplacent pas une mesure FPS sur le poste du joueur. Les éléments graphiques ne seront retirés qu'après ce profilage, en ciblant les couches réellement responsables.
