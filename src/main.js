@@ -45,6 +45,7 @@ let wheelZoomTimer = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
 let mapPreviewCanvas = null;
+let physicalOverlayCanvas = null;
 let mapOverscanCanvas = null;
 let mapOverscanTask = null;
 let mapOverscanVersion = 0;
@@ -157,6 +158,20 @@ function updateMapDiagnostics(result) {
   }));
 }
 
+function ensurePhysicalOverlayCanvas(mapCanvas, width, height) {
+  const frame = mapCanvas.parentElement;
+  if (!physicalOverlayCanvas) {
+    physicalOverlayCanvas = document.createElement("canvas");
+    physicalOverlayCanvas.className = "map-physical-overlay";
+    physicalOverlayCanvas.setAttribute("aria-hidden", "true");
+    frame.append(physicalOverlayCanvas);
+  }
+  physicalOverlayCanvas.style.width = width + "px";
+  physicalOverlayCanvas.style.height = height + "px";
+  physicalOverlayCanvas.style.display = mapInteractionActive ? "none" : "block";
+  return physicalOverlayCanvas;
+}
+
 function renderMapFrame() {
   if (!worldFeatures) return;
   if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
@@ -253,6 +268,7 @@ function renderMapFrame() {
     terrainQuality: 1,
     pixelRatio: mapInteractionActive ? 1 : undefined,
     interactive: mapInteractionActive,
+    physicalOverlayContext: mapInteractionActive ? null : ensurePhysicalOverlayCanvas(canvas, width, height).getContext("2d"),
   };
   const result = renderWorldMap(canvas, landDetail.features, renderOptions);
   if (!mapInteractionActive) {
@@ -550,6 +566,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
   Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
   // Le bitmap initial reste visible sous l'aperçu déplacé : aucun bord vide.
   mapInteractionActive = true;
+  if (physicalOverlayCanvas) physicalOverlayCanvas.style.display = "none";
   createMapInteractionPreview();
   mapPreviewCanvas.style.willChange = "transform";
   mapPreviewCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
@@ -620,6 +637,7 @@ function scheduleMapOverscan(width, height) {
     const factor = 1.5;
     const bufferOptions = {
       ...options,
+      physicalOverlayContext: null,
       width: Math.round(width * factor),
       height: Math.round(height * factor),
       pixelRatio: 1,
@@ -732,6 +750,7 @@ mapCanvas.addEventListener("wheel", (event) => {
   }
   const anchor = wheelZoomState;
   mapInteractionActive = true;
+  if (physicalOverlayCanvas) physicalOverlayCanvas.style.display = "none";
   createMapInteractionPreview();
   zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
   mapPreviewCanvas.style.willChange = "transform";

@@ -110,3 +110,10 @@ Après chaque rendu complet, le moteur prépare pendant le temps libre un bitmap
 - L'expiration des effets temporaires (lave, zone d'impact, eau de tsunami) incrémente également les révisions des tuiles réellement modifiées et de leur voisinage, afin que le relief et les côtes se rafraîchissent à la fin d'un événement.
 - Les sauvegardes sérialisent les cellules physiques modifiées sous forme de différences indexées par rapport aux cellules de base. Le chargement reconstruit le tableau complet avant validation. Les sauvegardes anciennes non compactées restent acceptées.
 - Cette compression concerne les données physiques dérivées ; elle ne modifie ni la simulation, ni les identifiants des cellules.
+
+
+## Première séparation effective des couches de rendu (20 novembre 2026)
+
+- Les effets géophysiques (déformations visibles, zones d'impact, inondations et marqueurs) peuvent maintenant être rendus dans un canvas transparent indépendant, superposé au canvas cartographique.
+- Pendant un déplacement ou un zoom, cette couche est masquée et le tampon de navigation inclut les effets physiques ; elle est réaffichée après le rendu stabilisé.
+- Le relief, les frontières et les territoires restent dans le canvas principal à ce stade. La séparation progressive évite de déplacer toutes les couches simultanément et limite le risque de régression.

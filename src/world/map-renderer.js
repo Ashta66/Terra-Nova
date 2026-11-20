@@ -902,7 +902,16 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
     context.restore();
   }
-  const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection, options.terrain));
+  const physicalContext = options.physicalOverlayContext ?? context;
+  if (options.physicalOverlayContext) {
+    const overlayCanvas = physicalContext.canvas;
+    const targetWidth = Math.round(width * pixelRatio), targetHeight = Math.round(height * pixelRatio);
+    if (overlayCanvas.width !== targetWidth) overlayCanvas.width = targetWidth;
+    if (overlayCanvas.height !== targetHeight) overlayCanvas.height = targetHeight;
+    physicalContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    physicalContext.clearRect(0, 0, width, height);
+  }
+  const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(physicalContext, options.physicalWorld, width, height, projection, options.terrain));
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
