@@ -45,6 +45,10 @@ let wheelZoomTimer = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
 let mapPreviewCanvas = null;
+let mapOverscanCanvas = null;
+let mapOverscanTask = null;
+let mapOverscanVersion = 0;
+let lastMapRenderConfig = null;
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -215,10 +219,10 @@ function renderMapFrame() {
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, regionalHydroFeatures);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures);
-  const result = renderWorldMap(canvas, landDetail.features, {
+  const renderOptions = {
     width, height, year,
     projection: "equirectangular",
-    viewport: mapViewport,
+    viewport: { ...mapViewport },
     lakes: lakeDetail.features,
     rivers: riverDetail.features,
     glaciers: glacierFeatures,
@@ -234,7 +238,12 @@ function renderMapFrame() {
     terrainQuality: 1,
     pixelRatio: mapInteractionActive ? 1 : undefined,
     interactive: mapInteractionActive,
-  });
+  };
+  const result = renderWorldMap(canvas, landDetail.features, renderOptions);
+  if (!mapInteractionActive) {
+    lastMapRenderConfig = { features: landDetail.features, options: renderOptions };
+    scheduleMapOverscan(width, height);
+  }
   mapLabelHits = result.labelHits ?? [];
   updateMapDiagnostics(result);
   $("map-era").textContent = result.theme.label;
@@ -581,21 +590,58 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
+function scheduleMapOverscan(width, height) {
+  const version = ++mapOverscanVersion;
+  if (mapOverscanTask !== null) {
+    if (typeof cancelIdleCallback === "function") cancelIdleCallback(mapOverscanTask);
+    else clearTimeout(mapOverscanTask);
+    mapOverscanTask = null;
+  }
+  const prepare = () => {
+    mapOverscanTask = null;
+    if (version !== mapOverscanVersion || mapInteractionActive || !lastMapRenderConfig) return;
+    const { features, options } = lastMapRenderConfig;
+    const buffer = document.createElement("canvas");
+    const factor = 1.5;
+    const bufferOptions = {
+      ...options,
+      width: Math.round(width * factor),
+      height: Math.round(height * factor),
+      pixelRatio: 1,
+      // Le canvas est 1,5 fois plus grand : diminuer le zoom d'autant conserve
+      // exactement l'échelle au centre tout en couvrant 25 % de débordement.
+      viewport: { ...options.viewport, zoom: (options.viewport.zoom ?? 1) / factor },
+      terrainQuality: 0.75
+    };
+    try {
+      renderWorldMap(buffer, features, bufferOptions);
+      if (version === mapOverscanVersion && !mapInteractionActive) mapOverscanCanvas = buffer;
+    } catch (error) {
+      console.warn("Préparation du tampon de navigation indisponible :", error);
+    }
+  };
+  if (typeof requestIdleCallback === "function") mapOverscanTask = requestIdleCallback(prepare, { timeout: 900 });
+  else mapOverscanTask = setTimeout(prepare, 180);
+}
+
 function createMapInteractionPreview() {
   if (mapPreviewCanvas || !mapCanvas?.width || !mapCanvas?.height) return;
   const frame = mapCanvas.parentElement;
   const frameRect = frame.getBoundingClientRect();
   const canvasRect = mapCanvas.getBoundingClientRect();
-  const preview = document.createElement("canvas");
-  preview.width = mapCanvas.width;
-  preview.height = mapCanvas.height;
-  preview.getContext("2d")?.drawImage(mapCanvas, 0, 0);
+  const factor = mapOverscanCanvas ? 1.5 : 1;
+  const preview = mapOverscanCanvas ?? document.createElement("canvas");
+  if (!mapOverscanCanvas) {
+    preview.width = mapCanvas.width;
+    preview.height = mapCanvas.height;
+    preview.getContext("2d")?.drawImage(mapCanvas, 0, 0);
+  }
   Object.assign(preview.style, {
     position: "absolute",
-    left: (canvasRect.left - frameRect.left) + "px",
-    top: (canvasRect.top - frameRect.top) + "px",
-    width: canvasRect.width + "px",
-    height: canvasRect.height + "px",
+    left: (canvasRect.left - frameRect.left - canvasRect.width * (factor - 1) / 2) + "px",
+    top: (canvasRect.top - frameRect.top - canvasRect.height * (factor - 1) / 2) + "px",
+    width: (canvasRect.width * factor) + "px",
+    height: (canvasRect.height * factor) + "px",
     pointerEvents: "none",
     zIndex: "2",
     transformOrigin: "center center"
@@ -606,7 +652,8 @@ function createMapInteractionPreview() {
 }
 function removeMapInteractionPreview() {
   mapPreviewCanvas?.remove();
-  mapPreviewCanvas = null;
+  if (mapPreviewCanvas !== mapOverscanCanvas) mapPreviewCanvas = null;
+  else mapPreviewCanvas = null;
 }
 function clearWheelZoomPreview() {
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
@@ -673,7 +720,9 @@ mapCanvas.addEventListener("wheel", (event) => {
   createMapInteractionPreview();
   zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
   mapPreviewCanvas.style.willChange = "transform";
-  mapPreviewCanvas.style.transformOrigin = `${anchor.anchorX}px ${anchor.anchorY}px`;
+  const overscanOffsetX = mapOverscanCanvas ? mapCanvas.clientWidth * 0.25 : 0;
+  const overscanOffsetY = mapOverscanCanvas ? mapCanvas.clientHeight * 0.25 : 0;
+  mapPreviewCanvas.style.transformOrigin = `${anchor.anchorX + overscanOffsetX}px ${anchor.anchorY + overscanOffsetY}px`;
   mapPreviewCanvas.style.transform = `scale(${mapViewport.zoom / anchor.startZoom})`;
   updateMapControls();
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
