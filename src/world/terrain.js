@@ -13,7 +13,11 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
 }
 
 export function sampleElevation(grid, longitude, latitude) {
-  if (!grid?.values || !Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  // Le magasin de tuiles expose son propre échantillonneur afin que le rendu
+  // lise les révisions locales sans recopier la grille mondiale à chaque frame.
+  if (typeof grid?.sampleBilinear === "function") return grid.sampleBilinear(longitude, latitude);
+  if (!grid?.values) return null;
   const lon = ((longitude + 180) % 360 + 360) % 360;
   const x = lon / 360 * grid.width - 0.5;
   const y = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
