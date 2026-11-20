@@ -496,3 +496,40 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("les tuiles vectorielles sont stables, dédupliquées et cycliques à l'antiméridien", async () => {
+  const {
+    getGeoSpatialTilePlan, getGeoSpatialIndexStats, prefetchGeoSpatialFeatures
+  } = await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "alaska" }, geometry: { type: "Point", coordinates: [179, 55] } },
+    { type: "Feature", properties: { id: "russia" }, geometry: { type: "Point", coordinates: [-179, 55] } },
+    { type: "Feature", properties: { id: "paris" }, geometry: { type: "Point", coordinates: [2, 48] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection, 10);
+  const view = queryGeoSpatialIndex(index, { zoom: 8, centerLongitude: 180, centerLatitude: 55 });
+  assert.deepEqual(view.features.map(feature => feature.properties.id), ["alaska", "russia"]);
+  const plan = getGeoSpatialTilePlan(collection, { zoom: 8, centerLongitude: 180, centerLatitude: 55 });
+  assert.ok(plan.visibleTileCount > 0);
+  assert.ok(plan.tileKeys.some(key => key.startsWith("0:")) || plan.tileKeys.some(key => key.startsWith("35:")));
+  assert.ok(prefetchGeoSpatialFeatures(collection, { zoom: 8, centerLongitude: 179, centerLatitude: 55 }) > 0);
+  const stats = getGeoSpatialIndexStats(collection);
+  assert.ok(stats.cachedTiles > 0);
+  assert.ok(stats.cachedTiles <= stats.maxCachedTiles);
+  assert.equal(stats.maxCachedTiles, 96);
+});
+
+test("le cache des tuiles vectorielles reste borné et peut être vidé", async () => {
+  const { getGeoSpatialIndexStats, clearGeoSpatialQueryCache } = await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: Array.from({ length: 180 }, (_, i) => ({
+    type: "Feature", properties: { id: i }, geometry: { type: "Point", coordinates: [-179 + i * 2, -80 + (i % 30) * 5] }
+  })) };
+  const index = buildGeoSpatialIndex(collection, 10);
+  queryGeoSpatialIndex(index, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  const stats = getGeoSpatialIndexStats(collection);
+  assert.ok(stats.cachedTiles <= 96);
+  assert.ok(stats.cachedQueries <= 48);
+  assert.equal(clearGeoSpatialQueryCache(collection), true);
+  assert.equal(getGeoSpatialIndexStats(collection).cachedTiles, 0);
+});

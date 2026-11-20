@@ -2,6 +2,7 @@ const DEFAULT_CELL_SIZE = 10;
 const MAX_CELLS_PER_FEATURE = 120;
 const indexCache = new WeakMap();
 const MAX_QUERY_CACHE_ENTRIES = 48;
+const MAX_TILE_CACHE_ENTRIES = 96;
 const MAX_PREFETCH_RADIUS = 1;
 
 function getBounds(feature) {
@@ -30,6 +31,9 @@ function longitudeCell(longitude, columns, cellSize) {
 }
 function latitudeCell(latitude, rows, cellSize) {
   return Math.max(0, Math.min(rows - 1, Math.floor((90 - latitude) / cellSize)));
+}
+function wrapLongitude(longitude) {
+  return ((longitude + 180) % 360 + 360) % 360 - 180;
 }
 
 export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
@@ -62,14 +66,35 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
       }
     }
   });
-  return { collection, cellSize: size, columns, rows, cells, global, bounds, queryCache: new Map() };
+  return {
+    collection, cellSize: size, columns, rows, cells, global, bounds,
+    queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0
+  };
 }
 
-export function queryGeoSpatialIndex(index, viewport = {}) {
-  if (!index?.collection) throw new TypeError("Index spatial invalide.");
+function getTileFeatureIndices(index, x, y) {
+  const key = `${x}:${y}`;
+  const cached = index.tileCache.get(key);
+  if (cached) {
+    index.tileCache.delete(key);
+    index.tileCache.set(key, cached);
+    index.tileHits++;
+    return cached;
+  }
+  index.tileMisses++;
+  const ids = new Set(index.global);
+  for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) ids.add(featureIndex);
+  const ordered = [...ids].sort((a, b) => a - b);
+  index.tileCache.set(key, ordered);
+  if (index.tileCache.size > MAX_TILE_CACHE_ENTRIES) {
+    index.tileCache.delete(index.tileCache.keys().next().value);
+  }
+  return ordered;
+}
+
+function getViewportTileRanges(index, viewport) {
   const zoom = Math.max(1, Number(viewport.zoom) || 1);
-  if (zoom <= 1.001) return index.collection;
-  const centerLongitude = ((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360 - 180;
+  const centerLongitude = wrapLongitude(Number(viewport.centerLongitude ?? 0));
   const centerLatitude = Number(viewport.centerLatitude ?? 0);
   const halfSpan = 180 / zoom;
   const rawWest = centerLongitude - halfSpan;
@@ -83,14 +108,34 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
     : rawEast > 180
       ? [[rawWest, 180], [-180, rawEast - 360]]
       : [[rawWest, rawEast]];
-
-  // Les positions voisines qui restent dans les mêmes cellules réutilisent
-  // exactement la même sélection, sans recréer le tableau GeoJSON à chaque frame.
-  const longitudeCellRanges = longitudeRanges.map(([west, east]) => [
+  const xRanges = longitudeRanges.map(([west, east]) => [
     longitudeCell(Math.max(-180, west), index.columns, index.cellSize),
     longitudeCell(Math.min(180, east), index.columns, index.cellSize)
   ]);
-  const cacheKey = `${longitudeCellRanges.map(range => range.join("-")).join("|")}:${minY}:${maxY}`;
+  return { minY, maxY, xRanges };
+}
+
+function getVisibleTileKeys(index, viewport) {
+  const { minY, maxY, xRanges } = getViewportTileRanges(index, viewport);
+  const keys = [];
+  for (let y = minY; y <= maxY; y++) {
+    for (const [minX, maxX] of xRanges) {
+      for (let x = minX; x <= maxX; x++) keys.push([x, y]);
+    }
+  }
+  return keys;
+}
+
+export function queryGeoSpatialIndex(index, viewport = {}) {
+  if (!index?.collection) throw new TypeError("Index spatial invalide.");
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  if (zoom <= 1.001) return index.collection;
+
+  // Une tuile vectorielle correspond à une cellule géographique stable de la grille.
+  // Les coordonnées sources ne sont jamais découpées : une entité est référencée
+  // dans les tuiles qu'elle intersecte, puis dédupliquée au niveau du viewport.
+  const tileKeys = getVisibleTileKeys(index, viewport);
+  const cacheKey = tileKeys.map(([x, y]) => `${x}:${y}`).join("|");
   const cached = index.queryCache.get(cacheKey);
   if (cached) {
     index.queryCache.delete(cacheKey);
@@ -98,15 +143,9 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
     return cached;
   }
 
-  const selected = new Set(index.global);
-  for (const [west, east] of longitudeRanges) {
-    const minX = longitudeCell(Math.max(-180, west), index.columns, index.cellSize);
-    const maxX = longitudeCell(Math.min(180, east), index.columns, index.cellSize);
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) selected.add(featureIndex);
-      }
-    }
+  const selected = new Set();
+  for (const [x, y] of tileKeys) {
+    for (const featureIndex of getTileFeatureIndices(index, x, y)) selected.add(featureIndex);
   }
   const ordered = [...selected].sort((a, b) => a - b);
   const result = ordered.length === index.collection.features.length
@@ -129,12 +168,7 @@ export function selectGeoSpatialFeatures(collection, viewport = {}) {
   return queryGeoSpatialIndex(index, viewport);
 }
 
-
-/**
- * Prépare les sélections des cellules voisines pendant les périodes calmes.
- * Le résultat courant reste prioritaire ; les voisins ne sont que des entrées
- * de cache et ne modifient jamais les données géographiques sources.
- */
+/** Prépare les tuiles voisines au repos ; aucune donnée source n'est dupliquée. */
 export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1) {
   if (!collection?.features || !Number.isFinite(Number(viewport.zoom)) || Number(viewport.zoom) <= 1.001) return 0;
   let index = indexCache.get(collection);
@@ -142,34 +176,56 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
     index = buildGeoSpatialIndex(collection);
     indexCache.set(collection, index);
   }
-  const zoom = Math.max(1, Number(viewport.zoom) || 1);
-  const lonSpan = 360 / zoom;
-  const latSpan = 180 / zoom;
   const steps = Math.max(0, Math.min(MAX_PREFETCH_RADIUS, Math.floor(Number(radius) || 0)));
+  const centerLongitude = wrapLongitude(Number(viewport.centerLongitude ?? 0));
+  const centerLatitude = Number(viewport.centerLatitude ?? 0);
+  const x = longitudeCell(centerLongitude, index.columns, index.cellSize);
+  const y = latitudeCell(centerLatitude, index.rows, index.cellSize);
   let prepared = 0;
-  for (let y = -steps; y <= steps; y++) {
-    for (let x = -steps; x <= steps; x++) {
-      if (x === 0 && y === 0) continue;
-      const rawLongitude = Number(viewport.centerLongitude ?? 0) + x * lonSpan;
-      const centerLongitude = ((rawLongitude + 180) % 360 + 360) % 360 - 180;
-      const centerLatitude = Math.max(-90, Math.min(90, Number(viewport.centerLatitude ?? 0) + y * latSpan));
-      queryGeoSpatialIndex(index, { zoom, centerLongitude, centerLatitude });
+  for (let dy = -steps; dy <= steps; dy++) {
+    for (let dx = -steps; dx <= steps; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const tileY = y + dy;
+      if (tileY < 0 || tileY >= index.rows) continue;
+      const tileX = (x + dx + index.columns) % index.columns;
+      getTileFeatureIndices(index, tileX, tileY);
       prepared++;
     }
   }
   return prepared;
 }
 
+export function getGeoSpatialTilePlan(collection, viewport = {}) {
+  if (!collection?.features) return { tileKeys: [], visibleTileCount: 0, featureCount: 0 };
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  if (zoom <= 1.001) return { tileKeys: [], visibleTileCount: 0, featureCount: collection.features.length };
+  let index = indexCache.get(collection);
+  if (!index) {
+    index = buildGeoSpatialIndex(collection);
+    indexCache.set(collection, index);
+  }
+  const tileKeys = getVisibleTileKeys(index, viewport).map(([x, y]) => `${x}:${y}`);
+  const selected = queryGeoSpatialIndex(index, viewport);
+  return { tileKeys, visibleTileCount: tileKeys.length, featureCount: selected.features.length };
+}
 
 export function getGeoSpatialIndexStats(collection) {
   const index = collection && indexCache.get(collection);
-  if (!index) return { indexed: false, featureCount: 0, cellCount: 0, cachedQueries: 0, maxCachedQueries: MAX_QUERY_CACHE_ENTRIES };
+  if (!index) return {
+    indexed: false, featureCount: 0, cellCount: 0, cachedQueries: 0,
+    maxCachedQueries: MAX_QUERY_CACHE_ENTRIES, cachedTiles: 0,
+    maxCachedTiles: MAX_TILE_CACHE_ENTRIES, tileHits: 0, tileMisses: 0
+  };
   return {
     indexed: true,
     featureCount: index.collection.features.length,
     cellCount: index.cells.size,
     cachedQueries: index.queryCache.size,
-    maxCachedQueries: MAX_QUERY_CACHE_ENTRIES
+    maxCachedQueries: MAX_QUERY_CACHE_ENTRIES,
+    cachedTiles: index.tileCache.size,
+    maxCachedTiles: MAX_TILE_CACHE_ENTRIES,
+    tileHits: index.tileHits,
+    tileMisses: index.tileMisses
   };
 }
 
@@ -177,5 +233,8 @@ export function clearGeoSpatialQueryCache(collection) {
   const index = collection && indexCache.get(collection);
   if (!index) return false;
   index.queryCache.clear();
+  index.tileCache.clear();
+  index.tileHits = 0;
+  index.tileMisses = 0;
   return true;
 }

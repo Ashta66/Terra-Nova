@@ -225,3 +225,10 @@ Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un s
 ## Budget mémoire global des chemins projetés
 
 Le cache Path2D est limité à trois variantes par entité, à 512 chemins au total et à 250 000 sommets projetés cumulés, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.
+
+
+## Moteur de tuiles vectorielles géographiques — lot 3.0
+
+Le moteur organise maintenant les entités GeoJSON dans une matrice de secteurs stables de 10° × 10°. Chaque secteur possède une sélection d'identifiants d'entités mise en cache ; le viewport assemble uniquement les secteurs qu'il recouvre, déduplique les entités et rétablit leur ordre source avant le rendu. Les géométries ne sont pas découpées aux frontières des secteurs : cela évite les fissures artificielles sur les côtes, les rivières et les polygones, et préserve la continuité à l'antiméridien.
+
+Le cache de secteurs vectoriels est LRU et plafonné à 96 entrées par collection ; le cache des plans de viewport reste plafonné à 48. Le préchargement au repos prépare un anneau de huit secteurs voisins au maximum, avec longitude cyclique et latitude bornée. Les statistiques exposent les tuiles conservées, les hits et les misses. Il s'agit de tuiles vectorielles de sélection/organisation des données, pas de tuiles d'images pré-rendues ni d'un moteur WebGL : le Canvas dessine toujours les entités sélectionnées. Cette approche évite de créer une seconde copie du monde ou des coutures de clipping. Les LOD mondiaux/régionaux existants restent responsables de la résolution des données ; le système de tuiles ne prétend pas créer du détail absent des fichiers installés.
