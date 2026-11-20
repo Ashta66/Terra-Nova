@@ -1,6 +1,7 @@
 const DEFAULT_CELL_SIZE = 10;
 const MAX_CELLS_PER_FEATURE = 120;
 const indexCache = new WeakMap();
+const MAX_QUERY_CACHE_ENTRIES = 48;
 
 function getBounds(feature) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -60,7 +61,7 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
       }
     }
   });
-  return { collection, cellSize: size, columns, rows, cells, global, bounds };
+  return { collection, cellSize: size, columns, rows, cells, global, bounds, queryCache: new Map() };
 }
 
 export function queryGeoSpatialIndex(index, viewport = {}) {
@@ -77,6 +78,17 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
   const maxX = longitudeCell(east, index.columns, index.cellSize);
   const minY = latitudeCell(north, index.rows, index.cellSize);
   const maxY = latitudeCell(south, index.rows, index.cellSize);
+
+  // Les positions voisines qui restent dans les mêmes cellules réutilisent
+  // exactement la même sélection, sans recréer le tableau GeoJSON à chaque frame.
+  const cacheKey = `${minX}:${maxX}:${minY}:${maxY}`;
+  const cached = index.queryCache.get(cacheKey);
+  if (cached) {
+    index.queryCache.delete(cacheKey);
+    index.queryCache.set(cacheKey, cached);
+    return cached;
+  }
+
   const selected = new Set(index.global);
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -84,9 +96,14 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
     }
   }
   const ordered = [...selected].sort((a, b) => a - b);
-  return ordered.length === index.collection.features.length
+  const result = ordered.length === index.collection.features.length
     ? index.collection
     : { ...index.collection, features: ordered.map(featureIndex => index.collection.features[featureIndex]) };
+  index.queryCache.set(cacheKey, result);
+  if (index.queryCache.size > MAX_QUERY_CACHE_ENTRIES) {
+    index.queryCache.delete(index.queryCache.keys().next().value);
+  }
+  return result;
 }
 
 export function selectGeoSpatialFeatures(collection, viewport = {}) {

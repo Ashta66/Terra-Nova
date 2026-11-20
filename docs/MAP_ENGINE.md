@@ -147,3 +147,8 @@ Cette stratégie privilégie la cohérence géographique : aucune carte mondiale
 ## Index spatial par secteurs — 20 novembre 2026
 
 Les collections GeoJSON sont maintenant indexées à la demande dans une grille géographique de secteurs de 10° × 10°. L'index conserve les indices des entités dans chaque cellule et les géométries trop étendues dans une liste globale afin de ne jamais les perdre. Pendant le panoramique et le zoom, le moteur interroge les cellules qui recouvrent le viewport puis restitue les entités dans leur ordre d'origine. L'index est conservé par collection avec une WeakMap : il n'est pas reconstruit à chaque image et peut être libéré lorsque la collection n'est plus référencée. Les géométries originales ne sont ni découpées ni altérées ; ce mécanisme est un index spatial vectoriel, pas encore un cache de tuiles raster ni un rendu WebGL. Les tests couvrent les secteurs régionaux, les grandes géométries et le maintien de l'ordre des données.
+
+
+## Réutilisation des sélections spatiales — 20 novembre 2026
+
+Le résultat des requêtes de secteurs est maintenant mis en cache par fenêtre de cellules. Tant que le viewport se déplace à l'intérieur des mêmes secteurs, le moteur réutilise le même sous-ensemble GeoJSON au lieu de recréer et retrier son tableau à chaque frame. Le cache applique une politique LRU simple et reste plafonné à 48 fenêtres par index afin de maîtriser la mémoire. Les données et géométries d'origine restent inchangées. Cette optimisation réduit les allocations et le travail de sélection ; elle ne remplace pas encore un cache de pixels/tuiles et ne doit pas être présentée comme une mesure de FPS garantie.

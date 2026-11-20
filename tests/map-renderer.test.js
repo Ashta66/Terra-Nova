@@ -238,3 +238,28 @@ test("l'index spatial conserve les grandes géométries et les géométries sans
   const visible = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), { zoom: 12, centerLongitude: 0, centerLatitude: 0 });
   assert.deepEqual(visible.features.map(feature => feature.properties.id), ["world", "empty"]);
 });
+
+
+test("les sélections spatiales sont réutilisées tant que le viewport reste dans les mêmes secteurs", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "a" }, geometry: { type: "Point", coordinates: [2, 48] } },
+    { type: "Feature", properties: { id: "b" }, geometry: { type: "Point", coordinates: [25, 48] } },
+    { type: "Feature", properties: { id: "c" }, geometry: { type: "Point", coordinates: [140, 35] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection, 10);
+  const first = queryGeoSpatialIndex(index, { zoom: 4, centerLongitude: 0, centerLatitude: 45 });
+  const second = queryGeoSpatialIndex(index, { zoom: 4, centerLongitude: 1, centerLatitude: 46 });
+  assert.strictEqual(second, first);
+  assert.equal(index.queryCache.size, 1);
+});
+
+test("le cache des sélections spatiales reste borné", () => {
+  const collection = { type: "FeatureCollection", features: Array.from({ length: 80 }, (_, i) => ({
+    type: "Feature", properties: { id: i }, geometry: { type: "Point", coordinates: [-175 + i * 4.4, -80 + (i % 30) * 5.3] }
+  })) };
+  const index = buildGeoSpatialIndex(collection, 10);
+  for (let longitude = -160; longitude <= 160; longitude += 10) {
+    queryGeoSpatialIndex(index, { zoom: 5, centerLongitude: longitude, centerLatitude: 0 });
+  }
+  assert.ok(index.queryCache.size <= 48);
+});
