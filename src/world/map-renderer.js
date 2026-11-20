@@ -565,19 +565,19 @@ function drawTerritoryLayer(context, collection, width, height, projection, sele
   context.save();
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
-    const path = getProjectedPath(feature, width, height, projection, profile);
-    if (path) {
-      const nationalColor = territoryColor(feature);
+    const status = classifyHistoricalTerritoryStyle(feature);
+    const nationalColor = territoryColor(feature);
+    const fill = path => {
       context.fillStyle = nationalColor;
-      context.globalAlpha = 0.58;
+      context.globalAlpha = status === "influence" ? 0.17 : status === "contested" ? 0.42 : status === "unclaimed" ? 0.08 : 0.58;
       context.fill(path, "evenodd");
-      // Saturated national edge, then a dark separator: adjacent similar hues remain distinguishable.
-      context.globalAlpha = 0.98;
+      context.globalAlpha = status === "influence" ? 0.52 : 0.98;
+      context.setLineDash?.(status === "influence" ? [4, 3] : status === "contested" ? [2.5, 2] : []);
       context.strokeStyle = nationalColor;
       context.lineWidth = Math.max(1.35, Math.min(3.2, 2.1 * Math.sqrt(projection.viewport?.zoom ?? 1)));
-      context.lineJoin = "round";
-      context.stroke(path);
-      context.globalAlpha = 0.82;
+      context.lineJoin = "round"; context.stroke(path);
+      context.setLineDash?.([]);
+      context.globalAlpha = status === "influence" ? 0.3 : 0.82;
       context.strokeStyle = "#101820";
       context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
       context.stroke(path);
@@ -587,31 +587,15 @@ function drawTerritoryLayer(context, collection, width, height, projection, sele
         context.lineWidth = Math.max(3.2, Math.min(7, 4.2 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
         context.strokeStyle = "#fff"; context.lineWidth = Math.max(1.1, Math.min(2.2, 1.45 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
       }
-      drawn++;
-    } else {
+    };
+    const path = getProjectedPath(feature, width, height, projection, profile);
+    if (path) fill(path);
+    else {
       context.beginPath();
       if (!traceGeometry(context, feature.geometry, width, height, projection, profile)) continue;
-      const nationalColor = territoryColor(feature);
-      context.fillStyle = nationalColor;
-      context.globalAlpha = 0.58;
-      context.fill("evenodd");
-      context.globalAlpha = 0.98;
-      context.strokeStyle = nationalColor;
-      context.lineWidth = Math.max(1.35, Math.min(3.2, 2.1 * Math.sqrt(projection.viewport?.zoom ?? 1)));
-      context.lineJoin = "round";
-      context.stroke();
-      context.globalAlpha = 0.82;
-      context.strokeStyle = "#101820";
-      context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
-      context.stroke();
-      if (territoryMatchesSelectedCountry(feature, selectedCountry)) {
-        context.globalAlpha = 0.22; context.fillStyle = "#fff4c2"; context.fill("evenodd");
-        context.globalAlpha = 1; context.strokeStyle = "#fff1b0";
-        context.lineWidth = Math.max(3.2, Math.min(7, 4.2 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke();
-        context.strokeStyle = "#fff"; context.lineWidth = Math.max(1.1, Math.min(2.2, 1.45 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke();
-      }
-      drawn++;
+      fill(context);
     }
+    drawn++;
   }
   context.restore();
   return drawn;
