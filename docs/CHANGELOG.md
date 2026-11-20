@@ -2,7 +2,7 @@
 
 - Ajout de `src/world/map-lod.js` : sélection du fond mondial 1:110m ou du fond régional 1:10m à partir du zoom 4×.
 - Le jeu régional est chargé à la demande, une seule fois, et le fond mondial reste le repli si l'asset manque ou ne peut être lu.
-- Ajout de `scripts/prepare-natural-earth-lod.sh` pour télécharger et convertir le jeu Natural Earth 1:10m « Land » en GeoJSON local avec GDAL.
+- Ajout de `scripts/prepare-natural-earth-lod.sh` pour télécharger et valider directement le GeoJSON Natural Earth 1:10m « Land » (curl + Python 3, sans GDAL).
 - Ajout de tests sur le seuil, le remplacement du fond, le repli et les erreurs de chargement.
 - Limite actuelle : l'asset 1:10m n'est pas encore versionné ; les lacs, rivières, glaciers et labels restent en 1:110m. Le rendu régional ne sera actif qu'après préparation de `data/ne_10m_land.geojson`.
 
