@@ -131,6 +131,7 @@ function createRenderer(grid) {
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
 
+  const uploadStartedAt = globalThis.performance?.now?.() ?? Date.now();
   const packed = encodeTerrainTexture(grid.values);
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -142,6 +143,8 @@ function createRenderer(grid) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, grid.width, grid.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, packed);
+  const textureUploadMs = (globalThis.performance?.now?.() ?? Date.now()) - uploadStartedAt;
+  const timerExtension = gl.getExtension("EXT_disjoint_timer_query");
 
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -152,7 +155,46 @@ function createRenderer(grid) {
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
   gl.uniform1i(gl.getUniformLocation(program, "u_elevation"), 0);
   gl.uniform2f(gl.getUniformLocation(program, "u_gridSize"), grid.width, grid.height);
-  return { canvas, gl, program, grid, texture };
+  const renderer = {
+    canvas, gl, program, grid, texture, timerExtension,
+    textureUploadMs, textureBytes: packed.byteLength,
+    pendingQueries: [], lastGpuMs: null, lastSubmitMs: 0,
+    contextLost: false
+  };
+  canvas.addEventListener?.("webglcontextlost", event => {
+    event.preventDefault?.();
+    renderer.contextLost = true;
+  });
+  canvas.addEventListener?.("webglcontextrestored", () => {
+    renderer.contextLost = true;
+    renderers.delete(grid);
+  });
+  return renderer;
+}
+
+function pollGpuQueries(renderer) {
+  const { gl, timerExtension: ext, pendingQueries } = renderer;
+  if (!ext) return;
+  const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT);
+  for (let i = pendingQueries.length - 1; i >= 0; i--) {
+    const query = pendingQueries[i];
+    if (!ext.getQueryObjectEXT(query, ext.QUERY_RESULT_AVAILABLE_EXT)) continue;
+    if (!disjoint) renderer.lastGpuMs = ext.getQueryObjectEXT(query, ext.QUERY_RESULT_EXT) / 1e6;
+    ext.deleteQueryEXT(query);
+    pendingQueries.splice(i, 1);
+  }
+}
+
+export function getTerrainWebGLStats(grid) {
+  const renderer = grid && renderers.get(grid);
+  if (!renderer || renderer.contextLost || renderer.gl.isContextLost?.()) return null;
+  return {
+    textureUploadMs: renderer.textureUploadMs,
+    textureBytes: renderer.textureBytes,
+    drawSubmitMs: renderer.lastSubmitMs,
+    gpuMs: renderer.lastGpuMs,
+    timerQueriesSupported: Boolean(renderer.timerExtension)
+  };
 }
 
 export function renderTerrainWebGL(grid, width, height, viewport = {}) {
@@ -163,7 +205,12 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
     if (!renderer) return null;
     renderers.set(grid, renderer);
   }
+  if (renderer.contextLost || renderer.gl.isContextLost?.()) {
+    renderers.delete(grid);
+    return null;
+  }
   const { canvas, gl, program } = renderer;
+  pollGpuQueries(renderer);
   canvas.width = width;
   canvas.height = height;
   gl.viewport(0, 0, width, height);
@@ -173,8 +220,33 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
   gl.uniform2f(gl.getUniformLocation(program, "u_viewCenter"),
     Number(viewport.centerLongitude ?? 0), Number(viewport.centerLatitude ?? 0));
   gl.uniform1f(gl.getUniformLocation(program, "u_zoom"), Math.max(0.0001, Number(viewport.zoom ?? 1)));
+  const ext = renderer.timerExtension;
+  let query = null;
+  if (ext && renderer.pendingQueries.length < 4) {
+    try {
+      query = ext.createQueryEXT();
+      ext.beginQueryEXT(ext.TIME_ELAPSED_EXT, query);
+    } catch {
+      if (query) ext.deleteQueryEXT(query);
+      query = null;
+    }
+  }
+  const submitStartedAt = globalThis.performance?.now?.() ?? Date.now();
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  if (gl.isContextLost?.()) return null;
+  renderer.lastSubmitMs = (globalThis.performance?.now?.() ?? Date.now()) - submitStartedAt;
+  if (query) {
+    try {
+      ext.endQueryEXT(ext.TIME_ELAPSED_EXT);
+      renderer.pendingQueries.push(query);
+    } catch {
+      ext.deleteQueryEXT(query);
+    }
+  }
+  if (gl.isContextLost?.()) {
+    renderer.contextLost = true;
+    renderers.delete(grid);
+    return null;
+  }
   return canvas;
 }
 
