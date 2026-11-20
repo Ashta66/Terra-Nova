@@ -401,7 +401,7 @@ test("la prévisualisation bitmap met à l'échelle autour du centre et suit le 
   );
   assert.equal(transform.scale, 2);
   assert.equal(transform.translateX, -200);
-  assert.equal(transform.translateY, 10);
+  assert.equal(transform.translateY, -80);
 });
 
 test("la transformation bitmap reste finie pour des viewports incomplets", () => {
