@@ -366,3 +366,9 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Préchargement interrompu/remplacé dès une nouvelle interaction ; une seule famille est préparée par tranche inactive.
 - Les niveaux mondiaux/régionaux restent séparés et les surfaces raster conservent leurs plafonds mémoire existants.
 - À valider ensuite : mesures navigateur de latence perçue, mémoire et fluidité sur plusieurs appareils.
+
+
+## Anticipation du zoom — réalisée, 20 novembre 2026
+- Chargement anticipé des labels à ×3,2, terres à ×5,2, rivières à ×7,2 ; seuils d'affichage inchangés à ×4, ×6, ×8.
+- En cas de dézoom, emprise préchargée élargie (zoom cible ×0,78).
+- Tests dédiés aux seuils de préchauffage et de rendu.

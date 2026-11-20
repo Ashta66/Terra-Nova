@@ -184,6 +184,8 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
     indexCache.set(collection, index);
   }
   const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  const zoomDirection = Math.max(-1, Math.min(1, Number(options.zoomDirection) || 0));
+  const prefetchZoom = zoomDirection < -0.05 ? Math.max(1, zoom * 0.78) : zoom;
   const coverage = Math.max(1, Math.min(2.2, Number(options.coverage) || 1.6));
   const lookAhead = Math.max(0, Math.min(1, Number(options.lookAhead) || 0.55));
   const direction = options.direction ?? {};
@@ -195,8 +197,8 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   const centerLongitude = wrapLongitude(Number(viewport.centerLongitude ?? 0) + nx * (180 / zoom) * lookAhead);
   const centerLatitude = Math.max(-89.9, Math.min(89.9,
     Number(viewport.centerLatitude ?? 0) - ny * (90 / zoom) * lookAhead));
-  const halfLon = Math.min(180, (180 / zoom) * coverage);
-  const halfLat = Math.min(90, (90 / zoom) * coverage);
+  const halfLon = Math.min(180, (180 / prefetchZoom) * coverage);
+  const halfLat = Math.min(90, (90 / prefetchZoom) * coverage);
   const minX = Math.max(1, Math.ceil(halfLon * 2 / index.cellSize / 2));
   const minY = Math.max(1, Math.ceil(halfLat * 2 / index.cellSize / 2));
   const spanX = Math.min(4, minX + Math.min(2, Math.floor(Number(radius) || 0)));

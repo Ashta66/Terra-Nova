@@ -361,3 +361,9 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Les tâches sont annulées/remplacées à l'arrivée d'une nouvelle interaction ; une seule famille géographique est traitée par tranche inactive.
 - Conservation des niveaux LOD mondiaux/régionaux et des budgets d'images pré-rendues : aucun grand bitmap anticipé n'est ajouté.
 - Les gains de temps de chargement et la consommation mémoire restent à mesurer dans un navigateur réel.
+
+
+## 20 novembre 2026 — anticipation des niveaux de zoom
+- Téléchargement régional anticipé : labels ×3,2, terres ×5,2, rivières ×7,2 ; affichage toujours à ×4, ×6, ×8.
+- Emprise spatiale élargie lors d'un dézoom.
+- Tests et documentation mis à jour.

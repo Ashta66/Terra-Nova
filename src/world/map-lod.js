@@ -177,6 +177,12 @@ export function buildRegionalCityLabels(places) {
   return { type: "FeatureCollection", features };
 }
 
+/** Prépare les couches régionales avant leur seuil réel d'affichage. */
+export function getRegionalWarmupProfile(zoom) {
+  const level = Number(zoom) || 1;
+  return { labels: level >= 3.2, land: level >= 5.2, rivers: level >= 7.2 };
+}
+
 export function selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
   const useRegional = Number.isFinite(zoom) && zoom >= threshold
     && regionalFeatures && regionalFeatures.type === "FeatureCollection"

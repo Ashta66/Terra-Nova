@@ -389,3 +389,7 @@ Le préchargement spatial prépare désormais une emprise d'environ 1,6× le vie
 Le cache multi-échelle réutilise les sélections spatiales LRU existantes par collection et les couches Natural Earth mondiales/régionales déjà gérées par le LOD. Les seuils régionaux restent progressifs : le préchargement spatial ne force pas le chargement simultané de toutes les géométries détaillées. Les surfaces pré-rendues restent dans leur budget indépendant existant (trois scènes et 48 Mio par canvas) ; aucune image hors écran supplémentaire n'est créée par cette évolution.
 
 Le préchargement est prédictif à partir du dernier déplacement achevé, pas une prédiction de trajectoire complexe. Le navigateur peut abandonner une tranche inactive au profit de l'interaction ; les téléchargements de données déjà commencés restent réutilisables dans le cache local. Les performances réelles et la mémoire doivent être vérifiées sur les navigateurs cibles.
+
+
+## Anticipation des niveaux de zoom — 20 novembre 2026
+Les labels régionaux sont demandés à ×3,2 (affichage ×4), les terres à ×5,2 (affichage ×6) et les rivières à ×7,2 (affichage ×8). Le téléchargement commence avant le besoin de rendu ; les seuils LOD restent inchangés. Lors d'un dézoom, le préchargement spatial prépare une emprise élargie (zoom cible ×0,78).
