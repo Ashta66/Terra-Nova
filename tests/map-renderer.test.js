@@ -565,6 +565,15 @@ test("le rendu WebGL se désactive proprement si aucune grille exploitable n'est
   assert.match(shaders.fragment, /fract\(p00.x\)/);
 });
 
+test("le shader WebGL tuilé échantillonne les textures locales avec leurs bordures", () => {
+  const shader = getTerrainWebGLShaders().tileFragment;
+  assert.match(shader, /u_uvBounds/);
+  assert.match(shader, /u_tileSize/);
+  assert.match(shader, /sampleValue\.a/);
+  assert.match(shader, /stepUV/);
+  assert.match(shader, /gl_FragColor/);
+});
+
 test("le moteur conserve Canvas 2D comme rendu de repli sans surface WebGL", () => {
   const { canvas } = createCanvas();
   const result = renderWorldMap(canvas, land, {
