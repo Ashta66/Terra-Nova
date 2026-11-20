@@ -252,7 +252,11 @@ export function createTerrainTileStore(grid, options = {}) {
     const current = collect(centerLongitude, centerLatitude, primaryLon, primaryLat);
     const ordered = new Map();
     for (const item of predictive) ordered.set(tileId(item.x, item.y), item);
-    for (const item of current) ordered.set(tileId(item.x, item.y), item);
+    for (const item of current) {
+      const id = tileId(item.x, item.y);
+      ordered.delete(id);
+      ordered.set(id, item);
+    }
     const requestedIds = [...ordered.keys()];
     for (const id of requestedIds) {
       const [, x, y] = id.split("/").map(Number);
