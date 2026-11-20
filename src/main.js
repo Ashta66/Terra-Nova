@@ -211,7 +211,7 @@ function renderMap() {
       ]) {
         const safeLayerKey = layerKey.replace(/[^a-zA-Z0-9]+(.)?/g, (_, next) => next ? next.toUpperCase() : "");
         const datasetPrefix = `geographicWebglLayer${safeLayerKey[0]?.toUpperCase() ?? ""}${safeLayerKey.slice(1)}`;
-        for (const suffix of ["Features", "SkippedFeatures", "DrawCalls", "CacheHit", "BuildMs",
+        for (const suffix of ["Features", "SkippedFeatures", "FallbackFeatures", "DrawCalls", "CacheHit", "BuildMs",
           "DrawSubmitMs", "TotalMs", "Triangles", "Uploads", "UploadedBytes"]) {
           delete canvas.dataset[`${datasetPrefix}${suffix}`];
         }
