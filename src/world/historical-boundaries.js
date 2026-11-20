@@ -56,7 +56,8 @@ export function historicalPolygonsToBoundaries(collection) {
   if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) {
     throw new TypeError("Une FeatureCollection historique est requise.");
   }
-  const politicalCollection = selectHistoricalPoliticalTerritories(collection);\n  const sovereignFeatures = politicalCollection.features.filter(feature => !["influence", "unclaimed"].includes(feature?.properties?.historicalStatus));
+  const politicalCollection = selectHistoricalPoliticalTerritories(collection);
+  const sovereignFeatures = politicalCollection.features.filter(feature => !["influence", "unclaimed"].includes(feature?.properties?.historicalStatus));
   const polygonFeatures = sovereignFeatures.map(feature => {
     const geometry = feature?.geometry;
     const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
