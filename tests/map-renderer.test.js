@@ -635,7 +635,7 @@ test("les noms des pays sont générés depuis les polygones territoriaux", () =
 test("les provinces reçoivent des labels à partir de leurs lignes administratives", () => {
   const provinces = { type: "FeatureCollection", features: [{
     type: "Feature", properties: { name: "Province test" },
-    geometry: { type: "LineString", coordinates: [[0, 0], [2, 0], [4, 0]] }
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]] }
   }] };
   const labels = buildTerritoryLabels(null, provinces);
   assert.equal(labels.features.length, 1);

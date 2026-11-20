@@ -418,7 +418,7 @@ function getSortedLabelCandidates(collection) {
   let candidates = sortedLabelCollections.get(collection);
   if (!candidates) {
     candidates = [...collection.features].sort((a, b) => {
-      const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : 2;
+      const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : kind === "country" ? 2 : kind === "province" ? 3 : kind === "city" ? 4 : 5;
       return rank(a.properties?.kind) - rank(b.properties?.kind);
     });
     sortedLabelCollections.set(collection, candidates);
@@ -506,44 +506,11 @@ export function buildTerritoryLabels(territories, provinces = null) {
   }
   for (const feature of provinces?.features ?? []) {
     const name = territoryName(feature.properties);
-    const geometry = feature.geometry;
-    const lines = geometry?.type === "LineString" ? [geometry.coordinates]
-      : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
-    if (!name || !lines.length) continue;
-    let longest = null, longestLength = 0;
-    for (const line of lines) {
-      let length = 0;
-      for (let i = 1; i < line.length; i++) {
-        const dx = (line[i][0] - line[i - 1][0]) * Math.cos((line[i][1] + line[i - 1][1]) * Math.PI / 360);
-        const dy = line[i][1] - line[i - 1][1];
-        length += Math.hypot(dx, dy);
-      }
-      if (length > longestLength) { longestLength = length; longest = line; }
-    }
-    if (!longest || longestLength < 1.5) continue;
-    let total = 0;
-    const lengths = [];
-    for (let i = 1; i < longest.length; i++) {
-      const dx = (longest[i][0] - longest[i - 1][0]) * Math.cos((longest[i][1] + longest[i - 1][1]) * Math.PI / 360);
-      const dy = longest[i][1] - longest[i - 1][1];
-      const length = Math.hypot(dx, dy);
-      lengths.push(length); total += length;
-    }
-    let remaining = total / 2, point = longest[0];
-    for (let i = 0; i < lengths.length; i++) {
-      if (remaining <= lengths[i]) {
-        const ratio = lengths[i] ? remaining / lengths[i] : 0;
-        point = [
-          longest[i][0] + (longest[i + 1][0] - longest[i][0]) * ratio,
-          longest[i][1] + (longest[i + 1][1] - longest[i][1]) * ratio
-        ];
-        break;
-      }
-      remaining -= lengths[i];
-    }
+    const point = polygonInteriorLabelPoint(feature);
+    if (!name || !point || !point.every(Number.isFinite)) continue;
     features.push({
       type: "Feature",
-      properties: { name, kind: "province", minZoom: 4.5, priority: 45 },
+      properties: { name, kind: "province", minZoom: 3.5, priority: 55 },
       geometry: { type: "Point", coordinates: point }
     });
   }
@@ -555,7 +522,7 @@ function territoryColor(feature) {
   let hash = 2166136261;
   for (let i = 0; i < name.length; i++) hash = Math.imul(hash ^ name.charCodeAt(i), 16777619);
   const hue = (hash >>> 0) % 360;
-  return `hsl(${hue} 24% 43%)`;
+  return `hsl(${hue} 28% 57%)`;
 }
 
 function drawTerritoryLayer(context, collection, width, height, projection) {

@@ -5,6 +5,7 @@ const HISTORICAL_GEOJSON_BASE = "https://raw.githubusercontent.com/aourednik/his
 const MODERN_POLITICAL_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_boundary_lines_land.geojson";
 const MODERN_TERRITORIES_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
 const MODERN_ADMIN_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces_lines.geojson";
+const MODERN_ADMIN_REGIONS_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces.geojson";
 const REGIONAL_ADMIN_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces_lines.geojson";
 let historicalIndexPromise = null;
 const historicalLayerCache = new Map();
@@ -12,6 +13,7 @@ const historicalTerritoryCache = new Map();
 let modernPoliticalPromise = null;
 let modernTerritoriesPromise = null;
 let modernAdminPromise = null;
+let modernAdminRegionsPromise = null;
 let regionalAdminPromise = null;
 
 async function readCollection(url, label, fetcher) {
@@ -135,4 +137,10 @@ export async function loadAdministrativeBoundaries(year, zoom = 1, fetcher = glo
   }
   if (!modernAdminPromise) modernAdminPromise = readCollection(MODERN_ADMIN_URL, "Frontières administratives mondiales 1:110m", fetcher);
   return modernAdminPromise;
+}
+
+export async function loadAdministrativeRegions(year, fetcher = globalThis.fetch) {
+  if (Number(year) < 2026) return null;
+  if (!modernAdminRegionsPromise) modernAdminRegionsPromise = readCollection(MODERN_ADMIN_REGIONS_URL, "Noms des provinces et régions", fetcher);
+  return modernAdminRegionsPromise;
 }

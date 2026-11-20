@@ -5,7 +5,7 @@ import { renderWorldMap, buildTerritoryLabels } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
-import { loadPoliticalBoundaries, loadAdministrativeBoundaries } from "./world/historical-boundaries.js";
+import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
@@ -156,12 +156,13 @@ function renderMapFrame() {
     boundaryRequestedKey = boundaryRequestKey;
     boundaryLoadPromise = Promise.all([
       loadPoliticalBoundaries(year),
-      loadAdministrativeBoundaries(year, mapViewport.zoom)
-    ]).then(([political, administrative]) => {
+      loadAdministrativeBoundaries(year, mapViewport.zoom),
+      loadAdministrativeRegions(year)
+    ]).then(([political, administrative, administrativeRegions]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
       territoryFeatures = political?.territories ?? null;
       administrativeBoundaryFeatures = administrative;
-      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeBoundaryFeatures);
+      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
       boundarySourceLabel = political?.sourceYear
         ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
         : "indisponible";
