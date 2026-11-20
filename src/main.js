@@ -112,7 +112,7 @@ function renderMap() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: mapLabels,
-    terrain: terrainTileStore ?? terrainGrid,
+    terrain: terrainTileStore ?? terrainGrid,\n    terrainTileStore,
     terrainWebGLGrid: terrainTileStore?.revision === 0 ? terrainGrid : null,
     terrainTransitionProgress,
     dynamicLayers: dynamicMapLayers
