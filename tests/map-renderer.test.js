@@ -900,10 +900,10 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
 
 test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
   const expected = [
-    [1, { tolerance: 3.2, minRingArea: 24 }],
-    [3, { tolerance: 3.6, minRingArea: 36 }],
-    [8, { tolerance: 4, minRingArea: 52 }],
-    [20, { tolerance: 4.4, minRingArea: 72 }]
+    [1, { tolerance: 3.3, minRingArea: 25 }],
+    [3, { tolerance: 3.75, minRingArea: 38 }],
+    [8, { tolerance: 4.15, minRingArea: 55 }],
+    [20, { tolerance: 4.6, minRingArea: 78 }]
   ];
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
