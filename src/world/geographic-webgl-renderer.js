@@ -159,6 +159,36 @@ export function createGeographicWebGLRenderer(gl) {
   const centerLocation = gl.getUniformLocation(program, "u_center");
   const zoomLocation = gl.getUniformLocation(program, "u_zoom");
   const colorLocation = gl.getUniformLocation(program, "u_color");
+  const lineVertex = compile(gl, gl.VERTEX_SHADER, LINE_VERTEX_SHADER);
+  const lineFragment = compile(gl, gl.FRAGMENT_SHADER, LINE_FRAGMENT_SHADER);
+  if (!lineVertex || !lineFragment) {
+    if (lineVertex) gl.deleteShader(lineVertex);
+    if (lineFragment) gl.deleteShader(lineFragment);
+    gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment);
+    return null;
+  }
+  const lineProgram = gl.createProgram();
+  if (!lineProgram) {
+    gl.deleteShader(lineVertex); gl.deleteShader(lineFragment);
+    gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment);
+    return null;
+  }
+  gl.attachShader(lineProgram, lineVertex);
+  gl.attachShader(lineProgram, lineFragment);
+  gl.linkProgram(lineProgram);
+  if (!gl.getProgramParameter(lineProgram, gl.LINK_STATUS)) {
+    gl.deleteProgram(lineProgram); gl.deleteShader(lineVertex); gl.deleteShader(lineFragment);
+    gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment);
+    return null;
+  }
+  const lineCoordinateLocation = gl.getAttribLocation(lineProgram, "a_coordinate");
+  const lineOtherLocation = gl.getAttribLocation(lineProgram, "a_other");
+  const lineSideLocation = gl.getAttribLocation(lineProgram, "a_side");
+  const lineCenterLocation = gl.getUniformLocation(lineProgram, "u_center");
+  const lineZoomLocation = gl.getUniformLocation(lineProgram, "u_zoom");
+  const lineViewportLocation = gl.getUniformLocation(lineProgram, "u_viewport");
+  const lineWidthLocation = gl.getUniformLocation(lineProgram, "u_line_width");
+  const lineColorLocation = gl.getUniformLocation(lineProgram, "u_color");
   const meshCache = createGeographicMeshCache();
   const featureIds = new WeakMap();
   const lineSupportCache = new WeakMap();
@@ -260,7 +290,7 @@ export function createGeographicWebGLRenderer(gl) {
       const layerBytes = cacheHit ? 0 : type !== "polygons" ? (cached.positions?.byteLength ?? 0) :
         cached.batches.reduce((sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
       const layerUploads = cacheHit ? 0 : type !== "polygons" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
-      prepared.push({ key, type, color: layer.color ?? [0.32, 0.39, 0.31, 1], cached });
+      prepared.push({ key, type, color: layer.color ?? [0.32, 0.39, 0.31, 1], lineWidth: Number(layer.lineWidth ?? (key === "rivers" ? 0.7 : 0.55)), cached });
       drawnFeatures += cached.drawnFeatures;
       skippedFeatures += cached.skippedFeatures;
       drawCalls += layerDrawCalls;
@@ -284,14 +314,25 @@ export function createGeographicWebGLRenderer(gl) {
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
     for (const layer of prepared) {
-      gl.uniform4fv(colorLocation, layer.color);
       if (layer.type === "lines" || layer.type === "boundaries") {
         if (!layer.cached.lineBuffer || !layer.cached.vertexCount) continue;
+        gl.useProgram(lineProgram);
+        gl.uniform2f(lineCenterLocation, centerLongitude, centerLatitude);
+        gl.uniform1f(lineZoomLocation, zoom);
+        gl.uniform2f(lineViewportLocation, Math.round(width), Math.round(height));
+        gl.uniform1f(lineWidthLocation, Math.max(0.25, Number.isFinite(layer.lineWidth) ? layer.lineWidth : 0.55));
+        gl.uniform4fv(lineColorLocation, layer.color);
         gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.LINES, 0, layer.cached.vertexCount);
+        gl.enableVertexAttribArray(lineCoordinateLocation);
+        gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 20, 0);
+        gl.enableVertexAttribArray(lineOtherLocation);
+        gl.vertexAttribPointer(lineOtherLocation, 2, gl.FLOAT, false, 20, 8);
+        gl.enableVertexAttribArray(lineSideLocation);
+        gl.vertexAttribPointer(lineSideLocation, 1, gl.FLOAT, false, 20, 16);
+        gl.drawArrays(gl.TRIANGLES, 0, layer.cached.vertexCount);
       } else {
+        gl.useProgram(program);
+        gl.uniform4fv(colorLocation, layer.color);
         for (const batch of layer.cached.batches) {
           gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
           gl.enableVertexAttribArray(positionLocation);
@@ -351,6 +392,9 @@ export function createGeographicWebGLRenderer(gl) {
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
+      gl.deleteProgram(lineProgram);
+      gl.deleteShader(lineVertex);
+      gl.deleteShader(lineFragment);
     }
   };
 }
