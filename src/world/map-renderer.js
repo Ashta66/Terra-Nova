@@ -283,8 +283,13 @@ export function calculateExposedRegions(previous, next, width, height) {
   return regions;
 }
 
+export function getTerrainTransitionOpacity(progress) {
+  return Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 1));
+}
+
 const layerCaches = { physical: new Map(), political: new Map() };
 let lastPhysicalFrame = null;
+let zoomTransitionFrame = null;
 let lastPoliticalFrame = null;
 const objectIds = new WeakMap();
 let nextObjectId = 1;
@@ -417,6 +422,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const physicalSurface = createLayerSurface(canvas.width, canvas.height);
     if (physicalSurface) {
       const previous = lastPhysicalFrame;
+      const currentZoom = Number(projection.viewport.zoom ?? 1);
+      if (previous && previous.terrain === options.terrain
+        && previous.width === canvas.width && previous.height === canvas.height
+        && previous.pixelRatio === pixelRatio
+        && currentZoom !== Number(previous.viewport.zoom ?? 1)) {
+        zoomTransitionFrame = previous;
+      }
       let dirtyRegions = null;
       if (previous
         && previous.terrain === options.terrain
@@ -445,10 +457,32 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
         revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
         pixelRatio, viewport: { ...projection.viewport } };
-      context.save();
-      context.setTransform(1, 0, 0, 1, 0, 0);
-      context.drawImage(physicalSurface.surface, 0, 0);
-      context.restore();
+      const transitionProgress = getTerrainTransitionOpacity(options.terrainTransitionProgress);
+      const transitionSource = zoomTransitionFrame
+        && zoomTransitionFrame.terrain === options.terrain
+        && zoomTransitionFrame.width === canvas.width && zoomTransitionFrame.height === canvas.height
+        && zoomTransitionFrame.pixelRatio === pixelRatio
+        ? zoomTransitionFrame : null;
+      if (transitionSource && transitionProgress < 1) {
+        const transform = calculateViewportTransform(transitionSource.viewport, projection.viewport, width, height);
+        context.save();
+        context.setTransform(transform.scale, 0, 0, transform.scale,
+          transform.translateX * pixelRatio, transform.translateY * pixelRatio);
+        context.globalAlpha = 1 - transitionProgress;
+        context.drawImage(transitionSource.surface, 0, 0);
+        context.restore();
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.globalAlpha = transitionProgress;
+        context.drawImage(physicalSurface.surface, 0, 0);
+        context.restore();
+      } else {
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.drawImage(physicalSurface.surface, 0, 0);
+        context.restore();
+        if (transitionProgress >= 1) zoomTransitionFrame = null;
+      }
       physicalHit = incremental;
     } else {
       lastPhysicalFrame = null;
