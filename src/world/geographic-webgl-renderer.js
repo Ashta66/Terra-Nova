@@ -148,6 +148,9 @@ export function createGeographicWebGLRenderer(gl) {
 
   return {
     canvas: gl.canvas ?? null,
+    supports(feature) {
+      return Boolean(meshCache.get(feature)?.supported);
+    },
     render,
     dispose() {
       if (disposed) return;
