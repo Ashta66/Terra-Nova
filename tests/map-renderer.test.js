@@ -1334,3 +1334,42 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(second.uploadedBytes, 0);
   renderer.dispose();
 });
+
+
+test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () => {
+  let nextId = 0;
+  const calls = [];
+  const gl = {
+    canvas: { width: 1, height: 1 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, STATIC_DRAW: 8,
+    FLOAT: 9, TRIANGLES: 10, LINES: 11, UNSIGNED_SHORT: 12, COLOR_BUFFER_BIT: 13,
+    BLEND: 14, SRC_ALPHA: 15, ONE_MINUS_SRC_ALPHA: 16,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { calls.push(["upload", data.byteLength]); },
+    drawElements() {},
+    drawArrays(mode, first, count) { calls.push(["drawArrays", mode, count]); }
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const polygon = { type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]] } };
+  const layers = [{ key: "coast-outline", type: "boundaries", features: [polygon], color: [0.4, 0.5, 0.6, 1] }];
+  const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
+  assert.equal(first.drawnFeatures, 1);
+  assert.equal(first.layers["coast-outline"].vertices, 8);
+  assert.equal(first.bufferUploads, 1);
+  assert.equal(renderer.supportsBoundary(polygon), true);
+  assert.equal(calls.filter(call => call[0] === "drawArrays").length, 1);
+  const second = renderer.renderLayers(layers, 640, 320, { centerLongitude: 15, centerLatitude: 0, zoom: 2 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  renderer.dispose();
+});
