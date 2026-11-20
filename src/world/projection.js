@@ -5,7 +5,7 @@ export function projectEquirectangular(longitude, latitude, width, height, viewp
   const zoom = clamp(Number(viewport.zoom ?? 1), 1, 24);
   const centerLongitude = Number(viewport.centerLongitude ?? 0);
   const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85, 85);
-  const wrappedLongitude = viewport.wrapLongitude === false ? longitude : longitude + 360 * Math.round((centerLongitude - longitude) / 360);
+  const wrappedLongitude = viewport.wrapLongitude === false ? longitude : (Math.abs(centerLongitude - longitude) <= 180 ? longitude : longitude + 360 * Math.round((centerLongitude - longitude) / 360));
   return {
     x: width / 2 + ((wrappedLongitude - centerLongitude) / 360) * width * zoom,
     y: height / 2 - ((latitude - centerLatitude) / 180) * height * zoom

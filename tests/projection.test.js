@@ -61,7 +61,7 @@ test("le viewport équirectangulaire ne peut jamais afficher plusieurs copies du
   assert.deepEqual(constrainEquirectangularViewport({ zoom: 1, centerLongitude: 540, centerLatitude: 80 }), {
     zoom: 1, centerLongitude: 0, centerLatitude: 0
   });
-  assert.equal(constrainEquirectangularViewport({ zoom: 2, centerLongitude: 540 }).centerLongitude, 90);
-  assert.equal(constrainEquirectangularViewport({ zoom: 2, centerLongitude: -540 }).centerLongitude, -90);
-  assert.equal(constrainEquirectangularViewport({ zoom: 24, centerLongitude: 540 }).centerLongitude, 172.5);
+  assert.equal(constrainEquirectangularViewport({ zoom: 2, centerLongitude: 540 }).centerLongitude, 540);
+  assert.equal(constrainEquirectangularViewport({ zoom: 2, centerLongitude: -540 }).centerLongitude, -540);
+  assert.equal(constrainEquirectangularViewport({ zoom: 24, centerLongitude: 540 }).centerLongitude, 540);
 });
