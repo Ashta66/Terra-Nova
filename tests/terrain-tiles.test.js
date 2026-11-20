@@ -151,3 +151,27 @@ test("le préchargement asynchrone protège les tuiles visibles de l'éviction",
   assert.ok(visible.every(id => store.loadedIds.includes(id)));
 });
 
+
+test("les anciennes tuiles visibles restent protégées pendant le préchargement du nouveau viewport", () => {
+  const store = createTerrainTileStore(
+    { width: 72, height: 36, values: new Int16Array(72 * 36) },
+    { tileSize: 6, maxTiles: 8 }
+  );
+  const previousVisible = store.preloadViewport(
+    { zoom: 8, centerLongitude: -120, centerLatitude: 0 },
+    { padding: 0 }
+  );
+  const nextVisible = store.preloadViewport(
+    { zoom: 8, centerLongitude: 120, centerLatitude: 0 },
+    {
+      padding: 0,
+      retainExisting: true,
+      protectedIds: previousVisible,
+      lookAhead: 0.8,
+      directionLongitude: 1
+    }
+  );
+  assert.ok(nextVisible.length > 0);
+  assert.ok(previousVisible.every(id => store.loadedIds.includes(id)));
+  assert.ok(nextVisible.every(id => store.loadedIds.includes(id)));
+});
