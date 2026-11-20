@@ -1212,3 +1212,60 @@ test("le renderer WebGL géographique regroupe les polygones et ignore les géom
   assert.equal(gl.canvas.height, 320);
   renderer.dispose();
 });
+
+
+test("le renderer géographique conserve un cache GPU indépendant pour chaque couche", () => {
+  let nextId = 0;
+  const uploads = [];
+  const gl = {
+    canvas: { width: 1, height: 1 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, FLOAT: 8,
+    TRIANGLES: 9, UNSIGNED_SHORT: 10, COLOR_BUFFER_BIT: 11, BLEND: 12,
+    SRC_ALPHA: 13, ONE_MINUS_SRC_ALPHA: 14,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { uploads.push({ target, bytes: data.byteLength }); },
+    drawElements() {}
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const land = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[0, 0], [8, 0], [8, 8], [0, 8], [0, 0]]] } };
+  const glacier = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[10, 10], [12, 10], [12, 12], [10, 12], [10, 10]]] } };
+  const lakes = { type: "Feature", geometry: { type: "Polygon",
+    coordinates: [[[20, 20], [22, 20], [22, 22], [20, 22], [20, 20]]] } };
+  const layers = [
+    { key: "land", features: [land], color: [0.2, 0.3, 0.4, 1] },
+    { key: "glaciers", features: [glacier], color: [0.8, 0.9, 0.9, 0.88] },
+    { key: "lakes", features: [lakes], color: [0.1, 0.2, 0.3, 1] }
+  ];
+  const first = renderer.renderLayers(layers, 800, 400, { zoom: 1 });
+  assert.equal(first.drawnFeatures, 3);
+  assert.equal(first.drawCalls, 3);
+  assert.equal(first.bufferUploads, 6);
+  assert.equal(first.cacheHit, false);
+  assert.equal(first.layers.land.cacheHit, false);
+  const second = renderer.renderLayers(layers, 800, 400, { zoom: 2, centerLongitude: 10 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.layers.glaciers.cacheHit, true);
+  assert.equal(uploads.length, 6);
+  const changed = renderer.renderLayers([
+    layers[0], { ...layers[1], features: [glacier, land] }, layers[2]
+  ], 800, 400, { zoom: 2 });
+  assert.equal(changed.layers.land.cacheHit, true);
+  assert.equal(changed.layers.glaciers.cacheHit, false);
+  assert.equal(changed.layers.lakes.cacheHit, true);
+  assert.equal(changed.bufferUploads, 2);
+  assert.equal(uploads.length, 8);
+  renderer.dispose();
+});
