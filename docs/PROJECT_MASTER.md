@@ -244,3 +244,7 @@ Le moteur regroupe désormais les demandes de rendu sur `requestAnimationFrame`.
 
 ### Navigation fluide — optimisation zoom
 La molette affiche une prévisualisation transformée du canvas et attend 130 ms de calme avant le rendu géographique complet. Les rendus sont invalidés par la taille, l'année et le viewport ; l'horloge ne provoque donc plus un redessin inutile à chaque seconde de simulation.
+
+
+### Lisibilité du relief et zoom étendu — 20 novembre 2026
+Le rendu ETOPO est allégé à 512 × 256 pixels en qualité normale, avec un hillshade et des teintes de classes moins contrastés. Le zoom 2D maximal passe à 24× dans les contrôles et les projections équirectangulaire/Mercator. Ce zoom agrandit le fond mondial existant ; il ne crée pas de détail local supplémentaire tant que les données régionales ne sont pas intégrées.
