@@ -211,3 +211,39 @@ test("les identifiants et le préchargement asynchrone acceptent les niveaux par
   assert.ok(store.loadedIds.includes("2/0/0"));
   assert.ok(store.loadedIds.includes("1/1/1"));
 });
+
+
+test("le cache LRU respecte un budget mémoire partagé entre les niveaux parent et enfant", () => {
+  const store = createTerrainTileStore(
+    { width: 8, height: 8, values: new Int16Array(64) },
+    { tileSize: 2, maxTiles: 12, maxBytes: 8 }
+  );
+  store.getTile(0, 0);
+  assert.equal(store.memoryBytes, 8);
+  store.getTileAtLevel(1, 0, 0);
+  assert.equal(store.memoryBytes, 8);
+  assert.deepEqual(store.loadedIds, ["1/0/0"]);
+  store.getTileAtLevel(2, 0, 0);
+  assert.equal(store.memoryBytes, 8);
+  assert.deepEqual(store.loadedIds, ["2/0/0"]);
+  assert.deepEqual(store.cacheStats, {
+    tileCount: 1, byteLength: 8, maxTiles: 12, maxBytes: 8,
+    dirtyTiles: 0, overBudget: false, levels: { 2: 1 }
+  });
+});
+
+test("les tuiles modifiées restent protégées même si elles font dépasser le budget mémoire", () => {
+  const store = createTerrainTileStore(
+    { width: 8, height: 8, values: new Int16Array(64) },
+    { tileSize: 2, maxTiles: 12, maxBytes: 8 }
+  );
+  assert.equal(store.setElevation(-157.5, 67.5, 900), true);
+  store.getTile(1, 0);
+  assert.equal(store.cacheStats.overBudget, true);
+  assert.equal(store.cacheStats.dirtyTiles, 1);
+  const dirty = store.getTile(0, 0);
+  assert.equal(store.markPersisted(dirty.id, dirty.revision), true);
+  store.getTile(2, 0);
+  assert.equal(store.cacheStats.overBudget, false);
+  assert.equal(store.memoryBytes, 8);
+});
