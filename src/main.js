@@ -559,6 +559,8 @@ function clearWheelZoomPreview() {
   wheelZoomState = null;
   mapInteractionActive = false;
   mapCanvas.style.transform = "";
+  mapCanvas.style.transformOrigin = "";
+  mapCanvas.style.willChange = "";
 }
 
 function stopMapDrag() {
