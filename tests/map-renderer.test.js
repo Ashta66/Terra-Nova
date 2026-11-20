@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -811,6 +811,22 @@ test("le LOD GPU choisit le niveau parent selon la densité d'échantillons à l
   assert.equal(selectTerrainTileLevel(store, { zoom: 1 }, 960), 4);
   assert.equal(selectTerrainTileLevel(store, { zoom: 8 }, 960), 1);
   assert.equal(selectTerrainTileLevel(store, { zoom: 32 }, 960), 0);
+});
+
+test("le préchargement GPU sélectionne des tuiles voisines sans dupliquer le viewport", () => {
+  const width = 64, height = 32, tileSize = 4;
+  const values = new Int16Array(width * height);
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 256 });
+  const viewport = { centerLongitude: 0, centerLatitude: 0, zoom: 2 };
+  const visible = collectTerrainViewportTiles(store, viewport, 800, 400, 0);
+  const predictive = collectTerrainPredictiveTiles(store, viewport, 800, 400, 0, 8);
+  const visibleIds = new Set(visible.map(({ tile }) => `${tile.level}/${tile.x}/${tile.y}`));
+  assert.ok(predictive.length > 0);
+  assert.ok(predictive.length <= 8);
+  for (const { tile } of predictive) {
+    assert.equal(visibleIds.has(`${tile.level}/${tile.x}/${tile.y}`), false);
+  }
+  assert.equal(collectTerrainPredictiveTiles(store, viewport, 800, 400, 0, 0).length, 0);
 });
 
 test("la collecte GPU ne matérialise que les tuiles qui croisent le viewport", () => {
