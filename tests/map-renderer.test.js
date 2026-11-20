@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -870,4 +870,28 @@ test("les côtes physiques et le masque du relief sont plus simplifiés que les 
   assert.ok(land.minRingArea > country.minRingArea);
   assert.ok(closeLand.tolerance > closeCountry.tolerance);
   assert.ok(closeLand.minRingArea > closeCountry.minRingArea);
+});
+
+
+test("les aplats territoriaux orange suivent le même masque côtier que les terres", () => {
+  for (const zoom of [1, 2, 4, 8, 20]) {
+    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), getLandCoastSimplificationProfile(zoom));
+  }
+});
+
+test("les sommets de montagnes ne dessinent plus de triangles mais gardent les noms majeurs", () => {
+  const { canvas, calls } = createCanvas();
+  const emptyLand = { type: "FeatureCollection", features: [] };
+  const elevationPoints = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    properties: { kind: "mountain", elevation_m: 8848, name: "Everest" },
+    geometry: { type: "Point", coordinates: [0, 0] }
+  }] };
+  renderWorldMap(canvas, emptyLand, {
+    width: 640, height: 320, pixelRatio: 1,
+    elevationPoints,
+    viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
+  assert.equal(calls.some(call => call[0] === "closePath"), false);
 });
