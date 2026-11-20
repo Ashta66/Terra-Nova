@@ -302,3 +302,7 @@ La navigation cartographique est prioritaire sur l'ajout de fonctionnalités. Le
 
 ### Architecture de rendu — couches séparées (20 novembre 2026)
 Le fond statique (océan, grille, relief, terres, remplissages territoriaux, hydrographie et hachures) est mis en cache dans une surface hors écran, avec trois entrées maximum par canvas. Les couches dynamiques (sélection, catastrophes, frontières, labels) sont rendues séparément. Le centre de scène est quantifié selon le niveau de détail : les micro-déplacements réutilisent le bitmap existant et le compositeur applique le décalage réel. Le cache est invalidé par les changements de date, données, relief, opacité ou viewport. Les vecteurs restent rendus sur le thread principal à ce stade ; une migration Worker ne sera engagée qu'après mesure des coûts résiduels.
+
+
+### Budgets mémoire cartographiques — 20 novembre 2026
+Les caches de rendu sont strictement bornés : 64 Mio maximum pour les tuiles ETOPO et 48 Mio maximum / trois surfaces pour le fond statique par canvas. Les entrées les plus anciennes sont évacuées en LRU. Une surface statique individuelle qui dépasse le budget n'est pas mise en cache. Les limites sont des plafonds, pas une promesse de consommation constante : le navigateur peut conserver temporairement d'autres ressources graphiques.
