@@ -503,7 +503,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
 });
 function playDisasterSound(type) {
   const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
-  try{const ctx=new Audio(),now=ctx.currentTime;
+  try{const ctx=new Audio();ctx.resume().catch(()=>{});const now=ctx.currentTime;
    const tone=(f0,f1,delay,duration,volume,wave)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type=wave;o.frequency.setValueAtTime(f0,now+delay);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+delay+duration);g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(volume,now+delay+.025);g.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);o.connect(g);g.connect(ctx.destination);o.start(now+delay);o.stop(now+delay+duration+.04);};
    if(type==="meteor-impact"){tone(105,28,0,.9,.22,"sawtooth");tone(880,55,0,.48,.09,"triangle");tone(48,24,.16,1.15,.25,"sine");}
    else if(type==="tsunami"){tone(95,42,0,1.6,.17,"sine");tone(210,70,.18,1.35,.1,"triangle");tone(620,180,.05,1.1,.045,"sawtooth");}
