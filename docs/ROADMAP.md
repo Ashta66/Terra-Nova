@@ -47,7 +47,7 @@ Légende :
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
-| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom et panoramique regroupés par image ; qualité du relief adaptative pendant le glissement ; validation FPS et sélection/couches restantes de territoires et couches à faire |
+| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom regroupé par image ; panoramique visuel via compositeur pendant le geste puis rendu complet au relâchement ; validation FPS et sélection/couches restantes de territoires et couches à faire |
 | 2.8 | Frontières politiques historiques de 1444 et territoires comme couche séparée | À FAIRE |
 | 2.9 | Performance : chargement progressif, simplification et rendu adapté au zoom | À FAIRE |
 
