@@ -36,6 +36,16 @@ export function getCoastSimplificationProfile(zoom = 1) {
   return { tolerance: 2.3, minRingArea: 5.5 };
 }
 
+// Le littoral physique et le masque du relief sont moins détaillés que les
+// frontières territoriales : les micro-îles ne justifient pas leur coût.
+export function getLandCoastSimplificationProfile(zoom = 1) {
+  const level = Math.max(1, Number(zoom) || 1);
+  if (level <= 1.5) return { tolerance: 2.5, minRingArea: 12 };
+  if (level <= 4) return { tolerance: 2.8, minRingArea: 18 };
+  if (level <= 10) return { tolerance: 3.1, minRingArea: 24 };
+  return { tolerance: 3.4, minRingArea: 32 };
+}
+
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
 // constante visuellement : en zoomant, les détails géographiques réapparaissent.
 export function simplifyClosedRing(points, tolerance = 0.55) {
@@ -254,7 +264,7 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
   return path;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
@@ -264,7 +274,7 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     if (!feature?.geometry) continue;
     const featureRank = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0);
     if (featureRank > maxRank) continue;
-    const coastProfile = simplifyCoast ? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1) : null;
+    const coastProfile = simplifyCoast ? (coastProfileOverride ?? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)) : null;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
       context.beginPath();
@@ -287,17 +297,34 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   return drawn;
 }
 
+function riverFeatureRank(feature) {
+  const raw = feature?.properties?.scalerank ?? feature?.properties?.SCALERANK ?? feature?.properties?.min_zoom ?? feature?.properties?.MIN_ZOOM;
+  const rank = Number(raw);
+  return Number.isFinite(rank) ? rank : Infinity;
+}
+function lineVertexCount(feature) {
+  const geometry = feature?.geometry;
+  const lines = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
+  return lines.reduce((total, line) => total + (Array.isArray(line) ? line.length : 0), 0);
+}
+export function selectMajorRiverFeatures(collection, maxRank = 1, maxFeatures = 18) {
+  if (!collection?.features) return [];
+  return collection.features
+    .filter(feature => ["LineString", "MultiLineString"].includes(feature?.geometry?.type) && riverFeatureRank(feature) <= maxRank)
+    .sort((a, b) => riverFeatureRank(a) - riverFeatureRank(b) || lineVertexCount(b) - lineVertexCount(a))
+    .slice(0, maxFeatures);
+}
+
 function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null, maxRank = Infinity, maxFeatures = Infinity) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
-  let considered = 0;
-  for (const feature of collection.features) {
+  const candidates = Number.isFinite(maxFeatures)
+    ? selectMajorRiverFeatures(collection, maxRank, maxFeatures)
+    : collection.features;
+  for (const feature of candidates) {
     const geometry = feature?.geometry;
     if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
-    const rank = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0);
-    if (rank > maxRank || considered >= maxFeatures) continue;
-    considered++;
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
     context.lineWidth = lineWidth * renderScale;
@@ -399,10 +426,13 @@ function drawLandHachures(context, collection, width, height, projection, color)
 
 export function getSecondaryDetailProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level < 2.5) return { riversRank: 1, riversMax: 35, lakesRank: 1, glaciers: false, elevationMax: 8 };
-  if (level < 4) return { riversRank: 2, riversMax: 70, lakesRank: 2, glaciers: true, elevationMax: 16 };
-  if (level < 7) return { riversRank: 4, riversMax: 140, lakesRank: 4, glaciers: true, elevationMax: 32 };
-  return { riversRank: 8, riversMax: 260, lakesRank: 8, glaciers: true, elevationMax: 64 };
+  return {
+    riversRank: 1,
+    riversMax: 18,
+    lakesRank: level < 2.5 ? 1 : level < 4 ? 2 : level < 7 ? 4 : 8,
+    glaciers: level >= 2.5,
+    elevationMax: level < 2.5 ? 8 : level < 4 ? 16 : level < 7 ? 32 : 64
+  };
 }
 
 function drawElevationPoints(context, collection, width, height, projection, theme) {
@@ -808,12 +838,8 @@ function drawTerritoryLayer(context,collection,width,height,projection,selectedC
 }
 
 function pointLon(value){return Number(value)||0;}
-export function getCityLabelLimit(zoom = 1) {
-  const level = Math.max(1, Number(zoom) || 1);
-  if (level < 3) return 10;
-  if (level < 6) return 18;
-  if (level < 10) return 24;
-  return 30;
+export function getCityLabelLimit(_zoom = 1) {
+  return 5;
 }
 
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null) {
@@ -1018,7 +1044,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     }
     target.restore();
 
-    const coastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
       target.beginPath();
@@ -1030,7 +1056,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       target.restore();
     }
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
+    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
@@ -1040,8 +1066,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
       target.clip("evenodd");
       target.globalCompositeOperation = "overlay";
-      target.globalAlpha = reliefMode ? 0.90 : 0.72;
-      measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
+      target.globalAlpha = reliefMode ? 0.66 : 0.52;
+      const hillshadeQuality = Math.min(Number(options.terrainQuality ?? 1), 0.62);
+      measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, hillshadeQuality, true, options.physicalWorld, false, true));
       target.restore();
     }
     if (!options.interactive && (projection.lodZoom ?? 1) >= 2.5 && ["parchment", "paper"].includes(theme.texture)) {

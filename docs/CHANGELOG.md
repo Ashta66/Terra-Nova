@@ -1,3 +1,10 @@
+## Optimisation cartographique — 20 novembre 2026
+- Littoral physique et masque du relief simplifiés davantage que les frontières territoriales ; les micro-îles et détails côtiers secondaires sont écartés à toutes les échelles.
+- Hillshade superposé allégé : qualité raster plafonnée à 0,62 et opacité réduite (0,52 en mode politique ; 0,66 en mode relief).
+- Les villes sont strictement plafonnées à cinq labels, quel que soit le zoom.
+- Le réseau hydrographique conserve les rangs 0 et 1, au maximum 18 grands cours d'eau, triés par rang puis longueur géométrique.
+- La composition utilise une interpolation basse qualité pendant le geste et haute qualité au repos ; le registre de références du Worker est réinitialisé lors de chaque redémarrage.
+
 ## 20 novembre 2026 — refonte du relief ETOPO et de l'ombrage
 
 - src/world/terrain.js : ajout de RELIEF_EXAGGERATION = 18 et d'un paramètre d'exagération à calculateHillshade ; remplacement des quatre lumières qui se neutralisaient par une lumière nord-ouest dominante et un appoint nord-est.

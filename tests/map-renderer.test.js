@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getCoastSimplificationProfile, selectMajorRiverFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -826,12 +826,8 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
 });
 
 
-test("la densité des labels de villes est plafonnée aux zooms rapprochés", () => {
-  assert.equal(getCityLabelLimit(2), 10);
-  assert.equal(getCityLabelLimit(4), 18);
-  assert.equal(getCityLabelLimit(8), 24);
-  assert.equal(getCityLabelLimit(14), 30);
-  assert.ok(getCityLabelLimit(14) < 180);
+test("le nombre de villes affichées ne dépasse jamais cinq, quel que soit le zoom", () => {
+  for (const zoom of [1, 2, 4, 8, 14, 35]) assert.equal(getCityLabelLimit(zoom), 5);
 });
 
 test("les villes les plus importantes sont prioritaires dans le tri des labels", () => {
@@ -845,14 +841,32 @@ test("les villes les plus importantes sont prioritaires dans le tri des labels",
 });
 
 
-test("le détail hydrographique, glaciaire et altimétrique augmente progressivement avec le zoom", () => {
-  const world = getSecondaryDetailProfile(1);
-  const regional = getSecondaryDetailProfile(3);
-  const local = getSecondaryDetailProfile(8);
-  assert.equal(world.glaciers, false);
-  assert.ok(world.riversMax < regional.riversMax);
-  assert.ok(regional.riversMax < local.riversMax);
-  assert.ok(world.elevationMax < regional.elevationMax);
-  assert.ok(regional.elevationMax < local.elevationMax);
-  assert.ok(world.lakesRank < local.lakesRank);
+test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", () => {
+  for (const zoom of [1, 3, 8, 35]) {
+    const profile = getSecondaryDetailProfile(zoom);
+    assert.equal(profile.riversRank, 1);
+    assert.equal(profile.riversMax, 18);
+  }
+  const river = (name, rank, vertices) => ({
+    type: "Feature", properties: { name, scalerank: rank },
+    geometry: { type: "LineString", coordinates: Array.from({ length: vertices }, (_, i) => [i, i / 10]) }
+  });
+  const selected = selectMajorRiverFeatures({ type: "FeatureCollection", features: [
+    river("petit affluent", 2, 80),
+    river("grand fleuve", 1, 20),
+    river("fleuve majeur", 0, 12),
+    river("fleuve secondaire", 1, 60)
+  ] }, 1, 3);
+  assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
+});
+
+test("les côtes physiques et le masque du relief sont plus simplifiés que les contours territoriaux", () => {
+  const land = getLandCoastSimplificationProfile(1);
+  const country = getCoastSimplificationProfile(1);
+  const closeLand = getLandCoastSimplificationProfile(20);
+  const closeCountry = getCoastSimplificationProfile(20);
+  assert.ok(land.tolerance > country.tolerance);
+  assert.ok(land.minRingArea > country.minRingArea);
+  assert.ok(closeLand.tolerance > closeCountry.tolerance);
+  assert.ok(closeLand.minRingArea > closeCountry.minRingArea);
 });
