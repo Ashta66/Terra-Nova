@@ -131,8 +131,13 @@ function samplePhysical(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
  const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;
- return c.inundated?-Math.max(.1,Number(c.waterDepthM)||.1):(Number.isFinite(c.currentElevationM)?c.currentElevationM:base);
+ if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);
+ // Unchanged cells keep the full-resolution ETOPO sample; the coarse simulation
+ // grid must never flatten the underlying mountain ranges.
+ if(Math.abs(Number(c.elevationDeltaM)||0)<.01)return base;
+ return Number.isFinite(c.currentElevationM)?c.currentElevationM:base;
 }
+
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
