@@ -1,4 +1,4 @@
-import { renderTerrainWebGL, getTerrainWebGLStats } from "./terrain-webgl.js";
+import { renderTerrainWebGL, getTerrainWebGLStats, renderTerrainWebGLTiles, getTerrainWebGLTileStats } from "./terrain-webgl.js";
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
@@ -394,7 +394,18 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
-function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null) {
+function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null, tileStore = null) {
+  if (tileStore && typeof context.drawImage === "function") {
+    try {
+      const surface = renderTerrainWebGLTiles(tileStore, width, height, viewport);
+      if (surface) {
+        context.drawImage(surface, 0, 0, width, height);
+        return "webgl-tiles";
+      }
+    } catch {
+      // Le cache tuilé reste facultatif : le rendu mondial ou Canvas prend le relais.
+    }
+  }
   if (webglGrid && typeof context.drawImage === "function") {
     try {
       const surface = renderTerrainWebGL(webglGrid, width, height, viewport);
@@ -438,7 +449,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const terrainStartedAt = performanceNow();
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
-  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
+  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;\n  const webglTerrainTileStore = options.terrainTileStore?.getTileAtLevel ? options.terrainTileStore : null;
   let terrainRenderer = "canvas2d";
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
@@ -478,7 +489,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         incremental = true;
       } else {
         terrainRenderer = drawPhysicalTerrain(physicalSurface.context, canvas.width, canvas.height,
-          options.terrain, projection.viewport, webglTerrainGrid);
+          options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
       }
       lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
         revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
