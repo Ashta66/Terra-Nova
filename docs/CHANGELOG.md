@@ -1,3 +1,12 @@
+## 20 novembre 2026 — fluidité du zoom et du panoramique
+
+- `src/main.js` : regroupement des rendus cartographiques via `requestAnimationFrame`, afin de ne pas recalculer plusieurs images lors d'une rafale d'événements pointeur ou molette.
+- Pendant le glissement, le raster ETOPO passe en qualité interactive (384 × 192 maximum) ; à la fin du geste, une demande de rendu de meilleure qualité est déclenchée.
+- `src/world/terrain.js` : résolution normale plafonnée à 768 × 384 ; rendu sur une surface hors écran quand disponible.
+- `src/world/map-renderer.js` : correction du passage des dimensions logiques CSS au raster, pour éviter le mélange entre pixels physiques haute densité et coordonnées logiques.
+- Tests ajoutés sur les plafonds de résolution interactifs et normaux.
+- Limites : aucune mesure FPS réelle ni inspection visuelle navigateur disponible à cette étape ; les couches vectorielles sont encore recalculées à chaque image.
+
 ## 20 novembre 2026 — premières classes visuelles du relief terrestre
 
 - `src/world/terrain.js`: ajout d'une classification heuristique locale distinguant montagnes, plateaux, vallées, collines, plaines et basses terres à partir de l'altitude et des quatre voisins déjà lus pour le hillshade.
