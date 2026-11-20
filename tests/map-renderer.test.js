@@ -315,3 +315,28 @@ test("le canvas ne réalloue pas son bitmap quand ses dimensions restent identiq
   assert.equal(widthWrites, 2);
   assert.equal(heightWrites, 2);
 });
+
+
+test("les chemins Path2D sont réutilisés pour un viewport identique et invalidés au déplacement", () => {
+  const previous = globalThis.Path2D;
+  let constructions = 0;
+  class FakePath2D {
+    constructor() { constructions++; }
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { canvas } = createCanvas();
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
+    assert.equal(constructions, 1);
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
+    assert.equal(constructions, 1);
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
+    assert.equal(constructions, 2);
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
