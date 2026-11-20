@@ -674,7 +674,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
    if(center&&radius>1&&!event.visualExpired){
-   ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)));
+   ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)))*(projection.renderScale??1);
    ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
    ctx.setLineDash?.((event.type==="earthquake"?[5,4]:[2,3]).map(value=>value*(projection.renderScale??1)));
    for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
@@ -704,7 +704,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  ctx.restore();return count;
 }
 function drawTerritoryLayer(context,collection,width,height,projection,selectedCountry="",pass="all",fillOpacity=.52){
- if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.viewport?.zoom??1),zoom=Number(projection.viewport?.zoom??1);context.save();
+ if(!collection?.features)return 0;let drawn=0;const profile=getCoastSimplificationProfile(projection.lodZoom??projection.viewport?.zoom??1),zoom=Number(projection.lodZoom??projection.viewport?.zoom??1),renderScale=projection.renderScale??1;context.save();
  for(const feature of collection.features){if(!feature?.geometry)continue;const status=classifyHistoricalTerritoryStyle(feature),nationalColor=territoryColor(feature),selected=territoryMatchesSelectedCountry(feature,selectedCountry);
   const paint=path=>{
    const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};
