@@ -215,6 +215,8 @@ export function createGeographicWebGLRenderer(gl) {
   const lineCoordinateLocation = gl.getAttribLocation(lineProgram, "a_coordinate");
   const lineOtherLocation = gl.getAttribLocation(lineProgram, "a_other");
   const lineSideLocation = gl.getAttribLocation(lineProgram, "a_side");
+  const lineJoinOffsetLocation = gl.getAttribLocation(lineProgram, "a_join_offset");
+  const lineIsJoinLocation = gl.getAttribLocation(lineProgram, "a_is_join");
   const lineCenterLocation = gl.getUniformLocation(lineProgram, "u_center");
   const lineZoomLocation = gl.getUniformLocation(lineProgram, "u_zoom");
   const lineViewportLocation = gl.getUniformLocation(lineProgram, "u_viewport");
@@ -355,11 +357,15 @@ export function createGeographicWebGLRenderer(gl) {
         gl.uniform4fv(lineColorLocation, layer.color);
         gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
         gl.enableVertexAttribArray(lineCoordinateLocation);
-        gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 20, 0);
+        gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 32, 0);
         gl.enableVertexAttribArray(lineOtherLocation);
-        gl.vertexAttribPointer(lineOtherLocation, 2, gl.FLOAT, false, 20, 8);
+        gl.vertexAttribPointer(lineOtherLocation, 2, gl.FLOAT, false, 32, 8);
         gl.enableVertexAttribArray(lineSideLocation);
-        gl.vertexAttribPointer(lineSideLocation, 1, gl.FLOAT, false, 20, 16);
+        gl.vertexAttribPointer(lineSideLocation, 1, gl.FLOAT, false, 32, 16);
+        gl.enableVertexAttribArray(lineJoinOffsetLocation);
+        gl.vertexAttribPointer(lineJoinOffsetLocation, 2, gl.FLOAT, false, 32, 20);
+        gl.enableVertexAttribArray(lineIsJoinLocation);
+        gl.vertexAttribPointer(lineIsJoinLocation, 1, gl.FLOAT, false, 32, 28);
         gl.drawArrays(gl.TRIANGLES, 0, layer.cached.vertexCount);
       } else {
         gl.useProgram(program);
