@@ -203,7 +203,9 @@ mapCanvas.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
-  renderMap();
+  // Déplacement visuel immédiat du bitmap déjà rendu : aucun recalcul du relief
+  // ou des géométries pendant le geste. Le rendu complet est fait au relâchement.
+  mapCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
@@ -228,6 +230,7 @@ function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
+  mapCanvas.style.transform = "";
   if (lastDragMoved) renderMap();
 }
 mapCanvas.addEventListener("click", (event) => {
