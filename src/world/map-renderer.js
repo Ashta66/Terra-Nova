@@ -211,7 +211,7 @@ function getCachedLayer(kind, key, width, height, draw) {
   const metadata = draw(layer.context);
   const cachedLayer = { ...layer, metadata };
   cache.set(key, cachedLayer);
-  while (cache.size > 6) cache.delete(cache.keys().next().value);
+  while (cache.size > 3) cache.delete(cache.keys().next().value);
   return { ...cachedLayer, hit: false };
 }
 
@@ -296,7 +296,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const politicalKey = [
     objectId(featureCollection), objectId(options.glaciers), objectId(options.lakes),
-    objectId(options.rivers), objectId(options.elevationPoints), objectId(options.labels),
+    objectId(options.rivers), objectId(options.elevationPoints),
     width, height, pixelRatio, theme.id, theme.texture, JSON.stringify(theme.colors),
     projection.type, viewKey, terrainEnabled
   ].join("|");
