@@ -577,8 +577,8 @@ mapCanvas.addEventListener("click", (event) => {
         latitude,
         radiusKm: 140,
         craterDepthM: 950,
-        lavaRadiusKm: 10,
-        noManLandRadiusKm: 55,
+        lavaRadiusKm: 25,
+        noManLandRadiusKm: 65,
         surfaceDurationMonths: 1 + Math.floor(Math.random() * 6)
       };
       const refinedWorld = refinePhysicalWorldForImpact(state.physicalWorld, terrainGrid, event, 2);
