@@ -567,7 +567,8 @@ test("le rendu WebGL se désactive proprement si aucune grille exploitable n'est
 
 test("le shader WebGL tuilé échantillonne les textures locales avec leurs bordures", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
-  assert.match(shader, /u_uvBounds/);
+  assert.match(shader, /v_tileUv/);
+  assert.match(shader, /u_opacity/);
   assert.match(shader, /u_tileSize/);
   assert.match(shader, /sampleValue\.a/);
   assert.match(shader, /stepUV/);
