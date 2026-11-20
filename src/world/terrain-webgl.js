@@ -817,7 +817,16 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     transitionProgress=1;
   }
   renderer.lastFallbackReason=null;
-  const missingChildren=transitionFrom!==null?visible.filter(({tile})=>!cache.peek(tile)): [];
+  let missingChildren=transitionFrom!==null?visible.filter(({tile})=>!cache.peek(tile)): [];
+  // Au premier affichage (ou après un déplacement), ne pas uploader toutes
+  // les tuiles fines dans le chemin critique : afficher le parent complet,
+  // puis superposer les enfants au fil de leurs uploads idle.
+  if(transitionFrom===null&&missingChildren.length&&level<4) {
+    const parentVisible=collectTerrainViewportTiles(tileStore,viewport,width,height,level+1);
+    if(terrainTileSetFitsAtlas(visible.length,parentVisible.length,cache.capacity)) {
+      previousVisible=parentVisible;
+    }
+  }
   renderer.waitingForTiles=missingChildren.length>0;
   renderer.readyChildTiles=visible.length-missingChildren.length;
   renderer.pendingChildTiles=missingChildren.length;
@@ -847,7 +856,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     gl.vertexAttribPointer(renderer.tileStep,2,gl.FLOAT,false,48,24);
     gl.vertexAttribPointer(renderer.atlasBounds,4,gl.FLOAT,false,48,32);
     const entries=new Map(),readyItems=[];
-    const deferMissing=transitionFrom!==null&&items===visible;
+    const deferMissing=(transitionFrom!==null||previousVisible.length>0)&&items===visible;
     for(const item of items){
       const entry=deferMissing?cache.peek(item.tile):cache.get(item.tile,protectedKeys);
       if(entry){entries.set(entry.key,entry);readyItems.push(item);}
