@@ -793,6 +793,13 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
       renderer.transitionFromLevel=null;
       transitionFrom=null;
       previousVisible=[];
+      if(visible.length>cache.capacity) {
+        renderer.lastFallbackReason="atlas-capacity";
+        renderer.waitingForTiles=false;
+        renderer.readyChildTiles=0;
+        renderer.pendingChildTiles=0;
+        return null;
+      }
     } else {
       renderer.lastFallbackReason="atlas-capacity";
       renderer.waitingForTiles=false;
