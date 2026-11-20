@@ -206,3 +206,8 @@ Les caches ont maintenant des plafonds documentés et vérifiables :
 - index et chemins attachés aux collections/features via `WeakMap`, afin qu'ils puissent être récupérés par le ramasse-miettes lorsque les données ne sont plus référencées.
 
 Le préchargement ne s'exécute qu'après le rendu complet et est remplacé lorsqu'un nouveau cadrage est demandé. Aucun cache ne conserve une seconde copie du monde.
+
+
+## Validation des limites de navigation — étape 5/5
+
+Les tests de régression couvrent maintenant aussi les limites du planisphère : au zoom mondial, le centre reste au milieu du monde ; au zoom maximal, le centre est contraint pour empêcher l'apparition de copies supplémentaires au-delà des bords. Les tests vérifient en parallèle le préchargement voisin sans mutation des GeoJSON et le plafonnement/vidage du cache spatial. La validation CI reste nécessaire pour confirmer l'ensemble des suites.
