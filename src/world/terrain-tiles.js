@@ -35,7 +35,7 @@ export function createTerrainTileStore(grid, options = {}) {
     while (cache.size > maxTiles) {
       let candidateId = null;
       for (const [id] of cache) {
-        if (id !== protectedId) { candidateId = id; break; }
+        if (id !== protectedId && !cache.get(id)?.dirty) { candidateId = id; break; }
       }
       if (candidateId === null) break;
       cache.delete(candidateId);
@@ -103,18 +103,18 @@ export function createTerrainTileStore(grid, options = {}) {
     return true;
   }
 
-  function evictUnused(keepIds = []) {
+  function markPersisted(id, revision) {\n    const tile = cache.get(id);\n    if (!tile || tile.revision !== revision) return false;\n    tile.dirty = false;\n    return true;\n  }\n\n  function evictUnused(keepIds = []) {
     const keep = new Set(keepIds);
     let removed = 0;
     for (const id of cache.keys()) {
-      if (!keep.has(id)) { cache.delete(id); removed++; }
+      if (!keep.has(id) && !cache.get(id)?.dirty) { cache.delete(id); removed++; }
     }
     return removed;
   }
 
   return {
     tileSize, columns, rows,
-    getTile, getTileAt, sample, setElevation, evictUnused,
+    getTile, getTileAt, sample, setElevation, markPersisted, evictUnused,
     get size() { return cache.size; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
