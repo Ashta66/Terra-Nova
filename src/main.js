@@ -787,7 +787,9 @@ function composeScene() {
       });
     }
   }
-  // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :\n  // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.\n  // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.\n  if (shouldRecenterScene(composition.covered, Boolean(mapDrag))) {
+  // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
+  // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.
+  // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.\n  if (shouldRecenterScene(composition.covered, Boolean(mapDrag))) {
     const now = globalThis.performance?.now?.() ?? Date.now();
     if (!sceneRecenterPending && now - lastSceneRecenterAt > 250) {
       sceneRecenterPending = true;
