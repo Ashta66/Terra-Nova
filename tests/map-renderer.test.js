@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -624,4 +624,39 @@ test("la texture terrain est réduite aux limites GPU sans perdre les extrémit�
   assert.equal(reduced.sourceWidth, 5);
   assert.equal(reduced.sourceHeight, 3);
   assert.equal(prepareTerrainTextureGrid(source, 1), null);
+});
+
+
+test("les textures GPU des tuiles incluent une bordure continue entre voisines", () => {
+  const width = 12, height = 8, tileSize = 4;
+  const values = new Int16Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) values[y * width + x] = y * 100 + x;
+  }
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 40 });
+  const tile = store.getTileAtLevel(0, 1, 0);
+  const texture = buildTerrainTileTexture(tile, store);
+  assert.equal(texture.width, tile.width + 2);
+  assert.equal(texture.height, tile.height + 2);
+  // Bordure gauche issue de la tuile précédente.
+  assert.equal(texture.values[1 * texture.width], 3);
+  // Bordure droite issue de la tuile suivante.
+  assert.equal(texture.values[1 * texture.width + texture.width - 1], 8);
+  // Bordure nord répliquée au pôle de la grille.
+  assert.equal(texture.values[0 * texture.width + 1], 100);
+  // Coordonnées et niveau conservés pour positionner la tuile sur le globe.
+  assert.equal(texture.originX, tile.originX);
+  assert.equal(texture.originY, tile.originY);
+  assert.equal(texture.level, 0);
+  assert.equal(texture.stride, 1);
+});
+
+test("la bordure GPU des tuiles raccorde correctement l'antiméridien", () => {
+  const width = 12, height = 8, tileSize = 4;
+  const values = Int16Array.from({ length: width * height }, (_, index) => index);
+  const store = createTerrainTileStore({ width, height, values }, { tileSize, maxTiles: 40 });
+  const tile = store.getTileAtLevel(0, 0, 0);
+  const texture = buildTerrainTileTexture(tile, store);
+  assert.equal(texture.values[1 * texture.width], 11);
+  assert.equal(texture.values[1 * texture.width + tile.width + 1], 4);
 });
