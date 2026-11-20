@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, collectTerrainPredictiveLodTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, collectTerrainPredictiveLodTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices, createTerrainWebGLTileAtlas, buildTerrainTileAtlasBatchVertices, terrainTileSetFitsAtlas } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -972,4 +972,14 @@ test("la collecte GPU conserve les tuiles visibles au franchissement de l'antim�
     { zoom: 2, centerLongitude: 179, centerLatitude: 0 }, 180, 90, 0);
   assert.ok(visible.some(({ tile }) => tile.x === 0));
   assert.ok(visible.every(({ rects }) => rects.length > 0));
+});
+
+
+test("le rendu GPU exige une capacité suffisante pour couvrir les tuiles visibles et leur niveau parent", () => {
+  assert.equal(terrainTileSetFitsAtlas(24, 24, 64), true);
+  assert.equal(terrainTileSetFitsAtlas(40, 25, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(65, 0, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(0, 0, 64), true);
+  assert.equal(terrainTileSetFitsAtlas(-1, 0, 64), false);
+  assert.equal(terrainTileSetFitsAtlas(1, 1, 0), false);
 });
