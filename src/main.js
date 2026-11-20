@@ -73,13 +73,26 @@ function renderMap() {
 
 function renderMapFrame() {
   if (!worldFeatures) return;
+  if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
+    regionalLandLoadAttempted = true;
+    regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
+      regionalLandFeatures = features;
+      if (features) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      } else {
+        console.info("Fond régional Natural Earth absent : conservation du fond mondial.");
+      }
+    });
+  }
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
   const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
-  const landDetail = selectLandDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);\n  const result = renderWorldMap(canvas, landDetail.features, {
+  const landDetail = selectLandDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
+  const result = renderWorldMap(canvas, landDetail.features, {
     width, height: Math.round(width * 0.5), year,
     projection: "equirectangular",
     viewport: mapViewport,
@@ -93,7 +106,8 @@ function renderMapFrame() {
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}`;
+  const detailStatus = landDetail.level === "regional-10m" ? " · côtes régionales 1:10m" : landDetail.isFallback ? " · fond mondial simplifié (données régionales absentes)" : " · fond mondial";
+  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}${detailStatus}`;
   updateMapControls();
 }
 
