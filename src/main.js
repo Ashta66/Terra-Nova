@@ -668,7 +668,7 @@ function renderMapFrame() {
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
     terrainTileStore,
-    onTerrainTileReady: () => renderMap(),
+    onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
     terrainEnabled: true,
     terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
     terrainMode: $("terrain-mode")?.value ?? "political",
