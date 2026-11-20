@@ -296,3 +296,32 @@ test("une tuile modifiée reste intacte après éviction puis rechargement du ca
   store.getTile(1, 0);
   assert.equal(store.getTile(0, 0).values[0], 321);
 });
+
+
+test("le préchargement couvre le monde puis anticipe une zone proche de l'antiméridien", () => {
+  const store = createTerrainTileStore(
+    { width: 24, height: 12, values: new Int16Array(24 * 12) },
+    { tileSize: 4, maxTiles: 18 }
+  );
+  const worldTiles = store.preloadViewport({ zoom: 1, centerLongitude: 0, centerLatitude: 0 }, { padding: 0 });
+  assert.equal(worldTiles.length, 18);
+  const regionalTiles = store.preloadViewport(
+    { zoom: 4, centerLongitude: 170, centerLatitude: 0 },
+    { padding: 0.2 }
+  );
+  assert.ok(regionalTiles.includes("0/5/0"));
+  assert.ok(regionalTiles.includes("0/0/0"));
+  assert.ok(regionalTiles.length < worldTiles.length);
+  assert.deepEqual(new Set(store.loadedIds), new Set(regionalTiles));
+});
+
+test("le préchargement respecte les limites polaires et les coordonnées invalides", () => {
+  const store = createTerrainTileStore(
+    { width: 12, height: 8, values: new Int16Array(96) },
+    { tileSize: 2, maxTiles: 24 }
+  );
+  const ids = store.preloadViewport({ zoom: 3, centerLongitude: -540, centerLatitude: 85 }, { padding: 0.5 });
+  assert.ok(ids.length > 0);
+  assert.ok(ids.every(id => /^0\\/\\d+\\/\\d+$/.test(id)));
+  assert.ok(ids.every(id => store.loadedIds.includes(id)));
+});
