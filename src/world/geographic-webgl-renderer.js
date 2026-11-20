@@ -205,11 +205,11 @@ export function createGeographicWebGLRenderer(gl) {
         layerCaches.set(key, cached);
       }
       allCacheHits = allCacheHits && cacheHit;
-      const layerDrawCalls = type === "lines" ? (cached.vertexCount ? 1 : 0) : cached.batches.length;
+      const layerDrawCalls = type !== "polygons" ? (cached.vertexCount ? 1 : 0) : cached.batches.length;
       const layerTriangles = cached.batches?.reduce((sum, batch) => sum + batch.triangles, 0) ?? 0;
-      const layerBytes = cacheHit ? 0 : type === "lines" ? (cached.positions?.byteLength ?? 0) :
+      const layerBytes = cacheHit ? 0 : type !== "polygons" ? (cached.positions?.byteLength ?? 0) :
         cached.batches.reduce((sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
-      const layerUploads = cacheHit ? 0 : type === "lines" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
+      const layerUploads = cacheHit ? 0 : type !== "polygons" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
       prepared.push({ key, type, color: layer.color ?? [0.32, 0.39, 0.31, 1], cached });
       drawnFeatures += cached.drawnFeatures;
       skippedFeatures += cached.skippedFeatures;
