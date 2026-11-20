@@ -98,3 +98,14 @@ Un fichier NetCDF extrait depuis NOAA ERDDAP a été fourni et inspecté.
 
 ### Consommation par le jeu
 Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour activer le relief dans une copie locale, extraire le pack dans `data/terrain/`. Le NetCDF source et le TIFF complet ne sont pas requis au runtime.
+
+
+## Fond terrestre régional Natural Earth 1:10m
+
+- Jeu : Natural Earth Vector, couche physique « Land » à l'échelle 1:10m.
+- Source officielle : https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-land/
+- Archive de préparation : https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip
+- Usage : détails des côtes et des îles lorsque le zoom atteint 4× ; chargement local à la demande.
+- Licence : domaine public selon les conditions Natural Earth ; conserver la mention « Natural Earth » dans les crédits du jeu.
+- Préparation : `bash scripts/prepare-natural-earth-lod.sh` (curl, unzip, GDAL/ogr2ogr).
+- Sortie attendue : `data/ne_10m_land.geojson`. L'asset n'est pas encore présent dans le dépôt ; la carte utilise donc le fond 1:110m tant qu'il n'a pas été préparé.
