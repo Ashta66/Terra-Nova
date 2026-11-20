@@ -825,6 +825,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const year = options.year ?? 1444;
   const theme = getCartographicTheme(year, options.technologyLevel ?? 0);
   const projection = { type: options.projection ?? "equirectangular", viewport: options.viewport ?? {} };
+  const renderStartedAt = globalThis.performance?.now?.() ?? Date.now();
+  const renderTimings = {};
+  const measureLayer = (name, draw) => {
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    const value = draw();
+    renderTimings[name] = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
+    return value;
+  };
 
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
@@ -865,7 +873,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
     }
     context.clip("evenodd");
-    terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
+    terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
     context.restore();
   }
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
@@ -877,9 +885,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
   const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
+  const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true));
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");
+  const territoryCount = measureLayer("territoires", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? ""));
   // Passe de relief en luminosité : elle sculpte les couleurs politiques sans
   // remplacer leur teinte nationale (ombres dans les vallées, lumière sur les crêtes).
   if (terrainEnabled && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
@@ -891,10 +899,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // fortement les vallées et éclaire les crêtes sans recolorer les nations.
     context.globalCompositeOperation = "overlay";
     context.globalAlpha = 0.88;
-    drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true);
+    measureLayer("ombrage-multidirectionnel", () => drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld, false, true));
     context.restore();
   }
-  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection, options.terrain);
+  const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection, options.terrain));
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
@@ -902,11 +910,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
   const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
     + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true);
-  const administrativeBoundaryCount = drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]);
-  const labelHits = drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1, options.physicalWorld);
+  const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]));
+  const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1, options.physicalWorld));
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
+    renderTimings, totalRenderMs: Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt),
     landCount, territoryCount, physicalChangeCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
   };
 }

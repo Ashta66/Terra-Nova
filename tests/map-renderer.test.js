@@ -750,3 +750,14 @@ test("les labels territoriaux utilisent le nom français et la métropole de l'e
 });
 
 test("la passe de relief en luminosité conserve la teinte politique",()=>{const {canvas,calls}=createCanvas();const result=renderWorldMap(canvas,land,{width:640,height:320,pixelRatio:1,terrain:{width:2,height:2,values:new Int16Array([100,200,300,400])},terrainEnabled:true,territories:{type:"FeatureCollection",features:[{type:"Feature",properties:{NAME:"France"},geometry:{type:"Polygon",coordinates:[[[0,0],[10,0],[10,10],[0,0]]]}}]}});assert.ok(result.territoryCount>=0);});
+
+
+test("le rendu expose des mesures de temps par couche et un temps total", () => {
+  const { canvas } = createCanvas();
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.ok(Number.isFinite(result.totalRenderMs));
+  assert.ok(result.totalRenderMs >= 0);
+  assert.ok(result.renderTimings && typeof result.renderTimings === "object");
+  assert.ok(Object.hasOwn(result.renderTimings, "terres-et-cotes"));
+  assert.ok(Object.hasOwn(result.renderTimings, "etiquettes"));
+});

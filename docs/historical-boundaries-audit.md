@@ -83,3 +83,9 @@ Le pan et le zoom temporaires ne transforment plus le canvas principal. Un bitma
 
 ## Optimisation du cache géométrique pour les micro-déplacements
 Le cache Path2D ne dépend plus de chaque variation infime du centre de la carte. Les chemins sont calculés sur un centre de vue quantifié à 1°/niveau de zoom, puis réutilisés tant que le déplacement reste dans cette cellule. L'écart maximal de placement est inférieur à environ 1,34 pixel ; les grands déplacements et les changements de zoom continuent de recalculer les chemins. Les tests couvrent désormais la réutilisation après un petit déplacement et l'invalidation après un déplacement plus large.
+
+
+## Chantier de fluidité — diagnostic instrumenté
+Le moteur expose désormais le temps total du rendu et les durées par couche (relief, terres/côtes, territoires, ombrage, catastrophes, frontières et étiquettes). Un panneau de diagnostic repliable affiche ces mesures directement sous la carte. Il s'agit de temps CPU côté rendu Canvas observés sur la machine du joueur, pas d'une mesure FPS universelle ; ils permettent d'identifier les couches coûteuses avant de déplacer leur calcul vers des bitmaps persistants ou un worker.
+
+Le moteur possédait déjà un cache LRU borné de chemins projetés et un cache de surfaces raster ETOPO. La prochaine étape d'architecture reste le tampon géographique avec débordement, puis la séparation effective des couches. Ces deux changements nécessitent de valider le cadrage, les hit-tests, les catastrophes et les étiquettes ensemble ; ils ne sont pas déclarés terminés par l'ajout du diagnostic.

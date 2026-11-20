@@ -119,6 +119,25 @@ function scheduleMapPrefetch(collections) {
   }
 }
 
+function updateMapDiagnostics(result) {
+  const total = $("map-perf-total");
+  const layers = $("map-perf-layers");
+  if (!total || !layers) return;
+  total.textContent = (result.totalRenderMs ?? 0).toFixed(1) + " ms";
+  const labels = {
+    "relief-base": "Relief de base", "terres-et-cotes": "Terres et côtes",
+    territoires: "Territoires", "ombrage-multidirectionnel": "Ombrage du relief",
+    "catastrophes-et-geographie": "Catastrophes et géographie",
+    "frontieres-politiques": "Frontières politiques",
+    "frontieres-administratives": "Frontières administratives", etiquettes: "Étiquettes"
+  };
+  layers.replaceChildren(...Object.entries(result.renderTimings ?? {}).map(([key, value]) => {
+    const item = document.createElement("span");
+    item.textContent = (labels[key] ?? key) + " : " + value.toFixed(1) + " ms";
+    return item;
+  }));
+}
+
 function renderMapFrame() {
   if (!worldFeatures) return;
   if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
@@ -217,6 +236,7 @@ function renderMapFrame() {
     interactive: mapInteractionActive,
   });
   mapLabelHits = result.labelHits ?? [];
+  updateMapDiagnostics(result);
   $("map-era").textContent = result.theme.label;
   const terrainStatus = mapInteractionActive ? " · relief allégé pendant le déplacement" : result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
   const regionalLayerCount = [landDetail, lakeDetail, riverDetail, labelDetail].filter(layer => layer.level === "regional-10m").length;

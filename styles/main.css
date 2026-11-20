@@ -171,3 +171,11 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 .meteor-impact-animation:after{content:"";position:absolute;inset:-5px;border:2px solid #ffe0a0;border-radius:50%;opacity:0;animation:meteor-shock .7s .52s ease-out forwards}
 @keyframes meteor-fall{0%{transform:translate(-50%,-170px) scale(.45);opacity:.2}65%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.25);opacity:1}}
 @keyframes meteor-shock{0%{inset:-5px;opacity:.95}100%{inset:-46px;opacity:0}}
+
+
+/* Diagnostic local du moteur cartographique */
+.map-diagnostics{margin:8px 0;padding:7px 10px;border:1px solid #52666a66;background:#101e25;color:#9aadaa;font-size:9px}
+.map-diagnostics summary{display:flex;justify-content:space-between;gap:12px;cursor:pointer;color:#c8b98f;font-weight:700;letter-spacing:.06em}
+.map-diagnostics summary span{color:#f0d49a;font-variant-numeric:tabular-nums}
+.map-perf-layers{display:flex;flex-wrap:wrap;gap:6px 14px;padding-top:8px}
+.map-perf-layers span{font-variant-numeric:tabular-nums}
