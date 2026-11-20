@@ -121,6 +121,10 @@ export function createGeographicWebGLRenderer(gl) {
       batch.features++;
       drawnFeatures++;
     }
+    if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
+      gl.canvas.width = Math.round(width);
+      gl.canvas.height = Math.round(height);
+    }
     gl.viewport(0, 0, Math.round(width), Math.round(height));
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
