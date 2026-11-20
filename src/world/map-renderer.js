@@ -466,7 +466,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         zoomTransitionFrame = previous;
       }
       let dirtyRegions = null;
-      if (!webglTerrainGrid && previous
+      if (!webglTerrainGrid && !webglTerrainTileStore && previous
         && previous.terrain === options.terrain
         && previous.revision === (options.terrain?.revision ?? 0)
         && previous.width === canvas.width && previous.height === canvas.height
@@ -524,7 +524,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     } else {
       lastPhysicalFrame = null;
       terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
-        options.terrain, projection.viewport, webglTerrainGrid);
+        options.terrain, projection.viewport, webglTerrainGrid, webglTerrainTileStore);
     }
   } else if (terrainEnabled) {
     lastPhysicalFrame = null;
@@ -606,6 +606,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   return {
     performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
     terrainWebGLStats: terrainRenderer === "webgl" ? getTerrainWebGLStats(webglTerrainGrid) : null,
+    terrainWebGLTileStats: terrainRenderer === "webgl-tiles" ? getTerrainWebGLTileStats(webglTerrainTileStore) : null,
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
