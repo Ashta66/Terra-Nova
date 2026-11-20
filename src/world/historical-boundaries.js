@@ -42,8 +42,14 @@ export function isNonStateHistoricalRegion(feature) {
 }
 
 export function selectHistoricalPoliticalTerritories(collection) {
-  if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) return collection;
-  return { ...collection, features: collection.features.filter(feature => !isNonStateHistoricalRegion(feature)) };
+ if(collection?.type!=="FeatureCollection"||!Array.isArray(collection.features))return collection;
+ return {...collection,features:collection.features.map(feature=>{
+  const p=feature?.properties??{},raw=String(p.historicalStatus??p.status??p.STATUS??"").toLowerCase();
+  const status=["contested","disputed","contesté","disputé"].includes(raw)?"contested":
+   ["influence","sphere-of-influence","influence-zone"].includes(raw)||isNonStateHistoricalRegion(feature)?"influence":
+   ["unclaimed","unoccupied","no-claim"].includes(raw)?"unclaimed":"sovereign";
+  return {...feature,properties:{...p,historicalStatus:status}};
+ })};
 }
 
 export function historicalPolygonsToBoundaries(collection) {

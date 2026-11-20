@@ -518,40 +518,45 @@ export function buildTerritoryLabels(territories, provinces = null) {
 }
 
 export function territoryColor(feature) {
-  const properties = feature?.properties ?? {};
-  const name = territoryName(properties) || "terra";
-  const identity = String(properties.ADM0_A3 ?? properties.SOV_A3 ?? properties.ISO_A3 ?? name).toUpperCase();
-  const normalized = name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  // Traditional historical heraldic associations; deliberately muted for atlas readability.
-  if (identity === "FRA" || /^(france|french republic)$/.test(normalized)) return "#3159A6"; // France: bleu roi
-  if (["england", "english territory", "kingdom of england", "great britain"].includes(normalized)) return "#B83A43"; // England: red
-  if (["castile", "aragon", "granada", "spain", "crown of castile"].includes(normalized)) return "#D9A52B"; // Iberian crowns: gold / ochre
-  if (["portugal", "kingdom of portugal"].includes(normalized)) return "#3D805B";
-  if (/^(scotland|kingdom of scotland)$/.test(normalized)) return "#456C9C";
-  if (/^(ireland|lordship of ireland)$/.test(normalized)) return "#47815E";
-  if (/ottoman empire|ottoman/.test(normalized)) return "#A63C42";
-  if (/holy roman empire|germany|german/.test(normalized)) return "#A98A42";
-  if (/venice|venetian/.test(normalized)) return "#B94D43";
-  if (/poland|lithuania/.test(normalized)) return "#A84A52";
-  if (/byzantine|constantinople/.test(normalized)) return "#80649B";
-  if (/mali|songhai/.test(normalized)) return "#A9823D";
-  if (/morocco|marinid/.test(normalized)) return "#477B55";
-  if (/hungary/.test(normalized)) return "#A64A49";
-  if (/sweden|kalmar/.test(normalized)) return "#4F79A8";
-  if (/denmark/.test(normalized)) return "#B94B4B";
-  if (/novgorod|russia|rus'/.test(normalized)) return "#9B4650";
-  if (/ming|china|qing/.test(normalized)) return "#B64D42";
-  if (/japan|shogun/.test(normalized)) return "#B94B55";
-  const palette = ["#B66F62","#668D78","#B18A4F","#718BAF","#9A769F","#B47E91","#6D9B9C","#A28A62","#7E86A8","#A27B5D","#78936B","#B07862","#64899B","#A18A9A","#9A9A61","#8B765E","#6F9A88","#A77C75","#7885A0","#B08B69"];
-  let hash = 2166136261;
-  for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
-  return palette[(hash >>> 0) % palette.length];
+ const p=feature?.properties??{},name=territoryName(p)||"terra",owner=String(p.SUBJECTO??p.SOVEREIGNT??"").trim()||name;
+ const identity=String(p.ADM0_A3??p.SOV_A3??p.ISO_A3??owner).toUpperCase(),n=owner.normalize("NFD").replace(/\p{M}/gu,"").toLowerCase(),region=name.normalize("NFD").replace(/\p{M}/gu,"").toLowerCase();
+ if(identity==="FRA"||/^(france|french republic|french empire)$/.test(n)||/french|new france/.test(region))return "#3159A6";
+ if(["england","english territory","kingdom of england","great britain","britain","british empire","united kingdom","united kingdom of great britain and ireland"].includes(n)||/british/.test(region))return "#B83A43";
+ if(["castile","aragon","granada","spain","crown of castile","spanish empire"].includes(n)||/spanish|spain|new spain|peru \(spain\)/.test(region))return "#D9A52B";
+ if(["portugal","kingdom of portugal"].includes(n))return "#3D805B";
+ if(/ottoman/.test(n))return "#A63C42";if(/holy roman empire|germany|german/.test(n))return "#A98A42";
+ const palette=["#B66F62","#668D78","#B18A4F","#718BAF","#9A769F","#B47E91","#6D9B9C","#A28A62","#7E86A8","#A27B5D","#78936B","#B07862","#64899B","#A18A9A","#9A9A61","#8B765E","#6F9A88","#A77C75","#7885A0","#B08B69"];
+ let hash=2166136261;for(let i=0;i<identity.length;i++)hash=Math.imul(hash^identity.charCodeAt(i),16777619);return palette[(hash>>>0)%palette.length];
 }
 function territoryMatchesSelectedCountry(feature, selectedCountry) {
   if (!selectedCountry) return false;
   const p = feature?.properties ?? {};
-  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG].filter(Boolean);
+  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG, p.SUBJECTO].filter(Boolean);
   return names.some(name => String(name).localeCompare(selectedCountry, undefined, { sensitivity: "accent" }) === 0);
+}
+export function classifyHistoricalTerritoryStyle(feature){
+ const p=feature?.properties??{},s=String(p.historicalStatus??p.status??p.STATUS??p.CONTROL_STATUS??"").toLowerCase();
+ if(["contested","disputed","contesté","disputé"].includes(s)||p.DISPUTED===1||p.DISPUTED==="1")return "contested";
+ if(["influence","sphere-of-influence","influence-zone","non-state","cultural"].includes(s))return "influence";
+ if(["unclaimed","unoccupied","no-claim"].includes(s))return "unclaimed";return "sovereign";
+}
+export function classifyPhysicalCellVisual(c){
+ if(!c)return null;
+ if(c.inundated||(Number.isFinite(c.currentElevationM)&&c.currentElevationM<0))return {fill:"rgba(44,145,190,.72)",stroke:"#69c5e8",kind:"submerged"};
+ if(c.surfaceState==="lava-flow")return {fill:"rgba(210,55,35,.78)",stroke:"#ff9b63",kind:"lava"};
+ if(["crater","impact-zone"].includes(c.surfaceState))return {fill:"rgba(91,61,51,.68)",stroke:"#e6a36d",kind:"impact"};
+ if(Number(c.ashLoad)>.05)return {fill:"rgba(112,105,102,.42)",stroke:"#d1c6bc",kind:"ash"};
+ if(Number(c.damage)>.08)return {fill:"rgba(224,151,58,.42)",stroke:"#ffd18a",kind:"damage"};
+ if(Number(c.elevationDeltaM)>.5)return {fill:"rgba(174,139,84,.38)",stroke:"#e5c18b",kind:"uplift"};return null;
+}
+function drawPhysicalWorldLayer(ctx,world,w,h,projection){
+ if(!world?.currentCells?.length)return 0;let count=0;const zoom=Number(projection.viewport?.zoom??1);ctx.save();
+ for(const c of world.currentCells){const style=classifyPhysicalCellVisual(c);if(!style)continue;
+  const dx=Number(c.gridStep??12)*360/2160/2,dy=Number(c.gridStep??12)*180/1080/2;
+  const pts=[[c.longitude-dx,c.latitude-dy],[c.longitude+dx,c.latitude-dy],[c.longitude+dx,c.latitude+dy],[c.longitude-dx,c.latitude+dy]].map(p=>projectCoordinate(p,w,h,projection));
+  if(pts.some(p=>!p))continue;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<4;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();
+  ctx.fillStyle=style.fill;ctx.fill();ctx.strokeStyle=style.stroke;ctx.globalAlpha=.85;ctx.lineWidth=Math.max(.35,Math.min(1.4,.55*Math.sqrt(zoom)));ctx.stroke();ctx.globalAlpha=1;count++;
+ }ctx.restore();return count;
 }
 function drawTerritoryLayer(context, collection, width, height, projection, selectedCountry = "") {
   if (!collection?.features) return 0;
@@ -725,7 +730,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
     }
     context.clip("evenodd");
-    terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true);
+    terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld);
     context.restore();
   }
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
@@ -739,7 +744,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");
+  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");\n  const physicalChangeCount = drawPhysicalWorldLayer(context, options.physicalWorld, width, height, projection);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
@@ -752,7 +757,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, territoryCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
+    landCount, territoryCount, physicalChangeCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
   };
 }
 

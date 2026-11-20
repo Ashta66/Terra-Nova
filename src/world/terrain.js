@@ -120,10 +120,23 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 0.45, 0.84, 1.16);
 }
 
+const physicalLookupCache = new WeakMap();
+function physicalLookup(world) {
+ if(!world?.currentCells)return null;
+ const old=physicalLookupCache.get(world);if(old?.revision===world.revision)return old.lookup;
+ const lookup=new Map();for(const c of world.currentCells)if(Number.isInteger(c.gridX)&&Number.isInteger(c.gridY))lookup.set(c.gridY+":"+c.gridX,c);
+ physicalLookupCache.set(world,{revision:world.revision,lookup});return lookup;
+}
+function samplePhysical(grid,lon,lat,lookup){
+ const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
+ const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
+ const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;
+ return c.inundated?-Math.max(.1,Number(c.waterDepthM)||.1):(Number.isFinite(c.currentElevationM)?c.currentElevationM:base);
+}
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false) {
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
   // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
@@ -134,7 +147,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full"].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", physicalWorld?.revision ?? 0].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -162,19 +175,19 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   }
   if (!renderContext?.createImageData || !renderContext?.putImageData) return false;
   const image = renderContext.createImageData(renderWidth, renderHeight), pixels = image.data;
-  const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0);
+  const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0), physical = physicalLookup(physicalWorld);
   const dx = 360 / grid.width, dy = 180 / grid.height;
   for (let py = 0; py < renderHeight; py++) {
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
     for (let px = 0; px < renderWidth; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
-      const e = sampleElevation(grid, lon, lat);
+      const e = samplePhysical(grid, lon, lat, physical);
       // Les océans n'effectuent pas les quatre échantillonnages voisins :
       // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
       let shade = 1;
       if (e >= 0) {
-        const west = sampleElevation(grid, lon - dx, lat), east = sampleElevation(grid, lon + dx, lat);
-        const north = sampleElevation(grid, lon, lat + dy), south = sampleElevation(grid, lon, lat - dy);
+        const west = samplePhysical(grid, lon - dx, lat, physical), east = samplePhysical(grid, lon + dx, lat, physical);
+        const north = samplePhysical(grid, lon, lat + dy, physical), south = samplePhysical(grid, lon, lat - dy, physical);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const color = terrainColorForElevation(e, shade, landform);
