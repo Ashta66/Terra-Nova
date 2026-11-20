@@ -140,6 +140,7 @@ function renderMap() {
     if (result.geographicWebGLStats) {
       canvas.dataset.geographicWebglFeatures = String(result.geographicWebGLStats.drawnFeatures);
       canvas.dataset.geographicWebglSkipped = String(result.geographicWebGLStats.skippedFeatures);
+      canvas.dataset.geographicWebglFallbackFeatures = String(result.geographicWebGLStats.fallbackFeatures ?? 0);
       canvas.dataset.geographicWebglDrawCalls = String(result.geographicWebGLStats.drawCalls);
       canvas.dataset.geographicWebglTriangles = String(result.geographicWebGLStats.triangles);
       canvas.dataset.geographicWebglCacheHit = String(result.geographicWebGLStats.cacheHit);
@@ -158,7 +159,7 @@ function renderMap() {
         const datasetPrefix = `geographicWebglLayer${safeLayerKey[0]?.toUpperCase() ?? ""}${safeLayerKey.slice(1)}`;
         const layerStats = result.geographicWebGLStats.layers?.[layerKey];
         if (!layerStats) {
-          for (const suffix of ["Features", "SkippedFeatures", "DrawCalls", "CacheHit", "BuildMs",
+          for (const suffix of ["Features", "SkippedFeatures", "FallbackFeatures", "DrawCalls", "CacheHit", "BuildMs",
             "DrawSubmitMs", "TotalMs", "Triangles", "Uploads", "UploadedBytes"]) {
             delete canvas.dataset[`${datasetPrefix}${suffix}`];
           }
@@ -166,6 +167,7 @@ function renderMap() {
         }
         canvas.dataset[`${datasetPrefix}Features`] = String(layerStats.drawnFeatures ?? 0);
         canvas.dataset[`${datasetPrefix}SkippedFeatures`] = String(layerStats.skippedFeatures ?? 0);
+        canvas.dataset[`${datasetPrefix}FallbackFeatures`] = String(layerStats.fallbackFeatures ?? 0);
         canvas.dataset[`${datasetPrefix}DrawCalls`] = String(layerStats.drawCalls ?? 0);
         canvas.dataset[`${datasetPrefix}CacheHit`] = String(layerStats.cacheHit);
         canvas.dataset[`${datasetPrefix}BuildMs`] = Number(layerStats.cacheBuildMs ?? 0).toFixed(3);
@@ -193,6 +195,7 @@ function renderMap() {
     } else {
       delete canvas.dataset.geographicWebglFeatures;
       delete canvas.dataset.geographicWebglSkipped;
+      delete canvas.dataset.geographicWebglFallbackFeatures;
       delete canvas.dataset.geographicWebglDrawCalls;
       delete canvas.dataset.geographicWebglTriangles;
       delete canvas.dataset.geographicWebglCacheHit;
