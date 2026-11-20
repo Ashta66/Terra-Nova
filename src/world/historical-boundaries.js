@@ -120,6 +120,7 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
   }
   return {
     collection: await historicalLayerCache.get(snapshot.year),
+    territories: await historicalTerritoryCache.get(snapshot.year),
     sourceYear: snapshot.year,
     exact: snapshot.year === numericYear,
     source: "Historical Basemaps · GPL-3.0"

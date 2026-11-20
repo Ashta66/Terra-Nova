@@ -308,22 +308,24 @@ $("advance-day").addEventListener("click", () => {
   state.clock = advanceClock(state.clock);
   render();
 });
-$("advance-year").addEventListener("click", () => {
-  const year = Number(state.clock.date.slice(0, 4)) + 1;
-  state.clock.date = year + state.clock.date.slice(4);
-  state.clock.day += new Date(Date.UTC(year, 0, 1)).getTime() / 86400000 - new Date(Date.UTC(year - 1, 0, 1)).getTime() / 86400000;
-  render();
-});
-$("year-scrubber").addEventListener("change", event => {
-  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
-  const previousYear = Number(state.clock.date.slice(0, 4));
-  const monthDay = state.clock.date.slice(4);
+function moveClockToYear(year) {
+  const month = Number(state.clock.date.slice(5, 7));
+  const day = Number(state.clock.date.slice(8, 10));
+  const monthIndex = month - 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const nextDate = new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay)));
   const oldDate = new Date(state.clock.date + "T00:00:00Z");
-  const nextDate = new Date(String(year).padStart(4, "0") + monthDay + "T00:00:00Z");
   const delta = Math.round((nextDate - oldDate) / 86400000);
   state.clock.date = nextDate.toISOString().slice(0, 10);
   state.clock.day = Math.max(1, state.clock.day + delta);
   render();
+}
+$("advance-year").addEventListener("click", () => {
+  moveClockToYear(Math.min(2100, Number(state.clock.date.slice(0, 4)) + 1));
+});
+$("year-scrubber").addEventListener("change", event => {
+  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
+  moveClockToYear(year);
 });
 document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
   const speed = Number(button.dataset.speed);
