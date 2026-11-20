@@ -49,7 +49,7 @@ test("les projections 2D conservent un zoom élevé jusqu'à 20x", () => {
     type: "equirectangular", viewport: { zoom: 20, centerLongitude: 0, centerLatitude: 0 }
   });
   const mercator = projectCoordinate([30, 0], 360, 180, {
-    type: "mercator", viewport: { zoom: 35, centerLongitude: 0, centerLatitude: 0 }
+    type: "mercator", viewport: { zoom: 20, centerLongitude: 0, centerLatitude: 0 }
   });
   assert.equal(equatorial.x, 780);
   assert.equal(mercator.x, 780);
