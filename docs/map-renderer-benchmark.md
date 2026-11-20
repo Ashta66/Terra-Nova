@@ -125,9 +125,19 @@ Effectuer les relevés suivants à dimensions de canvas, ratio de pixels et jeu 
 
 Pour chaque passage, relever `renderTotalMs`, `renderTerrainMs`, les trois métriques géographiques globales, les métriques par couche, les draw calls, triangles, uploads, octets et l'intervalle entre rendus. Ne pas agréger les mesures froides et chaudes. Documenter le navigateur, la version, le GPU, le système, le ratio de pixels et la taille du canvas.
 
+## Sélection du renderer géographique pour la comparaison
+
+Le renderer des couches géographiques peut être sélectionné au chargement, sans modifier le renderer WebGL du relief ni les données de la carte :
+
+- Mode WebGL géographique : ouvrir l'application normalement ou ajouter `?geographic-renderer=webgl` à l'URL.
+- Mode Canvas géographique : ajouter `?geographic-renderer=canvas` à l'URL.
+- Le mode réellement actif est publié dans `canvas.dataset.geographicRendererMode` : `webgl`, `canvas` ou `canvas-fallback` si WebGL n'a pas pu être initialisé.
+
+Ce commutateur est lu au démarrage : recharger complètement la page pour changer de mode. Le mode Canvas force les couches géographiques à utiliser leur chemin Canvas 2D, mais conserve le relief WebGL afin d'isoler la comparaison des couches vectorielles. Les autres paramètres, notamment viewport, dimensions, DPR, année et données chargées, doivent rester identiques.
+
 ## Comparaison
 
-Comparer Canvas 2D et WebGL sur les mêmes scénarios, lorsque le mode de rendu peut être sélectionné sans modifier les données. Relever séparément :
+Comparer Canvas 2D et WebGL sur les mêmes scénarios avec le paramètre d'URL ci-dessus, sans modifier les données. Relever séparément :
 
 - temps CPU de soumission ;
 - temps GPU, uniquement si l'extension de mesure est disponible ;
