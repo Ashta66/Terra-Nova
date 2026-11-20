@@ -673,3 +673,35 @@ test("les couleurs héraldiques historiques sont reconnaissables", () => {
   assert.equal(territoryColor({ properties: { NAME: "Castile" } }), "#D9A52B");
   assert.equal(territoryColor({ properties: { NAME: "Portugal" } }), "#3D805B");
 });
+
+import { classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual } from "../src/world/map-renderer.js";
+import { selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
+
+test("les quatre statuts historiques ont une classification distincte",()=>{
+ assert.equal(classifyHistoricalTerritoryStyle({properties:{historicalStatus:"sovereign"}}),"sovereign");
+ assert.equal(classifyHistoricalTerritoryStyle({properties:{historicalStatus:"contested"}}),"contested");
+ assert.equal(classifyHistoricalTerritoryStyle({properties:{historicalStatus:"influence"}}),"influence");
+ assert.equal(classifyHistoricalTerritoryStyle({properties:{historicalStatus:"unclaimed"}}),"unclaimed");
+});
+test("les sociétés non étatiques restent visibles dans la couche historique",()=>{
+ const input={type:"FeatureCollection",features:[{type:"Feature",properties:{NAME:"Indigenous peoples"},geometry:{type:"Polygon",coordinates:[]}}]};
+ const result=selectHistoricalPoliticalTerritories(input);
+ assert.equal(result.features.length,1);
+ assert.equal(result.features[0].properties.historicalStatus,"influence");
+});
+test("les colonies peuvent hériter de la puissance souveraine sans perdre leur statut de région",()=>{
+ const input={type:"FeatureCollection",features:[{type:"Feature",properties:{NAME:"New France",SUBJECTO:"France"},geometry:{type:"Polygon",coordinates:[]}}]};
+ const result=selectHistoricalPoliticalTerritories(input);
+ assert.equal(result.features[0].properties.NAME,"New France");
+ assert.equal(result.features[0].properties.SUBJECTO,"France");
+ assert.equal(result.features[0].properties.historicalStatus,"sovereign");
+});
+test("les changements géophysiques disposent d'un rendu distinct",()=>{
+ assert.equal(classifyPhysicalCellVisual({inundated:true,waterDepthM:3}).kind,"submerged");
+ assert.equal(classifyPhysicalCellVisual({surfaceState:"lava-flow"}).kind,"lava");
+ assert.equal(classifyPhysicalCellVisual({surfaceState:"crater"}).kind,"impact");
+ assert.equal(classifyPhysicalCellVisual({ashLoad:.7}).kind,"ash");
+ assert.equal(classifyPhysicalCellVisual({damage:.8}).kind,"damage");
+ assert.equal(classifyPhysicalCellVisual({elevationDeltaM:10}).kind,"uplift");
+ assert.equal(classifyPhysicalCellVisual({damage:.01}),null);
+});

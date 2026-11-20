@@ -197,6 +197,7 @@ function renderMapFrame() {
     elevationPoints,
     labels: { type: "FeatureCollection", features: [...(labelDetail.features?.features ?? []), ...(territoryLabelFeatures?.features ?? [])] },
     territories: territoryFeatures,
+    physicalWorld: state.physicalWorld,
     selectedCountry: playerCountry || previewCountry,
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
@@ -214,7 +215,7 @@ function renderMapFrame() {
   const detailStatus = regionalLayerCount
     ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
-  $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
+  $("map-status").textContent = `${result.landCount} terres · ${result.territoryCount} territoires colorés · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · ${result.physicalChangeCount ?? 0} zones transformées · ${result.physicalChangeCount ?? 0} zones transformées · frontières politiques ${result.politicalBoundaryCount} (${boundarySourceLabel}) · limites administratives ${result.administrativeBoundaryCount}${terrainStatus}${detailStatus}`;
   updateMapControls();
   if (!mapInteractionActive) {
     scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);
