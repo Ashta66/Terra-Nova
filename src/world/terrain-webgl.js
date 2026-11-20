@@ -264,6 +264,9 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
   const maxBytes = Number.isSafeInteger(options.maxBytes) && options.maxBytes > 0 ? options.maxBytes : 64 * 1024 * 1024;
   const entries = new Map();
   let byteLength = 0;
+  let hits = 0, misses = 0, uploads = 0, uploadedBytes = 0;
+  let buildMs = 0, uploadMs = 0, evictions = 0;
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
   const keyFor = (tile, store) => `${tile.level}/${tile.x}/${tile.y}@${store.revision ?? 0}`;
 
   function evict(protectedKeys = new Set()) {
@@ -273,6 +276,7 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
       gl.deleteTexture(entry.texture);
       entries.delete(key);
       byteLength -= entry.byteLength;
+      evictions++;
     }
   }
 
@@ -281,10 +285,12 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
     const key = keyFor(tile, store);
     const cached = entries.get(key);
     if (cached) {
+      hits++;
       entries.delete(key);
       entries.set(key, cached);
       return cached;
     }
+    misses++;
     const tilePrefix = `${tile.level}/${tile.x}/${tile.y}@`;
     for (const [oldKey, oldEntry] of entries) {
       if (!oldKey.startsWith(tilePrefix)) continue;
@@ -292,14 +298,17 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
       entries.delete(oldKey);
       byteLength -= oldEntry.byteLength;
     }
+    const buildStarted = now();
     const data = buildTerrainTileTexture(tile, store);
     if (!data) return null;
     const packed = encodeTerrainTexture(data.values);
+    buildMs += now() - buildStarted;
     const bytes = packed.byteLength;
     const maxTextureSize = gl.getParameter?.(gl.MAX_TEXTURE_SIZE) ?? Infinity;
     if (data.width > maxTextureSize || data.height > maxTextureSize || bytes > maxBytes) return null;
     const texture = gl.createTexture();
     if (!texture) return null;
+    const uploadStarted = now();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -308,6 +317,9 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, data.width, data.height, 0,
       gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
+    uploadMs += now() - uploadStarted;
+    uploads++;
+    uploadedBytes += bytes;
     const entry = { key, texture, width: data.width, height: data.height,
       byteLength: bytes, level: tile.level, x: tile.x, y: tile.y, revision: store.revision ?? 0 };
     entries.set(key, entry);
@@ -329,7 +341,8 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
     get size() { return entries.size; },
     get memoryBytes() { return byteLength; },
     get stats() { return { tileCount: entries.size, byteLength, maxTiles, maxBytes,
-      overBudget: entries.size > maxTiles || byteLength > maxBytes }; }
+      overBudget: entries.size > maxTiles || byteLength > maxBytes,
+      hits, misses, uploads, uploadedBytes, buildMs, uploadMs, evictions }; }
   };
 }
 
@@ -582,7 +595,7 @@ function createTileRenderer(tileStore) {
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
-  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0};
+  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:0};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -594,12 +607,20 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   if(!renderer){renderer=createTileRenderer(tileStore);if(!renderer)return null;tileRenderers.set(tileStore,renderer);}
   const {canvas,gl,program,cache}=renderer;
   if(renderer.contextLost||gl.isContextLost?.()){tileRenderers.delete(tileStore);return null;}
+  const revision=tileStore.revision??0;
+  if(renderer.revision!==revision) {
+    cache.clear();
+    renderer.revision=revision;
+  }
   resizeTerrainWebGLSurface(canvas,width,height);
   gl.viewport(0,0,width,height);
   gl.disable(gl.SCISSOR_TEST);
   gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
   const level=selectTerrainTileLevel(tileStore,viewport,width);
   const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
+  renderer.lastLevel=level;
+  renderer.lastVisibleTiles=visible.length;
+  renderer.lastDrawCalls=0;
   const protectedKeys=new Set(visible.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${tileStore.revision??0}`));
   cache.evict(protectedKeys);
   gl.useProgram(program);
@@ -619,7 +640,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
       if(right<=x||bottom<=y) continue;
       gl.viewport(x,height-bottom,right-x,bottom-y);
       gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
-      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);\n      renderer.lastDrawCalls++;
     }
   }
   renderer.lastSubmitMs=(globalThis.performance?.now?.()??Date.now())-started;
@@ -631,5 +652,5 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,lod:renderer.lastLevel,maxTextureSize:renderer.maxTextureSize};
 }
