@@ -5,6 +5,7 @@ import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-re
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 import { buildGeographicPolygonMesh, buildGeographicLineMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
 import { createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
+import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
 
 
 test("le LOD du relief suit progressivement la densité de pixels du viewport", () => {
@@ -1538,4 +1539,22 @@ test("les frontières administratives respectent leur seuil MIN_ZOOM", () => {
     administrativeBoundaries, geographicWebGLRenderer
   });
   assert.deepEqual(submittedLineFeatures, [visibleAtThree]);
+});
+
+
+test("la préférence du renderer géographique est normalisée sans ambiguïté", () => {
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=canvas"), "canvas");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=webgl"), "webgl");
+  assert.equal(getGeographicRendererPreference(""), "auto");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=unknown"), "auto");
+  assert.equal(getGeographicRendererPreference("?geographic-renderer=CANVAS"), "auto");
+});
+
+test("le mode géographique publié correspond au renderer réellement disponible", () => {
+  assert.equal(resolveGeographicRendererMode("canvas", true), "canvas");
+  assert.equal(resolveGeographicRendererMode("canvas", false), "canvas");
+  assert.equal(resolveGeographicRendererMode("webgl", true), "webgl");
+  assert.equal(resolveGeographicRendererMode("webgl", false), "canvas-fallback");
+  assert.equal(resolveGeographicRendererMode("auto", true), "webgl");
+  assert.equal(resolveGeographicRendererMode("auto", false), "canvas-fallback");
 });
