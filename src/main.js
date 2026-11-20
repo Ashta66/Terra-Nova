@@ -18,7 +18,7 @@ let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
 let administrativeBoundaryFeatures = null;
-let boundaryRequestedYear = null;
+let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
@@ -148,11 +148,13 @@ function renderMapFrame() {
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const height = Math.round(width * 0.5);
   const year = Number(String(state.clock.date).slice(0, 4));
-  if (boundaryRequestedYear !== year && !boundaryLoadPromise) {
-    boundaryRequestedYear = year;
+  const administrativeDetail = mapViewport.zoom >= 4 ? "regional" : "world";
+  const boundaryRequestKey = year + ":" + administrativeDetail;
+  if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
+    boundaryRequestedKey = boundaryRequestKey;
     boundaryLoadPromise = Promise.all([
       loadPoliticalBoundaries(year),
-      loadAdministrativeBoundaries(year)
+      loadAdministrativeBoundaries(year, mapViewport.zoom)
     ]).then(([political, administrative]) => {
       politicalBoundaryFeatures = political?.collection ?? null;
       administrativeBoundaryFeatures = administrative;
