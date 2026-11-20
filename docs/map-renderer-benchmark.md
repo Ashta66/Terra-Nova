@@ -54,6 +54,21 @@ const keys = [
 Object.fromEntries(keys.map(key => [key, canvas?.dataset?.[key] ?? null]));
 ```
 
+## Matrice de scénarios reproductibles
+Effectuer les relevés suivants à dimensions de canvas, ratio de pixels et jeu de données identiques. Pour chaque scénario, répéter au moins 5 fois et conserver médiane et percentile 95 ; séparer le premier passage (cache froid) des passages suivants (cache chaud).
+
+| Scénario | Zoom | Interaction | Cache | Objectif |
+| --- | --- | --- | --- | --- |
+| Vue mondiale | 1× | immobile | froid puis chaud | coût initial et coût stable des couches globales |
+| Vue régionale | 2× | immobile | froid puis chaud | coût des frontières et détails intermédiaires |
+| Vue rapprochée | 4× | immobile | froid puis chaud | coût des détails locaux et densité des lignes |
+| Vue très rapprochée | 8× | immobile | froid puis chaud | comportement à forte densité géométrique |
+| Pan continu | 2× puis 4× | déplacement régulier | chaud | stabilité des temps et réutilisation des caches |
+| Zoom progressif | 1× → 8× → 1× | zoom ancré | chaud | transitions, uploads et pics de soumission |
+| Aller-retour géographique | 3 zones éloignées | pan rapide | froid puis chaud | évictions, reconstructions et efficacité du cache |
+
+Pour chaque passage, relever `renderTotalMs`, `renderTerrainMs`, les trois métriques géographiques globales, les métriques par couche, les draw calls, triangles, uploads, octets et l'intervalle entre rendus. Ne pas agréger les mesures froides et chaudes. Documenter le navigateur, la version, le GPU, le système, le ratio de pixels et la taille du canvas.
+
 ## Comparaison
 
 Comparer Canvas 2D et WebGL sur les mêmes scénarios, lorsque le mode de rendu peut être sélectionné sans modifier les données. Relever séparément :
