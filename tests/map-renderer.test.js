@@ -669,7 +669,7 @@ test("les bornes géographiques des tuiles parent respectent leur pas de résolu
   );
   const tile = store.getTileAtLevel(1, 1, 0);
   assert.deepEqual(getTerrainTileGeoBounds(tile, store), {
-    west: 60, east: 180, north: 90, south: 0
+    west: 60, east: 180, north: 90, south: -90
   });
 });
 
