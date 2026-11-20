@@ -181,3 +181,9 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - Pendant le déplacement, le relief passe temporairement à une grille de rendu 384 × 192 ; à la fin du geste, une image plus détaillée est demandée (plafond 768 × 384).
 - Correction de l'échelle du raster ETOPO : le moteur transmet désormais les dimensions logiques CSS du canvas et le raster est composé depuis une surface hors écran quand le navigateur le permet, ce qui évite le décalage lié au facteur DPR.
 - Les tests automatisés couvrent les plafonds de qualité adaptative. La mesure réelle des FPS et l'inspection visuelle restent à effectuer dans un navigateur.
+
+
+### Optimisation zoom — 20 novembre 2026
+- La molette utilise une prévisualisation CSS/compositeur ancrée au premier point visé, puis un seul rendu complet après 130 ms sans nouvel événement.
+- Les vues identiques ne sont plus redessinées à chaque seconde de simulation : un identifiant de vue (taille, année, zoom, centre) invalide le rendu uniquement si nécessaire.
+- Le détail géographique régional demeure limité par les données Natural Earth 1:110m ; un LOD géographique réel demandera l'intégration de jeux de données régionaux adaptés.
