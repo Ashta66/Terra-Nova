@@ -228,3 +228,10 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Liste des nations et fiche stratégique plus courtes, avec défilement interne indépendant pour conserver l'accès aux informations sans faire défiler toute la fenêtre.
 - Sur mobile, date et mode restent côte à côte ; la sélection de nation conserve toute la largeur.
 - Ajustements supplémentaires pour les écrans bas et les petits mobiles.
+
+
+## 20 novembre 2026 — correction du panoramique cartographique
+- Le compositeur pouvait demander un rendu vectoriel complet toutes les 250 ms lorsque le bitmap ne couvrait plus l'écran, notamment pendant un déplacement vertical au zoom mondial ×1.
+- Le recalcul est maintenant interdit tant que le pointeur est maintenu : le bitmap est déplacé par le compositeur, puis un rendu complet unique est effectué après le relâchement (debounce existant).
+- Ajout de tests sur la décision de recalcul pendant et après le geste.
+- Cette correction vise les saccades causées par les reconstructions répétées pendant le glisser. Elle ne remplace pas un profilage navigateur des coûts du zoom, du relief et des frontières.
