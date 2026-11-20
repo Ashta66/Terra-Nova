@@ -192,6 +192,16 @@ export function calculateViewportTransform(previous, next, width, height) {
   };
 }
 
+
+/**
+ * À zoom monde, l'équirectangulaire est périodique en longitude :
+ * les copies latérales prolongent le bitmap sans recalculer les côtes.
+ */
+export function getViewportPreviewWrapCopies(previous, next) {
+  const atWorldScale = viewport => Math.abs(Number(viewport?.zoom ?? 1) - 1) < 1e-6;
+  return atWorldScale(previous) && atWorldScale(next) ? [-1, 0, 1] : [0];
+}
+
 const layerCaches = { physical: new Map(), political: new Map() };
 const objectIds = new WeakMap();
 let nextObjectId = 1;
