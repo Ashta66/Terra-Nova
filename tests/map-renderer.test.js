@@ -779,8 +779,11 @@ test("les tuiles prédictives sont transférées dans l'atlas hors du rendu cour
   assert.equal(atlas.enqueue(staleTile), true);
   assert.equal(atlas.pendingCount, 2);
   assert.equal(atlas.peek(tile), null);
-  atlas.retainPending(new Set(["0/0/0@0"]));
+  assert.equal(atlas.retainPending(new Set(["0/0/0@0"])), 1);
   assert.equal(atlas.pendingCount, 1);
+  assert.equal(atlas.retainPending(new Set()), 1);
+  assert.equal(atlas.pendingCount, 0);
+  assert.equal(atlas.enqueue(tile), true);
   assert.equal(gl.uploads.filter(item => item.subImage).length, 0);
   await new Promise(resolve => setTimeout(resolve, 40));
   assert.equal(atlas.pendingCount, 0);
