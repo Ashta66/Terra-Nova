@@ -6,7 +6,7 @@ import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { sceneRenderParams, composeRects } from "./world/scene-compose.js";
+import { sceneRenderParams, composeRects, shouldRecenterScene } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
@@ -787,7 +787,10 @@ function composeScene() {
       });
     }
   }
-  if (!composition.covered) {
+  // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
+  // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.
+  // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.
+  if (shouldRecenterScene(composition.covered, Boolean(mapDrag))) {
     const now = globalThis.performance?.now?.() ?? Date.now();
     if (!sceneRecenterPending && now - lastSceneRecenterAt > 250) {
       sceneRecenterPending = true;

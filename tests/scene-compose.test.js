@@ -103,3 +103,16 @@ test("la marge d'overscan couvre les quatre directions aux zooms usuels", () => 
     }
   }
 });
+
+
+test("un panoramique ne déclenche pas de reconstruction complète tant que le pointeur est maintenu", async () => {
+  const { shouldRecenterScene } = await import("../src/world/scene-compose.js");
+  assert.equal(shouldRecenterScene(false, true), false);
+  assert.equal(shouldRecenterScene(true, true), false);
+});
+
+test("une scène incomplète est recalculée dès que le geste est terminé", async () => {
+  const { shouldRecenterScene } = await import("../src/world/scene-compose.js");
+  assert.equal(shouldRecenterScene(false, false), true);
+  assert.equal(shouldRecenterScene(true, false), false);
+});
