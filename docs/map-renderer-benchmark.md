@@ -26,7 +26,8 @@ Les valeurs sont exposées sur le canvas cartographique via ses attributs `data-
 - `terrainWebglTileDrawCalls`, `terrainWebglTileVisible`, `terrainWebglTileLod`
 - `terrainWebglTileHits`, `terrainWebglTileMisses`, `terrainWebglTileUploads`
 - `terrainWebglTileUploadedBytes`, `terrainWebglTileBuildMs`, `terrainWebglTileUploadMs`
-- `terrainWebglTileFallback`, `terrainWebglTileTransition`
+- `terrainWebglTileFallback`, `terrainWebglTileTransition`, `terrainWebglTileCapacity`
+- `terrainWebglTileAtlasBytes`, `terrainWebglTileCapacityLimited`
 - `terrainWebglTilePending`, `terrainWebglTileWaiting`
 
 Dans la console du navigateur, sélectionner le canvas puis exécuter :
@@ -41,6 +42,8 @@ const keys = [
   "terrainWebglTileMisses", "terrainWebglTileUploads",
   "terrainWebglTileUploadedBytes", "terrainWebglTileBuildMs",
   "terrainWebglTileUploadMs", "terrainWebglTileFallback",
+  "terrainWebglTileCapacity", "terrainWebglTileAtlasBytes",
+  "terrainWebglTileCapacityLimited",
   "terrainWebglTileTransition", "terrainWebglTilePending",
   "terrainWebglTileWaiting"
 ];
