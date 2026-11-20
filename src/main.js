@@ -40,7 +40,6 @@ function updateMapControls() {
 }
 
 function zoomMap(factor, anchorX, anchorY) {
-  beginMapPreview();
   const canvas = $("world-map");
   const rect = canvas.getBoundingClientRect();
   const x = anchorX ?? rect.width / 2;
@@ -50,6 +49,7 @@ function zoomMap(factor, anchorX, anchorY) {
   const oldZoom = mapViewport.zoom;
   const newZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, oldZoom * factor));
   if (newZoom === oldZoom) return;
+  beginMapPreview();
   const longitudeAtAnchor = mapViewport.centerLongitude + ratioX * 360 / oldZoom;
   const latitudeAtAnchor = mapViewport.centerLatitude - ratioY * 180 / oldZoom;
   mapViewport.zoom = newZoom;
@@ -335,11 +335,22 @@ function stopMapDrag() {
     lastDragMoved = mapDrag.moved;
     mapDrag = null;
     mapCanvas.classList.remove("is-dragging");
-    if (lastDragMoved) finishMapPreview();
-    else { previewCanvas = null; previewBaseViewport = null; }
+    const viewportChanged = previewBaseViewport && (
+      previewBaseViewport.zoom !== mapViewport.zoom
+      || previewBaseViewport.centerLongitude !== mapViewport.centerLongitude
+      || previewBaseViewport.centerLatitude !== mapViewport.centerLatitude
+    );
+    if (lastDragMoved || viewportChanged) finishMapPreview();
+    else {
+      if (pendingPreviewFrame !== null) window.cancelAnimationFrame(pendingPreviewFrame);
+      pendingPreviewFrame = null;
+      previewCanvas = null;
+      previewBaseViewport = null;
+    }
   }
 }
 mapCanvas.addEventListener("click", (event) => {
+  if (previewBaseViewport) return;
   if (lastDragMoved) { lastDragMoved = false; return; }
   const rect = mapCanvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
