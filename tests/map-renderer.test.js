@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { buildTerrainTileTexture } from "../src/world/terrain-webgl.js";
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 
@@ -1010,4 +1011,36 @@ test("l'atlas GPU respecte simultanément la limite matérielle et le budget mé
   assert.ok(atlas.memoryBytes <= 1024);
   assert.ok(atlas.capacity >= 1);
   atlas.dispose();
+});
+
+
+test("la construction de texture résout chaque tuile voisine du halo une seule fois", () => {
+  const calls = [];
+  const tileStore = {
+    width: 8,
+    height: 8,
+    tileSize: 4,
+    revision: 0,
+    getTileAtLevel(level, x, y) {
+      calls.push(`${level}/${x}/${y}`);
+      if (level !== 0 || x < 0 || x > 1 || y < 0 || y > 1) return null;
+      const originX = x * 4;
+      const originY = y * 4;
+      const values = new Int16Array(16);
+      for (let localY = 0; localY < 4; localY++) {
+        for (let localX = 0; localX < 4; localX++) {
+          values[localY * 4 + localX] = (originY + localY) * 8 + originX + localX;
+        }
+      }
+      return { originX, originY, width: 4, height: 4, values };
+    }
+  };
+  const tile = { level: 0, x: 0, y: 0, originX: 0, originY: 0, width: 4, height: 4 };
+  const texture = buildTerrainTileTexture(tile, tileStore);
+  assert.ok(texture);
+  assert.equal(new Set(calls).size, calls.length);
+  assert.equal(calls.length, 4);
+  assert.equal(texture.values[0], 7); // halo ouest : retour longitudinal
+  assert.equal(texture.values[1 * 6 + 1], 0); // premier échantillon intérieur
+  assert.equal(texture.values[5 * 6 + 5], 35); // halo sud-est
 });
