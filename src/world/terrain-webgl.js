@@ -176,6 +176,51 @@ export function getTerrainTileScreenRects(tile, tileStore, viewport, width, heig
   return rects;
 }
 
+export function selectTerrainTileLevel(tileStore, viewport, renderWidth) {
+  if (!tileStore || !Number.isFinite(tileStore.width) || !Number.isFinite(renderWidth)
+    || renderWidth <= 0) return 0;
+  const zoom = Math.max(0.0001, Number(viewport?.zoom ?? 1));
+  const lod = Math.floor(Math.log2(tileStore.width / (renderWidth * zoom)));
+  return Math.max(0, Math.min(4, Number.isFinite(lod) ? lod : 0));
+}
+
+export function collectTerrainViewportTiles(tileStore, viewport, width, height, level = 0) {
+  if (!tileStore?.getTileAtLevel || !Number.isInteger(level) || level < 0 || level > 4
+    || !Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) return [];
+  const stride = 2 ** level;
+  const levelWidth = Math.ceil(tileStore.width / stride);
+  const levelHeight = Math.ceil(tileStore.height / stride);
+  const tileSize = tileStore.tileSize;
+  if (!Number.isInteger(tileSize) || tileSize < 2) return [];
+  const zoom = Math.max(0.0001, Number(viewport?.zoom ?? 1));
+  const centerLongitude = Number(viewport?.centerLongitude ?? 0);
+  const centerLatitude = Number(viewport?.centerLatitude ?? 0);
+  const west = centerLongitude - 180 / zoom;
+  const east = centerLongitude + 180 / zoom;
+  const north = Math.min(90, centerLatitude + 90 / zoom);
+  const south = Math.max(-90, centerLatitude - 90 / zoom);
+  const yStart = Math.max(0, Math.floor((90 - north) / 180 * levelHeight / tileSize));
+  const yEnd = Math.min(Math.ceil(levelHeight / tileSize) - 1,
+    Math.floor((90 - south) / 180 * levelHeight / tileSize));
+  const xSet = new Set();
+  const columns = Math.ceil(levelWidth / tileSize);
+  for (const shift of [-360, 0, 360]) {
+    const start = Math.floor((west - shift + 180) / 360 * levelWidth / tileSize);
+    const end = Math.floor((east - shift + 180) / 360 * levelWidth / tileSize);
+    for (let x = start; x <= end; x++) xSet.add(((x % columns) + columns) % columns);
+  }
+  const result = [];
+  for (const y of Array.from({ length: Math.max(0, yEnd - yStart + 1) }, (_, i) => yStart + i)) {
+    for (const x of xSet) {
+      const tile = tileStore.getTileAtLevel(level, x, y);
+      if (!tile) continue;
+      const rects = getTerrainTileScreenRects(tile, tileStore, viewport, width, height);
+      if (rects.length) result.push({ tile, rects });
+    }
+  }
+  return result;
+}
+
 export function buildTerrainTileTexture(tile, tileStore) {
   if (!tile || !tileStore?.getTileAtLevel || !Number.isInteger(tile.level)
     || !Number.isInteger(tile.x) || !Number.isInteger(tile.y)
