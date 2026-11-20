@@ -12,7 +12,7 @@ import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewport
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 let state = createGameState();
 let interval = null;
@@ -230,6 +230,7 @@ function scheduleMapPrefetch(collections) {
   cancelMapPrefetch();
   if (mapInteractionActive || mapViewport.zoom <= 1.001) return;
   const previous = lastMapPrefetchViewport;
+  const zoomDirection = previous ? Math.sign(mapViewport.zoom - previous.zoom) : 0;
   const direction = previous ? {
     x: mapViewport.centerLongitude - previous.centerLongitude,
     y: previous.centerLatitude - mapViewport.centerLatitude
@@ -247,7 +248,7 @@ function scheduleMapPrefetch(collections) {
     // Priorité à l'emprise élargie, avec un biais vers la trajectoire récente.
     // Une famille par tranche inactive : le rendu visible reste prioritaire.
     prefetchGeoSpatialFeatures(collections[index++], mapViewport, 1, {
-      coverage: 1.6, lookAhead: 0.55, direction
+      coverage: 1.6, lookAhead: 0.55, direction, zoomDirection
     });
     if (index >= collections.length || mapInteractionActive) return;
     if (typeof requestIdleCallback === "function") {
@@ -422,7 +423,8 @@ function renderMapFrame() {
   // lancer un rendu complet pendant que le joueur manipule la carte.
   if (!worldFeatures || (mapInteractionActive && !interactionRenderAllowed)) return;
   if (mapInteractionActive) interactionRenderAllowed = false;
-  if (mapViewport.zoom >= 6 && !regionalLandFeatures && !regionalLandLoadAttempted) {
+  const regionalWarmup = getRegionalWarmupProfile(mapViewport.zoom);
+  if (regionalWarmup.land && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
       regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
@@ -442,11 +444,11 @@ function renderMapFrame() {
     lastRenderedMapSignature = null;
     renderMap();
   }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
-  if (mapViewport.zoom >= 4 && !regionalLabelLoadAttempted) {
+  if (regionalWarmup.labels && !regionalLabelLoadAttempted) {
     regionalLabelLoadAttempted = true;
     activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
   }
-  if (mapViewport.zoom >= 8 && !regionalRiverLoadAttempted) {
+  if (regionalWarmup.rivers && !regionalRiverLoadAttempted) {
     regionalRiverLoadAttempted = true;
     activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières");
   }

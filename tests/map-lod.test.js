@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
@@ -137,4 +137,19 @@ test("l'index spatial sélectionne les deux côtés de l'antiméridien sans dupl
   const selected = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), { zoom: 4, centerLongitude: 180, centerLatitude: 60 });
   assert.deepEqual(selected.features.map(feature => feature.properties.name).sort(), ["Alaska", "Russie orientale"]);
   assert.equal(new Set(selected.features).size, selected.features.length);
+});
+
+
+test("les couches régionales sont préchauffées avant leur seuil d'affichage", () => {
+  assert.deepEqual(getRegionalWarmupProfile(3.19), { labels: false, land: false, rivers: false });
+  assert.deepEqual(getRegionalWarmupProfile(3.2), { labels: true, land: false, rivers: false });
+  assert.deepEqual(getRegionalWarmupProfile(5.2), { labels: true, land: true, rivers: false });
+  assert.deepEqual(getRegionalWarmupProfile(7.2), { labels: true, land: true, rivers: true });
+});
+
+test("le préchauffage ne change pas les seuils de rendu des couches régionales", () => {
+  assert.equal(selectMapLayerDetailLevel(5.9, world, regional, 6).features, world);
+  assert.equal(selectMapLayerDetailLevel(6, world, regional, 6).features, regional);
+  assert.equal(selectMapLayerDetailLevel(7.9, world, regional, 8).features, world);
+  assert.equal(selectMapLayerDetailLevel(8, world, regional, 8).features, regional);
 });
