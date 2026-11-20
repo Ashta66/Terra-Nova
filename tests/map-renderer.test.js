@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
@@ -674,8 +674,6 @@ test("les couleurs héraldiques historiques sont reconnaissables", () => {
   assert.equal(territoryColor({ properties: { NAME: "Portugal" } }), "#3D805B");
 });
 
-import { classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual } from "../src/world/map-renderer.js";
-import { selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 
 test("les quatre statuts historiques ont une classification distincte",()=>{
  assert.equal(classifyHistoricalTerritoryStyle({properties:{historicalStatus:"sovereign"}}),"sovereign");
@@ -704,4 +702,10 @@ test("les changements géophysiques disposent d'un rendu distinct",()=>{
  assert.equal(classifyPhysicalCellVisual({damage:.8}).kind,"damage");
  assert.equal(classifyPhysicalCellVisual({elevationDeltaM:10}).kind,"uplift");
  assert.equal(classifyPhysicalCellVisual({damage:.01}),null);
+});
+
+test("la couleur des territoires coloniaux suit la puissance souveraine",()=>{
+ assert.equal(territoryColor({properties:{NAME:"New France",SUBJECTO:"France"}}),"#3159A6");
+ assert.equal(territoryColor({properties:{NAME:"British Raj",SUBJECTO:"British Empire"}}),"#B83A43");
+ assert.equal(territoryColor({properties:{NAME:"Viceroyalty of New Spain",SUBJECTO:"Spain"}}),"#D9A52B");
 });
