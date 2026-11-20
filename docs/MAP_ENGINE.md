@@ -78,3 +78,12 @@ Le raster ETOPO est maintenant interprété avec des classes locales légères d
 - Le relief est généré sur une surface hors écran lorsque le navigateur le permet, puis composé dans le canvas à l'échelle logique CSS. Cela évite de mélanger les coordonnées physiques du canvas haute densité et les coordonnées logiques du moteur.
 - Les géométries vectorielles et les labels sont recalculés une seule fois à la fin du déplacement. Une mise en cache des couches statiques et un vrai niveau de détail régional restent des optimisations ultérieures.
 - Limite : le gain doit encore être mesuré dans un navigateur réel sur plusieurs configurations ; la CI ne mesure pas les FPS.
+
+
+## Zoom fluide et rendu à la demande — optimisation suivante
+
+- La molette met à jour immédiatement le centre et le facteur de zoom, mais affiche d'abord une transformation CSS du canvas existant. Le raster ETOPO et les géométries ne sont recalculés qu'après une courte pause dans le geste (130 ms), ce qui évite de recalculer le relief à chaque cran de molette.
+- Le point sous le pointeur au début d'une séquence de molette reste l'ancre du zoom pendant cette séquence. Les boutons +/− conservent leur rendu direct.
+- Une signature de rendu empêche de redessiner la carte lorsque seule l'horloge avance dans la même année et que la vue n'a pas changé.
+- Le canvas est préparé pour la composition graphique via `will-change: transform`. Le navigateur reste libre de décider du chemin matériel.
+- Limites : le zoom à la molette est une prévisualisation transformée, légèrement moins nette pendant le geste ; le rendu haute qualité revient à la fin. Les véritables niveaux de détail géographiques régionaux nécessitent des données à plus grande échelle, non encore embarquées.
