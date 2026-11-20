@@ -6,6 +6,7 @@ uniform vec2 u_center;
 uniform float u_zoom;
 void main() {
   float longitude = a_coordinate.x;
+  longitude += 360.0 * floor((u_center.x - longitude) / 360.0 + 0.5);
   float x = (longitude - u_center.x) * u_zoom / 180.0;
   float y = (a_coordinate.y - u_center.y) * u_zoom / 90.0;
   gl_Position = vec4(x, y, 0.0, 1.0);
@@ -89,38 +90,26 @@ export function createGeographicWebGLRenderer(gl) {
   const zoomLocation = gl.getUniformLocation(program, "u_zoom");
   const colorLocation = gl.getUniformLocation(program, "u_color");
   const meshCache = createGeographicMeshCache();
+  const featureIds = new WeakMap();
+  let nextFeatureId = 1;
+  let cachedSignature = null;
+  let cachedBatches = null;
   let disposed = false;
 
-  function render(features, width, height, viewport = {}, color = [0.32, 0.39, 0.31, 1]) {
-    if (disposed) return { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0 };
-    const zoom = Number(viewport.zoom ?? 1);
-    const centerLongitude = Number(viewport.centerLongitude ?? 0);
-    const centerLatitude = Number(viewport.centerLatitude ?? 0);
-    if (![width, height, zoom, centerLongitude, centerLatitude].every(Number.isFinite)
-      || width <= 0 || height <= 0 || zoom <= 0) {
-      return { drawnFeatures: 0, skippedFeatures: features?.length ?? 0, drawCalls: 0, triangles: 0 };
-    }
-    const batches = [makeBatch()];
-    let drawnFeatures = 0, skippedFeatures = 0;
-    for (const feature of features ?? []) {
-      const mesh = meshCache.get(feature);
-      if (!mesh?.supported) {
-        skippedFeatures++;
-        continue;
-      }
-      let batch = batches[batches.length - 1];
-      if (batch.positions.length / 2 + mesh.vertexCount > 65535) {
-        batch = makeBatch();
-        batches.push(batch);
-      }
-      const longitudeShift = 360 * Math.round((centerLongitude - mesh.positions[0]) / 360);
-      if (!appendMesh(batch, mesh, longitudeShift)) {
-        skippedFeatures++;
-        continue;
-      }
-      batch.features++;
-      drawnFeatures++;
-    }
+  function getFeatureId(feature) {
+    if (!feature || typeof feature !== "object") return 0;
+    let id = featureIds.get(feature);
+    if (!id) { id = nextFeatureId++; featureIds.set(feature, id); }
+    return id;
+  }
+
+  function buildBatches(features) {
+    const featureList = features ?? [];
+    const signature = featureList.map(getFeatureId).join(",");
+    const cacheHit = signature === cachedSignature && cachedBatches !== null;
+    if (!cacheHit) { cachedBatches = buildBatches(featureList); cachedSignature = signature; }
+    const batches = cachedBatches.batches;
+    const { drawnFeatures, skippedFeatures } = cachedBatches;
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
       gl.canvas.height = Math.round(height);
@@ -137,17 +126,24 @@ export function createGeographicWebGLRenderer(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    let drawCalls = 0, triangles = 0;
+    let drawCalls = 0, triangles = 0, bufferUploads = 0, uploadedBytes = 0;
     for (const batch of batches) {
-      if (!batch.indices.length) continue;
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(batch.positions), gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      if (!cacheHit) {
+        gl.bufferData(gl.ARRAY_BUFFER, batch.positions, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+        bufferUploads++; uploadedBytes += batch.positions.byteLength;
+      }
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(batch.indices), gl.DYNAMIC_DRAW);
+      if (!cacheHit) {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, batch.indices, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+        bufferUploads++; uploadedBytes += batch.indices.byteLength;
+      }
       gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
-      drawCalls++;
-      triangles += batch.indices.length / 3;
+      drawCalls++; triangles += batch.triangles;
     }
-    return { drawnFeatures, skippedFeatures, drawCalls, triangles };
+    return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit, bufferUploads, uploadedBytes };
   }
 
   return {
@@ -161,6 +157,8 @@ export function createGeographicWebGLRenderer(gl) {
       disposed = true;
       gl.deleteBuffer(buffer);
       gl.deleteBuffer(indexBuffer);
+      cachedBatches = null;
+      cachedSignature = null;
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
