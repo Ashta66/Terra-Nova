@@ -2,6 +2,63 @@ import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
 
+
+const spatialIndexes = new WeakMap();
+function coordinateBounds(feature) {
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  const visit=value=>{
+    if(!Array.isArray(value)) return;
+    if(value.length>=2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      minX=Math.min(minX,value[0]); maxX=Math.max(maxX,value[0]);
+      minY=Math.min(minY,value[1]); maxY=Math.max(maxY,value[1]); return;
+    }
+    for(const child of value) visit(child);
+  };
+  visit(feature?.geometry?.coordinates);
+  return Number.isFinite(minX)?{minX,minY,maxX,maxY}:null;
+}
+export function createGeoFeatureIndex(collection, cellSize=10) {
+  if(!collection || !Array.isArray(collection.features)) throw new TypeError("FeatureCollection requise.");
+  if(!Number.isFinite(cellSize) || cellSize<=0 || cellSize>180) throw new RangeError("Taille de cellule invalide.");
+  const columns=Math.ceil(360/cellSize), rows=Math.ceil(180/cellSize), cells=new Map(), global=[];
+  const key=(x,y)=>y*columns+x;
+  for(const feature of collection.features) {
+    const b=coordinateBounds(feature); if(!b) continue;
+    if(b.maxX-b.minX>180) { global.push({feature,b}); continue; }
+    const x0=Math.max(0,Math.floor((b.minX+180)/cellSize)), x1=Math.min(columns-1,Math.floor((b.maxX+180)/cellSize));
+    const y0=Math.max(0,Math.floor((90-b.maxY)/cellSize)), y1=Math.min(rows-1,Math.floor((90-b.minY)/cellSize));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) {
+      const k=key(x,y); if(!cells.has(k)) cells.set(k,[]); cells.get(k).push({feature,b});
+    }
+  }
+  return {featureCount:collection.features.length,query({west=-180,east=180,south=-90,north=90}={}) {
+    if(east-west>=360 || (west<=-180 && east>=180)) return collection.features;
+    const intervals=west<=east
+      ? (west < -180 ? [[west+360,180],[-180,east]] : east>180 ? [[west,180],[-180,east-360]] : [[west,east]])
+      : [[west,180],[-180,east]];
+    const found=new Set(), lo=Math.max(-90,south), hi=Math.min(90,north);
+    if(lo>hi) return [];
+    for(const [left,right] of intervals) {
+      const x0=Math.max(0,Math.floor((left+180)/cellSize)), x1=Math.min(columns-1,Math.floor((right+180)/cellSize));
+      const y0=Math.max(0,Math.floor((90-hi)/cellSize)), y1=Math.min(rows-1,Math.floor((90-lo)/cellSize));
+      for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) for(const e of cells.get(key(x,y))??[]) {
+        if(e.b.maxY>=lo && e.b.minY<=hi && e.b.maxX>=left && e.b.minX<=right) found.add(e.feature);
+      }
+    }
+    for(const e of global) if(e.b.maxY>=lo && e.b.minY<=hi) found.add(e.feature);
+    return [...found];
+  }};
+}
+function visibleFeatures(collection, projection) {
+  if(!collection?.features) return [];
+  if(projection.type!=="equirectangular") return collection.features;
+  let index=spatialIndexes.get(collection);
+  if(!index) { index=createGeoFeatureIndex(collection); spatialIndexes.set(collection,index); }
+  const v=projection.viewport??{}, zoom=Math.max(1,Number(v.zoom??1));
+  const lon=Number(v.centerLongitude??0), lat=Number(v.centerLatitude??0);
+  return index.query({west:lon-180/zoom,east:lon+180/zoom,south:lat-90/zoom,north:lat+90/zoom});
+}
+
 function traceRing(context, ring, width, height, projection) {
   let started = false;
   for (const coordinate of ring) {
@@ -21,12 +78,12 @@ function traceGeometry(context, geometry, width, height, projection) {
   return true;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
   context.save();
   context.globalAlpha = alpha;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (!feature?.geometry) continue;
     context.beginPath();
     if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
@@ -41,10 +98,10 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   return drawn;
 }
 
-function drawLineLayer(context, collection, width, height, projection, color, lineWidth) {
+function drawLineLayer(context, collection, width, height, projection, color, lineWidth, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     const geometry = feature?.geometry;
     if (!geometry) continue;
     const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
@@ -295,11 +352,11 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   context.restore();
 
   const landFill = options.terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
-  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85);
+  const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85, 1, visibleFeatures(featureCollection, projection));
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
-  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
-  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
-  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
+  const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, visibleFeatures(options.glaciers, projection));
+  const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, visibleFeatures(options.lakes, projection));
+  const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, visibleFeatures(options.rivers, projection));
   const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
