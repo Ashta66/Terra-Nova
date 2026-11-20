@@ -1,3 +1,11 @@
+## 20 novembre 2026 — rendu indépendant des trois familles cartographiques
+- Le moteur de rendu accepte désormais un masque de familles : physique, politique et dynamique.
+- Le Worker produit trois bitmaps transparents séparés : fond physique (océan, terres, relief, hydrographie), surcouche politique/historique (territoires, frontières, limites administratives et labels), et surcouche dynamique (événements et modifications physiques).
+- Les trois surfaces sont composées dans cet ordre sur l'écran. Les données de la géographie physique ne sont plus obligées de partager le même bitmap que les frontières et les événements.
+- Les signatures du cache statique incluent les familles activées ; une couche transparente n'est pas confondue avec un rendu complet.
+- En cas d'indisponibilité du Worker, le rendu Canvas historique combiné reste utilisé, afin de préserver le repli navigateur.
+- Tests de normalisation des familles ; validation visuelle réelle encore nécessaire, en particulier pour l'ordre des couches et les effets permanents de catastrophes.
+
 ## 20 novembre 2026 — remplacement progressif des tuiles parentes
 - La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
 - Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.
