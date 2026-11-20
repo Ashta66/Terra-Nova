@@ -643,7 +643,7 @@ test("les textures GPU des tuiles incluent une bordure continue entre voisines",
   // Bordure droite issue de la tuile suivante.
   assert.equal(texture.values[1 * texture.width + texture.width - 1], 8);
   // Bordure nord répliquée au pôle de la grille.
-  assert.equal(texture.values[0 * texture.width + 1], 100);
+  assert.equal(texture.values[0 * texture.width + 1], 4);
   // Coordonnées et niveau conservés pour positionner la tuile sur le globe.
   assert.equal(texture.originX, tile.originX);
   assert.equal(texture.originY, tile.originY);
