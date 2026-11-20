@@ -415,6 +415,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  const now=()=>globalThis.performance?.now?.()??Date.now(),key=t=>`${t.level}/${t.x}/${t.y}@${store.revision??0}`;
  function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
  function evict(protectedKeys=new Set()){for(const [k,e] of entries){if(free.length)break;if(!protectedKeys.has(k))release(k,e);}}
+ function peek(tile){if(!tile)return null;const k=key(tile),entry=entries.get(k);if(!entry)return null;entries.delete(k);entries.set(k,entry);hits++;return entry;}
  function get(tile,protectedKeys=new Set()){
   if(!tile)return null;const k=key(tile);pending.delete(k);const hit=entries.get(k);
   if(hit){hits++;entries.delete(k);entries.set(k,hit);return hit;}misses++;
@@ -435,7 +436,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  function enqueue(tile,protectedKeys=new Set()){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}if(!pending.has(k))pending.set(k,{tile,protectedKeys:new Set(protectedKeys)});schedulePump();return true;}
  function clear(){pending.clear();entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
  function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
- return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,enqueue,retainPending,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
+ return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,peek,enqueue,retainPending,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
 }
 
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
@@ -777,12 +778,15 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
     renderer.lastLevel=level;
   }
   const transitionFrom=renderer.transitionFromLevel;
-  const transitionProgress=transitionFrom===null?1:getTerrainTileTransitionOpacity((now-renderer.transitionStartedAt)/220);
-  if(transitionProgress>=1) renderer.transitionFromLevel=null;
-  renderer.transitionProgress=transitionProgress;
+  let transitionProgress=transitionFrom===null?1:getTerrainTileTransitionOpacity((now-renderer.transitionStartedAt)/220);
   const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
-  const previousVisible=transitionFrom!==null&&transitionProgress<1
-    ?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
+  const previousVisible=transitionFrom!==null?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
+  if(transitionFrom!==null&&transitionProgress>=1) {
+    const allChildrenReady=visible.every(({tile})=>Boolean(cache.peek(tile)));
+    if(allChildrenReady) renderer.transitionFromLevel=null;
+    else transitionProgress=0.92;
+  }
+  renderer.transitionProgress=transitionProgress;
   renderer.lastVisibleTiles=visible.length;
   renderer.lastDrawCalls=0;
   const revisionSuffix=tileStore.revision??0;
@@ -803,9 +807,14 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
     gl.vertexAttribPointer(renderer.atlasStep,2,gl.FLOAT,false,48,16);
     gl.vertexAttribPointer(renderer.tileStep,2,gl.FLOAT,false,48,24);
     gl.vertexAttribPointer(renderer.atlasBounds,4,gl.FLOAT,false,48,32);
-    const entries=new Map();
-    for(const {tile} of items){const entry=cache.get(tile,protectedKeys);if(entry)entries.set(entry.key,entry);}
-    const vertices=buildTerrainTileAtlasBatchVertices(items,entries,width,height,cache);
+    const entries=new Map(),readyItems=[];
+    const deferMissing=transitionFrom!==null&&items===visible;
+    for(const item of items){
+      const entry=deferMissing?cache.peek(item.tile):cache.get(item.tile,protectedKeys);
+      if(entry){entries.set(entry.key,entry);readyItems.push(item);}
+      else if(deferMissing)cache.enqueue(item.tile,protectedKeys);
+    }
+    const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache);
     if(!vertices.length)return;
     gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/12);renderer.lastDrawCalls++;
   };
