@@ -282,3 +282,11 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - La préparation des index est étalée par familles de couches sur plusieurs périodes de repos pour éviter une longue tâche concurrente.
 - Le pixel ratio du bitmap cartographique est plafonné à 1,25× pour réduire le coût de composition sur les écrans Retina.
 - Le rendu vectoriel complet après interaction est déclenché après 240 ms sans nouveau geste, évitant les reconstructions répétées au cours d'un zoom continu.
+
+
+## 20 novembre 2026 — rendu cartographique dans un Worker
+- Ajout de `src/world/map-render-worker.js` : le rendu vectoriel complet est déporté dans un Worker module utilisant OffscreenCanvas.
+- Les collections GeoJSON et la grille de terrain ne sont clonées vers le Worker que lorsqu'elles changent ; elles sont conservées entre les rendus pour préserver le cache statique.
+- Le Worker renvoie un ImageBitmap transférable ; les demandes sont coalescées pour ne garder que la plus récente si un rendu est déjà en cours.
+- Fallback automatique vers le rendu historique sur le thread principal si Worker/OffscreenCanvas ou le transfert des données n'est pas disponible.
+- Validation automatisée de syntaxe et de tests ; vérification visuelle multi-navigateurs et mesures réelles restent à effectuer.
