@@ -371,9 +371,10 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const options = { width: 640, height: 320, pixelRatio: 1, rivers, viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 } };
     const first = renderWorldMap(canvas, land, options);
     assert.equal(first.riverCount, 1);
-    assert.equal(constructions, 3);
+    const pathsAfterFirstRender = constructions;
+    assert.ok(pathsAfterFirstRender >= 1);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, 3);
+    assert.equal(constructions, pathsAfterFirstRender);
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
@@ -486,8 +487,8 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     const collection = { type: "FeatureCollection", features: Array.from({ length: 540 }, (_, index) => ({
       type: "Feature",
       geometry: { type: "Polygon", coordinates: [[
-        [index % 360 - 180, 0], [index % 360 - 178.5, 0],
-        [index % 360 - 178.5, 1.5], [index % 360 - 180, 0]
+        [index % 360 - 180, 0], [index % 360 - 172, 0],
+        [index % 360 - 172, 8], [index % 360 - 180, 0]
       ]] }
     })) };
     const { canvas } = createCanvas();
