@@ -138,6 +138,7 @@ function renderMap() {
       canvas.dataset.terrainWebglTileVisible = String(result.terrainWebGLTileStats.visibleTiles);
       canvas.dataset.terrainWebglTilePreloaded = String(result.terrainWebGLTileStats.preloadedTiles);
       canvas.dataset.terrainWebglTileLod = String(result.terrainWebGLTileStats.lod);
+      canvas.dataset.terrainWebglTileTransition = result.terrainWebGLTileStats.transitionProgress.toFixed(3);
       canvas.dataset.terrainWebglTileHits = String(result.terrainWebGLTileStats.hits);
       canvas.dataset.terrainWebglTileMisses = String(result.terrainWebGLTileStats.misses);
       canvas.dataset.terrainWebglTileUploads = String(result.terrainWebGLTileStats.uploads);
@@ -153,6 +154,7 @@ function renderMap() {
       delete canvas.dataset.terrainWebglTileVisible;
       delete canvas.dataset.terrainWebglTilePreloaded;
       delete canvas.dataset.terrainWebglTileLod;
+      delete canvas.dataset.terrainWebglTileTransition;
       delete canvas.dataset.terrainWebglTileHits;
       delete canvas.dataset.terrainWebglTileMisses;
       delete canvas.dataset.terrainWebglTileUploads;
@@ -192,7 +194,8 @@ function renderMap() {
   $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}`;
   updateMapControls();
   lastTerrainRenderZoom = mapViewport.zoom;
-  if (transitioning && terrainTransitionProgress < 1) {
+  const tileLodTransitioning = (result.terrainWebGLTileStats?.transitionProgress ?? 1) < 1;
+  if ((transitioning && terrainTransitionProgress < 1) || tileLodTransitioning) {
     scheduleMapRender();
   } else if (transitioning) {
     terrainTransitionStartAt = null;
