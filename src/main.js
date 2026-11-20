@@ -140,7 +140,7 @@ function renderMap() {
     if (result.geographicWebGLStats) {
       canvas.dataset.geographicWebglFeatures = String(result.geographicWebGLStats.drawnFeatures);
       canvas.dataset.geographicWebglSkipped = String(result.geographicWebGLStats.skippedFeatures);
-      canvas.dataset.geographicWebglFallbackFeatures = String(result.geographicWebGLStats.fallbackFeatures ?? 0);
+      canvas.dataset.geographicWebglFallbackLayerFeatures = String(result.geographicWebGLStats.fallbackLayerFeatures ?? 0);
       canvas.dataset.geographicWebglDrawCalls = String(result.geographicWebGLStats.drawCalls);
       canvas.dataset.geographicWebglTriangles = String(result.geographicWebGLStats.triangles);
       canvas.dataset.geographicWebglCacheHit = String(result.geographicWebGLStats.cacheHit);
@@ -195,7 +195,7 @@ function renderMap() {
     } else {
       delete canvas.dataset.geographicWebglFeatures;
       delete canvas.dataset.geographicWebglSkipped;
-      delete canvas.dataset.geographicWebglFallbackFeatures;
+      delete canvas.dataset.geographicWebglFallbackLayerFeatures;
       delete canvas.dataset.geographicWebglDrawCalls;
       delete canvas.dataset.geographicWebglTriangles;
       delete canvas.dataset.geographicWebglCacheHit;
