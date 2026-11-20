@@ -440,7 +440,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
   const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
   let terrainRenderer = "canvas2d";
-  let terrainWebGLStats = null;
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
   let physicalHit = false;
