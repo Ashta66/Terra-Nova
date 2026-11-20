@@ -456,11 +456,15 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
           riverGpuRendered = true;
           continue;
         }
+        if (layer.type === "boundaries") {
+          const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supportsBoundary(feature));
+          drawPolygonLayer(context, layer.collection, width, height, projection,
+            null, layer.stroke, layer.lineWidth, layer.alpha, fallbackFeatures);
+          continue;
+        }
         const fallbackFeatures = layer.features.filter(feature => !geographicRenderer.supports(feature));
         const fallbackCount = drawPolygonLayer(context, layer.collection, width, height, projection,
           layer.fill, null, layer.lineWidth, layer.alpha, fallbackFeatures);
-        drawPolygonLayer(context, layer.collection, width, height, projection,
-          null, layer.stroke, layer.lineWidth, layer.alpha, layer.features);
         if (layer.key === "land") landCount = layerStats.drawnFeatures + fallbackCount;
         else if (layer.key === "glaciers") glacierCount = layerStats.drawnFeatures + fallbackCount;
         else lakeCount = layerStats.drawnFeatures + fallbackCount;
