@@ -130,3 +130,30 @@ export function createGeographicMeshCache() {
     }
   };
 }
+
+/**
+ * Prépare les segments d'une ligne géographique pour un rendu WebGL gl.LINES.
+ * Chaque segment est indépendant afin de préserver les ruptures des MultiLineString.
+ */
+export function buildGeographicLineMesh(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) {
+    return { supported: false, reason: "unsupported-geometry", positions: new Float32Array(), vertexCount: 0 };
+  }
+  const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+  if (!Array.isArray(lines) || !lines.length) {
+    return { supported: false, reason: "invalid-geometry", positions: new Float32Array(), vertexCount: 0 };
+  }
+  const positions = [];
+  for (const line of lines) {
+    const points = unwrapRing(line);
+    if (!points) return { supported: false, reason: "invalid-line", positions: new Float32Array(), vertexCount: 0 };
+    for (let index = 1; index < points.length; index++) {
+      positions.push(points[index - 1][0], points[index - 1][1], points[index][0], points[index][1]);
+    }
+  }
+  if (!positions.length) {
+    return { supported: false, reason: "empty-line", positions: new Float32Array(), vertexCount: 0 };
+  }
+  return { supported: true, positions: new Float32Array(positions), vertexCount: positions.length / 2 };
+}
