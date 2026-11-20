@@ -399,6 +399,7 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   const landFeatures = select(featureCollection), glacierFeatures = select(options.glaciers);
   const lakeFeatures = select(options.lakes), riverFeatures = select(options.rivers);
   const elevationFeatures = select(options.elevationPoints);
+  const administrativeBoundaryFeatures = select(options.administrativeBoundaries);
   const geographicRenderer = !dirtyRect && projection.type === "equirectangular"
     ? options.geographicWebGLRenderer : null;
   let geographicWebGLStats = null;
@@ -424,7 +425,15 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
     { key: "lake-boundaries", type: "boundaries", collection: options.lakes, features: lakeFeatures,
       color: parseWebGLColor(theme.colors.accent), stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1 },
     { key: "rivers", type: "lines", collection: options.rivers, features: riverFeatures,
-      color: parseWebGLColor(theme.colors.accent) }
+      color: parseWebGLColor(theme.colors.accent) },
+    ...(options.administrativeBoundaries ? [{
+      key: "administrative-boundaries", type: "boundaries",
+      collection: options.administrativeBoundaries, features: administrativeBoundaryFeatures,
+      color: parseWebGLColor(options.administrativeBoundaryColor ?? theme.colors.grid),
+      stroke: options.administrativeBoundaryColor ?? theme.colors.grid,
+      lineWidth: options.administrativeBoundaryWidth ?? 0.55,
+      alpha: options.administrativeBoundaryAlpha ?? 0.72
+    }] : [])
   ] : null;
   if (gpuLayers && geographicRenderer.canvas && typeof context.drawImage === "function") {
     try {
@@ -486,6 +495,12 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
       "#dce8e5", "#9ebfc3", 0.7, 0.88, glacierFeatures);
     lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection,
       theme.colors.ocean, theme.colors.accent, 0.55, 1, lakeFeatures);
+  }
+  if (options.administrativeBoundaries && !geographicWebGLStats) {
+    drawPolygonLayer(context, options.administrativeBoundaries, width, height, projection, null,
+      options.administrativeBoundaryColor ?? theme.colors.grid,
+      options.administrativeBoundaryWidth ?? 0.55,
+      options.administrativeBoundaryAlpha ?? 0.72, administrativeBoundaryFeatures);
   }
   if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, landFeatures);
   if (!riverGpuRendered) riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, riverFeatures);
@@ -643,7 +658,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const surface = createLayerSurface(canvas.width, canvas.height);
     if (surface) {
       const dataKey = [objectId(featureCollection), objectId(options.glaciers), objectId(options.lakes),
-        objectId(options.rivers), objectId(options.elevationPoints)].join("|");
+        objectId(options.rivers), objectId(options.elevationPoints), objectId(options.administrativeBoundaries)].join("|");
       const themeKey = [theme.id, theme.texture, JSON.stringify(theme.colors), terrainEnabled, projection.type].join("|");
       const previous = lastPoliticalFrame;
       let dirtyRegions = null;
