@@ -19,3 +19,6 @@ Les territoires coloniaux héritent de la couleur SUBJECTO, tout en conservant l
 AtlasPI annonce des géométries historiques, événements datés, sources académiques et scores de confiance ; API publique Apache 2.0. CShapes 2.0 couvre les États indépendants et territoires dépendants de 1886 à 2019 (Europe à partir de 1816), utile pour l'époque moderne mais pas pour la Nouvelle-France ou Napoléon.
 
 L'index confirme la présence d'entités nommées, pas la justesse de chaque polygone. Un audit complet nécessite une comparaison régionale avec des atlas spécialisés.
+
+## Intégration géophysique à la carte
+Les cellules physiques modifiées sont maintenant superposées au rendu cartographique. Le raster ETOPO utilise l'altitude simulée uniquement dans les cellules modifiées ou submergées ; les cellules intactes conservent l'échantillonnage ETOPO natif afin de ne pas aplatir les montagnes. La représentation physique reste actuellement une grille d'environ 2° : le recalcul vectoriel des nouveaux contours de côte à partir d'une grille plus fine est une étape ultérieure, non prétendue comme déjà terminée.

@@ -127,7 +127,7 @@ function physicalLookup(world) {
  const lookup=new Map();for(const c of world.currentCells)if(Number.isInteger(c.gridX)&&Number.isInteger(c.gridY))lookup.set(c.gridY+":"+c.gridX,c);
  physicalLookupCache.set(world,{revision:world.revision,lookup});return lookup;
 }
-function samplePhysical(grid,lon,lat,lookup){
+export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
  const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;
@@ -186,13 +186,13 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
     for (let px = 0; px < renderWidth; px++) {
       const lon = cx + ((px + 0.5) / renderWidth - 0.5) * 360 / zoom;
-      const e = samplePhysical(grid, lon, lat, physical);
+      const e = samplePhysicalElevation(grid, lon, lat, physical);
       // Les océans n'effectuent pas les quatre échantillonnages voisins :
       // leur palette reste calme et évite de dessiner chaque fosse/dorsale.
       let shade = 1;
       if (e >= 0) {
-        const west = samplePhysical(grid, lon - dx, lat, physical), east = samplePhysical(grid, lon + dx, lat, physical);
-        const north = samplePhysical(grid, lon, lat + dy, physical), south = samplePhysical(grid, lon, lat - dy, physical);
+        const west = samplePhysicalElevation(grid, lon - dx, lat, physical), east = samplePhysicalElevation(grid, lon + dx, lat, physical);
+        const north = samplePhysicalElevation(grid, lon, lat + dy, physical), south = samplePhysicalElevation(grid, lon, lat - dy, physical);
         shade = calculateHillshade(west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const landform = classifyLandform(e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         const color = terrainColorForElevation(e, shade, landform);

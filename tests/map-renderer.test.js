@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
   const calls = [];
@@ -710,4 +710,15 @@ test("la couleur des territoires coloniaux suit la puissance souveraine",()=>{
  assert.equal(territoryColor({properties:{NAME:"New France",SUBJECTO:"France"}}),"#3159A6");
  assert.equal(territoryColor({properties:{NAME:"British Raj",SUBJECTO:"British Empire"}}),"#B83A43");
  assert.equal(territoryColor({properties:{NAME:"Viceroyalty of New Spain",SUBJECTO:"Spain"}}),"#D9A52B");
+});
+
+test("le rendu physique conserve le relief ETOPO hors des cellules modifiées",()=>{
+ const grid={width:24,height:12,values:new Int16Array(24*12).fill(150)};
+ const unchanged=new Map([["0:0",{gridX:0,gridY:0,elevationDeltaM:0,currentElevationM:150}]]);
+ const altered=new Map([["0:0",{gridX:0,gridY:0,elevationDeltaM:-250,currentElevationM:-100}]]);
+ const lon=-172.5,lat=82.5;
+ assert.equal(samplePhysicalElevation(grid,lon,lat,unchanged),150);
+ assert.equal(samplePhysicalElevation(grid,lon,lat,altered),-100);
+ const flooded=new Map([["0:0",{gridX:0,gridY:0,elevationDeltaM:0,currentElevationM:150,inundated:true,waterDepthM:4}]]);
+ assert.equal(samplePhysicalElevation(grid,lon,lat,flooded),-4);
 });
