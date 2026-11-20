@@ -254,7 +254,7 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
   return path;
 }
 
-function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false) {
+function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
@@ -262,6 +262,8 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
+    const featureRank = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0);
+    if (featureRank > maxRank) continue;
     const coastProfile = simplifyCoast ? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1) : null;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
@@ -285,13 +287,17 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   return drawn;
 }
 
-function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null) {
+function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null, maxRank = Infinity, maxFeatures = Infinity) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
+  let considered = 0;
   for (const feature of collection.features) {
     const geometry = feature?.geometry;
     if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
+    const rank = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0);
+    if (rank > maxRank || considered >= maxFeatures) continue;
+    considered++;
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
     context.lineWidth = lineWidth * renderScale;
@@ -340,7 +346,7 @@ export function getBoundarySimplificationProfile(zoom = 1) {
 function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false, administrative = false) {
   if (!collection?.features) return 0;
   const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
-  if (administrative && zoom < 2) return 0;
+  if (administrative && zoom < 3) return 0;
   let count = 0;
   context.save();
   const renderScale = projection.renderScale ?? 1;
@@ -353,7 +359,7 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
     const properties = feature?.properties ?? {};
     const precision = Number(properties.BORDERPRECISION ?? properties.borderPrecision ?? 3);
     const rank = Number(properties.scalerank ?? properties.SCALERANK ?? properties.min_zoom ?? properties.MIN_ZOOM ?? 0);
-    if (administrative && zoom < 4 && rank > 3) continue;
+    if (administrative && ((zoom < 5 && rank > 1) || (zoom < 8 && rank > 3))) continue;
     context.setLineDash?.(precisionAware && precision < 3 ? [3 * renderScale, 2 * renderScale] : scaledDash);
     count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth, simplifyProfile);
   }
@@ -391,12 +397,22 @@ function drawLandHachures(context, collection, width, height, projection, color)
   context.restore();
 }
 
+export function getSecondaryDetailProfile(zoom = 1) {
+  const level = Math.max(1, Number(zoom) || 1);
+  if (level < 2.5) return { riversRank: 1, riversMax: 35, lakesRank: 1, glaciers: false, elevationMax: 8 };
+  if (level < 4) return { riversRank: 2, riversMax: 70, lakesRank: 2, glaciers: true, elevationMax: 16 };
+  if (level < 7) return { riversRank: 4, riversMax: 140, lakesRank: 4, glaciers: true, elevationMax: 32 };
+  return { riversRank: 8, riversMax: 260, lakesRank: 8, glaciers: true, elevationMax: 64 };
+}
+
 function drawElevationPoints(context, collection, width, height, projection, theme) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
   const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
-  for (const feature of collection.features) {
+  const profile = getSecondaryDetailProfile(zoom);
+  const candidates = [...collection.features].filter(feature => feature.geometry?.type === "Point").sort((a, b) => Math.abs(Number(b.properties?.elevation_m ?? 0)) - Math.abs(Number(a.properties?.elevation_m ?? 0))).slice(0, profile.elevationMax);
+  for (const feature of candidates) {
     if (feature.geometry?.type !== "Point") continue;
     const elevation = Number(feature.properties?.elevation_m ?? 0);
     const isMountain = feature.properties?.kind === "mountain";
@@ -1031,9 +1047,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     if (!options.interactive && (projection.lodZoom ?? 1) >= 2.5 && ["parchment", "paper"].includes(theme.texture)) {
       measureLayer("hachures", () => drawLandHachures(target, visibleLand, width, height, projection, theme.colors.coast));
     }
-    const glacierCount = measureLayer("glaciers", () => drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88));
-    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55));
-    const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7));
+    const detailProfile = getSecondaryDetailProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    const glacierCount = measureLayer("glaciers", () => detailProfile.glaciers ? drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, false, 4) : 0);
+    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, false, detailProfile.lakesRank));
+    const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, getBoundarySimplificationProfile(projection.lodZoom ?? 1), detailProfile.riversRank, detailProfile.riversMax));
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
     return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
   };
