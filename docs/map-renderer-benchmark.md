@@ -228,3 +228,22 @@ Les noms `{Nom}` correspondent aux clés `land`, `glaciers`, `lakes`, `landBound
 - Le renderer expose séparément le temps CPU de construction des meshes (`geographicWebglCacheBuildMs`), le temps CPU de soumission des commandes (`geographicWebglDrawSubmitMs`) et le temps total de son passage (`geographicWebglTotalMs`).
 - Les temps de construction sont nuls sur un cache hit ; ils ne comprennent pas une mesure fiable du temps d'exécution GPU.
 - Pour comparer les images, relever ces trois valeurs en même temps que les uploads, octets transférés, triangles, draw calls et métriques du relief.
+
+
+## Comparaison automatisée des exports
+
+Après avoir collecté et exporté deux fichiers JSON sur le même scénario (par exemple Canvas puis WebGL), comparer leurs médianes :
+
+```bash
+node scripts/compare-map-benchmarks.mjs canvas.json webgl.json
+```
+
+Pour comparer le percentile 95 plutôt que la médiane :
+
+```bash
+node scripts/compare-map-benchmarks.mjs canvas.json webgl.json p95
+```
+
+Le rapport JSON contient, pour chaque métrique commune, les valeurs de référence et candidate, l'écart absolu et l'écart relatif en pourcentage. Les métriques absentes d'un des exports sont signalées comme non comparables. Les métadonnées de scénario, cache, viewport, DPR et renderer terrain sont contrôlées ; toute différence connue génère un avertissement. Le script ne conclut pas automatiquement qu'un moteur est plus rapide : une comparaison n'est exploitable que si les scénarios sont réellement équivalents et si les résultats visuels sont acceptables.
+
+Tests : `node --test tests/map-benchmark.test.js` (également inclus dans `npm test` et `npm run check`).
