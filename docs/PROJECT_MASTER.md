@@ -240,3 +240,7 @@ Le renderer utilise désormais les quatre échantillons voisins déjà nécessai
 ## Mise à jour technique — fluidité de la carte (20 novembre 2026)
 
 Le moteur regroupe désormais les demandes de rendu sur `requestAnimationFrame`. Pendant un glissement, le raster ETOPO est temporairement calculé à résolution réduite, puis une image plus détaillée est rendue à la fin du geste. Le rendu raster utilise les dimensions logiques du canvas et une surface hors écran lorsque disponible afin de respecter le facteur de densité de pixels. Ces optimisations sont un premier palier ; les performances réelles doivent encore être mesurées dans un navigateur et la mise en cache des couches statiques reste une piste.
+
+
+### Navigation fluide — optimisation zoom
+La molette affiche une prévisualisation transformée du canvas et attend 130 ms de calme avant le rendu géographique complet. Les rendus sont invalidés par la taille, l'année et le viewport ; l'horloge ne provoque donc plus un redessin inutile à chaque seconde de simulation.
