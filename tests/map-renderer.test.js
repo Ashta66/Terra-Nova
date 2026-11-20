@@ -55,7 +55,7 @@ test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes
 
 test("le moteur dessine les zones glaciaires et les repères de relief", () => {
   const { canvas, calls } = createCanvas();
-  const glaciers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[1, 1], [2, 1], [2, 2], [1, 1]]] } }] };
+  const glaciers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[86, 27], [88, 27], [88, 29], [86, 27]]] } }] };
   const elevationPoints = { type: "FeatureCollection", features: [
     { type: "Feature", properties: { name: "Everest", kind: "mountain", elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86.9, 28] } },
     { type: "Feature", properties: { name: "Dépression", kind: "depression", elevation_m: -154 }, geometry: { type: "Point", coordinates: [89, 42] } }
