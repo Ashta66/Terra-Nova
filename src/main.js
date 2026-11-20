@@ -4,6 +4,7 @@ import { createGameState, validateGameState } from "./game/state.js";
 import { calculateViewportTransform, getViewportPreviewWrapCopies, renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 
 let state = createGameState();
@@ -120,10 +121,9 @@ function scheduleTerrainZoomPreload() {
   };
   const fallback = () => {
     if (requestId !== terrainPreloadRequestId || !terrainTileStore) return;
-    const ids = terrainTileStore.preloadViewport(mapViewport, {
-      padding: 0.45, zoomLevels: input.zoomLevels, retainExisting: true
-    });
-    terrainTileStore.preloadTileIds(ids, {
+    const ids = calculateZoomTilePlan(input);
+    void terrainTileStore.preloadTileIds(ids, {
+      batchSize: 8,
       protectedIds: terrainVisibleTileIds,
       shouldCancel: () => requestId !== terrainPreloadRequestId
     });
@@ -196,7 +196,10 @@ function drawMapPreview() {
 }
 
 function scheduleMapPreview() {
-  if (!previewBaseViewport || pendingPreviewFrame !== null) return;
+  if (!previewBaseViewport) return;
+  // Toute nouvelle position rend les plans d'anticipation précédents obsolètes.
+  terrainPreloadRequestId++;
+  if (pendingPreviewFrame !== null) return;
   pendingPreviewFrame = window.requestAnimationFrame(() => {
     pendingPreviewFrame = null;
     // Réchauffe les tuiles autour du nouveau centre au plus 10 fois/seconde.
@@ -217,7 +220,7 @@ function scheduleMapPreview() {
       // vitesse, on réduit les tuiles anticipées pour limiter le travail.
       const speedFactor = Math.min(1, movementFraction * 0.1 / elapsed);
       const lookAhead = speedFactor > 0 ? 0.2 + speedFactor * 0.7 : 0;
-      terrainTileStore.preloadViewport(mapViewport, {
+      terrainVisibleTileIds = terrainTileStore.preloadViewport(mapViewport, {
         padding: 0.45,
         retainExisting: true,
         lookAhead,
@@ -237,6 +240,8 @@ function scheduleMapPreviewCommit() {
 }
 
 function finishMapPreview() {
+  // Coupe immédiatement tout travail associé à l'ancien viewport.
+  terrainPreloadRequestId++;
   if (previewIdleTimer !== null) window.clearTimeout(previewIdleTimer);
   previewIdleTimer = null;
   if (pendingPreviewFrame !== null) window.cancelAnimationFrame(pendingPreviewFrame);
