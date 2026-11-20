@@ -5,6 +5,7 @@ import { renderWorldMap } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { createTerrainGrid } from "./world/terrain.js";
+import { loadPoliticalBoundaries, loadAdministrativeBoundaries } from "./world/historical-boundaries.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, REGIONAL_LAND_DATA_PATH, REGIONAL_LAKES_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel } from "./world/map-lod.js";
 
 let state = createGameState();
@@ -15,6 +16,11 @@ let riverFeatures = null;
 let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
+let politicalBoundaryFeatures = null;
+let administrativeBoundaryFeatures = null;
+let boundaryRequestedYear = null;
+let boundaryLoadPromise = null;
+let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
 let regionalLandFeatures = null;
 let regionalLandLoadPromise = null;
@@ -142,6 +148,24 @@ function renderMapFrame() {
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const height = Math.round(width * 0.5);
   const year = Number(String(state.clock.date).slice(0, 4));
+  if (boundaryRequestedYear !== year && !boundaryLoadPromise) {
+    boundaryRequestedYear = year;
+    boundaryLoadPromise = Promise.all([
+      loadPoliticalBoundaries(year),
+      loadAdministrativeBoundaries(year)
+    ]).then(([political, administrative]) => {
+      politicalBoundaryFeatures = political?.collection ?? null;
+      administrativeBoundaryFeatures = administrative;
+      boundarySourceLabel = political?.sourceYear
+        ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
+        : "indisponible";
+      lastRenderedMapSignature = null;
+      renderMap();
+    }).catch(error => {
+      console.warn("Couches de frontières indisponibles :", error);
+      boundarySourceLabel = "indisponibles";
+    }).finally(() => { boundaryLoadPromise = null; });
+  }
   const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4), mapInteractionActive ? 'interactive' : 'full'].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
@@ -158,6 +182,8 @@ function renderMapFrame() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: labelDetail.features,
+    politicalBoundaries: politicalBoundaryFeatures,
+    administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
     terrainEnabled: !mapInteractionActive,
     terrainQuality: 1,
@@ -172,7 +198,7 @@ function renderMapFrame() {
   const detailStatus = regionalLayerCount
     ? ` · ${regionalLayerCount}/4 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
-  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères de relief${terrainStatus}${detailStatus}`;
+  $("map-status").textContent = `${result.landCount} terres · ${result.lakeCount} lacs · ${result.riverCount} cours d’eau · ${result.glacierCount} zones glaciaires · ${result.elevationPointCount} repères · frontières politiques ${boundarySourceLabel}${terrainStatus}${detailStatus}`;
   updateMapControls();
   if (!mapInteractionActive) {
     scheduleMapPrefetch([landDetail.features, lakeDetail.features, riverDetail.features, labelDetail.features]);

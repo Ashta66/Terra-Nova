@@ -570,3 +570,23 @@ test("la simplification des côtes adapte le niveau de détail au zoom", async (
   assert.ok(world.tolerance < regional.tolerance && regional.tolerance < close.tolerance);
   assert.ok(world.minRingArea < regional.minRingArea && regional.minRingArea < close.minRingArea);
 });
+
+import { selectHistoricalSnapshot, historicalPolygonsToBoundaries } from "../src/world/historical-boundaries.js";
+
+test("la sélection historique choisit le cliché temporel le plus proche sans interpolation", () => {
+  const years = [{ year: 1400, filename: "world_1400.geojson" }, { year: 1500, filename: "world_1500.geojson" }];
+  assert.equal(selectHistoricalSnapshot(1444, years).year, 1400);
+  assert.equal(selectHistoricalSnapshot(1480, years).year, 1500);
+});
+
+test("les polygones historiques deviennent des lignes politiques en conservant leurs métadonnées", () => {
+  const source = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { NAME: "Corsica", BORDERPRECISION: 2 },
+    geometry: { type: "Polygon", coordinates: [[[8, 41], [9, 41], [9, 43], [8, 41]]] }
+  }] };
+  const result = historicalPolygonsToBoundaries(source);
+  assert.equal(result.features.length, 1);
+  assert.equal(result.features[0].geometry.type, "MultiLineString");
+  assert.equal(result.features[0].geometry.coordinates.length, 1);
+  assert.equal(result.features[0].properties.NAME, "Corsica");
+});

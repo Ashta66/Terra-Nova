@@ -270,6 +270,18 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
+function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = []) {
+  if (!collection?.features) return 0;
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.globalAlpha = 0.92;
+  context.setLineDash?.(dash);
+  const count = drawLineLayer(context, collection, width, height, projection, color, lineWidth);
+  context.restore();
+  return count;
+}
+
 function drawLandHachures(context, collection, width, height, projection, color) {
   if (!collection?.features || typeof context.clip !== "function") return;
   context.save();
@@ -492,6 +504,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleRivers = selectVisibleFeatures(options.rivers, projection.viewport);
   const visibleElevationPoints = selectVisibleFeatures(options.elevationPoints, projection.viewport);
   const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
+  const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
+  const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
@@ -499,6 +513,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
+  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d7a65b", 0.95);
+  const administrativeBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#a8c1c9", 0.65, [2.2, 2.4]);
   const labelHits = options.interactive ? [] : drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
