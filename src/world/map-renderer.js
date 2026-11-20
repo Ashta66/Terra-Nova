@@ -498,7 +498,15 @@ function getSortedLabelCandidates(collection) {
   if (!candidates) {
     candidates = [...collection.features].sort((a, b) => {
       const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : kind === "country" ? 2 : kind === "province" ? 3 : kind === "city" ? 4 : 5;
-      return rank(a.properties?.kind) - rank(b.properties?.kind);
+      const kindDifference = rank(a.properties?.kind) - rank(b.properties?.kind);
+      if (kindDifference) return kindDifference;
+      if (a.properties?.kind === "city" && b.properties?.kind === "city") {
+        const rankA = Number(a.properties?.scalerank ?? a.properties?.SCALERANK ?? a.properties?.minZoom ?? 99);
+        const rankB = Number(b.properties?.scalerank ?? b.properties?.SCALERANK ?? b.properties?.minZoom ?? 99);
+        if (rankA !== rankB) return rankA - rankB;
+        return Number(b.properties?.POP_MAX ?? b.properties?.pop_max ?? 0) - Number(a.properties?.POP_MAX ?? a.properties?.pop_max ?? 0);
+      }
+      return 0;
     });
     sortedLabelCollections.set(collection, candidates);
   }
@@ -784,6 +792,14 @@ function drawTerritoryLayer(context,collection,width,height,projection,selectedC
 }
 
 function pointLon(value){return Number(value)||0;}
+export function getCityLabelLimit(zoom = 1) {
+  const level = Math.max(1, Number(zoom) || 1);
+  if (level < 3) return 10;
+  if (level < 6) return 18;
+  if (level < 10) return 24;
+  return 30;
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null) {
   if (!collection?.features) return [];
   const hits = [];
@@ -794,11 +810,14 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
   const candidateLimit = zoom < 1.5 ? 48 : zoom < 3 ? 90 : zoom < 6 ? 180 : Infinity;
   const candidates = getSortedLabelCandidates(collection);
+  const cityLabelLimit = getCityLabelLimit(zoom);
+  let cityLabelsDrawn = 0;
   for (let candidateIndex = 0; candidateIndex < Math.min(candidates.length, candidateLimit); candidateIndex++) {
     const feature = candidates[candidateIndex];
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     const kind = feature.properties?.kind ?? "place";
     if (zoom < 3 && kind === "province") continue;
+    if (kind === "city" && cityLabelsDrawn >= cityLabelLimit) continue;
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
     if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;
@@ -815,6 +834,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const box = { left: x - (kind === "country" ? 7 : 4) * renderScale, right: x + textWidth + (kind === "country" ? 7 : 4) * renderScale, top: y - fontSize - (kind === "country" ? 6 : 3) * renderScale, bottom: y + (kind === "city" ? 7 : 4) * renderScale };
     if (labelBoxCollides(box, occupiedCells, collisionCellSize)) { context.restore(); continue; }
     addLabelBox(box, occupiedCells, collisionCellSize);
+    if (kind === "city") cityLabelsDrawn++;
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
     context.lineWidth = (kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4) * renderScale;

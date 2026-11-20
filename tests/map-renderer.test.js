@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -823,4 +823,23 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
     if (previous === undefined) delete globalThis.OffscreenCanvas;
     else globalThis.OffscreenCanvas = previous;
   }
+});
+
+
+test("la densité des labels de villes est plafonnée aux zooms rapprochés", () => {
+  assert.equal(getCityLabelLimit(2), 10);
+  assert.equal(getCityLabelLimit(4), 18);
+  assert.equal(getCityLabelLimit(8), 24);
+  assert.equal(getCityLabelLimit(14), 30);
+  assert.ok(getCityLabelLimit(14) < 180);
+});
+
+test("les villes les plus importantes sont prioritaires dans le tri des labels", () => {
+  const { canvas } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Petite ville", kind: "city", minZoom: 2, POP_MAX: 1000 }, geometry: { type: "Point", coordinates: [20, 10] } },
+    { type: "Feature", properties: { name: "Grande ville", kind: "city", minZoom: 2, POP_MAX: 9000000 }, geometry: { type: "Point", coordinates: [0, 0] } }
+  ] };
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 } });
+  assert.ok(result.labelHits.findIndex(label => label.name === "Grande ville") < result.labelHits.findIndex(label => label.name === "Petite ville"));
 });
