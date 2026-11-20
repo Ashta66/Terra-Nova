@@ -152,3 +152,8 @@ Les collections GeoJSON sont maintenant indexées à la demande dans une grille 
 ## Réutilisation des sélections spatiales — 20 novembre 2026
 
 Le résultat des requêtes de secteurs est maintenant mis en cache par fenêtre de cellules. Tant que le viewport se déplace à l'intérieur des mêmes secteurs, le moteur réutilise le même sous-ensemble GeoJSON au lieu de recréer et retrier son tableau à chaque frame. Le cache applique une politique LRU simple et reste plafonné à 48 fenêtres par index afin de maîtriser la mémoire. Les données et géométries d'origine restent inchangées. Cette optimisation réduit les allocations et le travail de sélection ; elle ne remplace pas encore un cache de pixels/tuiles et ne doit pas être présentée comme une mesure de FPS garantie.
+
+
+## Placement des labels et détection de collision — 20 novembre 2026
+
+Le classement des labels géographiques par priorité est maintenant calculé une seule fois par collection et conservé dans une WeakMap. Le seuil de zoom reste évalué à chaque rendu, ce qui préserve l'apparition progressive des villes et des noms régionaux. La détection de collision utilise une grille d'écran de 64 px : chaque libellé ne compare ses limites qu'aux libellés présents dans les mêmes cellules, au lieu de parcourir toute la liste déjà placée. L'ordre de priorité et les règles d'affichage restent inchangés. Le cache est attaché à la collection et peut être libéré avec elle. Cette optimisation vise surtout les catalogues denses de noms ; les performances réelles doivent être mesurées dans le navigateur.

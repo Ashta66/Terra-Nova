@@ -263,3 +263,25 @@ test("le cache des sélections spatiales reste borné", () => {
   }
   assert.ok(index.queryCache.size <= 48);
 });
+
+
+test("les labels proches évitent les collisions tout en gardant la priorité des continents", () => {
+  const { canvas } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Ville A", kind: "city", minZoom: 2 }, geometry: { type: "Point", coordinates: [0, 0] } },
+    { type: "Feature", properties: { name: "Continent", kind: "continent", minZoom: 1 }, geometry: { type: "Point", coordinates: [0.1, 0] } },
+    { type: "Feature", properties: { name: "Ville B", kind: "city", minZoom: 2 }, geometry: { type: "Point", coordinates: [0.2, 0] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.equal(result.labelHits[0].name, "Continent");
+  for (let i = 0; i < result.labelHits.length; i++) {
+    for (let j = i + 1; j < result.labelHits.length; j++) {
+      const a = result.labelHits[i].bounds, b = result.labelHits[j].bounds;
+      const overlaps = !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+      assert.equal(overlaps, false);
+    }
+  }
+});

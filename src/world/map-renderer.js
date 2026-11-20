@@ -135,38 +135,81 @@ function drawElevationPoints(context, collection, width, height, projection, the
 }
 
 
-function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
-  if (!collection?.features) return [];
-  const hits = [];
-  const occupied = [];
-  const candidates = collection.features
-    .filter(feature => Number(feature.properties?.minZoom ?? 1) <= zoom)
-    .sort((a, b) => {
+const sortedLabelCollections = new WeakMap();
+const LABEL_COLLISION_CELL_SIZE = 64;
+
+function getSortedLabelCandidates(collection) {
+  let candidates = sortedLabelCollections.get(collection);
+  if (!candidates) {
+    candidates = [...collection.features].sort((a, b) => {
       const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : 2;
       return rank(a.properties?.kind) - rank(b.properties?.kind);
     });
-  for (const feature of candidates) {
+    sortedLabelCollections.set(collection, candidates);
+  }
+  return candidates;
+}
+
+function labelBoxCollides(box, occupiedCells) {
+  const minX = Math.floor(box.left / LABEL_COLLISION_CELL_SIZE);
+  const maxX = Math.floor(box.right / LABEL_COLLISION_CELL_SIZE);
+  const minY = Math.floor(box.top / LABEL_COLLISION_CELL_SIZE);
+  const maxY = Math.floor(box.bottom / LABEL_COLLISION_CELL_SIZE);
+  const checked = new Set();
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      for (const other of occupiedCells.get(`${x}:${y}`) ?? []) {
+        if (checked.has(other)) continue;
+        checked.add(other);
+        if (!(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function addLabelBox(box, occupiedCells) {
+  const minX = Math.floor(box.left / LABEL_COLLISION_CELL_SIZE);
+  const maxX = Math.floor(box.right / LABEL_COLLISION_CELL_SIZE);
+  const minY = Math.floor(box.top / LABEL_COLLISION_CELL_SIZE);
+  const maxY = Math.floor(box.bottom / LABEL_COLLISION_CELL_SIZE);
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const key = `${x}:${y}`;
+      if (!occupiedCells.has(key)) occupiedCells.set(key, []);
+      occupiedCells.get(key).push(box);
+    }
+  }
+}
+
+function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
+  if (!collection?.features) return [];
+  const hits = [];
+  const occupiedCells = new Map();
+  // L'ordre de priorité est calculé une seule fois par collection ; le seuil de zoom
+  // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
+  for (const feature of getSortedLabelCandidates(collection)) {
+    if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
     if (!point || point.x < 12 || point.x > width - 12 || point.y < 12 || point.y > height - 12) continue;
     const name = String(feature.properties?.name ?? "");
     if (!name) continue;
     const kind = feature.properties?.kind ?? "place";
-    const fontSize = kind === "continent" ? 13 : kind === "ocean" ? 10 : 10;
+    const fontSize = kind === "continent" ? 13 : 10;
     context.save();
     context.font = kind === "city" ? "600 10px Arial, sans-serif" : `italic 600 ${fontSize}px Georgia, serif`;
     const textWidth = context.measureText(name).width;
     const x = point.x - textWidth / 2;
     const y = point.y + (kind === "city" ? 3 : 0);
     const box = { left: x - 4, right: x + textWidth + 4, top: y - fontSize - 3, bottom: y + 4 };
-    const collides = occupied.some(other => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom));
-    if (collides) { context.restore(); continue; }
-    occupied.push(box);
+    if (labelBoxCollides(box, occupiedCells)) { context.restore(); continue; }
+    addLabelBox(box, occupiedCells);
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
     context.lineWidth = kind === "city" ? 2.8 : 3.4;
     context.strokeStyle = theme.colors.ocean;
-    context.fillStyle = kind === "ocean" ? "#a9c6cf" : kind === "city" ? theme.colors.text : theme.colors.text;
+    context.fillStyle = kind === "ocean" ? "#a9c6cf" : theme.colors.text;
     context.globalAlpha = kind === "city" ? 0.92 : 0.78;
     context.strokeText(name, x, y);
     context.fillText(name, x, y);
