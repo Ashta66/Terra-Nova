@@ -764,6 +764,12 @@ export function terrainTileSetFitsAtlas(visibleCount,previousCount,capacity) {
   return visibleCount+previousCount<=capacity;
 }
 
+export function shouldUseTerrainParentFallback(level, missingCount, visibleCount, parentCount, capacity) {
+  return Number.isInteger(level) && level >= 0 && level < 4
+    && Number.isInteger(missingCount) && missingCount > 0
+    && terrainTileSetFitsAtlas(visibleCount, parentCount, capacity);
+}
+
 export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},options={}) {
   if(!tileStore?.getTileAtLevel||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1) return null;
   let renderer=tileRenderers.get(tileStore);
@@ -823,7 +829,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
   // puis superposer les enfants au fil de leurs uploads idle.
   if(transitionFrom===null&&missingChildren.length&&level<4) {
     const parentVisible=collectTerrainViewportTiles(tileStore,viewport,width,height,level+1);
-    if(terrainTileSetFitsAtlas(visible.length,parentVisible.length,cache.capacity)) {
+    if(shouldUseTerrainParentFallback(level,missingChildren.length,visible.length,parentVisible.length,cache.capacity)) {
       previousVisible=parentVisible;
     }
   }
