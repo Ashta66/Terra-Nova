@@ -44,6 +44,7 @@ function createCanvas() {
     measureText: (text) => ({ width: String(text).length * 6 }),
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
+    drawImage: (...args) => calls.push(["drawImage", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)])
@@ -1372,4 +1373,70 @@ test("les contours polygonaux sont mis en cache et dessinés en lignes GPU", () 
   assert.equal(second.bufferUploads, 0);
   assert.equal(second.uploadedBytes, 0);
   renderer.dispose();
+});
+
+
+test("les frontières administratives secondaires sont envoyées au renderer WebGL", () => {
+  const { canvas, calls } = createCanvas();
+  const administrativeBoundaries = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "LineString", coordinates: [[1, 1], [4, 4]] }
+  }] };
+  let submittedLayers = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers(layers) {
+      submittedLayers = layers;
+      return {
+        drawnFeatures: 2, skippedFeatures: 0, drawCalls: 2, triangles: 1,
+        cacheHit: false, bufferUploads: 2, uploadedBytes: 32,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundaries": { drawnFeatures: 1 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => true,
+    supportsLine: () => true
+  };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  const boundaryLayer = submittedLayers.find(layer => layer.key === "administrative-boundaries");
+  assert.ok(boundaryLayer);
+  assert.equal(boundaryLayer.type, "boundaries");
+  assert.equal(boundaryLayer.features, administrativeBoundaries.features);
+  assert.equal(result.geographicWebGLStats.drawCalls, 2);
+  assert.ok(calls.some(call => call[0] === "drawImage"));
+});
+
+test("les frontières administratives non compatibles WebGL conservent le fallback Canvas", () => {
+  const { canvas, calls } = createCanvas();
+  const administrativeBoundaries = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[1, 1], [4, 1], [4, 4], [1, 1]]] }
+  }] };
+  const geographicWebGLRenderer = {
+    canvas: {},
+    renderLayers() {
+      return {
+        drawnFeatures: 1, skippedFeatures: 1, drawCalls: 1, triangles: 1,
+        cacheHit: false, bufferUploads: 1, uploadedBytes: 16,
+        layers: {
+          land: { drawnFeatures: 1 },
+          "administrative-boundaries": { drawnFeatures: 0 }
+        }
+      };
+    },
+    supports: () => true,
+    supportsBoundary: () => false,
+    supportsLine: () => true
+  };
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    administrativeBoundaries, geographicWebGLRenderer
+  });
+  assert.ok(calls.some(call => call[0] === "stroke"));
 });
