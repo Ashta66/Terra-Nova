@@ -145,6 +145,9 @@ function renderMap() {
       canvas.dataset.geographicWebglCacheHit = String(result.geographicWebGLStats.cacheHit);
       canvas.dataset.geographicWebglBufferUploads = String(result.geographicWebGLStats.bufferUploads);
       canvas.dataset.geographicWebglUploadedBytes = String(result.geographicWebGLStats.uploadedBytes);
+      canvas.dataset.geographicWebglCacheBuildMs = result.geographicWebGLStats.cacheBuildMs.toFixed(3);
+      canvas.dataset.geographicWebglDrawSubmitMs = result.geographicWebGLStats.drawSubmitMs.toFixed(3);
+      canvas.dataset.geographicWebglTotalMs = result.geographicWebGLStats.totalMs.toFixed(3);
       for (const layerKey of ["land", "glaciers", "lakes"]) {
         const layerStats = result.geographicWebGLStats.layers?.[layerKey];
         const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
@@ -168,6 +171,9 @@ function renderMap() {
       delete canvas.dataset.geographicWebglCacheHit;
       delete canvas.dataset.geographicWebglBufferUploads;
       delete canvas.dataset.geographicWebglUploadedBytes;
+      delete canvas.dataset.geographicWebglCacheBuildMs;
+      delete canvas.dataset.geographicWebglDrawSubmitMs;
+      delete canvas.dataset.geographicWebglTotalMs;
       for (const layerKey of ["land", "glaciers", "lakes"]) {
         const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
         delete canvas.dataset[`${datasetPrefix}Features`];
