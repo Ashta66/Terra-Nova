@@ -3,6 +3,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
+import { createTerrainTileStore } from "./world/terrain-tiles.js";
 
 let state = createGameState();
 let interval = null;
@@ -13,6 +14,7 @@ let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
 let terrainGrid = null;
+let terrainTileStore = null;
 let mapLabelHits = [];
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
@@ -68,7 +70,7 @@ function renderMap() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: mapLabels,
-    terrain: terrainGrid
+    terrain: terrainTileStore ?? terrainGrid
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
@@ -94,7 +96,12 @@ async function loadWorldMap() {
       await Promise.all(responses.map(response => response.json()));
     try {
       const terrainResponse = await fetch("./data/terrain/etopo_global_10m_i16.bin");
-      if (terrainResponse.ok) terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+      if (terrainResponse.ok) {
+        terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        // Les tuiles sont matérialisées à la demande et conservées en LRU.
+        // La grille source reste intacte comme référence de chargement initial.
+        terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96 });
+      }
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
     }
