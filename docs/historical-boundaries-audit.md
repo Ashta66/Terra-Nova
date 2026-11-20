@@ -151,3 +151,8 @@ Le raster ETOPO est désormais précalculé et mis en cache par tuiles géograph
 ## Relief : éclairage exagéré (étape 1)
 
 Le calcul du hillshade amplifie désormais les pentes par défaut d’un facteur 14 et combine une lumière principale à 315°/40° (70 %) et une lumière d’appoint à 20°/50° (30 %). La réponse est normalisée sur une surface plane et bornée entre 0,4 et 1,6. Le Worker reçoit le même facteur d’exagération afin que le relief pré-calculé et le calcul de secours restent cohérents.
+
+
+## Palette d’altitude : ligne de neige à 2 000 m (étape 2)
+
+La rampe terrestre a été remplacée par une palette sans neige jusqu’à 1 999 m, avec un seuil net à 2 000 m puis une neige presque blanche à 4 000 m. Cette règle est identique à toutes les latitudes ; la palette océanique reste inchangée.

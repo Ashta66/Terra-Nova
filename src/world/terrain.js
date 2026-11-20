@@ -90,12 +90,14 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   }
 
   const land = interpolateStops(elevation, [
-    [0, [91, 112, 72]],
-    [250, [105, 119, 72]],
-    [1000, [132, 128, 77]],
-    [2500, [157, 135, 94]],
-    [4000, [184, 169, 142]],
-    [6500, [235, 232, 218]]
+    [0, [105, 126, 88]],
+    [250, [119, 132, 88]],
+    [800, [139, 139, 91]],
+    [1500, [150, 138, 110]],
+    [1999, [140, 132, 118]],
+    [2000, [214, 218, 220]],
+    [2600, [238, 242, 245]],
+    [4000, [250, 251, 252]]
   ]);
   return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
 }

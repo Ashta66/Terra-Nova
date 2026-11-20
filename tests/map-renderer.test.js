@@ -172,6 +172,16 @@ test("les classes de relief distinguent montagnes, plateaux, vallées et plaines
   assert.equal(classifyLandform(100, 100, 100, 100, 100, 40), "plains");
 });
 
+
+test("la neige commence exactement à 2000 m quelle que soit la latitude", () => {
+  const belowSnow = terrainColorForElevation(1999);
+  const snowLine = terrainColorForElevation(2000);
+  const highSnow = terrainColorForElevation(4000);
+  assert.ok(belowSnow[0] < 200 && belowSnow[1] < 200 && belowSnow[2] < 200);
+  assert.deepEqual(snowLine, [214, 218, 220]);
+  assert.ok(highSnow.every(channel => channel >= 248));
+});
+
 test("les classes terrestres modulent discrètement la palette sans toucher la bathymétrie", () => {
   const base = terrainColorForElevation(300, 1);
   const plain = terrainColorForElevation(300, 1, "plains");
