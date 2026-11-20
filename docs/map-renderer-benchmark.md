@@ -68,6 +68,16 @@ Comparer Canvas 2D et WebGL sur les mêmes scénarios, lorsque le mode de rendu 
 Ne pas conclure à un gain de performances sur la seule base du temps de soumission CPU. Un résultat n'est validé qu'après vérification visuelle et répétition sur au moins deux classes de GPU.
 
 
+## Mesures par couche géographique
+Le canvas expose des métriques dédiées pour chaque couche GPU, y compris les couches de contours et les limites administratives :
+
+- `data-geographic-webgl-layer{Nom}Build-ms` (dataset `geographicWebglLayer{Nom}BuildMs`) : construction des buffers et upload CPU associés, uniquement sur cache miss.
+- `data-geographic-webgl-layer{Nom}Draw-submit-ms` : temps CPU de soumission des commandes pour cette couche.
+- `data-geographic-webgl-layer{Nom}Total-ms` : somme des deux temps précédents.
+- `data-geographic-webgl-layer{Nom}Triangles`, `Uploads` et `UploadedBytes` : volume géométrique et transferts.
+
+Les noms `{Nom}` correspondent aux clés `land`, `glaciers`, `lakes`, `landBoundaries`, `glacierBoundaries`, `lakeBoundaries`, `rivers`, `administrativeBoundaryLines` et `administrativeBoundaryPolygons`. Ces durées sont des mesures CPU d'instrumentation, pas des temps GPU ni une mesure de FPS.
+
 ## Contrôle des contours WebGL
 - Les lignes et frontières sont dessinées comme rubans triangulés, pas avec `gl.LINES`.
 - La largeur est fournie en pixels de la surface GPU (largeur CSS multipliée par le ratio de rendu).
