@@ -55,11 +55,16 @@ void main() {
   float east = elevationAt(geo + vec2(dx, 0.0));
   float north = elevationAt(geo - vec2(0.0, dy));
   float south = elevationAt(geo + vec2(0.0, dy));
-  float slopeX = (east - west) / max(100.0, 22000.0 * cos(radians(latitude)));
-  float slopeY = (north - south) / 22000.0;
+  float cellWidth = 111320.0 * max(0.15, cos(radians(latitude))) * 0.166666667;
+  float cellHeight = 111320.0 * 0.166666667;
+  float slopeX = (east - west) / (2.0 * cellWidth);
+  float slopeY = (north - south) / (2.0 * cellHeight);
   vec3 normal = normalize(vec3(-slopeX, -slopeY, 1.0));
-  vec3 light = normalize(vec3(-0.35, 0.35, 0.87));
-  float shade = clamp(0.92 + dot(normal, light) * 0.28, 0.72, 1.18);
+  float azimuth = radians(315.0);
+  float altitude = radians(45.0);
+  vec3 light = normalize(vec3(cos(altitude) * sin(azimuth),
+    cos(altitude) * cos(azimuth), sin(altitude)));
+  float shade = clamp(1.0 + (dot(normal, light) - sin(altitude)) * 0.65, 0.72, 1.22);
   vec3 ocean = ramp(e, -11000.0, -4000.0, vec3(25.0,45.0,57.0)/255.0, vec3(27.0,50.0,62.0)/255.0);
   ocean = e > -4000.0 ? ramp(e, -4000.0, -1500.0, vec3(27.0,50.0,62.0)/255.0, vec3(30.0,57.0,68.0)/255.0) : ocean;
   ocean = e > -1500.0 ? ramp(e, -1500.0, -500.0, vec3(30.0,57.0,68.0)/255.0, vec3(36.0,68.0,77.0)/255.0) : ocean;
