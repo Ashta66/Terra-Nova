@@ -1,6 +1,7 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster, sampleElevation, isTerrainHillshadePrepared } from "./terrain.js";
+import { renderTerrainWebGLTiles } from "./terrain-webgl.js";
 import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
@@ -1006,6 +1007,22 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   return hits;
 }
 
+const physicalTerrainChangeCache = new WeakMap();
+function hasPhysicalTerrainChanges(world) {
+  if (!world?.currentCells?.length) return false;
+  const revision = Number(world.revision ?? 0);
+  const cached = physicalTerrainChangeCache.get(world);
+  if (cached?.revision === revision) return cached.changed;
+  const changed = world.currentCells.some(cell =>
+    Boolean(cell?.inundated)
+    || Math.abs(Number(cell?.elevationDeltaM) || 0) > 0.01
+    || Number(cell?.tsunamiWaterDepthM) > 0.01
+    || Number(cell?.waterDepthM) > 0.01
+  );
+  physicalTerrainChangeCache.set(world, { revision, changed });
+  return changed;
+}
+
 const renderObjectIds = new WeakMap();
 let nextRenderObjectId = 1;
 const staticLayerCache = new WeakMap();
@@ -1118,6 +1135,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined");
   let staticStats = null;
   let terrainEnabled = false;
+  let terrainRenderer = "canvas2d";
   let staticCacheHit = false;
 
   const drawStaticLayers = target => {
@@ -1153,7 +1171,30 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
       }
       target.clip("evenodd");
-      terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(target, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
+      if (options.terrainTileStore && !hasPhysicalTerrainChanges(options.physicalWorld)
+        && typeof target.drawImage === "function") {
+        try {
+          const surface = renderTerrainWebGLTiles(options.terrainTileStore, backingWidth, backingHeight,
+            projection.viewport, { onTileReady: options.onTerrainTileReady });
+          if (surface) {
+            target.save();
+            target.setTransform(1, 0, 0, 1, 0, 0);
+            target.drawImage(surface, 0, 0, backingWidth, backingHeight);
+            target.restore();
+            terrainEnabled = true;
+            terrainRenderer = "webgl-tiles";
+          }
+        } catch {
+          terrainRenderer = "canvas2d-fallback";
+        }
+      }
+      if (!terrainEnabled) {
+        terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(target, width, height,
+          options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
+        if (terrainRenderer === "canvas2d") terrainRenderer = "canvas2d";
+      } else {
+        renderTimings["relief-base"] = 0;
+      }
       target.restore();
     }
     // Le fond terrestre sert uniquement de masque géographique sous les pays.
@@ -1184,7 +1225,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, majorLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)));
     const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, getBoundarySimplificationProfile(projection.lodZoom ?? 1), detailProfile.riversRank, detailProfile.riversMax));
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
-    return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
+    return { terrainEnabled, terrainRenderer, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
   };
 
   if (canCacheStatic) {
@@ -1251,7 +1292,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     territoryOutlineCount, physicalChangeCount, glacierCount: staticStats?.glacierCount ?? 0,
     lakeCount: staticStats?.lakeCount ?? 0, riverCount: staticStats?.riverCount ?? 0,
     elevationPointCount: staticStats?.elevationPointCount ?? 0, politicalBoundaryCount,
-    administrativeBoundaryCount, labelHits, terrainEnabled, staticCacheHit, width, height
+    administrativeBoundaryCount, labelHits, terrainEnabled, terrainRenderer: staticStats?.terrainRenderer ?? "canvas2d", staticCacheHit, width, height
   };
 }
 
