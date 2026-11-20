@@ -94,27 +94,47 @@ export function createTerrainTileStore(grid, options = {}) {
     return tile.values[position.localY * tile.width + position.localX];
   }
 
-  function sampleBilinear(longitude, latitude) {
-    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  function sampleAtLevel(longitude, latitude, level = 0) {
+    const stride = 2 ** clamp(Math.floor(level), 0, 4);
     const normalized = normalizeLongitude(longitude);
     const sampleX = normalized / 360 * grid.width - 0.5;
     const sampleY = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
-    const rawX = Math.floor(sampleX);
-    const x0 = ((rawX % grid.width) + grid.width) % grid.width;
-    const x1 = (x0 + 1) % grid.width;
-    const y0 = clamp(Math.floor(sampleY), 0, grid.height - 1);
-    const y1 = Math.min(grid.height - 1, y0 + 1);
-    const fx = sampleX - rawX;
-    const fy = sampleY - Math.floor(sampleY);
+    const coarseWidth = Math.ceil(grid.width / stride);
+    const coarseHeight = Math.ceil(grid.height / stride);
+    const coarseX = sampleX / stride;
+    const coarseY = sampleY / stride;
+    const rawX = Math.floor(coarseX);
+    const rawY = Math.floor(coarseY);
+    const x0 = ((rawX % coarseWidth) + coarseWidth) % coarseWidth;
+    const x1 = (x0 + 1) % coarseWidth;
+    const y0 = clamp(rawY, 0, coarseHeight - 1);
+    const y1 = Math.min(coarseHeight - 1, y0 + 1);
+    const fx = coarseX - rawX;
+    const fy = coarseY - rawY;
     const at = (column, row) => {
-      const tile = getTile(Math.floor(column / tileSize), Math.floor(row / tileSize));
-      const localX = column - tile.originX;
-      const localY = row - tile.originY;
-      return tile.values[localY * tile.width + localX];
+      const sourceX = Math.min(grid.width - 1, column * stride);
+      const sourceY = Math.min(grid.height - 1, row * stride);
+      const tile = getTile(Math.floor(sourceX / tileSize), Math.floor(sourceY / tileSize));
+      return tile.values[(sourceY - tile.originY) * tile.width + sourceX - tile.originX];
     };
     const a = at(x0, y0) * (1 - fx) + at(x1, y0) * fx;
     const b = at(x0, y1) * (1 - fx) + at(x1, y1) * fx;
     return a * (1 - fy) + b * fy;
+  }
+
+  function sampleBilinear(longitude, latitude, level = 0) {
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || !Number.isFinite(level)) return null;
+    const boundedLevel = clamp(level, 0, 4);
+    const lower = Math.floor(boundedLevel);
+    const blend = boundedLevel - lower;
+    const coarse = sampleAtLevel(longitude, latitude, lower);
+    if (blend <= 0 || lower >= 4) return coarse;
+    const finer = sampleAtLevel(longitude, latitude, lower + 1);
+    return coarse * (1 - blend) + finer * blend;
+  }
+
+  function sampleLod(longitude, latitude, level = 0) {
+    return sampleBilinear(longitude, latitude, level);
   }
 
   function setElevation(longitude, latitude, elevation) {
@@ -211,7 +231,7 @@ export function createTerrainTileStore(grid, options = {}) {
 
   return {
     tileSize, columns, rows, width: grid.width, height: grid.height,
-    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport,
+    getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport,
     get size() { return cache.size; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
