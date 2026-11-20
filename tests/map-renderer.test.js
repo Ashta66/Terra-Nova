@@ -1327,6 +1327,8 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(first.bufferUploads, 1);
   // Un segment (6 sommets) + deux caps circulaires de 12 triangles (72 sommets).
   assert.equal(first.layers.rivers.vertices, 78);
+  assert.equal(first.layers.rivers.triangles, 26);
+  assert.equal(first.triangles, 26);
   assert.equal(first.layers.rivers.uploadedBytes, 2496);
   assert.ok(Number.isFinite(first.cacheBuildMs) && first.cacheBuildMs >= 0);
   assert.ok(Number.isFinite(first.drawSubmitMs) && first.drawSubmitMs >= 0);
@@ -1378,6 +1380,8 @@ test("les contours polygonaux sont mis en cache et dessinés en rubans triangul�
   const first = renderer.renderLayers(layers, 640, 320, { centerLongitude: 0, centerLatitude: 0, zoom: 1 });
   assert.equal(first.drawnFeatures, 1);
   assert.equal(first.layers["coast-outline"].vertices, 168);
+  assert.equal(first.layers["coast-outline"].triangles, 56);
+  assert.equal(first.triangles, 56);
   assert.equal(first.layers["coast-outline"].uploadedBytes, 5376);
   assert.ok(Number.isFinite(first.layers["coast-outline"].drawSubmitMs));
   assert.ok(first.layers["coast-outline"].drawSubmitMs >= 0);
