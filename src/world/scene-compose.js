@@ -64,3 +64,9 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
     covered: dx <= 0 && dx + dw >= W && dy <= 0 && dy + dh >= H
   };
 }
+
+
+/** Évite de lancer un rendu vectoriel coûteux au milieu d'un panoramique. */
+export function shouldRecenterScene(covered, dragging = false) {
+  return !covered && !dragging;
+}
