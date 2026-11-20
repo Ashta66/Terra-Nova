@@ -170,7 +170,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = true;
-    context.drawImage(surface, 0, 0, width, height);
+    context.drawImage(surface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
     context.restore?.();
   } else if (renderContext === context) {
     // Fallback DOM-less pour les tests et les contextes Canvas minimaux.
