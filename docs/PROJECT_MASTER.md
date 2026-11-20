@@ -310,3 +310,7 @@ Les caches de rendu sont strictement bornés : 64 Mio maximum pour les tuiles ET
 
 ### Optimisation LOD de la navigation — 20 novembre 2026
 La seconde vague réduit le travail proportionnel à la densité cartographique : le relief utilise des tuiles 32/64/96 px selon le zoom, sans seconde passe hillshade ni hachures à très faible échelle ; les frontières administratives secondaires sont simplifiées et masquées à l'échelle mondiale ; les labels et repères de relief sont hiérarchisés par zoom. Les quatre couches régionales 1:10m ne sont plus préchargées automatiquement : elles sont chargées et mises en cache séparément au seuil utile (villes 4×, terres 6×, lacs 7×, rivières 8×). Le téléchargement volontaire du pack complet reste disponible. Ces seuils sont des compromis de rendu et devront être ajustés après inspection visuelle et mesure sur le navigateur cible.
+
+
+### Priorité aux interactions cartographiques — 20 novembre 2026
+Le préchargement des index spatiaux est désormais annulable dès le début d'un glisser ou d'un zoom. Sa préparation est répartie sur plusieurs tranches de repos (une famille de données par tranche) plutôt que de parcourir toutes les couches en une seule tâche. Le rendu de la scène plafonne le pixel ratio à 1,25× sur les écrans haute densité, et le rendu vectoriel complet après interaction attend 240 ms de calme pour éviter les reconstructions répétées lors d'une molette ou d'un trackpad continu. Le bitmap déjà rendu reste recomposé à chaque frame pendant le geste.

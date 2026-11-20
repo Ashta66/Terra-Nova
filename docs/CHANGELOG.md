@@ -275,3 +275,10 @@ Ce journal consigne les changements réellement effectués dans le dépôt. Les 
 - Données régionales : abandon du préchargement automatique des quatre GeoJSON 1:10m ; chaque famille est téléchargée, transformée et mise en cache séparément à son seuil d'utilisation (terres 6×, lacs 7×, rivières 8×, villes 4×).
 - Le téléchargement volontaire du pack complet reste disponible. Les tests couvrent les seuils LOD, les nouvelles résolutions et le chargement régional à la demande.
 - Les performances réelles restent à mesurer dans le navigateur cible ; aucun gain FPS n'est annoncé sans mesure.
+
+
+## 20 novembre 2026 — priorité aux interactions
+- Le préchargement des index spatiaux est annulé dès le début d'un glisser ou d'un zoom.
+- La préparation des index est étalée par familles de couches sur plusieurs périodes de repos pour éviter une longue tâche concurrente.
+- Le pixel ratio du bitmap cartographique est plafonné à 1,25× pour réduire le coût de composition sur les écrans Retina.
+- Le rendu vectoriel complet après interaction est déclenché après 240 ms sans nouveau geste, évitant les reconstructions répétées au cours d'un zoom continu.
