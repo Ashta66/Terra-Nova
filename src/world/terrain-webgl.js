@@ -640,7 +640,8 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
       if(right<=x||bottom<=y) continue;
       gl.viewport(x,height-bottom,right-x,bottom-y);
       gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
-      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);\n      renderer.lastDrawCalls++;
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      renderer.lastDrawCalls++;
     }
   }
   renderer.lastSubmitMs=(globalThis.performance?.now?.()??Date.now())-started;
