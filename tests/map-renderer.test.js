@@ -460,3 +460,19 @@ test("l'index spatial conserve les géométries traversant l'antiméridien",()=>
  const index=createGeoFeatureIndex({type:"FeatureCollection",features:[crossing,ordinary]},10);
  assert.deepEqual(index.query({west:160,east:200,south:-10,north:10}),[crossing]);
 });
+
+test("l'index spatial filtre aussi les repères de relief et les labels hors viewport",()=>{
+ const {canvas,calls}=createCanvas();
+ const elevationPoints={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{name:"Visible",kind:"mountain",elevation_m:6000},geometry:{type:"Point",coordinates:[0,0]}},
+  {type:"Feature",properties:{name:"Lointain",kind:"mountain",elevation_m:6000},geometry:{type:"Point",coordinates:[140,0]}}
+ ]};
+ const labels={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{name:"Centre",kind:"continent"},geometry:{type:"Point",coordinates:[0,0]}},
+  {type:"Feature",properties:{name:"Ailleurs",kind:"continent"},geometry:{type:"Point",coordinates:[140,0]}}
+ ]};
+ const result=renderWorldMap(canvas,land,{width:640,height:320,pixelRatio:1,viewport:{zoom:4,centerLongitude:0,centerLatitude:0},elevationPoints,labels});
+ assert.equal(result.elevationPointCount,1);
+ assert.deepEqual(result.labelHits.map(item=>item.name),["Centre"]);
+ assert.ok(!calls.some(call=>call[0]==="fillText" && call[1]==="Lointain"));
+});
