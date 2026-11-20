@@ -55,8 +55,8 @@ void main() {
   float east = elevationAt(geo + vec2(dx, 0.0));
   float north = elevationAt(geo - vec2(0.0, dy));
   float south = elevationAt(geo + vec2(0.0, dy));
-  float cellWidth = 111320.0 * max(0.15, cos(radians(latitude))) * 0.166666667;
-  float cellHeight = 111320.0 * 0.166666667;
+  float cellWidth = 111320.0 * max(0.15, cos(radians(latitude))) * (360.0 / u_gridSize.x);
+  float cellHeight = 111320.0 * (180.0 / u_gridSize.y);
   float slopeX = (east - west) / (2.0 * cellWidth);
   float slopeY = (north - south) / (2.0 * cellHeight);
   vec3 normal = normalize(vec3(-slopeX, -slopeY, 1.0));
