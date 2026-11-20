@@ -483,7 +483,7 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
       ]] }
     })) };
     const { canvas } = createCanvas();
-    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 } });
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 } });
     const stats = getProjectedPathCacheStats();
     assert.ok(constructions >= 512);
     assert.ok(stats.cachedPaths <= 512);
