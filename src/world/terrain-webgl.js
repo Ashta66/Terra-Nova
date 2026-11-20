@@ -369,6 +369,63 @@ export function createTerrainWebGLTileCache(gl, options = {}) {
   };
 }
 
+export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
+ if(!gl||typeof gl.texSubImage2D!=="function"||!Number.isInteger(store?.tileSize))return null;
+ const cell=store.tileSize+2, max=gl.getParameter?.(gl.MAX_TEXTURE_SIZE)??0;
+ const side=Math.min(options.slotsPerSide??4,Math.floor(max/cell));
+ if(side<1)return null;
+ const atlasWidth=side*cell,atlasHeight=side*cell,texture=gl.createTexture();
+ if(!texture)return null;
+ gl.bindTexture(gl.TEXTURE_2D,texture);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+ gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);
+ const entries=new Map(),free=[];
+ for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});
+ let hits=0,misses=0,uploads=0,uploadedBytes=0,buildMs=0,uploadMs=0,evictions=0;
+ const now=()=>globalThis.performance?.now?.()??Date.now(),key=t=>`${t.level}/${t.x}/${t.y}@${store.revision??0}`;
+ function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
+ function evict(protectedKeys=new Set()){for(const [k,e] of entries){if(free.length)break;if(!protectedKeys.has(k))release(k,e);}}
+ function get(tile,protectedKeys=new Set()){
+  if(!tile)return null;const k=key(tile),hit=entries.get(k);
+  if(hit){hits++;entries.delete(k);entries.set(k,hit);return hit;}misses++;
+  const prefix=`${tile.level}/${tile.x}/${tile.y}@`;
+  for(const [old,e] of entries)if(old.startsWith(prefix))release(old,e);
+  if(!free.length)evict(protectedKeys);if(!free.length)return null;
+  const started=now(),data=buildTerrainTileTexture(tile,store);if(!data||data.width>cell||data.height>cell)return null;
+  const packed=encodeTerrainTexture(data.values);buildMs+=now()-started;const slot=free.pop(),uploadStart=now();
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,slot.slotX*cell,slot.slotY*cell,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,data.width,data.height,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,packed);
+  uploadMs+=now()-uploadStart;uploads++;uploadedBytes+=packed.byteLength;
+  const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
+  entries.set(k,entry);return entry;
+ }
+ function clear(){entries.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
+ return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,get,evict,clear,get size(){return entries.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
+}
+
+export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
+ if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
+ const out=[],push=(x,y,u,v,e,t)=>out.push(x/width*2-1,1-y/height*2,
+  (e.slotX*atlas.cellSize+1+u*t.width)/atlas.atlasWidth,(e.slotY*atlas.cellSize+1+v*t.height)/atlas.atlasHeight,
+  1/atlas.atlasWidth,1/atlas.atlasHeight,1/(t.width+2),1/(t.height+2));
+ for(const {tile,rects} of items){
+  const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}@${tile.revision??0}`)??Array.from(entries.values()).find(e=>e.level===tile.level&&e.x===tile.x&&e.y===tile.y);
+  if(!entry)continue;
+  for(const r of rects??[]){
+   if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
+   const l=Math.max(0,r.x),t=Math.max(0,r.y),right=Math.min(width,r.x+r.width),bottom=Math.min(height,r.y+r.height);
+   if(right<=l||bottom<=t)continue;
+   const ax=(l-r.x)/r.width,bx=(right-r.x)/r.width,ay=(t-r.y)/r.height,by=(bottom-r.y)/r.height;
+   const u0=r.u0+(r.u1-r.u0)*ax,u1=r.u0+(r.u1-r.u0)*bx,v0=r.v0+(r.v1-r.v0)*ay,v1=r.v0+(r.v1-r.v0)*by;
+   push(l,t,u0,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,t,u1,v0,entry,tile);
+   push(right,t,u1,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,bottom,u1,v1,entry,tile);
+  }
+ }
+ return new Float32Array(out);
+}
+
 export function prepareTerrainTextureGrid(grid, maxTextureSize) {
   if (!grid?.values || !Number.isInteger(grid.width) || !Number.isInteger(grid.height)
     || grid.width < 2 || grid.height < 2 || grid.values.length < grid.width * grid.height
@@ -555,6 +612,17 @@ export function getTerrainWebGLShaders() {
 const tileRenderers = new WeakMap();
 const TILE_VERTEX_SHADER = `
 attribute vec2 a_position;
+attribute vec2 a_atlasUv;
+attribute vec2 a_atlasStep;
+attribute vec2 a_tileStep;
+varying vec2 v_atlasUv;
+varying vec2 v_atlasStep;
+varying vec2 v_tileStep;
+void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;gl_Position=vec4(a_position,0.0,1.0);}
+`;
+
+
+attribute vec2 a_position;
 attribute vec2 a_tileUv;
 varying vec2 v_tileUv;
 void main() {
@@ -565,40 +633,24 @@ void main() {
 const TILE_FRAGMENT_SHADER = `
 precision highp float;
 uniform sampler2D u_elevation;
-uniform vec2 u_tileSize;
 uniform float u_opacity;
-varying vec2 v_tileUv;
-float elevationAt(vec2 uv) {
-  vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
-  vec4 sampleValue = texture2D(u_elevation, p);
-  float value = sampleValue.r * 255.0 + sampleValue.a * 65280.0;
-  return mod(value + 32768.0, 65536.0) - 32768.0;
-}
-vec3 ramp(float value, float low, float high, vec3 a, vec3 b) {
-  float t = clamp((value-low)/(high-low),0.0,1.0);
-  t=t*t*(3.0-2.0*t);
-  return mix(a,b,t);
-}
-void main() {
-  float localX=v_tileUv.x;
-  float localY=v_tileUv.y;
-  vec2 uv=(vec2(1.0)+vec2(localX*u_tileSize.x,localY*u_tileSize.y))/(u_tileSize+vec2(2.0));
-  vec2 stepUV=vec2(1.0)/(u_tileSize+vec2(2.0));
-  float e=elevationAt(uv);
-  float west=elevationAt(uv-vec2(stepUV.x,0.0));
-  float east=elevationAt(uv+vec2(stepUV.x,0.0));
-  float north=elevationAt(uv-vec2(0.0,stepUV.y));
-  float south=elevationAt(uv+vec2(0.0,stepUV.y));
-  float slopeX=(east-west)/max(1.0,222640.0*stepUV.x);
-  float slopeY=(north-south)/max(1.0,222640.0*stepUV.y);
-  vec3 normal=normalize(vec3(-slopeX,-slopeY,1.0));
-  vec3 light=normalize(vec3(-0.5,0.5,0.70710678));
-  float shade=clamp(1.0+(dot(normal,light)-0.70710678)*0.65,0.72,1.22);
-  vec3 ocean=ramp(e,-11000.0,-50.0,vec3(25.0,45.0,57.0)/255.0,vec3(46.0,80.0,87.0)/255.0);
-  vec3 lowland=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
-  vec3 highland=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
-  vec3 color=e<0.0?ocean:(e<1000.0?lowland:highland);
-  gl_FragColor=vec4(color*(e<0.0?1.0:shade),u_opacity);
+varying vec2 v_atlasUv;
+varying vec2 v_atlasStep;
+varying vec2 v_tileStep;
+float elevationAt(vec2 uv){vec4 s=texture2D(u_elevation,uv);float n=s.r*255.0+s.a*65280.0;return mod(n+32768.0,65536.0)-32768.0;}
+vec3 ramp(float v,float lo,float hi,vec3 a,vec3 b){float t=clamp((v-lo)/(hi-lo),0.0,1.0);t=t*t*(3.0-2.0*t);return mix(a,b,t);}
+void main(){
+ float e=elevationAt(v_atlasUv);
+ float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
+ float n=elevationAt(v_atlasUv-vec2(0.0,v_atlasStep.y)), south=elevationAt(v_atlasUv+vec2(0.0,v_atlasStep.y));
+ float sx=(east-w)/max(1.0,222640.0*v_tileStep.x),sy=(n-south)/max(1.0,222640.0*v_tileStep.y);
+ vec3 normal=normalize(vec3(-sx,-sy,1.0)),light=normalize(vec3(-0.5,0.5,0.70710678));
+ float shade=clamp(1.0+(dot(normal,light)-0.70710678)*0.65,0.72,1.22);
+ vec3 ocean=ramp(e,-11000.0,-50.0,vec3(25.0,45.0,57.0)/255.0,vec3(46.0,80.0,87.0)/255.0);
+ vec3 low=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
+ vec3 high=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
+ vec3 color=e<0.0?ocean:(e<1000.0?low:high);
+ gl_FragColor=vec4(color*(e<0.0?1.0:shade),u_opacity);
 }`;
 
 function createTileRenderer(tileStore) {
@@ -621,16 +673,17 @@ function createTileRenderer(tileStore) {
   gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   gl.useProgram(program);
-  const position=gl.getAttribLocation(program,"a_position");
-  const tileUv=gl.getAttribLocation(program,"a_tileUv");
-  gl.enableVertexAttribArray(position);
-  gl.vertexAttribPointer(position,2,gl.FLOAT,false,16,0);
-  gl.enableVertexAttribArray(tileUv);
-  gl.vertexAttribPointer(tileUv,2,gl.FLOAT,false,16,8);
+  const position=gl.getAttribLocation(program,"a_position"),atlasUv=gl.getAttribLocation(program,"a_atlasUv");
+  const atlasStep=gl.getAttribLocation(program,"a_atlasStep"),tileStep=gl.getAttribLocation(program,"a_tileStep");
+  gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,32,0);
+  gl.enableVertexAttribArray(atlasUv);gl.vertexAttribPointer(atlasUv,2,gl.FLOAT,false,32,8);
+  gl.enableVertexAttribArray(atlasStep);gl.vertexAttribPointer(atlasStep,2,gl.FLOAT,false,32,16);
+  gl.enableVertexAttribArray(tileStep);gl.vertexAttribPointer(tileStep,2,gl.FLOAT,false,32,24);
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
-  const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
-  const renderer={canvas,gl,program,buffer,position,tileUv,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
+  const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:4});
+  if(!cache)return null;
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -708,29 +761,23 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   gl.activeTexture(gl.TEXTURE0);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  const uvLocation=gl.getUniformLocation(program,"u_uvBounds");
-  const sizeLocation=gl.getUniformLocation(program,"u_tileSize");
   const opacityLocation=gl.getUniformLocation(program,"u_opacity");
   const started=globalThis.performance?.now?.()??Date.now();
   const drawLevel=(items,opacity)=>{
-    if(!items.length||opacity<=0) return;
-    gl.uniform1f(opacityLocation,opacity);
+    if(!items.length||opacity<=0)return;
+    gl.uniform1f(opacityLocation,opacity);gl.bindTexture(gl.TEXTURE_2D,cache.texture);
     gl.bindBuffer(gl.ARRAY_BUFFER,renderer.buffer);
-    gl.vertexAttribPointer(renderer.position,2,gl.FLOAT,false,16,0);
-    gl.vertexAttribPointer(renderer.tileUv,2,gl.FLOAT,false,16,8);
-    for(const {tile,rects} of items) {
-      const vertices=buildTerrainTileBatchVertices(rects,width,height);
-      if(vertices.length===0) continue;
-      const entry=cache.get(tile,tileStore,protectedKeys);
-      if(!entry) continue;
-      gl.bindTexture(gl.TEXTURE_2D,entry.texture);
-      gl.uniform2f(sizeLocation,tile.width,tile.height);
-      gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);
-      gl.drawArrays(gl.TRIANGLES,0,vertices.length/4);
-      renderer.lastDrawCalls++;
-    }
+    gl.vertexAttribPointer(renderer.position,2,gl.FLOAT,false,32,0);
+    gl.vertexAttribPointer(renderer.atlasUv,2,gl.FLOAT,false,32,8);
+    gl.vertexAttribPointer(renderer.atlasStep,2,gl.FLOAT,false,32,16);
+    gl.vertexAttribPointer(renderer.tileStep,2,gl.FLOAT,false,32,24);
+    const entries=new Map();
+    for(const {tile} of items){const entry=cache.get(tile,protectedKeys);if(entry)entries.set(entry.key,entry);}
+    const vertices=buildTerrainTileAtlasBatchVertices(items,entries,width,height,cache);
+    if(!vertices.length)return;
+    gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/8);renderer.lastDrawCalls++;
   };
-  if(previousVisible.length) drawLevel(previousVisible,1);
+  if(previousVisible.length)drawLevel(previousVisible,1);
   drawLevel(visible,previousVisible.length?transitionProgress:1);
   const drawFinishedAt=globalThis.performance?.now?.()??Date.now();
   renderer.lastSubmitMs=drawFinishedAt-started;
