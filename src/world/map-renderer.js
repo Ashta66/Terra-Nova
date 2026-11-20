@@ -417,6 +417,12 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
     { key: "lakes", collection: options.lakes, features: lakeFeatures,
       fill: theme.colors.ocean, stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1,
       color: parseWebGLColor(theme.colors.ocean) },
+    { key: "land-boundaries", type: "boundaries", collection: featureCollection, features: landFeatures,
+      color: parseWebGLColor(theme.colors.coast), stroke: theme.colors.coast, lineWidth: 0.85, alpha: 1 },
+    { key: "glacier-boundaries", type: "boundaries", collection: options.glaciers, features: glacierFeatures,
+      color: [158 / 255, 191 / 255, 195 / 255, 0.88], stroke: "#9ebfc3", lineWidth: 0.7, alpha: 0.88 },
+    { key: "lake-boundaries", type: "boundaries", collection: options.lakes, features: lakeFeatures,
+      color: parseWebGLColor(theme.colors.accent), stroke: theme.colors.accent, lineWidth: 0.55, alpha: 1 },
     { key: "rivers", type: "lines", collection: options.rivers, features: riverFeatures,
       color: parseWebGLColor(theme.colors.accent) }
   ] : null;
