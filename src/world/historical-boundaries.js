@@ -52,14 +52,12 @@ export function historicalPolygonsToBoundaries(collection) {
 
 async function getHistoricalIndex(fetcher) {
   if (!historicalIndexPromise) {
-    historicalIndexPromise = readCollection(HISTORICAL_INDEX_URL, "Index des frontières historiques", fetcher)
-      .catch(async () => {
-        const response = await fetchMapAsset(HISTORICAL_INDEX_URL, fetcher);
-        if (!response?.ok) throw new Error("Index historique indisponible.");
-        const data = await response.json();
-        if (!Array.isArray(data?.years)) throw new Error("Index historique invalide.");
-        return data;
-      });
+    historicalIndexPromise = fetchMapAsset(HISTORICAL_INDEX_URL, fetcher).then(async response => {
+      if (!response?.ok) throw new Error("Index historique indisponible.");
+      const data = await response.json();
+      if (!Array.isArray(data?.years)) throw new Error("Index historique invalide.");
+      return data;
+    }).catch(error => { historicalIndexPromise = null; throw error; });
   }
   return historicalIndexPromise;
 }

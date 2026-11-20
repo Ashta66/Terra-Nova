@@ -270,14 +270,18 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
-function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = []) {
+function drawStyledBoundaryLayer(context, collection, width, height, projection, color, lineWidth, dash = [], precisionAware = false) {
   if (!collection?.features) return 0;
+  let count = 0;
   context.save();
   context.strokeStyle = color;
   context.lineWidth = lineWidth;
   context.globalAlpha = 0.92;
-  context.setLineDash?.(dash);
-  const count = drawLineLayer(context, collection, width, height, projection, color, lineWidth);
+  for (const feature of collection.features) {
+    const precision = Number(feature?.properties?.BORDERPRECISION ?? feature?.properties?.borderPrecision ?? 3);
+    context.setLineDash?.(precisionAware && precision < 3 ? [3, 2] : dash);
+    count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth);
+  }
   context.restore();
   return count;
 }
@@ -513,13 +517,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
-  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d7a65b", 0.95);
+  const politicalBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d7a65b", 0.95, [], true);
   const administrativeBoundaryCount = options.interactive ? 0 : drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#a8c1c9", 0.65, [2.2, 2.4]);
   const labelHits = options.interactive ? [] : drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, politicalBoundaryCount, administrativeBoundaryCount, labelHits, terrainEnabled, width, height
   };
 }
 
