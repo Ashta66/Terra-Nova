@@ -161,6 +161,9 @@ export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
 }
 
 const hillshadeGridCache = new WeakMap();
+export function isTerrainHillshadePrepared(grid) {
+ return hillshadeGridCache.get(grid) instanceof Uint8Array;
+}
 export function prepareTerrainHillshade(grid) {
  if(!grid?.values)return Promise.resolve(false);
  const existing=hillshadeGridCache.get(grid);if(existing)return existing;
