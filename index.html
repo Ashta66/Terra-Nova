@@ -19,17 +19,12 @@
     <div class="setup-card">
       <p class="eyebrow">TERRA NOVA · NOUVELLE CAMPAGNE</p>
       <h1 id="setup-title">Écrivez votre histoire.</h1>
-      <p class="setup-lead">Choisissez votre époque, votre nation et la manière dont le monde évoluera.</p>
+      <p class="setup-lead">Explorez la carte, faites défiler les siècles et choisissez la nation dont vous écrirez l'histoire.</p>
+      <p class="setup-map-hint"><span class="setup-live-dot"></span> Prévisualisation historique interactive · les frontières suivent la date choisie</p>
       <div class="setup-grid">
-        <label>DATE DE DÉPART
-          <select id="start-year">
-            <option value="1444" selected>1444 · L'âge des royaumes</option>
-            <option value="1492">1492 · L'ère des explorations</option>
-            <option value="1648">1648 · L'équilibre des puissances</option>
-            <option value="1789">1789 · L'âge des révolutions</option>
-            <option value="1914">1914 · Le monde moderne</option>
-            <option value="2026">2026 · Le monde actuel</option>
-          </select>
+        <label class="setup-date">DATE DE DÉPART <strong id="start-year-value">1444</strong>
+          <input id="start-year" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Faire défiler les années historiques">
+          <span class="setup-range-ends"><span>1444</span><span>2100</span></span>
         </label>
         <label>MODE DE PARTIE
           <select id="campaign-mode">

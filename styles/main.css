@@ -128,13 +128,19 @@ button,select,textarea{font:inherit}
 @media(max-width:1050px){.era-milestones button small{font-size:5.5px}}
 
 /* Préparation de campagne : date, nation et type de partie avant le lancement */
-.campaign-setup{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 35%,#263e45e8,#0b141beF 68%),linear-gradient(135deg,#101820,#172832)}
+.campaign-setup{position:fixed;inset:58px 0 0;z-index:30;display:flex;align-items:flex-start;justify-content:flex-start;padding:18px 22px;pointer-events:none;background:linear-gradient(90deg,rgba(8,17,22,.28),rgba(8,17,22,0) 48%)}
 .campaign-setup[hidden]{display:none}
-.setup-card{width:min(760px,100%);padding:clamp(24px,5vw,52px);border:1px solid #c8aa704d;background:linear-gradient(145deg,#1c3038f5,#101b22f7);box-shadow:0 28px 100px #0009,inset 0 1px #fff1;position:relative}
+.setup-card{width:min(390px,100%);max-height:calc(100dvh - 94px);overflow-y:auto;pointer-events:auto;padding:clamp(20px,2.2vw,30px);border:1px solid #c8aa704d;background:linear-gradient(145deg,#1c3038f5,#101b22f7);box-shadow:0 28px 100px #0009,inset 0 1px #fff1;position:relative}
 .setup-card:before{content:"";position:absolute;top:0;left:12%;right:12%;height:2px;background:linear-gradient(90deg,transparent,#d9b878,transparent)}
 .setup-card h1{margin:12px 0;font:500 clamp(34px,5vw,58px) Georgia,serif;color:#f1dfb9;letter-spacing:-.035em}
 .setup-lead{max-width:560px;color:#a9b9b5;font-size:14px;line-height:1.65}
-.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:30px 0 18px}
+.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:20px 0 15px}
+.setup-date{grid-column:1/-1}
+.setup-date strong{font:600 22px Georgia,serif;color:#f0d49a;letter-spacing:0}
+.setup-date input{width:100%;margin:4px 0;accent-color:#d9b878;cursor:ew-resize}
+.setup-range-ends{display:flex;justify-content:space-between;color:#82979a;font-size:8px;letter-spacing:0}
+.setup-map-hint{display:flex;align-items:center;gap:8px;color:#b7c5bd;font-size:10px;line-height:1.4}
+.setup-live-dot{width:6px;height:6px;border-radius:50%;background:#d7b976;box-shadow:0 0 9px #d7b976}
 .setup-grid label{display:flex;flex-direction:column;gap:8px;color:#c8b98f;font-size:9px;font-weight:700;letter-spacing:.13em}
 .setup-grid select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #52676b;background:#102129;color:#e9e0cb;font-size:12px;letter-spacing:0}
 .setup-country{grid-column:1/-1}
@@ -146,5 +152,7 @@ button,select,textarea{font:inherit}
 body.sandbox-mode .sandbox-only{display:block}
 body.campaign-started .campaign-setup{display:none}
 body.campaign-started .game-layout{visibility:visible}
-body:not(.campaign-started) .game-layout{visibility:hidden}
-@media(max-width:640px){.setup-grid{grid-template-columns:1fr}.setup-country{grid-column:auto}.setup-card{padding:24px}}
+body:not(.campaign-started) .game-layout{visibility:visible}
+body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
+@media(max-width:760px){.campaign-setup{inset:54px 0 0;padding:12px}.setup-card{width:min(360px,calc(100vw - 24px));max-height:calc(100dvh - 78px)}}
+@media(max-width:640px){.setup-grid{grid-template-columns:1fr}.setup-country,.setup-date{grid-column:auto}.setup-card{padding:20px}.campaign-setup{background:linear-gradient(180deg,rgba(8,17,22,.3),rgba(8,17,22,0) 65%)}}

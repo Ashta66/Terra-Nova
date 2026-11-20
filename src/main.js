@@ -20,6 +20,8 @@ let politicalBoundaryFeatures = null;
 let administrativeBoundaryFeatures = null;
 let territoryFeatures = null;
 let territoryLabelFeatures = null;
+let previewCountry = "";
+let playerCountry = "";
 let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
@@ -194,6 +196,7 @@ function renderMapFrame() {
     elevationPoints,
     labels: { type: "FeatureCollection", features: [...(labelDetail.features?.features ?? []), ...(territoryLabelFeatures?.features ?? [])] },
     territories: territoryFeatures,
+    selectedCountry: playerCountry || previewCountry,
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
@@ -288,6 +291,7 @@ function populateCampaignCountries() {
     return p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
   }).filter(name => typeof name === "string" && name.trim());
   const unique = [...new Set(names)].sort((a,b) => a.localeCompare(b, "fr"));
+  const previousChoice = playerCountry || previewCountry || select.value;
   const options = '<option value="">Choisir une nation…</option>' + unique.map(name => {
     const safe = name.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
     return '<option value="' + safe + '">' + safe + '</option>';
@@ -296,12 +300,31 @@ function populateCampaignCountries() {
   const sandboxSelect = $("sandbox-country");
   if (sandboxSelect) sandboxSelect.innerHTML = options;
   const preferred = unique.find(name => /france/i.test(name));
-  if (preferred) { select.value = preferred; if (sandboxSelect) sandboxSelect.value = preferred; }
+  const restored = unique.find(name => name === previousChoice) || preferred || unique[0] || "";
+  select.value = restored;
+  if (!playerCountry) previewCountry = restored;
+  if (sandboxSelect) sandboxSelect.value = playerCountry || restored;
+  renderMap();
 }
+$("player-country").addEventListener("change", event => {
+  previewCountry = event.target.value;
+  renderMap();
+});
 $("sandbox-country").addEventListener("change", event => {
   if (!event.target.value) return;
+  playerCountry = event.target.value;
+  previewCountry = playerCountry;
   $("map-title").textContent = event.target.value + " · " + state.clock.date.slice(0,4);
   $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
+  renderMap();
+});
+$("start-year").addEventListener("input", event => {
+  const year = Number(event.target.value);
+  $("start-year-value").textContent = String(year);
+  state.clock.date = year + "-01-01";
+  state.clock.day = 1;
+  $("map-title").textContent = "Le monde en " + year;
+  render();
 });
 $("begin-campaign").addEventListener("click", () => {
   const year = Number($("start-year").value);
@@ -314,6 +337,8 @@ $("begin-campaign").addEventListener("click", () => {
     return;
   }
   $("player-country").setCustomValidity("");
+  playerCountry = country;
+  previewCountry = country;
   const month = Number(state.clock.date.slice(5,7));
   const day = Number(state.clock.date.slice(8,10));
   const safeDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
@@ -323,6 +348,7 @@ $("begin-campaign").addEventListener("click", () => {
   document.body.classList.add("campaign-started");
   document.body.classList.toggle("sandbox-mode", mode === "sandbox");
   $("map-title").textContent = country + " · " + year;
+  $("sandbox-country").value = country;
   $("save-status").textContent = "Campagne : " + country + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
   schedule();
   render();
@@ -341,6 +367,10 @@ function render() {
   $("map-era").textContent = era;
   document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
+  if (!document.body.classList.contains("campaign-started")) {
+    $("start-year").value = String(year);
+    $("start-year-value").textContent = String(year);
+  }
   document.querySelectorAll("[data-speed]").forEach(button => {
     button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
   });

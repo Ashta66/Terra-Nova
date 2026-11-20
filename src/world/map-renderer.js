@@ -547,7 +547,13 @@ export function territoryColor(feature) {
   for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
   return palette[(hash >>> 0) % palette.length];
 }
-function drawTerritoryLayer(context, collection, width, height, projection) {
+function territoryMatchesSelectedCountry(feature, selectedCountry) {
+  if (!selectedCountry) return false;
+  const p = feature?.properties ?? {};
+  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG].filter(Boolean);
+  return names.some(name => String(name).localeCompare(selectedCountry, undefined, { sensitivity: "accent" }) === 0);
+}
+function drawTerritoryLayer(context, collection, width, height, projection, selectedCountry = "") {
   if (!collection?.features) return 0;
   let drawn = 0;
   const profile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
@@ -570,6 +576,12 @@ function drawTerritoryLayer(context, collection, width, height, projection) {
       context.strokeStyle = "#101820";
       context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
       context.stroke(path);
+      if (territoryMatchesSelectedCountry(feature, selectedCountry)) {
+        context.globalAlpha = 0.22; context.fillStyle = "#fff4c2"; context.fill(path, "evenodd");
+        context.globalAlpha = 1; context.strokeStyle = "#fff1b0";
+        context.lineWidth = Math.max(3.2, Math.min(7, 4.2 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
+        context.strokeStyle = "#fff"; context.lineWidth = Math.max(1.1, Math.min(2.2, 1.45 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke(path);
+      }
       drawn++;
     } else {
       context.beginPath();
@@ -587,6 +599,12 @@ function drawTerritoryLayer(context, collection, width, height, projection) {
       context.strokeStyle = "#101820";
       context.lineWidth = Math.max(0.65, Math.min(1.65, 0.95 * Math.sqrt(projection.viewport?.zoom ?? 1)));
       context.stroke();
+      if (territoryMatchesSelectedCountry(feature, selectedCountry)) {
+        context.globalAlpha = 0.22; context.fillStyle = "#fff4c2"; context.fill("evenodd");
+        context.globalAlpha = 1; context.strokeStyle = "#fff1b0";
+        context.lineWidth = Math.max(3.2, Math.min(7, 4.2 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke();
+        context.strokeStyle = "#fff"; context.lineWidth = Math.max(1.1, Math.min(2.2, 1.45 * Math.sqrt(projection.viewport?.zoom ?? 1))); context.stroke();
+      }
       drawn++;
     }
   }
@@ -721,7 +739,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, visibleLand, width, height, projection, landFill, theme.colors.coast, 0.85, 1, true);
   // Les aplats politiques restent présents pendant le déplacement : seule la texture coûteuse est suspendue.
-  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection);
+  const territoryCount = drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "");
   if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, visibleLand, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
