@@ -218,3 +218,19 @@ test("les coordonnées invalides et les altitudes hors plage sont rejetées prop
   assert.equal(store.getTile(-1, 0), null);
   assert.throws(() => store.setElevation(0, 0, 40000), /16 bits/);
 });
+
+
+test("une tuile modifiée reste protégée de l'éviction jusqu'à sa persistance", () => {
+  const store = createTerrainTileStore({ width: 8, height: 8, values: new Int16Array(64) }, { tileSize: 2, maxTiles: 1 });
+  const dirty = store.getTile(0, 0);
+  dirty.values[0] = 77;
+  dirty.revision++;
+  dirty.dirty = true;
+  store.getTile(1, 0);
+  assert.equal(store.size, 2);
+  assert.equal(store.getTile(0, 0).values[0], 77);
+  assert.equal(store.markPersisted(dirty.id, dirty.revision), true);
+  store.getTile(2, 0);
+  assert.equal(store.size, 1);
+  assert.equal(store.getTile(0, 0), null);
+});
