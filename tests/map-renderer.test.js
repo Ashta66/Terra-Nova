@@ -285,3 +285,33 @@ test("les labels proches évitent les collisions tout en gardant la priorité de
     }
   }
 });
+
+
+test("le canvas ne réalloue pas son bitmap quand ses dimensions restent identiques", () => {
+  const { canvas } = createCanvas();
+  let widthWrites = 0;
+  let heightWrites = 0;
+  let storedWidth = 0;
+  let storedHeight = 0;
+  Object.defineProperty(canvas, "width", {
+    configurable: true,
+    get: () => storedWidth,
+    set: value => { widthWrites++; storedWidth = value; }
+  });
+  Object.defineProperty(canvas, "height", {
+    configurable: true,
+    get: () => storedHeight,
+    set: value => { heightWrites++; storedHeight = value; }
+  });
+
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.equal(widthWrites, 1);
+  assert.equal(heightWrites, 1);
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.equal(widthWrites, 1);
+  assert.equal(heightWrites, 1);
+
+  renderWorldMap(canvas, land, { width: 800, height: 400, pixelRatio: 1 });
+  assert.equal(widthWrites, 2);
+  assert.equal(heightWrites, 2);
+});

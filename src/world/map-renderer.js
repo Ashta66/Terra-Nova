@@ -227,8 +227,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const width = Math.max(1, options.width ?? canvas.clientWidth ?? 960);
   const height = Math.max(1, options.height ?? Math.round(width * 0.52));
   const pixelRatio = Math.min(options.pixelRatio ?? globalThis.devicePixelRatio ?? 1, 2);
-  canvas.width = Math.round(width * pixelRatio);
-  canvas.height = Math.round(height * pixelRatio);
+  // Redimensionner un canvas réinitialise son bitmap et tout son état graphique.
+  // Ne toucher aux dimensions que lorsqu'elles changent réellement : le rendu
+  // peut ainsi être rappelé pendant le pan/zoom sans réallouer le bitmap à chaque frame.
+  const backingWidth = Math.round(width * pixelRatio);
+  const backingHeight = Math.round(height * pixelRatio);
+  if (canvas.width !== backingWidth) canvas.width = backingWidth;
+  if (canvas.height !== backingHeight) canvas.height = backingHeight;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Contexte Canvas 2D indisponible.");
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
