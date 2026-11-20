@@ -288,13 +288,21 @@ function populateCampaignCountries() {
     return p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
   }).filter(name => typeof name === "string" && name.trim());
   const unique = [...new Set(names)].sort((a,b) => a.localeCompare(b, "fr"));
-  select.innerHTML = '<option value="">Choisir une nation…</option>' + unique.map(name => {
+  const options = '<option value="">Choisir une nation…</option>' + unique.map(name => {
     const safe = name.replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
     return '<option value="' + safe + '">' + safe + '</option>';
   }).join("");
+  select.innerHTML = options;
+  const sandboxSelect = $("sandbox-country");
+  if (sandboxSelect) sandboxSelect.innerHTML = options;
   const preferred = unique.find(name => /france/i.test(name));
-  if (preferred) select.value = preferred;
+  if (preferred) { select.value = preferred; if (sandboxSelect) sandboxSelect.value = preferred; }
 }
+$("sandbox-country").addEventListener("change", event => {
+  if (!event.target.value) return;
+  $("map-title").textContent = event.target.value + " · " + state.clock.date.slice(0,4);
+  $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
+});
 $("begin-campaign").addEventListener("click", () => {
   const year = Number($("start-year").value);
   const mode = $("campaign-mode").value;
