@@ -7,12 +7,12 @@ Ce protocole complète les tests Node : ils vérifient les invariants et la stab
 1. Utiliser la même machine, le même navigateur, la même taille de fenêtre et le même niveau de zoom pour chaque comparaison.
 2. Désactiver les extensions qui injectent du code dans la page et fermer les onglets consommateurs de GPU.
 3. Charger la carte jusqu'à la fin des téléchargements et attendre 10 secondes.
-4. Refaire chaque scénario trois fois et retenir médiane, minimum et maximum.
+4. Refaire chaque scénario au moins cinq fois et retenir médiane, minimum, maximum et p95.
 
 ## Scénarios
 
 - Monde : zoom 1, déplacement horizontal d'environ un écran, puis retour.
-- Régional : zoom 4, pan continu pendant 10 secondes.
+- Régional : zoom 2, puis zoom 4, chacun immobile puis avec pan continu pendant 10 secondes.
 - Rapproché : zoom 8, pan dans les deux directions pendant 10 secondes.
 - Zoom répété : alterner zoom avant/arrière pendant 10 secondes.
 - Pression atlas : viewport large et zoom régional, en surveillant le LOD sélectionné et le fallback.
@@ -56,14 +56,19 @@ Object.fromEntries(keys.map(key => [key, canvas?.dataset?.[key] ?? null]));
 
 ## Collecte automatique depuis la console
 
-Le script suivant échantillonne les attributs `data-*` du canvas à chaque frame pendant 10 secondes. Collez-le une fois dans la console, puis lancez `collectMapBenchmark()` et réalisez immédiatement le scénario à mesurer. Il retourne les échantillons bruts, la médiane et le percentile 95 de chaque métrique numérique, ainsi que les informations de la fenêtre et du navigateur.
+Le script suivant échantillonne les attributs `data-*` du canvas à chaque frame pendant 10 secondes. Collez-le une fois dans la console, puis lancez `collectMapBenchmark({ scenario: "zoom-4-pan", cache: "warm" })` et réalisez immédiatement le scénario. Il retourne les échantillons bruts, la médiane et le percentile 95 de chaque métrique numérique, ainsi que les informations de la fenêtre et du navigateur. Chaque résultat peut ensuite être exporté en JSON ou CSV.
 
 ```js
-window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
+window.collectMapBenchmark = async ({
+  durationMs = 10000,
+  scenario = "unspecified",
+  cache = "unspecified"
+} = {}) => {
   const canvas = document.querySelector("canvas");
   if (!canvas) throw new Error("Canvas cartographique introuvable");
   const samples = [];
   const startedAt = performance.now();
+  const startedAtIso = new Date().toISOString();
   await new Promise(resolve => {
     const sample = timestamp => {
       const values = {};
@@ -72,14 +77,16 @@ window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
         const value = Number(raw);
         if (Number.isFinite(value)) values[key] = value;
       }
-      samples.push({ elapsedMs: timestamp - startedAt, ...values });
+      samples.push({ elapsedMs: Number((timestamp - startedAt).toFixed(2)), ...values });
       if (timestamp - startedAt < durationMs) requestAnimationFrame(sample);
       else resolve();
     };
     requestAnimationFrame(sample);
   });
-  const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample)))].filter(key => key !== "elapsedMs");
-  const percentile = (sorted, fraction) => sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+  const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample)))]
+    .filter(key => key !== "elapsedMs");
+  const percentile = (sorted, fraction) =>
+    sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
   const metrics = Object.fromEntries(metricKeys.map(key => {
     const values = samples.map(sample => sample[key]).filter(Number.isFinite).sort((a, b) => a - b);
     if (!values.length) return [key, null];
@@ -93,11 +100,17 @@ window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
   }));
   const result = {
     metadata: {
+      startedAt: startedAtIso,
+      scenario,
+      cache,
       userAgent: navigator.userAgent,
       devicePixelRatio: window.devicePixelRatio,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
       geographicRendererMode: canvas.dataset.geographicRendererMode ?? "unknown",
+      terrainRenderer: canvas.dataset.terrainRenderer ?? "unknown",
       durationMs,
       sampleCount: samples.length
     },
@@ -107,12 +120,47 @@ window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
   console.log("TERRA NOVA benchmark", result);
   return result;
 };
+
+window.exportMapBenchmark = (result, format = "json") => {
+  if (!result?.metadata || !Array.isArray(result.samples)) {
+    throw new TypeError("Résultat de benchmark invalide");
+  }
+  let content;
+  let mime;
+  let extension;
+  if (format === "csv") {
+    const columns = [...new Set(result.samples.flatMap(sample => Object.keys(sample)))];
+    const quote = value => {
+      const text = value == null ? "" : String(value);
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    content = [
+      columns.map(quote).join(","),
+      ...result.samples.map(sample => columns.map(column => quote(sample[column])).join(","))
+    ].join("\n");
+    mime = "text/csv;charset=utf-8";
+    extension = "csv";
+  } else if (format === "json") {
+    content = JSON.stringify(result, null, 2);
+    mime = "application/json;charset=utf-8";
+    extension = "json";
+  } else {
+    throw new TypeError("Format attendu : json ou csv");
+  }
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `terra-nova-benchmark-${result.metadata.scenario}-${result.metadata.geographicRendererMode}.${extension}`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return link.download;
+};
 ```
 
-Le script mesure les valeurs publiées par l'application, pas le temps GPU matériel. Les métriques ne sont pas toutes mises à jour à chaque frame : leur nombre d'échantillons effectifs est donc indiqué individuellement. Pour comparer deux moteurs, exporter les deux résultats et garder les mêmes dimensions, DPR, navigateur, données, viewport et séquence d'interaction.
+Le script mesure les valeurs publiées par l'application, pas le temps GPU matériel. Les métriques ne sont pas toutes mises à jour à chaque frame : leur nombre d'échantillons effectifs est donc indiqué individuellement. `mapFrameFps` est calculé à partir de l'intervalle entre deux rendus déclenchés ; ce n'est pas un FPS continu mesuré à chaque frame d'écran. Après collecte, exporter avec `exportMapBenchmark(result, "json")` pour conserver les métadonnées et les statistiques, ou `exportMapBenchmark(result, "csv")` pour analyser les échantillons bruts. Pour comparer deux moteurs, garder les mêmes dimensions, DPR, navigateur, données, viewport et séquence d'interaction.
 
 ## Matrice de scénarios reproductibles
-Effectuer les relevés suivants à dimensions de canvas, ratio de pixels et jeu de données identiques. Pour chaque scénario, répéter au moins 5 fois et conserver médiane et percentile 95 ; séparer le premier passage (cache froid) des passages suivants (cache chaud).
+Effectuer les relevés suivants à dimensions de canvas, ratio de pixels et jeu de données identiques. Pour chaque scénario et chaque mode (Canvas puis WebGL), répéter au moins 5 fois et conserver médiane et percentile 95 ; séparer le premier passage après rechargement (cache froid) des passages suivants (cache chaud). Nommer chaque export avec le même scénario et le même état de cache, puis comparer les médianes et p95 plutôt que les maxima isolés.
 
 | Scénario | Zoom | Interaction | Cache | Objectif |
 | --- | --- | --- | --- | --- |
