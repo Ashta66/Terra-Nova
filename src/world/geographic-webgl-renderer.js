@@ -62,13 +62,16 @@ export function createGeographicWebGLRenderer(gl) {
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    if (buffer) gl.deleteBuffer(buffer);
+    if (indexBuffer) gl.deleteBuffer(indexBuffer);
     gl.deleteProgram(program);
     gl.deleteShader(vertex);
     gl.deleteShader(fragment);
     return null;
   }
   const buffer = gl.createBuffer();
-  if (!buffer) {
+  const indexBuffer = gl.createBuffer();
+  if (!buffer || !indexBuffer) {
     gl.deleteProgram(program);
     gl.deleteShader(vertex);
     gl.deleteShader(fragment);
@@ -98,22 +101,16 @@ export function createGeographicWebGLRenderer(gl) {
         skippedFeatures++;
         continue;
       }
-      const batch = batches[batches.length - 1];
-      const shifts = [-360, 0, 360];
-      let canAppend = true;
-      for (const shift of shifts) {
-        if (batch.positions.length / 2 + mesh.vertexCount > 65535) {
-          canAppend = false;
-          break;
-        }
-        appendMesh(batch, mesh, shift);
+      let batch = batches[batches.length - 1];
+      if (batch.positions.length / 2 + mesh.vertexCount > 65535) {
+        batch = makeBatch();
+        batches.push(batch);
       }
-      if (!canAppend) {
-        const next = makeBatch();
-        batches.push(next);
-        for (const shift of shifts) appendMesh(next, mesh, shift);
+      if (!appendMesh(batch, mesh, 0)) {
+        skippedFeatures++;
+        continue;
       }
-      batches[batches.length - 1].features++;
+      batch.features++;
       drawnFeatures++;
     }
     gl.viewport(0, 0, Math.round(width), Math.round(height));
@@ -132,9 +129,9 @@ export function createGeographicWebGLRenderer(gl) {
     for (const batch of batches) {
       if (!batch.indices.length) continue;
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(batch.positions), gl.DYNAMIC_DRAW);
-      gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT,
-        0);
-      // Indices are uploaded through the element buffer below.
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(batch.indices), gl.DYNAMIC_DRAW);
+      gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
       drawCalls++;
       triangles += batch.indices.length / 3;
     }
@@ -147,6 +144,7 @@ export function createGeographicWebGLRenderer(gl) {
       if (disposed) return;
       disposed = true;
       gl.deleteBuffer(buffer);
+      gl.deleteBuffer(indexBuffer);
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
