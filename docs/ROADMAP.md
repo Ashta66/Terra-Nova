@@ -207,3 +207,11 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - [x] Liste recherchable, groupée par région, avec difficulté et classement stratégique heuristique.
 - [ ] Vérifier visuellement les régions et noms pour plusieurs années historiques.
 - [ ] Affiner la difficulté par scénario après définition des systèmes économiques et militaires.
+
+
+## Encyclopédie des nations
+- [x] Fiche de campagne avec capitale, indicateurs de puissance, situation diplomatique et objectifs de départ.
+- [x] Distinguer statistiques contemporaines sourcées et données historiques absentes.
+- [ ] Enrichir les capitales et emblèmes avec un référentiel historique daté et sourcé.
+- [ ] Remplacer les indices heuristiques par des variables issues des futurs systèmes économiques, démographiques et militaires.
+- [ ] Construire de véritables relations diplomatiques dynamiques (alliances, rivalités, tribut, guerres) à partir d'un moteur de simulation.

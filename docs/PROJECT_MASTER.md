@@ -268,3 +268,8 @@ L'écran d'ouverture attend les ressources mondiales, l'initialisation du relief
 La sélection de nation est une liste filtrable et recherchable, groupée par région, avec une difficulté de 1 à 5 et un classement de départ. Les zones d'influence, terres non revendiquées et peuples non étatiques sont écartés du choix. Les évaluations sont heuristiques et ne prétendent pas représenter un équilibrage économique complet.
 
 Les PR #10 (overscan) et #11 (hillshade ETOPO, exagération 18) sont fusionnées dans la branche stable.
+
+
+## Fiches des nations jouables — novembre 2026
+
+Chaque sélection ouvre une fiche de campagne : capitale lorsqu'elle est documentée, indicateurs démographiques/économiques uniquement lorsqu'une source contemporaine les fournit, potentiel militaire présenté comme indice de jeu et non comme effectifs historiques, situation diplomatique basée sur le statut de souveraineté/contestation et les liens de suzeraineté explicitement présents dans les données, puis objectifs adaptés au rang, à la difficulté et à la région. Les clichés historiques ne contenant pas de statistiques ne sont pas complétés par des chiffres modernes. Les capitales et emblèmes non sourcés restent explicitement indicatifs.
