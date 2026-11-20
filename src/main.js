@@ -142,7 +142,6 @@ function renderMap() {
       canvas.dataset.geographicWebglUploadedBytes = String(result.geographicWebGLStats.uploadedBytes);
       for (const layerKey of ["land", "glaciers", "lakes"]) {
         const layerStats = result.geographicWebGLStats.layers?.[layerKey];
-        const prefix = `geographicWebgl${layerKey[0].toUpperCase()} ${layerKey.slice(1)}`;
         const datasetPrefix = `geographicWebgl${layerKey[0].toUpperCase()}${layerKey.slice(1)}`;
         if (layerStats) {
           canvas.dataset[`${datasetPrefix}Features`] = String(layerStats.drawnFeatures);
