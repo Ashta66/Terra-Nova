@@ -247,3 +247,39 @@ test("le rendu peut échantillonner les révisions locales du magasin de tuiles"
   assert.equal(sampleElevation(store, -135, 67.5), 2400);
   assert.equal(sampleElevation(grid, -135, 67.5), before);
 });
+
+
+test("une tuile persistée restaure ses valeurs et sa révision sans rester sale", () => {
+  const store = createTerrainTileStore({ width: 4, height: 4, values: new Int16Array(16) }, { tileSize: 2 });
+  const restored = store.restoreTile({
+    id: "0/1/0", x: 1, y: 0, width: 2, height: 2, revision: 7,
+    values: Int16Array.from([11, 12, 13, 14])
+  });
+  assert.equal(restored, true);
+  const tile = store.getTile(1, 0);
+  assert.deepEqual([...tile.values], [11, 12, 13, 14]);
+  assert.equal(tile.revision, 7);
+  assert.equal(tile.dirty, false);
+  assert.equal(store.restoreTile({
+    id: "0/0/0", x: 0, y: 0, width: 1, height: 1, revision: 1,
+    values: Int16Array.from([99])
+  }), false);
+});
+
+test("le magasin transmet un instantané indépendant lors d'une modification", async () => {
+  let saved = null;
+  const store = createTerrainTileStore(
+    { width: 4, height: 4, values: new Int16Array(16) },
+    { tileSize: 2, onTileChange: async snapshot => { saved = snapshot; } }
+  );
+  assert.equal(store.setElevation(-90, 45, 1800), true);
+  await Promise.resolve();
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.values[0], 1800);
+  assert.notEqual(saved.values, store.getTileAt(-90, 45).values);
+});
+
+test("la persistance IndexedDB se désactive proprement hors navigateur", async () => {
+  const { createTerrainTilePersistence } = await import("../src/world/terrain-tile-storage.js");
+  assert.equal(await createTerrainTilePersistence({ indexedDB: null }), null);
+});
