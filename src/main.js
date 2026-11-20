@@ -127,7 +127,8 @@ function renderMapFrame() {
     elevationPoints,
     labels: labelDetail.features,
     terrain: terrainGrid,
-    terrainQuality: mapInteractionActive ? 0 : 1,
+    terrainEnabled: !mapInteractionActive,
+    terrainQuality: 1,
     pixelRatio: mapInteractionActive ? 1 : undefined,
     interactive: mapInteractionActive,
   });
@@ -332,7 +333,6 @@ function stopMapDrag() {
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
   mapCanvas.style.transform = "";
-  mapPreviewOrigin = null;
   mapInteractionActive = false;
   lastRenderedMapSignature = null;
   if (lastDragMoved) renderMap();
