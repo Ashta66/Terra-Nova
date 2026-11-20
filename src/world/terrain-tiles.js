@@ -153,7 +153,7 @@ export function createTerrainTileStore(grid, options = {}) {
       || !Number.isInteger(snapshot.y) || !Number.isInteger(snapshot.revision)
       || !(snapshot.values instanceof Int16Array)) return false;
     const tile = getTile(snapshot.x, snapshot.y);
-    if (!tile || snapshot.id !== tile.id || snapshot.width !== tile.width
+    if (!tile || tile.dirty || snapshot.id !== tile.id || snapshot.width !== tile.width
       || snapshot.height !== tile.height || snapshot.values.length !== tile.values.length) return false;
     const values = snapshot.values.slice();
     modifiedTiles.set(tile.id, { values, revision: Math.max(0, snapshot.revision) });
