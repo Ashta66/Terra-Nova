@@ -220,3 +220,8 @@ La longitude de la caméra est désormais cyclique pendant le déplacement : ell
 L'index spatial découpe les fenêtres qui traversent l'antiméridien en deux plages de longitude (est et ouest), puis fusionne les identifiants avec un `Set`. Alaska et Russie orientale peuvent donc être sélectionnés ensemble autour de 180°, sans doubler les entités ni les collections. Le cache spatial reste plafonné à 48 fenêtres.
 
 Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un seul planisphère. Au zoom régional, elle peut poursuivre indéfiniment vers l'est ou l'ouest. Les latitudes restent contraintes pour éviter de sortir des limites utiles de la projection.
+
+
+## Budget mémoire global des chemins projetés
+
+Le cache Path2D est limité à trois variantes par entité et à 512 chemins au total, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.

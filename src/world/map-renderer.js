@@ -63,7 +63,14 @@ function traceGeometry(context, geometry, width, height, projection) {
 }
 
 const projectedPathCache = new WeakMap();
+const projectedPathCacheLru = new Map();
 const PROJECTED_PATHS_PER_FEATURE = 3;
+const MAX_PROJECTED_PATHS = 512;
+
+function touchProjectedPath(entry, feature) {
+  projectedPathCacheLru.delete(entry);
+  projectedPathCacheLru.set(entry, feature);
+}
 
 function getProjectedPath(feature, width, height, projection) {
   if (typeof Path2D === "undefined" || !feature?.geometry) return null;
@@ -81,14 +88,25 @@ function getProjectedPath(feature, width, height, projection) {
   }
   if (entries.has(key)) {
     const cached = entries.get(key);
-    entries.delete(key);
-    entries.set(key, cached);
-    return cached;
+    touchProjectedPath(cached, feature);
+    return cached.path;
   }
   const path = new Path2D();
   if (!traceGeometry(path, feature.geometry, width, height, projection)) return null;
-  entries.set(key, path);
-  while (entries.size > PROJECTED_PATHS_PER_FEATURE) entries.delete(entries.keys().next().value);
+  const entry = { key, path };
+  entries.set(key, entry);
+  touchProjectedPath(entry, feature);
+  while (entries.size > PROJECTED_PATHS_PER_FEATURE) {
+    const oldest = entries.values().next().value;
+    entries.delete(oldest.key);
+    projectedPathCacheLru.delete(oldest);
+  }
+  while (projectedPathCacheLru.size > MAX_PROJECTED_PATHS) {
+    const [oldest, oldestFeature] = projectedPathCacheLru.entries().next().value;
+    projectedPathCacheLru.delete(oldest);
+    const oldestEntries = projectedPathCache.get(oldestFeature);
+    if (oldestEntries?.get(oldest.key) === oldest) oldestEntries.delete(oldest.key);
+  }
   return path;
 }
 
@@ -376,4 +394,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, width, height
   };
+}
+
+
+export function getProjectedPathCacheStats() {
+  return { cachedPaths: projectedPathCacheLru.size, maxCachedPaths: MAX_PROJECTED_PATHS };
 }

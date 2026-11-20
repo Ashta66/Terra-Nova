@@ -461,3 +461,35 @@ test("les tracés qui traversent l'antiméridien suivent le court chemin au bord
     else globalThis.Path2D = previous;
   }
 });
+
+
+test("le cache Path2D applique une limite globale même avec de nombreuses entités", async () => {
+  const previous = globalThis.Path2D;
+  let constructions = 0;
+  class FakePath2D {
+    constructor() { constructions++; }
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+    const collection = { type: "FeatureCollection", features: Array.from({ length: 540 }, (_, index) => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[
+        [index % 360 - 180, 0], [index % 360 - 179.5, 0],
+        [index % 360 - 179.5, 0.5], [index % 360 - 180, 0]
+      ]] }
+    })) };
+    const { canvas } = createCanvas();
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 } });
+    const stats = getProjectedPathCacheStats();
+    assert.ok(constructions >= 512);
+    assert.ok(stats.cachedPaths <= 512);
+    assert.equal(stats.maxCachedPaths, 512);
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
