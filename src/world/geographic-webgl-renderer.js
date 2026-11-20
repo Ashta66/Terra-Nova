@@ -22,6 +22,8 @@ const LINE_VERTEX_SHADER = `
 attribute vec2 a_coordinate;
 attribute vec2 a_other;
 attribute float a_side;
+attribute vec2 a_join_offset;
+attribute float a_is_join;
 uniform vec2 u_center;
 uniform float u_zoom;
 uniform vec2 u_viewport;
@@ -37,7 +39,8 @@ void main() {
                     (a_other.y - u_center.y) * u_zoom / 90.0);
   vec2 direction = (other - point) * (u_viewport * 0.5);
   vec2 normal = vec2(-direction.y, direction.x) / max(length(direction), 0.0001);
-  vec2 offset = normal * a_side * (u_line_width / u_viewport);
+  vec2 segmentOffset = normal * a_side;
+  vec2 offset = mix(segmentOffset, a_join_offset, step(0.5, a_is_join)) * (u_line_width / u_viewport);
   gl_Position = vec4(point + offset, 0.0, 1.0);
 }`;
 
@@ -70,13 +73,41 @@ function hasSupportedLineCoordinates(mesh) {
 function buildRibbonBuffer(segments, gl, message) {
   if (!segments.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
   const vertices = [];
+  const appendVertex = (ax, ay, bx, by, side, joinX = 0, joinY = 0, isJoin = 0) => {
+    vertices.push(ax, ay, bx, by, side, joinX, joinY, isJoin);
+  };
+  const endpointCounts = new Map();
+  const endpointKey = (x, y) => `${x.toFixed(5)},${y.toFixed(5)}`;
   for (let index = 0; index < segments.length; index += 4) {
     const ax = segments[index], ay = segments[index + 1];
     const bx = segments[index + 2], by = segments[index + 3];
-    vertices.push(
-      ax, ay, bx, by, -1, ax, ay, bx, by, 1, bx, by, ax, ay, -1,
-      bx, by, ax, ay, -1, ax, ay, bx, by, 1, bx, by, ax, ay, 1
-    );
+    const startKey = endpointKey(ax, ay), endKey = endpointKey(bx, by);
+    endpointCounts.set(startKey, (endpointCounts.get(startKey) ?? 0) + 1);
+    endpointCounts.set(endKey, (endpointCounts.get(endKey) ?? 0) + 1);
+    // Segment quad. Both ends use the same screen-space side of the segment.
+    appendVertex(ax, ay, bx, by, -1);
+    appendVertex(ax, ay, bx, by, 1);
+    appendVertex(bx, by, ax, ay, -1);
+    appendVertex(bx, by, ax, ay, -1);
+    appendVertex(ax, ay, bx, by, 1);
+    appendVertex(bx, by, ax, ay, 1);
+  }
+  // Small screen-space disks close gaps at shared endpoints and line intersections.
+  const joined = new Set();
+  const steps = 12;
+  for (let index = 0; index < segments.length; index += 4) {
+    for (const [x, y] of [[segments[index], segments[index + 1]], [segments[index + 2], segments[index + 3]]]) {
+      const key = endpointKey(x, y);
+      if ((endpointCounts.get(key) ?? 0) < 2 || joined.has(key)) continue;
+      joined.add(key);
+      for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
+        const a = stepIndex * Math.PI * 2 / steps;
+        const b = (stepIndex + 1) * Math.PI * 2 / steps;
+        appendVertex(x, y, x, y, 0, 0, 0, 1);
+        appendVertex(x, y, x, y, 0, Math.cos(a), Math.sin(a), 1);
+        appendVertex(x, y, x, y, 0, Math.cos(b), Math.sin(b), 1);
+      }
+    }
   }
   const data = new Float32Array(vertices);
   const lineBuffer = gl.createBuffer();
@@ -88,7 +119,7 @@ function buildRibbonBuffer(segments, gl, message) {
     gl.deleteBuffer(lineBuffer);
     throw error;
   }
-  return { lineBuffer, vertexCount: data.length / 5, drawnFeatures: 0, skippedFeatures: 0, positions: data };
+  return { lineBuffer, vertexCount: data.length / 8, drawnFeatures: 0, skippedFeatures: 0, positions: data };
 }
 
 function buildLineBatch(features, gl) {
