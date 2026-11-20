@@ -345,3 +345,36 @@ test("le niveau de détail reste borné et accepte les coordonnées proches de l
   assert.equal(store.sampleLod(179.9, 0, 99), store.sampleLod(179.9, 0, 4));
   assert.ok(Number.isFinite(store.sampleLod(-180.1, 0, 2.25)));
 });
+
+
+test("les couches dynamiques sont dessinées séparément après les couches statiques", () => {
+  const { canvas, calls } = createCanvas();
+  let received = null;
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    dynamicLayers: [(context, frame) => {
+      received = frame;
+      context.beginPath();
+      context.arc(10, 10, 3, 0, Math.PI * 2);
+      context.stroke();
+    }]
+  });
+  assert.equal(result.dynamicLayerCount, 1);
+  assert.equal(received.projection.type, "equirectangular");
+  assert.ok(calls.some(call => call[0] === "arc"));
+});
+
+test("le magasin de tuiles expose une révision globale pour invalider le cache physique", () => {
+  const store = createTerrainTileStore(
+    { width: 4, height: 4, values: new Int16Array(16) },
+    { tileSize: 2 }
+  );
+  assert.equal(store.revision, 0);
+  assert.equal(store.setElevation(-90, 45, 900), true);
+  assert.equal(store.revision, 1);
+  assert.equal(store.restoreTile({
+    id: "0/1/0", x: 1, y: 0, width: 2, height: 2,
+    revision: 3, values: new Int16Array(4)
+  }), true);
+  assert.equal(store.revision, 2);
+});
