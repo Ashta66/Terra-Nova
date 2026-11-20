@@ -200,5 +200,5 @@ test("le rendu du terrain reste plafonné en qualité normale sur les grands éc
     putImageData() {}
   };
   assert.equal(drawTerrainRaster(context, 1600, 900, grid), true);
-  assert.deepEqual(dimensions, [768, 432]);
+  assert.deepEqual(dimensions, [683, 384]);
 });
