@@ -89,3 +89,37 @@ test("le préchargement sans direction ne crée pas de zone prédictive", () => 
   );
   assert.deepEqual(ids, referenceIds);
 });
+
+test("le préchargement des niveaux de zoom prépare les tuiles périphériques sans déprioriser le viewport", () => {
+  const store = createTerrainTileStore(
+    { width: 720, height: 360, values: new Int16Array(720 * 360) },
+    { tileSize: 30, maxTiles: 120 }
+  );
+  const viewport = { zoom: 4, centerLongitude: 0, centerLatitude: 0 };
+  const currentOnly = createTerrainTileStore(
+    { width: 720, height: 360, values: new Int16Array(720 * 360) },
+    { tileSize: 30, maxTiles: 120 }
+  );
+  const visible = currentOnly.preloadViewport(viewport, { padding: 0.2 });
+  const warmed = store.preloadViewport(viewport, {
+    padding: 0.2,
+    zoomLevels: [2, 8]
+  });
+  assert.ok(warmed.length > visible.length);
+  assert.ok(visible.every(id => store.loadedIds.includes(id)));
+  assert.ok(warmed.includes(store.getTileAt(0, 0).id));
+});
+
+test("les niveaux de zoom invalides ou identiques sont ignorés", () => {
+  const store = createStore();
+  const normal = store.preloadViewport(
+    { zoom: 4, centerLongitude: 0, centerLatitude: 0 },
+    { padding: 0.25 }
+  );
+  const withInvalidLevels = createStore().preloadViewport(
+    { zoom: 4, centerLongitude: 0, centerLatitude: 0 },
+    { padding: 0.25, zoomLevels: [4, 0, -2, Number.NaN, Infinity] }
+  );
+  assert.deepEqual(withInvalidLevels, normal);
+});
+
