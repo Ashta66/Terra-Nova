@@ -216,10 +216,9 @@ const TERRAIN_TILE_CACHE_LIMIT = 1600;
 function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly){
  const zoom=Math.max(1,Number(viewport.zoom??1)),cx=Number(viewport.centerLongitude??0),cy=Number(viewport.centerLatitude??0);
  const tileSize=terrainTileSizeForZoom(zoom,quality);
- const dx=360/grid.width,dy=180/grid.height,physical=physicalLookup(physicalWorld);
+ const dx=360/grid.width,dy=180/grid.height,hasPhysicalChanges=Number(physicalWorld?.revision??0)>0,physical=hasPhysicalChanges?physicalLookup(physicalWorld):null;
  let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
  const revisions=physicalWorld?.tileRevisions,hasLocalRevisions=revisions&&Object.keys(revisions).length>0;
- const hasPhysicalChanges=Number(physicalWorld?.revision??0)>0;
  const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array;
  let drawn=false;
  for(let ty=0;ty<18;ty++){
