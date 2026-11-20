@@ -24,6 +24,36 @@ function traceGeometry(context, geometry, width, height, projection) {
   return true;
 }
 
+const projectedPathCache = new WeakMap();
+const PROJECTED_PATHS_PER_FEATURE = 3;
+
+function getProjectedPath(feature, width, height, projection) {
+  if (typeof Path2D === "undefined" || !feature?.geometry) return null;
+  const viewport = projection.viewport ?? {};
+  const key = [
+    projection.type, width, height,
+    Number(viewport.zoom ?? 1).toFixed(4),
+    Number(viewport.centerLongitude ?? 0).toFixed(4),
+    Number(viewport.centerLatitude ?? 0).toFixed(4)
+  ].join(":");
+  let entries = projectedPathCache.get(feature);
+  if (!entries) {
+    entries = new Map();
+    projectedPathCache.set(feature, entries);
+  }
+  if (entries.has(key)) {
+    const cached = entries.get(key);
+    entries.delete(key);
+    entries.set(key, cached);
+    return cached;
+  }
+  const path = new Path2D();
+  if (!traceGeometry(path, feature.geometry, width, height, projection)) return null;
+  entries.set(key, path);
+  while (entries.size > PROJECTED_PATHS_PER_FEATURE) entries.delete(entries.keys().next().value);
+  return path;
+}
+
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1) {
   if (!collection?.features) return 0;
   let drawn = 0;
@@ -31,13 +61,22 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
-    context.beginPath();
-    if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
+    const cachedPath = getProjectedPath(feature, width, height, projection);
+    if (!cachedPath) {
+      context.beginPath();
+      if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
+    }
     context.fillStyle = fill;
     context.strokeStyle = stroke;
     context.lineWidth = lineWidth;
-    context.fill("evenodd");
-    context.stroke();
+    // CanvasRenderingContext2D accepts either a cached Path2D or the current path.
+    if (cachedPath) {
+      context.fill(cachedPath, "evenodd");
+      context.stroke(cachedPath);
+    } else {
+      context.fill("evenodd");
+      context.stroke();
+    }
     drawn++;
   }
   context.restore();
@@ -80,9 +119,14 @@ function drawLandHachures(context, collection, width, height, projection, color)
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     context.save();
-    context.beginPath();
-    if (traceGeometry(context, feature.geometry, width, height, projection)) {
-      context.clip("evenodd");
+    const cachedPath = getProjectedPath(feature, width, height, projection);
+    if (cachedPath) {
+      context.clip(cachedPath, "evenodd");
+    } else {
+      context.beginPath();
+      if (traceGeometry(context, feature.geometry, width, height, projection)) context.clip("evenodd");
+    }
+    if (cachedPath || typeof Path2D === "undefined") {
       for (let offset = -height; offset < width; offset += 13) {
         context.beginPath();
         context.moveTo(offset, height);

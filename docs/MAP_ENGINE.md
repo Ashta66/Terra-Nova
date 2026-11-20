@@ -157,3 +157,10 @@ Le résultat des requêtes de secteurs est maintenant mis en cache par fenêtre 
 ## Placement des labels et détection de collision — 20 novembre 2026
 
 Le classement des labels géographiques par priorité est maintenant calculé une seule fois par collection et conservé dans une WeakMap. Le seuil de zoom reste évalué à chaque rendu, ce qui préserve l'apparition progressive des villes et des noms régionaux. La détection de collision utilise une grille d'écran de 64 px : chaque libellé ne compare ses limites qu'aux libellés présents dans les mêmes cellules, au lieu de parcourir toute la liste déjà placée. L'ordre de priorité et les règles d'affichage restent inchangés. Le cache est attaché à la collection et peut être libéré avec elle. Cette optimisation vise surtout les catalogues denses de noms ; les performances réelles doivent être mesurées dans le navigateur.
+
+
+## Cache des chemins projetés et du raster ETOPO — 20 novembre 2026
+
+Les géométries polygonales disposent maintenant d'un cache de chemins `Path2D` attaché aux objets GeoJSON. La clé inclut projection, dimensions et viewport (zoom/centre), afin de ne jamais réutiliser un chemin décalé après un déplacement ou un changement d'échelle. Chaque feature conserve au maximum trois variantes récentes ; les références faibles permettent au ramasse-miettes de libérer les objets lorsque les collections disparaissent. Les navigateurs sans `Path2D` conservent le chemin de rendu classique.
+
+Le raster ETOPO conserve également jusqu'à six surfaces calculées par grille et par viewport exact. Une surface déjà calculée est redessinée directement au lieu de recalculer les échantillons d'altitude et le hillshade. Le cache est attaché à la grille, borné et ne modifie aucune donnée géographique. Les nouvelles positions pendant un panoramique produisent de nouvelles clés ; ce mécanisme accélère surtout les rendus répétés d'un même cadrage. Il ne constitue pas encore un cache de tuiles géographiques et aucun gain de FPS n'est annoncé sans mesure navigateur.

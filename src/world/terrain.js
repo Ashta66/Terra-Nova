@@ -120,6 +120,9 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   return clamp(1 + (illumination - lightUp) * 0.45, 0.84, 1.16);
 }
 
+const terrainSurfaceCache = new WeakMap();
+const TERRAIN_SURFACES_PER_GRID = 6;
+
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
@@ -128,6 +131,24 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
+  const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
+  const centerXKey = Number(viewport.centerLongitude ?? 0).toFixed(4);
+  const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale].join(":");
+  let cachedSurfaces = terrainSurfaceCache.get(grid);
+  if (!cachedSurfaces) {
+    cachedSurfaces = new Map();
+    terrainSurfaceCache.set(grid, cachedSurfaces);
+  }
+  const cachedSurface = cachedSurfaces.get(cacheKey);
+  if (cachedSurface && context.drawImage) {
+    context.save?.();
+    context.setTransform?.(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.drawImage(cachedSurface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
+    context.restore?.();
+    return true;
+  }
   let renderContext = context;
   let surface = null;
   if (context.drawImage && typeof OffscreenCanvas !== "undefined") {
@@ -167,6 +188,8 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   }
   renderContext.putImageData(image, 0, 0);
   if (surface && typeof context.drawImage === "function") {
+    cachedSurfaces.set(cacheKey, surface);
+    while (cachedSurfaces.size > TERRAIN_SURFACES_PER_GRID) cachedSurfaces.delete(cachedSurfaces.keys().next().value);
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = true;
