@@ -103,7 +103,14 @@ export function createTerrainTileStore(grid, options = {}) {
     return true;
   }
 
-  function markPersisted(id, revision) {\n    const tile = cache.get(id);\n    if (!tile || tile.revision !== revision) return false;\n    tile.dirty = false;\n    return true;\n  }\n\n  function evictUnused(keepIds = []) {
+  function markPersisted(id, revision) {
+    const tile = cache.get(id);
+    if (!tile || tile.revision !== revision) return false;
+    tile.dirty = false;
+    return true;
+  }
+
+  function evictUnused(keepIds = []) {
     const keep = new Set(keepIds);
     let removed = 0;
     for (const id of cache.keys()) {
