@@ -173,3 +173,32 @@ test("les classes terrestres modulent discrètement la palette sans toucher la b
   assert.notDeepEqual(mountain, terrainColorForElevation(3000, 1));
   assert.deepEqual(sea, terrainColorForElevation(-3000, 1));
 });
+
+
+test("la qualité du raster peut être réduite pendant le glissement pour préserver la fluidité", () => {
+  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  let dimensions = null;
+  const context = {
+    createImageData(width, height) {
+      dimensions = [width, height];
+      return { data: new Uint8ClampedArray(width * height * 4) };
+    },
+    putImageData() {}
+  };
+  assert.equal(drawTerrainRaster(context, 1200, 600, grid, {}, 0.5), true);
+  assert.deepEqual(dimensions, [384, 192]);
+});
+
+test("le rendu du terrain reste plafonné en qualité normale sur les grands écrans", () => {
+  const grid = createTerrainGrid(new Uint8Array(8), 2, 2);
+  let dimensions = null;
+  const context = {
+    createImageData(width, height) {
+      dimensions = [width, height];
+      return { data: new Uint8ClampedArray(width * height * 4) };
+    },
+    putImageData() {}
+  };
+  assert.equal(drawTerrainRaster(context, 1600, 900, grid), true);
+  assert.deepEqual(dimensions, [768, 432]);
+});
