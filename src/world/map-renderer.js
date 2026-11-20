@@ -46,6 +46,12 @@ export function getLandCoastSimplificationProfile(zoom = 1) {
   return { tolerance: 4.4, minRingArea: 72 };
 }
 
+// Les rives des lacs et mers intérieures suivent le même niveau de
+// généralisation géométrique que le littoral marin.
+export function getLakeCoastSimplificationProfile(zoom = 1) {
+  return getLandCoastSimplificationProfile(zoom);
+}
+
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
 // constante visuellement : en zoomant, les détails géographiques réapparaissent.
 export function simplifyClosedRing(points, tolerance = 0.55) {
@@ -1096,7 +1102,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     }
     const detailProfile = getSecondaryDetailProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     const glacierCount = measureLayer("glaciers", () => detailProfile.glaciers ? drawPolygonLayer(target, visibleGlaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, false, 4) : 0);
-    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, false, detailProfile.lakesRank));
+    const lakeCount = measureLayer("lacs", () => drawPolygonLayer(target, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)));
     const riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, getBoundarySimplificationProfile(projection.lodZoom ?? 1), detailProfile.riversRank, detailProfile.riversMax));
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
     return { terrainEnabled, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
