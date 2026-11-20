@@ -983,3 +983,31 @@ test("le rendu GPU exige une capacité suffisante pour couvrir les tuiles visibl
   assert.equal(terrainTileSetFitsAtlas(-1, 0, 64), false);
   assert.equal(terrainTileSetFitsAtlas(1, 1, 0), false);
 });
+
+test("l'atlas GPU augmente sa capacité au-delà de 64 slots sans dépasser son budget mémoire", () => {
+  const store = createTerrainTileStore(
+    { width: 256, height: 128, values: new Int16Array(256 * 128) },
+    { tileSize: 4, maxTiles: 2048 }
+  );
+  const gl = createFakeTerrainGL(256);
+  const maxBytes = 2 * 6 * 6 * 144;
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { maxBytes });
+  assert.ok(atlas.capacity > 64);
+  assert.ok(atlas.memoryBytes <= maxBytes);
+  assert.ok(atlas.atlasWidth <= 256);
+  assert.equal(atlas.capacity, 144);
+  atlas.dispose();
+});
+
+test("l'atlas GPU respecte simultanément la limite matérielle et le budget mémoire", () => {
+  const store = createTerrainTileStore(
+    { width: 64, height: 32, values: new Int16Array(64 * 32) },
+    { tileSize: 8, maxTiles: 512 }
+  );
+  const gl = createFakeTerrainGL(50);
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 32, maxBytes: 1024 });
+  assert.ok(atlas.atlasWidth <= 50);
+  assert.ok(atlas.memoryBytes <= 1024);
+  assert.ok(atlas.capacity >= 1);
+  atlas.dispose();
+});
