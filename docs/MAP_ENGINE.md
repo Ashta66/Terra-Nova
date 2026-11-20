@@ -93,8 +93,8 @@ Le raster ETOPO est maintenant interprété avec des classes locales légères d
 
 - Le raster de terrain est plafonné à **512 × 256 pixels** pour le rendu normal (contre 768 × 384 précédemment). Le rendu adaptatif conserve ses facteurs de qualité réduite pendant les interactions.
 - L'ombrage terrestre est moins contrasté (facteur limité à 0,84–1,16) et les teintes des classes de relief sont plus discrètes. Les formes principales — chaînes montagneuses, hauts plateaux et plaines — restent perceptibles sans micro-contraste excessif.
-- Le zoom interactif maximal passe de **8× à 24×**. Les projections équirectangulaire et Mercator acceptent maintenant la même plage.
-- Attention : 24× agrandit les données mondiales actuelles, mais ne crée pas de précision géographique absente du fond Natural Earth 1:110m. Les côtes et frontières peuvent donc paraître simplifiées au zoom élevé ; les véritables détails locaux dépendront des futures données régionales.
+- Le zoom interactif maximal passe de **24× à 35× (3 500 %)**. Les projections équirectangulaire et Mercator acceptent maintenant la même plage.
+- Attention : 35× agrandit les données mondiales actuelles, mais ne crée pas de précision géographique absente du fond Natural Earth 1:110m. Les côtes et frontières peuvent donc paraître simplifiées au zoom élevé ; les véritables détails locaux dépendront des futures données régionales.
 
 
 ## Niveaux de détail géographique progressifs
@@ -225,3 +225,17 @@ Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un s
 ## Budget mémoire global des chemins projetés
 
 Le cache Path2D est limité à trois variantes par entité, à 512 chemins au total et à 250 000 sommets projetés cumulés, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.
+
+
+## Moteur de tuiles vectorielles géographiques — lot 3.0
+
+Le moteur organise maintenant les entités GeoJSON dans une matrice de secteurs stables de 10° × 10°. Chaque secteur possède une sélection d'identifiants d'entités mise en cache ; le viewport assemble uniquement les secteurs qu'il recouvre, déduplique les entités et rétablit leur ordre source avant le rendu. Les géométries ne sont pas découpées aux frontières des secteurs : cela évite les fissures artificielles sur les côtes, les rivières et les polygones, et préserve la continuité à l'antiméridien.
+
+Le cache de secteurs vectoriels est LRU et plafonné à 96 entrées par collection ; le cache des plans de viewport reste plafonné à 48. Le préchargement au repos prépare un anneau de huit secteurs voisins au maximum, avec longitude cyclique et latitude bornée. Les statistiques exposent les tuiles conservées, les hits et les misses. Il s'agit de tuiles vectorielles de sélection/organisation des données, pas de tuiles d'images pré-rendues ni d'un moteur WebGL : le Canvas dessine toujours les entités sélectionnées. Cette approche évite de créer une seconde copie du monde ou des coutures de clipping. Les LOD mondiaux/régionaux existants restent responsables de la résolution des données ; le système de tuiles ne prétend pas créer du détail absent des fichiers installés.
+
+
+## Simplification adaptative des côtes et zoom 3 500 % — 20 novembre 2026
+
+Les contours terrestres sont simplifiés au moment de leur projection avec Douglas-Peucker en espace écran (tolérance de 0,55 pixel). Le niveau de simplification est ainsi naturellement lié au zoom : à l'échelle mondiale, les détails très fins et les îlots sous-pixel sont écartés ; en zoomant, la même tolérance représente une zone géographique plus petite et les détails reviennent. Les petits polygones dont la surface projetée est inférieure à 0,7 pixel carré ne sont pas dessinés. Les géométries GeoJSON sources ne sont jamais modifiées. Les lacs, rivières et labels conservent leurs couches et règles existantes.
+
+Le zoom maximal passe de 24× à **35× (3 500 %)** pour les projections équirectangulaire et Mercator. Ce changement n'augmente pas la taille des données ni la mémoire du cache à lui seul ; il peut toutefois rendre plus visibles les limites de résolution du jeu de données installé. Le niveau 35× est un agrandissement, pas une promesse de précision locale supplémentaire : les détails fins dépendent des couches régionales téléchargées.

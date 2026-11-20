@@ -26,19 +26,84 @@ function createContinuousProjector(width, height, projection) {
   };
 }
 
+// Simplification Douglas-Peucker en pixels écran. La tolérance est donc
+// constante visuellement : en zoomant, les détails géographiques réapparaissent.
+export function simplifyClosedRing(points, tolerance = 0.55) {
+  if (!Array.isArray(points) || points.length <= 4 || tolerance <= 0) return points ?? [];
+  const ring = points.length > 1
+    && points[0].x === points[points.length - 1].x
+    && points[0].y === points[points.length - 1].y
+    ? points.slice(0, -1)
+    : points.slice();
+  if (ring.length <= 3) return [...ring, ring[0]];
+
+  const distanceToSegmentSquared = (point, start, end) => {
+    const dx = end.x - start.x, dy = end.y - start.y;
+    if (dx === 0 && dy === 0) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
+    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+    const x = start.x + t * dx, y = start.y + t * dy;
+    return (point.x - x) ** 2 + (point.y - y) ** 2;
+  };
+  const simplifyOpen = input => {
+    if (input.length <= 2) return input;
+    const keep = new Uint8Array(input.length);
+    keep[0] = 1; keep[input.length - 1] = 1;
+    const stack = [[0, input.length - 1]];
+    const threshold = tolerance * tolerance;
+    while (stack.length) {
+      const [first, last] = stack.pop();
+      let maxDistance = threshold, farthest = -1;
+      for (let i = first + 1; i < last; i++) {
+        const distance = distanceToSegmentSquared(input[i], input[first], input[last]);
+        if (distance > maxDistance) { maxDistance = distance; farthest = i; }
+      }
+      if (farthest !== -1) {
+        keep[farthest] = 1;
+        stack.push([first, farthest], [farthest, last]);
+      }
+    }
+    return input.filter((_, index) => keep[index]);
+  };
+
+  // Une boucle fermée a des extrémités identiques : on la coupe au sommet
+  // le plus éloigné du premier point pour éviter que DP ne l'efface entièrement.
+  let split = 1, farthest = -1;
+  for (let i = 1; i < ring.length; i++) {
+    const distance = (ring[i].x - ring[0].x) ** 2 + (ring[i].y - ring[0].y) ** 2;
+    if (distance > farthest) { farthest = distance; split = i; }
+  }
+  const firstHalf = simplifyOpen(ring.slice(0, split + 1));
+  const secondHalf = simplifyOpen([...ring.slice(split), ring[0]]);
+  const result = [...firstHalf, ...secondHalf.slice(1, -1)];
+  if (result.length < 3) return [...ring, ring[0]];
+  result.push(result[0]);
+  return result;
+}
+
+function projectedRingArea(points) {
+  let area = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    area += points[i].x * points[i + 1].y - points[i + 1].x * points[i].y;
+  }
+  return Math.abs(area) / 2;
+}
+
 function traceRing(context, ring, width, height, projection) {
-  let started = false;
-  let vertices = 0;
   const project = createContinuousProjector(width, height, projection);
+  const projected = [];
   for (const coordinate of ring) {
     const point = project(coordinate);
-    if (!point) { started = false; continue; }
-    if (!started) { context.moveTo(point.x, point.y); started = true; }
-    else context.lineTo(point.x, point.y);
-    vertices++;
+    if (point) projected.push(point);
   }
-  if (started) context.closePath();
-  return vertices;
+  if (projected.length < 4) return 0;
+  const simplified = simplifyClosedRing(projected, 0.55);
+  // Les îlots plus petits qu'un pixel carré n'apportent pas de silhouette
+  // lisible à cette échelle. Ils réapparaissent automatiquement en zoomant.
+  if (projectedRingArea(simplified) < 0.7) return 0;
+  context.moveTo(simplified[0].x, simplified[0].y);
+  for (let i = 1; i < simplified.length; i++) context.lineTo(simplified[i].x, simplified[i].y);
+  context.closePath();
+  return simplified.length;
 }
 
 function traceGeometry(context, geometry, width, height, projection) {
@@ -46,7 +111,14 @@ function traceGeometry(context, geometry, width, height, projection) {
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
   if (polygons.length) {
     let vertices = 0;
-    for (const polygon of polygons) for (const ring of polygon) vertices += traceRing(context, ring, width, height, projection);
+    for (const polygon of polygons) {
+      const exterior = polygon[0];
+      if (!exterior) continue;
+      const exteriorCount = traceRing(context, exterior, width, height, projection);
+      if (!exteriorCount) continue;
+      vertices += exteriorCount;
+      for (const hole of polygon.slice(1)) vertices += traceRing(context, hole, width, height, projection);
+    }
     return vertices;
   }
   const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
