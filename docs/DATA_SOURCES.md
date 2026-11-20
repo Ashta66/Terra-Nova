@@ -98,3 +98,15 @@ Un fichier NetCDF extrait depuis NOAA ERDDAP a été fourni et inspecté.
 
 ### Consommation par le jeu
 Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour activer le relief dans une copie locale, extraire le pack dans `data/terrain/`. Le NetCDF source et le TIFF complet ne sont pas requis au runtime.
+
+
+## Frontières administratives internes — Natural Earth 1:50m
+
+- Fichier intégré : `data/ne_50m_admin_1_states_provinces_lines.geojson`.
+- Source : [Natural Earth Vector — Admin 1 States/Provinces boundary lines](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_50m_admin_1_states_provinces_lines.geojson).
+- Couche d'origine : `ne_50m_admin_1_states_provinces_lines`, 581 entités linéaires (LineString/MultiLineString).
+- Préparation : seules les géométries et la propriété `MIN_ZOOM` sont conservées afin de réduire le fichier embarqué ; le GeoJSON compact représente environ 433 Ko.
+- Affichage : chaque entité est filtrée selon `MIN_ZOOM` et le zoom courant du viewport. Les entités détaillées ne sont donc pas dessinées au niveau mondial.
+- Rendu : pipeline WebGL des lignes administratives, avec fallback Canvas pour les géométries non prises en charge.
+- Usage : limites administratives de premier niveau (États, provinces et régions) ; ce jeu de données n'est pas exhaustif pour les frontières de niveau 2.
+- Licence : données Natural Earth dans le domaine public. Source de référence : [Natural Earth — 1:50m Cultural Vectors](https://www.naturalearthdata.com/downloads/50m-cultural-vectors/).
