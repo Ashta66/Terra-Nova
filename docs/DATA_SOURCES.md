@@ -124,6 +124,6 @@ Le pack optionnel regroupe les six couches mondiales Natural Earth 1:110m, la gr
 ## Frontières et chronologie
 
 - Les frontières politiques modernes proviennent des lignes terrestres Admin 0 de Natural Earth (échelle 1:110m, domaine public).
-- Les frontières administratives modernes proviennent des lignes Admin 1 de Natural Earth (échelle 1:110m, domaine public). Elles ne sont affichées qu'à partir de 2011 afin de ne pas projeter les divisions administratives actuelles dans les siècles précédents.
+- Les frontières administratives modernes proviennent des lignes Admin 1 de Natural Earth (échelle 1:110m, domaine public). Elles ne sont affichées qu'à partir de 2026 afin de ne pas projeter les divisions administratives actuelles dans les siècles précédents.
 - Les frontières politiques historiques proviennent de [Historical Basemaps](https://github.com/aourednik/historical-basemaps), distribuées sous GPL-3.0. Le jeu choisit le cliché temporel le plus proche de l'année simulée ; il ne crée pas de frontière interpolée entre deux clichés.
 - Pour les périodes anciennes, les frontières peuvent être des zones d'influence reconstruites et leur précision varie. Les propriétés de précision disponibles dans les données commandent un style de trait différencié. Les limites physiques (côtes, lacs et relief) restent issues des couches géographiques Natural Earth/ETOPO et ne sont pas assimilées à des frontières politiques.

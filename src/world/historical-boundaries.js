@@ -65,9 +65,9 @@ async function getHistoricalIndex(fetcher) {
 export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) {
   const numericYear = Number(year);
   if (!Number.isFinite(numericYear)) throw new TypeError("Année de frontière invalide.");
-  if (numericYear >= 2011) {
+  if (numericYear >= 2026) {
     if (!modernPoliticalPromise) modernPoliticalPromise = readCollection(MODERN_POLITICAL_URL, "Frontières politiques actuelles", fetcher);
-    return { collection: await modernPoliticalPromise, sourceYear: 2026, exact: true, source: "Natural Earth 1:110m" };
+    return { collection: await modernPoliticalPromise, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m" };
   }
   const index = await getHistoricalIndex(fetcher);
   const snapshot = selectHistoricalSnapshot(numericYear, index.years);
@@ -87,7 +87,7 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
 }
 
 export async function loadAdministrativeBoundaries(year, fetcher = globalThis.fetch) {
-  if (Number(year) < 2011) return null;
+  if (Number(year) < 2026) return null;
   if (!modernAdminPromise) modernAdminPromise = readCollection(MODERN_ADMIN_URL, "Frontières administratives", fetcher);
   return modernAdminPromise;
 }
