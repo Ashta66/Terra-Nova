@@ -7,6 +7,7 @@ import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { cancelTerrainWebGLPending } from "./world/terrain-webgl.js";
+import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 
 let state = createGameState();
 let interval = null;
@@ -18,6 +19,7 @@ let elevationPoints = null;
 let mapLabels = null;
 let terrainGrid = null;
 let terrainTileStore = null;
+let geographicWebGLRenderer = null;
 let terrainTilePersistence = null;
 let terrainPreloadWorker = null;
 let terrainPreloadRequestId = 0;
@@ -510,6 +512,11 @@ $("load-game").addEventListener("click", () => {
 });
 
 const mapCanvas = $("world-map");
+const geographicCanvas = document.createElement("canvas");
+const geographicGL = geographicCanvas.getContext("webgl", {
+  alpha: true, antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: false
+});
+if (geographicGL) geographicWebGLRenderer = createGeographicWebGLRenderer(geographicGL);
 $("map-zoom-in").addEventListener("click", () => zoomMap(1.5));
 $("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
