@@ -72,3 +72,15 @@ button,select,textarea{font:inherit}
 .map-tooltip strong{font:600 12px Georgia,serif}
 .map-tooltip span{color:#c0c8c3;font-size:10px}
 .map-tooltip.is-selected{background:rgba(28,43,47,.97);border-color:#e1c27c}
+
+
+/* Installation des données régionales directement depuis la carte */
+.map-data-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 2px 0;color:#82979a;font-size:10px;line-height:1.4}.map-data-copy{display:flex;flex-direction:column;gap:3px;min-width:0}.map-data-copy strong{color:#d6c59e;font-size:10px;font-weight:600}.map-data-copy span{max-width:560px}
+.map-data-button{flex:0 0 auto;max-width:260px;padding:7px 11px;border:1px solid #9b8558;background:linear-gradient(135deg,#263a3d,#172a31);color:#e5d4aa;font-size:10px;letter-spacing:.025em;cursor:pointer;transition:background .2s,border-color .2s}
+.map-data-button:hover:not(:disabled){border-color:#dfc27e;background:#304449}
+.map-data-button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.map-data-button:disabled{opacity:.55;cursor:progress}
+@media(max-width:760px){.map-data-tools{align-items:stretch;flex-direction:column}.map-data-button{width:100%;max-width:none}}
+
+
+

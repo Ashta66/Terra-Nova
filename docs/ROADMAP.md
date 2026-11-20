@@ -45,9 +45,9 @@ Légende :
 | 2.2 | Générer un relief ombré crédible à partir de valeurs d'altitude réelles | EN COURS — palette terrestre progressive, hillshade directionnel et premières classes visuelles heuristiques ; validation visuelle à faire |
 | 2.3 | Couches de terrain : montagnes, plateaux, plaines, vallées, pentes et bathymétrie | EN COURS — classes visuelles initiales montagnes/plateaux/vallées/collines/plaines ; bathymétrie simplifiée ; données et détails régionaux à développer |
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
-| 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
+| 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | EN COURS — sélecteur 1:110m/1:10m et chargement à la demande intégrés ; asset régional à préparer et couches hydrographiques/labels à décliner |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
-| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom, panoramique, labels progressifs, survol et clic intégrés ; sélection de territoires et couches à faire |
+| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom regroupé par image ; panoramique visuel via compositeur pendant le geste puis rendu complet au relâchement ; validation FPS et sélection/couches restantes de territoires et couches à faire |
 | 2.8 | Frontières politiques historiques de 1444 et territoires comme couche séparée | À FAIRE |
 | 2.9 | Performance : chargement progressif, simplification et rendu adapté au zoom | À FAIRE |
 
@@ -174,3 +174,22 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - La classification est un traitement visuel du MNT global, pas une donnée géomorphologique scientifique sourcée.
 - Les classes ne demandent pas de nouveaux échantillonnages : le coût supplémentaire est limité aux calculs locaux et à une légère modulation RGB.
 - Validation visuelle navigateur toujours requise ; les seuils pourront être ajustés après inspection.
+
+
+### Optimisation navigation — 20 novembre 2026
+- Les rafales de `pointermove` et de molette sont coalescées avec `requestAnimationFrame` : au maximum un rendu cartographique est planifié par image.
+- Pendant le déplacement, le relief passe temporairement à une grille de rendu 384 × 192 ; à la fin du geste, une image plus détaillée est demandée (plafond 768 × 384).
+- Correction de l'échelle du raster ETOPO : le moteur transmet désormais les dimensions logiques CSS du canvas et le raster est composé depuis une surface hors écran quand le navigateur le permet, ce qui évite le décalage lié au facteur DPR.
+- Les tests automatisés couvrent les plafonds de qualité adaptative. La mesure réelle des FPS et l'inspection visuelle restent à effectuer dans un navigateur.
+
+
+### Optimisation zoom — 20 novembre 2026
+- La molette utilise une prévisualisation CSS/compositeur ancrée au premier point visé, puis un seul rendu complet après 130 ms sans nouvel événement.
+- Les vues identiques ne sont plus redessinées à chaque seconde de simulation : un identifiant de vue (taille, année, zoom, centre) invalide le rendu uniquement si nécessaire.
+- Le détail géographique régional demeure limité par les données Natural Earth 1:110m ; un LOD géographique réel demandera l'intégration de jeux de données régionaux adaptés.
+
+
+### Ajustement de lisibilité et du zoom — 20 novembre 2026
+- Relief ETOPO allégé : plafond normal 512 × 256, ombrage et teintes des classes moins contrastés.
+- Zoom maximal interactif augmenté de 8× à 24× dans les commandes et les projections 2D.
+- Le zoom supplémentaire sert à explorer plus précisément une zone, mais ne remplace pas l'intégration de côtes et frontières à échelle régionale ; le fond vectoriel mondial 1:110m reste sa limite de précision.

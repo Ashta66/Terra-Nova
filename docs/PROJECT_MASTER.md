@@ -235,3 +235,23 @@ Le moteur possède désormais un lecteur raster Int16, une interpolation d'altit
 
 ### Complément relief terrestre — 20 novembre 2026
 Le renderer utilise désormais les quatre échantillons voisins déjà nécessaires au hillshade pour différencier discrètement les formes de relief. Les classes sont heuristiques et purement visuelles. La bathymétrie reste volontairement simplifiée, à faible contraste, sans ombrage détaillé des fosses et dorsales. Aucun nouveau fichier de données n'est nécessaire.
+
+
+## Mise à jour technique — fluidité de la carte (20 novembre 2026)
+
+Le moteur regroupe désormais les demandes de rendu sur `requestAnimationFrame`. Pendant un glissement, le raster ETOPO est temporairement calculé à résolution réduite, puis une image plus détaillée est rendue à la fin du geste. Le rendu raster utilise les dimensions logiques du canvas et une surface hors écran lorsque disponible afin de respecter le facteur de densité de pixels. Ces optimisations sont un premier palier ; les performances réelles doivent encore être mesurées dans un navigateur et la mise en cache des couches statiques reste une piste.
+
+
+### Navigation fluide — optimisation zoom
+La molette affiche une prévisualisation transformée du canvas et attend 130 ms de calme avant le rendu géographique complet. Les rendus sont invalidés par la taille, l'année et le viewport ; l'horloge ne provoque donc plus un redessin inutile à chaque seconde de simulation.
+
+
+### Lisibilité du relief et zoom étendu — 20 novembre 2026
+Le rendu ETOPO est allégé à 512 × 256 pixels en qualité normale, avec un hillshade et des teintes de classes moins contrastés. Le zoom 2D maximal passe à 24× dans les contrôles et les projections équirectangulaire/Mercator. Ce zoom agrandit le fond mondial existant ; il ne crée pas de détail local supplémentaire tant que les données régionales ne sont pas intégrées.
+
+
+### Niveaux de détail cartographiques — 20 novembre 2026
+- Le sélecteur LOD choisit le fond terrestre mondial Natural Earth 1:110m en vue générale et bascule vers le fond régional 1:10m à partir de 4× lorsque l'asset local est disponible.
+- Le chargement régional est différé jusqu'au zoom utile et ne bloque jamais la carte mondiale.
+- Script de préparation : `scripts/prepare-natural-earth-lod.sh`; fichier généré : `data/ne_10m_land.geojson`.
+- L'asset régional n'est pas encore intégré ; les autres couches restent au niveau 1:110m. Le zoom 24× peut donc encore afficher des détails incomplets jusqu'à la préparation du fond régional.

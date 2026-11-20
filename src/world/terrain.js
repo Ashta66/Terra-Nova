@@ -69,7 +69,7 @@ function applyLandformTint(color, landform) {
   };
   const tint = tints[landform];
   if (!tint) return color;
-  const strength = landform === "mountains" ? 0.075 : 0.065;
+  const strength = landform === "mountains" ? 0.04 : 0.035;
   return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
 }
 
@@ -117,22 +117,44 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
   const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
   const lightUp = Math.sin(altitude);
   const illumination = normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp;
-  return clamp(1 + (illumination - lightUp) * 0.65, 0.72, 1.22);
+  return clamp(1 + (illumination - lightUp) * 0.45, 0.84, 1.16);
 }
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
+const terrainSurfaceCache = new WeakMap();
+const TERRAIN_SURFACES_PER_GRID = 6;
+
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  // Limite le calcul du raster à 1024 × 512 pixels, puis agrandit le résultat.
-  // Cela évite plusieurs millions d'échantillonnages à chaque déplacement/zoom.
-  const scale = Math.min(1, 1024 / width, 512 / height);
+  // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
+  // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
+  const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
+  const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
+  const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
+  const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
+  const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale].join(":");
+  let cachedSurfaces = terrainSurfaceCache.get(grid);
+  if (!cachedSurfaces) {
+    cachedSurfaces = new Map();
+    terrainSurfaceCache.set(grid, cachedSurfaces);
+  }
+  const cachedSurface = cachedSurfaces.get(cacheKey);
+  if (cachedSurface && context.drawImage) {
+    context.save?.();
+    context.setTransform?.(1, 0, 0, 1, 0, 0);
+    context.imageSmoothingEnabled = true;
+    context.drawImage(cachedSurface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
+    context.restore?.();
+    return true;
+  }
   let renderContext = context;
   let surface = null;
-  if (scale < 1 && typeof OffscreenCanvas !== "undefined") {
+  if (context.drawImage && typeof OffscreenCanvas !== "undefined") {
     surface = new OffscreenCanvas(renderWidth, renderHeight);
     renderContext = surface.getContext("2d");
-  } else if (scale < 1 && typeof document !== "undefined" && context.drawImage) {
+  } else if (context.drawImage && typeof document !== "undefined") {
     surface = document.createElement("canvas");
     surface.width = renderWidth;
     surface.height = renderHeight;
@@ -166,10 +188,12 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}) {
   }
   renderContext.putImageData(image, 0, 0);
   if (surface && typeof context.drawImage === "function") {
+    cachedSurfaces.set(cacheKey, surface);
+    while (cachedSurfaces.size > TERRAIN_SURFACES_PER_GRID) cachedSurfaces.delete(cachedSurfaces.keys().next().value);
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
     context.imageSmoothingEnabled = true;
-    context.drawImage(surface, 0, 0, width, height);
+    context.drawImage(surface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
     context.restore?.();
   } else if (renderContext === context) {
     // Fallback DOM-less pour les tests et les contextes Canvas minimaux.

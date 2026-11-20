@@ -98,3 +98,24 @@ Un fichier NetCDF extrait depuis NOAA ERDDAP a été fourni et inspecté.
 
 ### Consommation par le jeu
 Le renderer charge facultativement `data/terrain/etopo_global_10m_i16.bin`. Pour activer le relief dans une copie locale, extraire le pack dans `data/terrain/`. Le NetCDF source et le TIFF complet ne sont pas requis au runtime.
+
+
+## Fond terrestre régional Natural Earth 1:10m
+
+- Jeu : Natural Earth Vector, couche physique « Land » à l'échelle 1:10m.
+- Source officielle : https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-land/
+- Archive de préparation : https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip
+- Usage : détails des côtes et des îles lorsque le zoom atteint 4× ; chargement local à la demande.
+- Licence : domaine public selon les conditions Natural Earth ; conserver la mention « Natural Earth » dans les crédits du jeu.
+- Préparation : `bash scripts/prepare-natural-earth-lod.sh` (curl, unzip, GDAL/ogr2ogr).
+- Sortie attendue : `data/ne_10m_land.geojson`. L'asset n'est pas encore présent dans le dépôt ; la carte utilise donc le fond 1:110m tant qu'il n'a pas été préparé.
+
+
+## Couches régionales Natural Earth 1:10m — téléchargement à la demande
+
+Le jeu télécharge depuis le dépôt officiel `nvkelso/natural-earth-vector` les terres, lacs, cours d’eau et lieux peuplés à l’échelle 1:10m. Les trois premières couches sont conservées en GeoJSON ; la couche des lieux peuplés est réduite à des labels de villes avec nom, population et seuil de zoom. Le bouton de la carte stocke les GeoJSON dans IndexedDB, sans écrire dans le système de fichiers de l’utilisateur. Les données restent locales au profil du navigateur et peuvent être supprimées en effaçant les données du site. Source et licence : Natural Earth Vector, domaine public.
+
+
+## Pack cartographique complet
+
+Le pack optionnel regroupe les six couches mondiales Natural Earth 1:110m, la grille ETOPO binaire déjà préparée (4 665 600 octets) et les quatre couches régionales Natural Earth 1:10m. Les couches mondiales et ETOPO sont mises en cache avec Cache Storage ; les couches régionales sont stockées dans IndexedDB. Le joueur peut continuer à jouer avec les couches mondiales légères sans télécharger le pack. Le cache est local à l’origine du site et peut être supprimé depuis les paramètres de stockage du navigateur.

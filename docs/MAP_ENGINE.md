@@ -20,7 +20,7 @@ Le fond terrestre provient de Natural Earth Vector (`ne_110m_land`, échelle 1:1
 ## Navigation interactive de la carte — lot 2.7 (première étape)
 
 La carte équirectangulaire dispose maintenant d'une navigation utilisateur :
-- zoom progressif avec boutons +/−, de 100 % à 800 % ;
+- zoom progressif avec boutons +/−, de 100 % à 2 400 % ;
 - zoom à la molette autour du pointeur, pour garder la zone visée sous la souris ;
 - déplacement par glisser-déposer à la souris ou au pointeur ;
 - recentrage sur la vue mondiale initiale ;
@@ -31,9 +31,9 @@ Le zoom et le centre sont des paramètres de vue transmis au moteur de projectio
 
 Limites connues :
 - la navigation reste un planisphère 2D ; elle ne constitue pas encore une rotation de globe ;
-- les géométries qui traversent l'antiméridien peuvent être coupées pendant le panoramique ;
+- les géométries vectorielles qui traversent l’antiméridien sont déroulées pour suivre le trajet le plus court ; le raster de relief utilise une longitude périodique ;
 - le zoom augmente le grossissement mais n'ajoute pas encore de nouvelles données régionales : le détail est limité par Natural Earth 1:110m ;
-- les limites de déplacement sont volontairement simples et seront revues avec le globe et les niveaux de détail.
+- la longitude est cyclique au zoom régional ; au zoom mondial, la caméra est recentrée pour conserver un planisphère unique.
 
 
 ## Labels cartographiques progressifs — choix C validé
@@ -69,3 +69,159 @@ Choix de lisibilité : les profondeurs océaniques sont regroupées en grandes m
 ## Classes visuelles du relief terrestre
 
 Le raster ETOPO est maintenant interprété avec des classes locales légères dérivées de l'altitude et des quatre voisins déjà échantillonnés pour le hillshade : montagnes, plateaux, vallées, collines, plaines et basses terres. Les classes modulent très légèrement la palette hypsométrique pour rendre les formes terrestres plus lisibles sans ajouter de pictogrammes ni de couche vectorielle artificielle. Les seuils sont des heuristiques visuelles adaptées à l'aperçu global 10 minutes d'arc ; ils ne constituent pas un jeu de données géomorphologiques sourcé ni une classification scientifique. Les glaciers et les grands sommets restent rendus par leurs couches de référence dédiées. La bathymétrie reste volontairement sobre et n'est pas classifiée en micro-reliefs.
+
+
+## Fluidité de navigation — optimisation initiale
+
+- Les événements de déplacement et de molette sont regroupés sur une seule image via `requestAnimationFrame` : plusieurs événements reçus entre deux images ne déclenchent plus plusieurs rendus complets.
+- Pendant un glisser-déposer, le canvas déjà rendu est déplacé par transformation GPU/compositeur (`translate3d`) : aucun recalcul du raster ou des géométries n'est nécessaire pendant le geste. Le rendu géographique complet est relancé au relâchement.
+- Le relief est généré sur une surface hors écran lorsque le navigateur le permet, puis composé dans le canvas à l'échelle logique CSS. Cela évite de mélanger les coordonnées physiques du canvas haute densité et les coordonnées logiques du moteur.
+- Les géométries vectorielles et les labels sont recalculés une seule fois à la fin du déplacement. Une mise en cache des couches statiques et un vrai niveau de détail régional restent des optimisations ultérieures.
+- Limite : le gain doit encore être mesuré dans un navigateur réel sur plusieurs configurations ; la CI ne mesure pas les FPS.
+
+
+## Zoom fluide et rendu à la demande — optimisation suivante
+
+- La molette met à jour immédiatement le centre et le facteur de zoom, mais affiche d'abord une transformation CSS du canvas existant. Le raster ETOPO et les géométries ne sont recalculés qu'après une courte pause dans le geste (130 ms), ce qui évite de recalculer le relief à chaque cran de molette.
+- Le point sous le pointeur au début d'une séquence de molette reste l'ancre du zoom pendant cette séquence. Les boutons +/− conservent leur rendu direct.
+- Une signature de rendu empêche de redessiner la carte lorsque seule l'horloge avance dans la même année et que la vue n'a pas changé.
+- Le canvas est préparé pour la composition graphique via `will-change: transform`. Le navigateur reste libre de décider du chemin matériel.
+- Limites : le zoom à la molette est une prévisualisation transformée, légèrement moins nette pendant le geste ; le rendu haute qualité revient à la fin. Les véritables niveaux de détail géographiques régionaux nécessitent des données à plus grande échelle, non encore embarquées.
+
+
+## Relief allégé et zoom étendu — 20 novembre 2026
+
+- Le raster de terrain est plafonné à **512 × 256 pixels** pour le rendu normal (contre 768 × 384 précédemment). Le rendu adaptatif conserve ses facteurs de qualité réduite pendant les interactions.
+- L'ombrage terrestre est moins contrasté (facteur limité à 0,84–1,16) et les teintes des classes de relief sont plus discrètes. Les formes principales — chaînes montagneuses, hauts plateaux et plaines — restent perceptibles sans micro-contraste excessif.
+- Le zoom interactif maximal passe de **8× à 24×**. Les projections équirectangulaire et Mercator acceptent maintenant la même plage.
+- Attention : 24× agrandit les données mondiales actuelles, mais ne crée pas de précision géographique absente du fond Natural Earth 1:110m. Les côtes et frontières peuvent donc paraître simplifiées au zoom élevé ; les véritables détails locaux dépendront des futures données régionales.
+
+
+## Niveaux de détail géographique progressifs
+
+Le rendu du fond terrestre dispose maintenant d'un sélecteur LOD :
+- zoom inférieur à 4× : fond mondial Natural Earth 1:110m ;
+- zoom à partir de 4× : remplacement par Natural Earth 1:10m si le fichier régional est présent ;
+- si le fichier est absent ou invalide : maintien du fond mondial, sans bloquer la carte.
+
+Les données régionales ne sont pas téléchargées au démarrage afin de conserver une première ouverture légère. Le joueur peut installer le pack cartographique complet directement depuis l'interface, sans script ni déplacement de fichiers.
+
+
+## LOD régional multi-couches — lot 2.8
+
+À partir de 4×, le moteur tente de charger séparément les couches Natural Earth 1:10m pour les terres, les lacs, les rivières et les labels de villes. Chaque couche conserve son propre repli sur les données mondiales 1:110m : une donnée régionale absente n'empêche pas les autres couches de gagner en précision. Les labels de villes sont filtrés selon le rang et la population puis révélés progressivement à 4×, 6× et 8×. Les téléchargements sont déclenchés une seule fois au premier franchissement du seuil et ne bloquent pas le premier affichage de la carte.
+
+Installation simplifiée : le bouton « Télécharger le pack cartographique complet » récupère les couches régionales Natural Earth et précharge aussi les couches mondiales et la grille ETOPO. Les ressources sont conservées dans le stockage local du navigateur et réutilisées automatiquement.
+
+
+## Installation des données régionales depuis le navigateur
+
+La carte propose un bouton « Télécharger le pack cartographique complet ». Il prépare sept ressources mondiales (six GeoJSON et le relief ETOPO) dans Cache Storage et les quatre couches régionales Natural Earth 1:10m dans IndexedDB. Les labels de villes sont dérivés de la couche Natural Earth des lieux peuplés. Les ressources déjà présentes sont conservées ; un téléchargement interrompu peut être repris sans recommencer les fichiers déjà installés. Le stockage est propre au navigateur et à l’origine du site. Les couches régionales sont chargées en mémoire uniquement lorsque le joueur zoome suffisamment, pour éviter un pic de mémoire au téléchargement.
+
+
+## Pack cartographique complet et cache local
+
+Le jeu démarre immédiatement avec les couches mondiales légères 1:110m. Le joueur peut ensuite télécharger le pack cartographique complet depuis le bouton sous la carte : six couches mondiales, la grille de relief ETOPO et les quatre couches régionales Natural Earth 1:10m. Les ressources locales sont conservées dans Cache Storage ; les couches régionales sont conservées dans IndexedDB. Les téléchargements déjà présents sont détectés et ignorés lors d’une reprise. Les couches régionales restent chargées à la demande au franchissement du zoom 4× : le pack prépare les données en local sans forcer le chargement de toute la géométrie en mémoire, afin de limiter les pics de mémoire et préserver la fluidité. Les données cartographiques restent disponibles après actualisation et peuvent être réutilisées sans réseau tant que le navigateur conserve le stockage du site. Cela concerne les données de carte, pas les fichiers de l’application elle-même. Cette installation ne garantit pas une hausse des FPS : elle réduit surtout les attentes réseau et les chargements répétés.
+
+
+## Rendu interactif sans zones vides
+
+Pendant le panoramique et le zoom à la molette, la carte est redessinée à chaque frame avec une qualité temporairement réduite : raster de relief à 35 %, pixel ratio 1, labels et repères détaillés différés. Le canvas reste à sa taille normale et n'est plus déplacé ou agrandi par transformation CSS ; les bords de la fenêtre ne révèlent donc plus le fond vide. À la fin du geste, un rendu complet restaure la qualité du relief, les labels et les repères. Cette stratégie privilégie la continuité visuelle ; les performances finales restent à mesurer sur les navigateurs et matériels réels.
+
+
+## Navigation cartographique : rendu cohérent dans un seul viewport
+
+Le rendu à double canvas et le fond mondial de secours ont été retirés : ils créaient une seconde échelle visible et une incohérence de projection pendant les gestes. Le moteur utilise un seul canvas, dont la géométrie est recalculée à partir du viewport réel à chaque frame d'interaction (les événements sont regroupés par `requestAnimationFrame`). Pendant le geste, le rendu simplifié désactive le raster ETOPO, les hachures, les repères d'altitude et les labels ; le fond océanique et les géométries terrestres restent projetés avec le même centre et le même zoom que le viewport. À la fin du geste, un rendu complet restaure relief, hydrographie et labels.
+
+Cette stratégie privilégie la cohérence géographique : aucune carte mondiale étirée n'est affichée sous une vue régionale et le canvas ne sort pas de son viewport. Elle peut encore demander une optimisation CPU si le jeu est utilisé sur une machine modeste ; les performances doivent être mesurées en navigateur réel avant d'introduire un cache de tuiles ou un moteur WebGL.
+
+## Carte mondiale unique et optimisation du rendu régional — 20 novembre 2026
+
+- Le viewport équirectangulaire est maintenant borné aux limites géographiques du monde : à 100 %, le centre est fixé sur le méridien central ; en zoom, le joueur peut se déplacer dans les limites visibles du planisphère sans faire apparaître une seconde copie horizontale.
+- Le centre vertical est lui aussi borné à la latitude réellement visible, ce qui évite de faire défiler le planisphère au-delà des pôles.
+- Le raster ETOPO échantillonne périodiquement les longitudes pour gérer la grille mondiale ; le bornage du viewport empêche cette périodicité de produire des répétitions visuelles en dehors du monde vectoriel et de ses labels.
+- Le moteur calcule et mémorise les emprises géographiques des entités GeoJSON, puis écarte celles qui sont hors écran avant leur projection. Ce filtrage s'applique aux terres, glaciers, lacs, rivières, repères d'altitude et labels. À l'échelle mondiale, les collections restent intactes ; en zoom régional, seules les entités susceptibles d'être visibles sont dessinées.
+- Les tests couvrent les limites du viewport et le filtrage spatial. Les gains réels de FPS et la consommation mémoire doivent encore être vérifiés dans le navigateur ; cette étape prépare une future mise en cache de tuiles cohérentes, sans afficher de carte de secours à une autre échelle.
+
+
+## Index spatial par secteurs — 20 novembre 2026
+
+Les collections GeoJSON sont maintenant indexées à la demande dans une grille géographique de secteurs de 10° × 10°. L'index conserve les indices des entités dans chaque cellule et les géométries trop étendues dans une liste globale afin de ne jamais les perdre. Pendant le panoramique et le zoom, le moteur interroge les cellules qui recouvrent le viewport puis restitue les entités dans leur ordre d'origine. L'index est conservé par collection avec une WeakMap : il n'est pas reconstruit à chaque image et peut être libéré lorsque la collection n'est plus référencée. Les géométries originales ne sont ni découpées ni altérées ; ce mécanisme est un index spatial vectoriel, pas encore un cache de tuiles raster ni un rendu WebGL. Les tests couvrent les secteurs régionaux, les grandes géométries et le maintien de l'ordre des données.
+
+
+## Réutilisation des sélections spatiales — 20 novembre 2026
+
+Le résultat des requêtes de secteurs est maintenant mis en cache par fenêtre de cellules. Tant que le viewport se déplace à l'intérieur des mêmes secteurs, le moteur réutilise le même sous-ensemble GeoJSON au lieu de recréer et retrier son tableau à chaque frame. Le cache applique une politique LRU simple et reste plafonné à 48 fenêtres par index afin de maîtriser la mémoire. Les données et géométries d'origine restent inchangées. Cette optimisation réduit les allocations et le travail de sélection ; elle ne remplace pas encore un cache de pixels/tuiles et ne doit pas être présentée comme une mesure de FPS garantie.
+
+
+## Placement des labels et détection de collision — 20 novembre 2026
+
+Le classement des labels géographiques par priorité est maintenant calculé une seule fois par collection et conservé dans une WeakMap. Le seuil de zoom reste évalué à chaque rendu, ce qui préserve l'apparition progressive des villes et des noms régionaux. La détection de collision utilise une grille d'écran de 64 px : chaque libellé ne compare ses limites qu'aux libellés présents dans les mêmes cellules, au lieu de parcourir toute la liste déjà placée. L'ordre de priorité et les règles d'affichage restent inchangés. Le cache est attaché à la collection et peut être libéré avec elle. Cette optimisation vise surtout les catalogues denses de noms ; les performances réelles doivent être mesurées dans le navigateur.
+
+
+## Cache des chemins projetés et du raster ETOPO — 20 novembre 2026
+
+Les géométries polygonales disposent maintenant d'un cache de chemins `Path2D` attaché aux objets GeoJSON. La clé inclut projection, dimensions et viewport (zoom/centre), afin de ne jamais réutiliser un chemin décalé après un déplacement ou un changement d'échelle. Chaque feature conserve au maximum trois variantes récentes ; les références faibles permettent au ramasse-miettes de libérer les objets lorsque les collections disparaissent. Les navigateurs sans `Path2D` conservent le chemin de rendu classique.
+
+Le raster ETOPO conserve également jusqu'à six surfaces calculées par grille et par viewport exact. Une surface déjà calculée est redessinée directement au lieu de recalculer les échantillons d'altitude et le hillshade. Le cache est attaché à la grille, borné et ne modifie aucune donnée géographique. Les nouvelles positions pendant un panoramique produisent de nouvelles clés ; ce mécanisme accélère surtout les rendus répétés d'un même cadrage. Il ne constitue pas encore un cache de tuiles géographiques et aucun gain de FPS n'est annoncé sans mesure navigateur.
+
+
+## Cache des tracés hydrographiques — 20 novembre 2026
+
+Les cours d'eau (LineString et MultiLineString) utilisent désormais le même cache de chemins projetés `Path2D` que les polygones. Les segments discontinus restent séparés dans le même chemin ; les navigateurs sans `Path2D` gardent le tracé Canvas classique. La clé conserve les dimensions, la projection et le viewport, et chaque feature reste limitée à trois variantes récentes. Un test confirme que les chemins des rivières ne sont pas reconstruits lors d'un second rendu identique. Cela évite la reprojection répétée des coordonnées hydrographiques sur un cadrage réutilisé, sans constituer encore un cache de tuiles ni une mesure de FPS.
+
+
+## Compatibilité du comptage hydrographique — 20 novembre 2026
+
+Le cache `Path2D` regroupe les sous-lignes d'un `MultiLineString` dans un seul chemin graphique pour réduire les appels Canvas. Le compteur de rendu conserve toutefois le nombre de lignes individuelles, comme avant l'optimisation, afin que les statistiques de couches restent comparables. Un test couvre explicitement les entités hydrographiques multi-segments.
+
+
+## Préchargement des secteurs voisins — étape 1/5
+
+Après un rendu complet, le navigateur prépare au repos les sélections spatiales des secteurs adjacents au cadrage. Le travail est reporté via `requestIdleCallback` (ou un court délai de repli) et annulé/remplacé si un nouveau cadrage arrive. Il ne télécharge aucune donnée supplémentaire, ne duplique pas la carte et ne modifie pas les collections GeoJSON : il préchauffe uniquement le cache borné de requêtes spatiales. Au zoom mondial, le préchargement est désactivé car la vue couvre déjà l'ensemble du monde.
+
+
+## Cache spatial borné et observable — étape 2/5
+
+Chaque index spatial conserve au maximum 48 sélections de fenêtres géographiques (LRU). Deux fonctions de diagnostic permettent de lire le nombre d'entités, de cellules et de requêtes conservées, ou de vider uniquement le cache des sélections d'une collection. Les géométries sources et l'index de cellules ne sont pas détruits lors de cette opération. Le préchargement voisin utilise exactement le même budget, ce qui empêche son accumulation sans limite.
+
+
+## Chargement régional échelonné par zoom — étape 3/5
+
+Les couches régionales ne partent plus toutes ensemble au même seuil :
+- à partir de 3× : les noms de villes et repères régionaux, peu volumineux et immédiatement utiles à l'orientation ;
+- à partir de 4× : les contours terrestres régionaux ;
+- à partir de 5× : les lacs et les cours d'eau détaillés.
+
+Chaque couche est activée dès sa propre arrivée. Les données mondiales restent le fond de secours tant que les ressources régionales ne sont pas disponibles. Les tentatives sont mémorisées pour ne pas relancer les mêmes téléchargements à chaque mouvement.
+
+
+## Budgets mémoire des caches — étape 4/5
+
+Les caches ont maintenant des plafonds documentés et vérifiables :
+- requêtes spatiales : 48 fenêtres LRU par collection ;
+- préchargement : un seul anneau de voisins (au plus 8 fenêtres par collection) ;
+- chemins projetés : 3 variantes récentes par entité géographique ;
+- surfaces ETOPO : 6 variantes par grille de terrain ;
+- index et chemins attachés aux collections/features via `WeakMap`, afin qu'ils puissent être récupérés par le ramasse-miettes lorsque les données ne sont plus référencées.
+
+Le préchargement ne s'exécute qu'après le rendu complet et est remplacé lorsqu'un nouveau cadrage est demandé. Aucun cache ne conserve une seconde copie du monde.
+
+
+## Validation des limites de navigation — étape 5/5
+
+Les tests de régression couvrent maintenant aussi les limites du planisphère : au zoom mondial, le centre reste au milieu du monde ; au zoom maximal, le centre est contraint pour empêcher l'apparition de copies supplémentaires au-delà des bords. Les tests vérifient en parallèle le préchargement voisin sans mutation des GeoJSON et le plafonnement/vidage du cache spatial. La validation CI reste nécessaire pour confirmer l'ensemble des suites.
+
+
+## Navigation cyclique est-ouest — étape 1 à 5
+
+La longitude de la caméra est désormais cyclique pendant le déplacement : elle peut dépasser +180° ou -180° sans être rabattue brutalement. La projection choisit pour chaque coordonnée sa copie longitudinale la plus proche du centre de caméra. Les coordonnées GeoJSON originales ne sont jamais dupliquées ni modifiées.
+
+L'index spatial découpe les fenêtres qui traversent l'antiméridien en deux plages de longitude (est et ouest), puis fusionne les identifiants avec un `Set`. Alaska et Russie orientale peuvent donc être sélectionnés ensemble autour de 180°, sans doubler les entités ni les collections. Le cache spatial reste plafonné à 48 fenêtres.
+
+Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un seul planisphère. Au zoom régional, elle peut poursuivre indéfiniment vers l'est ou l'ouest. Les latitudes restent contraintes pour éviter de sortir des limites utiles de la projection.
+
+
+## Budget mémoire global des chemins projetés
+
+Le cache Path2D est limité à trois variantes par entité, à 512 chemins au total et à 250 000 sommets projetés cumulés, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.

@@ -1,3 +1,36 @@
+## 20 novembre 2026 — niveaux de détail géographiques progressifs
+
+- Ajout de `src/world/map-lod.js` : sélection du fond mondial 1:110m ou du fond régional 1:10m à partir du zoom 4×.
+- Le jeu régional est chargé à la demande, une seule fois, et le fond mondial reste le repli si l'asset manque ou ne peut être lu.
+- Ajout de `scripts/prepare-natural-earth-lod.sh` pour télécharger et valider directement le GeoJSON Natural Earth 1:10m « Land » (curl + Python 3, sans GDAL).
+- Ajout de tests sur le seuil, le remplacement du fond, le repli et les erreurs de chargement.
+- Limite actuelle : l'asset 1:10m n'est pas encore versionné ; les lacs, rivières, glaciers et labels restent en 1:110m. Le rendu régional ne sera actif qu'après préparation de `data/ne_10m_land.geojson`.
+
+## 20 novembre 2026 — relief allégé et zoom étendu
+
+- Réduction du raster de relief normal de 768 × 384 à 512 × 256 pixels.
+- Ombrage des pentes et teintes des classes de relief adoucis pour une carte moins chargée.
+- Zoom maximal porté de 8× à 24× ; projections équirectangulaire et Mercator alignées sur cette limite.
+- Tests adaptés à la nouvelle résolution, à la plage de contraste et au zoom 24×.
+- Limite connue : les données vectorielles mondiales Natural Earth 1:110m restent simplifiées au zoom élevé ; les niveaux de détail régionaux sont toujours à intégrer.
+
+## 20 novembre 2026 — zoom différé et invalidation du rendu
+
+- Zoom molette : prévisualisation CSS ancrée au point visé, puis rendu complet unique après 130 ms sans nouvel événement.
+- Les boutons +/− conservent leur rendu immédiat.
+- Ajout d'une signature de vue pour ignorer les appels de rendu quand taille, année et viewport sont inchangés ; évite le redessin à chaque tick de l'horloge.
+- Préparation du canvas à la composition via `will-change: transform`.
+- Limite : la prévisualisation du zoom est temporairement moins nette ; aucune mesure FPS navigateur n'est disponible à ce stade.
+
+## 20 novembre 2026 — fluidité du zoom et du panoramique
+
+- `src/main.js` : regroupement des rendus cartographiques via `requestAnimationFrame`, afin de ne pas recalculer plusieurs images lors d'une rafale d'événements pointeur ou molette.
+- Pendant le glissement, le canvas déjà rendu est translaté via `translate3d` sans recalcul du raster ETOPO ni des couches vectorielles ; le rendu complet est relancé au relâchement.
+- `src/world/terrain.js` : résolution normale plafonnée à 768 × 384 ; rendu sur une surface hors écran quand disponible.
+- `src/world/map-renderer.js` : correction du passage des dimensions logiques CSS au raster, pour éviter le mélange entre pixels physiques haute densité et coordonnées logiques.
+- Tests ajoutés sur les plafonds de résolution interactifs et normaux.
+- Limites : aucune mesure FPS réelle ni inspection visuelle navigateur disponible à cette étape ; les couches vectorielles sont encore recalculées à chaque image.
+
 ## 20 novembre 2026 — premières classes visuelles du relief terrestre
 
 - `src/world/terrain.js`: ajout d'une classification heuristique locale distinguant montagnes, plateaux, vallées, collines, plaines et basses terres à partir de l'altitude et des quatre voisins déjà lus pour le hillshade.
