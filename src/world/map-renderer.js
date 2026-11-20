@@ -521,19 +521,32 @@ export function territoryColor(feature) {
   const properties = feature?.properties ?? {};
   const name = territoryName(properties) || "terra";
   const identity = String(properties.ADM0_A3 ?? properties.SOV_A3 ?? properties.ISO_A3 ?? name).toUpperCase();
-  // Bleu roi pour la France métropolitaine ; palette claire et contrastée pour les autres pays.
-  if (["FRA", "FRANCE", "FR"].includes(identity) || /^(france|french republic)$/i.test(name)) return "#3159A6";
-  const palette = [
-    "#B66F62", "#668D78", "#B18A4F", "#718BAF", "#9A769F",
-    "#B47E91", "#6D9B9C", "#A28A62", "#7E86A8", "#A27B5D",
-    "#78936B", "#B07862", "#64899B", "#A18A9A", "#9A9A61",
-    "#8B765E", "#6F9A88", "#A77C75", "#7885A0", "#B08B69"
-  ];
+  const normalized = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+  // Traditional historical heraldic associations; deliberately muted for atlas readability.
+  if (identity === "FRA" || /^(france|french republic)$/.test(normalized)) return "#3159A6"; // France: bleu roi
+  if (/^(england|english territory|kingdom of england|great britain)$/.test(normalized)) return "#B83A43"; // England: red
+  if (/^(castile|aragon|granada|spain|crown of castile)$/.test(normalized)) return "#D9A52B"; // Iberian crowns: gold / ochre
+  if (/^(portugal|kingdom of portugal)$/.test(normalized)) return "#3D805B";
+  if (/^(scotland|kingdom of scotland)$/.test(normalized)) return "#456C9C";
+  if (/^(ireland|lordship of ireland)$/.test(normalized)) return "#47815E";
+  if (/ottoman empire|ottoman/.test(normalized)) return "#A63C42";
+  if (/holy roman empire|germany|german/.test(normalized)) return "#A98A42";
+  if (/venice|venetian/.test(normalized)) return "#B94D43";
+  if (/poland|lithuania/.test(normalized)) return "#A84A52";
+  if (/byzantine|constantinople/.test(normalized)) return "#80649B";
+  if (/mali|songhai/.test(normalized)) return "#A9823D";
+  if (/morocco|marinid/.test(normalized)) return "#477B55";
+  if (/hungary/.test(normalized)) return "#A64A49";
+  if (/sweden|kalmar/.test(normalized)) return "#4F79A8";
+  if (/denmark/.test(normalized)) return "#B94B4B";
+  if (/novgorod|russia|rus'/.test(normalized)) return "#9B4650";
+  if (/ming|china|qing/.test(normalized)) return "#B64D42";
+  if (/japan|shogun/.test(normalized)) return "#B94B55";
+  const palette = ["#B66F62","#668D78","#B18A4F","#718BAF","#9A769F","#B47E91","#6D9B9C","#A28A62","#7E86A8","#A27B5D","#78936B","#B07862","#64899B","#A18A9A","#9A9A61","#8B765E","#6F9A88","#A77C75","#7885A0","#B08B69"];
   let hash = 2166136261;
   for (let i = 0; i < identity.length; i++) hash = Math.imul(hash ^ identity.charCodeAt(i), 16777619);
   return palette[(hash >>> 0) % palette.length];
 }
-
 function drawTerritoryLayer(context, collection, width, height, projection) {
   if (!collection?.features) return 0;
   let drawn = 0;
@@ -693,7 +706,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const lakeCount = drawPolygonLayer(context, visibleLakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, visibleRivers, width, height, projection, theme.colors.accent, 0.7);
   const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, visibleElevationPoints, width, height, projection, theme);
-  const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#d06f61", options.interactive ? 0.72 : 0.95, [], true);
+  const politicalBoundaryCount = drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
+    + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true);
   const administrativeBoundaryCount = drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4]);
   const labelHits = drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 

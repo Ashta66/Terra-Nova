@@ -26,6 +26,15 @@
           <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2100</span></div>
           <input id="year-scrubber" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Choisir l'année de simulation">
           <div class="timeline-ends"><span>1444</span><span>Ère future · 2100</span></div>
+          <div class="era-milestones" role="group" aria-label="Repères historiques">
+            <button type="button" data-year="1444" class="is-active">1444<small>Départ</small></button>
+            <button type="button" data-year="1492">1492<small>Explorations</small></button>
+            <button type="button" data-year="1648">1648<small>Westphalie</small></button>
+            <button type="button" data-year="1789">1789<small>Révolutions</small></button>
+            <button type="button" data-year="1914">1914<small>XXe siècle</small></button>
+            <button type="button" data-year="2026">2026<small>Présent</small></button>
+          </div>
+          <div class="era-banner"><span class="era-pulse"></span><span id="era-name">Âge des royaumes</span><span class="era-live">ÈRE EN COURS</span></div>
         </div>
         <div class="time-controls">
           <button id="toggle-clock" class="button button-primary clock-play"><span class="play-symbol">▶</span><span id="toggle-clock-label">Lancer</span></button>

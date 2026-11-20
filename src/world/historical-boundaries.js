@@ -33,11 +33,25 @@ export function selectHistoricalSnapshot(year, years) {
   );
 }
 
+
+export function isNonStateHistoricalRegion(feature) {
+  const properties = feature?.properties ?? {};
+  const name = ["NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]
+    .map(key => properties[key]).find(value => typeof value === "string" && value.trim()) ?? "";
+  return /(?:hunter[- ]gatherers?|foragers?|tribes?|tribal peoples?|cultures?|peoples?|nomads?|pastoralists?|farmers?|aboriginal|indigenous|inhabitants|ethnic groups?)/i.test(name);
+}
+
+export function selectHistoricalPoliticalTerritories(collection) {
+  if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) return collection;
+  return { ...collection, features: collection.features.filter(feature => !isNonStateHistoricalRegion(feature)) };
+}
+
 export function historicalPolygonsToBoundaries(collection) {
   if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) {
     throw new TypeError("Une FeatureCollection historique est requise.");
   }
-  const polygonFeatures = collection.features.map(feature => {
+  const politicalCollection = selectHistoricalPoliticalTerritories(collection);
+  const polygonFeatures = politicalCollection.features.map(feature => {
     const geometry = feature?.geometry;
     const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
       : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
@@ -122,7 +136,7 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
   }
   return {
     collection: await historicalLayerCache.get(snapshot.year),
-    territories: await historicalTerritoryCache.get(snapshot.year),
+    territories: selectHistoricalPoliticalTerritories(await historicalTerritoryCache.get(snapshot.year)),
     sourceYear: snapshot.year,
     exact: snapshot.year === numericYear,
     source: "Historical Basemaps · GPL-3.0"

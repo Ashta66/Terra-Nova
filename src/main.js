@@ -284,7 +284,12 @@ function render() {
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
-  $("clock-year").textContent = String(Number(state.clock.date.slice(0, 4)));
+  const year = Number(state.clock.date.slice(0, 4));
+  $("clock-year").textContent = String(year);
+  const era = year < 1492 ? "Âge des royaumes" : year < 1648 ? "Explorations & empires" : year < 1789 ? "Équilibre des puissances" : year < 1914 ? "Révolutions & nations" : year < 2026 ? "Ère contemporaine" : "Ère future";
+  $("era-name").textContent = era;
+  $("map-era").textContent = era;
+  document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
   document.querySelectorAll("[data-speed]").forEach(button => {
     button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
@@ -328,6 +333,10 @@ function moveClockToYear(year) {
 $("advance-year").addEventListener("click", () => {
   moveClockToYear(Math.min(2100, Number(state.clock.date.slice(0, 4)) + 1));
 });
+document.querySelectorAll("[data-year]").forEach(button => button.addEventListener("click", () => {
+  const year = Number(button.dataset.year);
+  if (Number.isFinite(year)) moveClockToYear(Math.max(1444, Math.min(2100, year)));
+}));
 $("year-scrubber").addEventListener("change", event => {
   const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
   moveClockToYear(year);

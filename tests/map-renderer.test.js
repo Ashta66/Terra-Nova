@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap, buildTerritoryLabels, territoryColor } from "../src/world/map-renderer.js";
+import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
 
@@ -652,4 +653,23 @@ test("les autres pays reçoivent une couleur stable distincte du bleu roi franç
   const feature = { type: "Feature", properties: { ADMIN: "Spain", ADM0_A3: "ESP" } };
   assert.equal(territoryColor(feature), territoryColor(feature));
   assert.notEqual(territoryColor(feature), "#3159A6");
+});
+
+
+test("les sociétés sans État ne sont pas colorées comme des pays souverains", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { NAME: "France" }, geometry: { type: "Polygon", coordinates: [] } },
+    { type: "Feature", properties: { NAME: "Amazon hunter-gatherers" }, geometry: { type: "Polygon", coordinates: [] } },
+    { type: "Feature", properties: { NAME: "North American Pacific foraging, hunting and fishing peoples" }, geometry: { type: "Polygon", coordinates: [] } },
+    { type: "Feature", properties: { NAME: "Castile" }, geometry: { type: "Polygon", coordinates: [] } }
+  ] };
+  assert.equal(isNonStateHistoricalRegion(collection.features[1]), true);
+  assert.equal(isNonStateHistoricalRegion(collection.features[2]), true);
+  assert.deepEqual(selectHistoricalPoliticalTerritories(collection).features.map(feature => feature.properties.NAME), ["France", "Castile"]);
+});
+
+test("les couleurs héraldiques historiques sont reconnaissables", () => {
+  assert.equal(territoryColor({ properties: { NAME: "England" } }), "#B83A43");
+  assert.equal(territoryColor({ properties: { NAME: "Castile" } }), "#D9A52B");
+  assert.equal(territoryColor({ properties: { NAME: "Portugal" } }), "#3D805B");
 });
