@@ -300,7 +300,9 @@ export function createTerrainTileStore(grid, options = {}) {
     // Les tuiles du viewport courant et celles déjà visibles restent protégées
     // pendant que les zones prédictives sont matérialisées.
     const protectedIds = new Set(preloadOptions.protectedIds ?? []);
-    for (const item of current) protectedIds.add(tileId(item.x, item.y));
+    // Le cache garde une borne stricte : protège le centre et les tuiles
+    // explicitement conservées, puis laisse le LRU arbitrer les périphériques.
+    if (current[0]) protectedIds.add(tileId(current[0].x, current[0].y));
     for (const id of requestedIds) {
       const [, x, y] = id.split("/").map(Number);
       getTile(x, y, protectedIds);
