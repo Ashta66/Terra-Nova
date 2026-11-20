@@ -193,12 +193,12 @@ export function createGeographicWebGLRenderer(gl) {
       if (seenKeys.has(key)) throw new Error("Chaque couche WebGL doit avoir une clé unique.");
       seenKeys.add(key);
       const features = layer.features ?? [];
-      const type = layer.type === "lines" ? "lines" : "polygons";
+      const type = layer.type === "lines" || layer.type === "boundaries" ? layer.type : "polygons";
       const signature = type + ":" + features.map(featureId).join(",");
       let cached = layerCaches.get(key);
       const cacheHit = Boolean(cached && cached.signature === signature);
       if (!cacheHit) {
-        const next = type === "lines" ? buildLineBatch(features, gl) : buildBatches(features);
+        const next = type === "lines" ? buildLineBatch(features, gl) : type === "boundaries" ? buildBoundaryLineBatch(features, gl) : buildBatches(features);
         releaseBatches(cached?.batches);
         if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
         cached = { signature, type, ...next };
@@ -262,6 +262,18 @@ export function createGeographicWebGLRenderer(gl) {
   return {
     canvas: gl.canvas ?? null,
     supports(feature) { return Boolean(meshCache.get(feature)?.supported); },
+    supportsBoundary(feature) {
+      const geometry = feature?.geometry;
+      const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
+        geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
+      if (!polygons?.length) return false;
+      for (const polygon of polygons) for (const ring of polygon ?? []) {
+        const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
+        if (!mesh.supported || Array.from(mesh.positions).some((value, index) =>
+          index % 2 === 0 && (value < -180 || value > 180))) return false;
+      }
+      return true;
+    },
     supportsLine(feature) {
       const mesh = buildGeographicLineMesh(feature);
       return Boolean(mesh.supported && !Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180)));
