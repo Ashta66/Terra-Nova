@@ -235,7 +235,7 @@ export function createGeographicWebGLRenderer(gl) {
     gl.uniform1f(zoomLocation, zoom);
     for (const layer of prepared) {
       gl.uniform4fv(colorLocation, layer.color);
-      if (layer.type === "lines") {
+      if (layer.type === "lines" || layer.type === "boundaries") {
         if (!layer.cached.lineBuffer || !layer.cached.vertexCount) continue;
         gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
         gl.enableVertexAttribArray(positionLocation);
