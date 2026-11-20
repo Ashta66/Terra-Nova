@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -572,4 +572,19 @@ test("le moteur conserve Canvas 2D comme rendu de repli sans surface WebGL", () 
     terrainWebGLGrid: { width: 2, height: 2, values: new Int16Array(4) }
   });
   assert.equal(result.terrainRenderer, "canvas2d");
+});
+
+
+test("le shader WebGL reprend l'éclairage directionnel et les dimensions réelles du MNT", () => {
+  const shader = getTerrainWebGLShaders().fragment;
+  assert.match(shader, /360\.0 \/ u_gridSize\.x/);
+  assert.match(shader, /180\.0 \/ u_gridSize\.y/);
+  assert.match(shader, /radians\(315\.0\)/);
+  assert.match(shader, /radians\(45\.0\)/);
+  assert.match(shader, /0\.65/);
+});
+
+test("les statistiques GPU restent indisponibles sans renderer initialisé", () => {
+  assert.equal(getTerrainWebGLStats(null), null);
+  assert.equal(getTerrainWebGLStats({ width: 2, height: 2, values: new Int16Array(4) }), null);
 });
