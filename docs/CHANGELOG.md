@@ -1,3 +1,11 @@
+## 20 novembre 2026 — zoom différé et invalidation du rendu
+
+- Zoom molette : prévisualisation CSS ancrée au point visé, puis rendu complet unique après 130 ms sans nouvel événement.
+- Les boutons +/− conservent leur rendu immédiat.
+- Ajout d'une signature de vue pour ignorer les appels de rendu quand taille, année et viewport sont inchangés ; évite le redessin à chaque tick de l'horloge.
+- Préparation du canvas à la composition via `will-change: transform`.
+- Limite : la prévisualisation du zoom est temporairement moins nette ; aucune mesure FPS navigateur n'est disponible à ce stade.
+
 ## 20 novembre 2026 — fluidité du zoom et du panoramique
 
 - `src/main.js` : regroupement des rendus cartographiques via `requestAnimationFrame`, afin de ne pas recalculer plusieurs images lors d'une rafale d'événements pointeur ou molette.
