@@ -156,3 +156,8 @@ Le calcul du hillshade amplifie désormais les pentes par défaut d’un facteur
 ## Palette d’altitude : ligne de neige à 2 000 m (étape 2)
 
 La rampe terrestre a été remplacée par une palette sans neige jusqu’à 1 999 m, avec un seuil net à 2 000 m puis une neige presque blanche à 4 000 m. Cette règle est identique à toutes les latitudes ; la palette océanique reste inchangée.
+
+
+## Rendu du relief en trois modes (étape 3)
+
+Le raster expose désormais les modes `color`, `tint` et `shade`. Les caches par tuiles et par surface incluent le mode et le facteur d’exagération. Le calcul pré-calculé par Worker est indexé par facteur d’exagération. Le chemin de repli limite le raster à 1 024 × 512 pixels, ou à la taille de la grille lorsqu’elle est plus petite.

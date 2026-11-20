@@ -775,3 +775,21 @@ test("le rendu expose des mesures de temps par couche et un temps total", () => 
   assert.ok(Object.hasOwn(result.renderTimings, "terres-et-cotes"));
   assert.ok(Object.hasOwn(result.renderTimings, "etiquettes"));
 });
+
+
+test("les modes tint et shade séparent la couleur d’altitude de l’ombrage", () => {
+  const grid = { width: 4, height: 2, values: new Int16Array([100, 500, 1200, 2500, 100, 500, 1200, 2500]) };
+  const makeContext = () => {
+    let image;
+    return { get image() { return image; }, context: {
+      createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
+      putImageData() {}
+    }};
+  };
+  const tint = makeContext();
+  const shade = makeContext();
+  assert.equal(drawTerrainRaster(tint.context, 4, 2, grid, {}, 1, false, null, false, false, "tint"), true);
+  assert.equal(drawTerrainRaster(shade.context, 4, 2, grid, {}, 1, false, null, false, false, "shade"), true);
+  assert.ok(tint.image.data[0] !== shade.image.data[0] || tint.image.data[1] !== shade.image.data[1]);
+  assert.equal(shade.image.data[3], 255);
+});
