@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor } from "../src/world/map-renderer.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
 
