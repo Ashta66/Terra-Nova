@@ -22,7 +22,8 @@ let regionalLandLoadAttempted = false;
 let regionalHydroFeatures = null;
 let regionalRiverFeatures = null;
 let regionalLabelFeatures = null;
-let regionalLayersLoadAttempted = false;
+let regionalHydroLoadAttempted = false;
+let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
 let mapRenderFrame = null;
 let mapPrefetchHandle = null;
@@ -118,21 +119,24 @@ function renderMapFrame() {
       }
     });
   }
-  if (mapViewport.zoom >= 4 && !regionalLayersLoadAttempted) {
-    regionalLayersLoadAttempted = true;
-    // Chaque couche régionale est activée dès sa propre arrivée : une rivière lente
-    // ne bloque plus l'affichage des lacs ou des noms déjà disponibles.
-    const activateRegionalLayer = (loader, assign) => loader.then(features => {
-      if (!features) return;
-      assign(features);
-      lastRenderedMapSignature = null;
-      renderMap();
-    });
+  // Les couches sont demandées selon leur utilité visuelle : les noms de villes
+  // arrivent avant les détails physiques, les réseaux hydrographiques plus tard.
+  const activateRegionalLayer = (loader, assign, label) => loader.then(features => {
+    if (!features) return;
+    assign(features);
+    lastRenderedMapSignature = null;
+    renderMap();
+  }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
+  if (mapViewport.zoom >= 3 && !regionalLabelLoadAttempted) {
+    regionalLabelLoadAttempted = true;
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
+  }
+  if (mapViewport.zoom >= 5 && !regionalHydroLoadAttempted) {
+    regionalHydroLoadAttempted = true;
     Promise.all([
-      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH), features => { regionalHydroFeatures = features; }),
-      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }),
-      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; })
-    ]).catch(error => console.warn("Chargement progressif des couches régionales interrompu :", error));
+      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LAKES_DATA_PATH), features => { regionalHydroFeatures = features; }, "lacs"),
+      activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = features; }, "rivières")
+    ]);
   }
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
@@ -188,7 +192,8 @@ async function installFullMapPack() {
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
-    regionalLayersLoadAttempted = false;
+    regionalHydroLoadAttempted = false;
+    regionalLabelLoadAttempted = false;
     lastRenderedMapSignature = null;
     button.textContent = "Pack cartographique installé";
     status.textContent = "Pack complet prêt : 7 ressources de base et 4 couches régionales. Les détails se chargeront à la demande pour préserver la fluidité.";

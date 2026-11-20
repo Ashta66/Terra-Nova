@@ -184,3 +184,13 @@ Après un rendu complet, le navigateur prépare au repos les sélections spatial
 ## Cache spatial borné et observable — étape 2/5
 
 Chaque index spatial conserve au maximum 48 sélections de fenêtres géographiques (LRU). Deux fonctions de diagnostic permettent de lire le nombre d'entités, de cellules et de requêtes conservées, ou de vider uniquement le cache des sélections d'une collection. Les géométries sources et l'index de cellules ne sont pas détruits lors de cette opération. Le préchargement voisin utilise exactement le même budget, ce qui empêche son accumulation sans limite.
+
+
+## Chargement régional échelonné par zoom — étape 3/5
+
+Les couches régionales ne partent plus toutes ensemble au même seuil :
+- à partir de 3× : les noms de villes et repères régionaux, peu volumineux et immédiatement utiles à l'orientation ;
+- à partir de 4× : les contours terrestres régionaux ;
+- à partir de 5× : les lacs et les cours d'eau détaillés.
+
+Chaque couche est activée dès sa propre arrivée. Les données mondiales restent le fond de secours tant que les ressources régionales ne sont pas disponibles. Les tentatives sont mémorisées pour ne pas relancer les mêmes téléchargements à chaque mouvement.
