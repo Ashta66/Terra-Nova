@@ -149,6 +149,9 @@ function renderMap() {
       canvas.dataset.terrainWebglTileReadyChildren = String(result.terrainWebGLTileStats.readyChildTiles);
       canvas.dataset.terrainWebglTilePendingChildren = String(result.terrainWebGLTileStats.pendingChildTiles);
       canvas.dataset.terrainWebglTileFallback = result.terrainWebGLTileStats.fallbackReason ?? "";
+      canvas.dataset.terrainWebglTileCapacity = String(result.terrainWebGLTileStats.atlasCapacity);
+      canvas.dataset.terrainWebglTileAtlasBytes = String(result.terrainWebGLTileStats.atlasMemoryBytes);
+      canvas.dataset.terrainWebglTileCapacityLimited = String(result.terrainWebGLTileStats.capacityLimited);
       canvas.dataset.terrainWebglTileHits = String(result.terrainWebGLTileStats.hits);
       canvas.dataset.terrainWebglTileMisses = String(result.terrainWebGLTileStats.misses);
       canvas.dataset.terrainWebglTileUploads = String(result.terrainWebGLTileStats.uploads);
@@ -169,6 +172,9 @@ function renderMap() {
       delete canvas.dataset.terrainWebglTilePending;
       delete canvas.dataset.terrainWebglTileLod;
       delete canvas.dataset.terrainWebglTileTransition;
+      delete canvas.dataset.terrainWebglTileCapacity;
+      delete canvas.dataset.terrainWebglTileAtlasBytes;
+      delete canvas.dataset.terrainWebglTileCapacityLimited;
       delete canvas.dataset.terrainWebglTileHits;
       delete canvas.dataset.terrainWebglTileMisses;
       delete canvas.dataset.terrainWebglTileUploads;
