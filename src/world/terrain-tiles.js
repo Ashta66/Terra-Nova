@@ -176,9 +176,42 @@ export function createTerrainTileStore(grid, options = {}) {
     return removed;
   }
 
+  function preloadViewport(viewport = {}, preloadOptions = {}) {
+    const zoom = Math.max(0.01, Number(viewport.zoom) || 1);
+    const centerLongitude = Number(viewport.centerLongitude) || 0;
+    const centerLatitude = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
+    const padding = clamp(Number(preloadOptions.padding ?? 0.5), 0, 2);
+    const longitudeHalfSpan = 180 / zoom * (1 + padding);
+    const latitudeHalfSpan = 90 / zoom * (1 + padding);
+    const firstColumn = Math.floor((centerLongitude - longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
+    const lastColumn = Math.ceil((centerLongitude + longitudeHalfSpan + 180) / 360 * grid.width - 0.5);
+    const firstRow = clamp(Math.floor((90 - Math.min(90, centerLatitude + latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+    const lastRow = clamp(Math.ceil((90 - Math.max(-90, centerLatitude - latitudeHalfSpan)) / 180 * grid.height - 0.5), 0, grid.height - 1);
+    const tileXs = new Set();
+    if (lastColumn - firstColumn + 1 >= grid.width) {
+      for (let x = 0; x < columns; x++) tileXs.add(x);
+    } else {
+      for (let column = firstColumn; column <= lastColumn; column++) {
+        const wrappedColumn = ((column % grid.width) + grid.width) % grid.width;
+        tileXs.add(Math.floor(wrappedColumn / tileSize));
+      }
+    }
+    const firstTileY = Math.floor(firstRow / tileSize);
+    const lastTileY = Math.floor(lastRow / tileSize);
+    const keepIds = [];
+    for (let y = firstTileY; y <= lastTileY; y++) {
+      for (const x of tileXs) {
+        const tile = getTile(x, y);
+        if (tile) keepIds.push(tile.id);
+      }
+    }
+    evictUnused(keepIds);
+    return keepIds;
+  }
+
   return {
     tileSize, columns, rows, width: grid.width, height: grid.height,
-    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused,
+    getTile, getTileAt, sample, sampleBilinear, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport,
     get size() { return cache.size; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
