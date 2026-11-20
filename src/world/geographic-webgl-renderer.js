@@ -95,8 +95,9 @@ export function createGeographicWebGLRenderer(gl) {
 
   function releaseBatches(batches) {
     for (const batch of batches ?? []) {
-      gl.deleteBuffer(batch.vertexBuffer);
-      gl.deleteBuffer(batch.elementBuffer);
+      if (batch.vertexBuffer) gl.deleteBuffer(batch.vertexBuffer);
+      if (batch.elementBuffer) gl.deleteBuffer(batch.elementBuffer);
+      if (batch.lineBuffer) gl.deleteBuffer(batch.lineBuffer);
     }
   }
 
@@ -230,12 +231,19 @@ export function createGeographicWebGLRenderer(gl) {
   return {
     canvas: gl.canvas ?? null,
     supports(feature) { return Boolean(meshCache.get(feature)?.supported); },
+    supportsLine(feature) {
+      const mesh = buildGeographicLineMesh(feature);
+      return Boolean(mesh.supported && !Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180)));
+    },
     render,
     renderLayers,
     dispose() {
       if (disposed) return;
       disposed = true;
-      for (const cached of layerCaches.values()) releaseBatches(cached.batches);
+      for (const cached of layerCaches.values()) {
+        releaseBatches(cached.batches);
+        if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+      }
       layerCaches.clear();
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
