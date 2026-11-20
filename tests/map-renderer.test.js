@@ -605,7 +605,7 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [6, 5]] } }
   ] };
   const result = renderWorldMap(canvas, land, {
-    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2.5 },
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 3.5 },
     politicalBoundaries, administrativeBoundaries
   });
   assert.equal(result.politicalBoundaryCount, 2);
