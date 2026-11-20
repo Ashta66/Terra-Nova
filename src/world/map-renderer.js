@@ -1,48 +1,9 @@
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
+import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
-const featureBoundsCache = new WeakMap();
-
-function getFeatureBounds(feature) {
-  if (featureBoundsCache.has(feature)) return featureBoundsCache.get(feature);
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  const visit = value => {
-    if (!Array.isArray(value)) return;
-    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
-      minX = Math.min(minX, value[0]); maxX = Math.max(maxX, value[0]);
-      minY = Math.min(minY, value[1]); maxY = Math.max(maxY, value[1]);
-      return;
-    }
-    for (const child of value) visit(child);
-  };
-  const walkGeometry = geometry => {
-    if (!geometry) return;
-    if (geometry.type === "GeometryCollection") {
-      for (const child of geometry.geometries ?? []) walkGeometry(child);
-    } else visit(geometry.coordinates);
-  };
-  walkGeometry(feature.geometry);
-  const bounds = minX === Infinity ? null : { minX, minY, maxX, maxY };
-  featureBoundsCache.set(feature, bounds);
-  return bounds;
-}
-
-export function selectVisibleFeatures(collection, viewport = {}) {
-  if (!collection?.features || Number(viewport.zoom ?? 1) <= 1.001) return collection;
-  const zoom = Math.max(1, Number(viewport.zoom) || 1);
-  const halfLongitude = 180 / zoom;
-  const halfLatitude = 90 / zoom;
-  const west = Number(viewport.centerLongitude ?? 0) - halfLongitude;
-  const east = Number(viewport.centerLongitude ?? 0) + halfLongitude;
-  const south = Number(viewport.centerLatitude ?? 0) - halfLatitude;
-  const north = Number(viewport.centerLatitude ?? 0) + halfLatitude;
-  const features = collection.features.filter(feature => {
-    const bounds = getFeatureBounds(feature);
-    return !bounds || !(bounds.maxX < west || bounds.minX > east || bounds.maxY < south || bounds.minY > north);
-  });
-  return features.length === collection.features.length ? collection : { ...collection, features };
-}
+export const selectVisibleFeatures = selectGeoSpatialFeatures;
 
 function traceRing(context, ring, width, height, projection) {
   let started = false;

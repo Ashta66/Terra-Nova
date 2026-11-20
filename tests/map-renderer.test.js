@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWorldMap } from "../src/world/map-renderer.js";
+import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation } from "../src/world/terrain.js";
 
 function createCanvas() {
@@ -214,4 +215,26 @@ test("le moteur écarte les entités géographiques hors du viewport régional",
   assert.equal(visible.features.length, 1);
   assert.equal(visible.features[0].properties.name, "visible");
   assert.equal(selectVisibleFeatures(collection, { zoom: 1 }), collection);
+});
+
+
+test("l'index spatial construit des secteurs et retourne seulement les entités visibles", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "paris" }, geometry: { type: "Point", coordinates: [2.35, 48.86] } },
+    { type: "Feature", properties: { id: "tokyo" }, geometry: { type: "Point", coordinates: [139.7, 35.6] } },
+    { type: "Feature", properties: { id: "sydney" }, geometry: { type: "Point", coordinates: [151.2, -33.8] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection, 10);
+  const visible = queryGeoSpatialIndex(index, { zoom: 4, centerLongitude: 0, centerLatitude: 45 });
+  assert.deepEqual(visible.features.map(feature => feature.properties.id), ["paris"]);
+  assert.equal(queryGeoSpatialIndex(index, { zoom: 1 }), collection);
+});
+
+test("l'index spatial conserve les grandes géométries et les géométries sans coordonnées", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "world" }, geometry: { type: "Polygon", coordinates: [[[-179, -80], [179, -80], [179, 80], [-179, 80], [-179, -80]]] } },
+    { type: "Feature", properties: { id: "empty" }, geometry: null }
+  ] };
+  const visible = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), { zoom: 12, centerLongitude: 0, centerLatitude: 0 });
+  assert.deepEqual(visible.features.map(feature => feature.properties.id), ["world", "empty"]);
 });
