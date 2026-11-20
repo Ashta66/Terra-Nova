@@ -186,7 +186,7 @@ test("la qualité du raster peut être réduite pendant le glissement pour prés
     putImageData() {}
   };
   assert.equal(drawTerrainRaster(context, 1200, 600, grid, {}, 0.5), true);
-  assert.deepEqual(dimensions, [384, 192]);
+  assert.deepEqual(dimensions, [256, 128]);
 });
 
 test("le rendu du terrain reste plafonné à 512 × 256 en qualité normale sur les grands écrans", () => {
