@@ -47,7 +47,7 @@ Légende :
 | 2.4 | Biomes : forêts, végétation, déserts, glaces et zones climatiques | À FAIRE |
 | 2.5 | Données régionales plus détaillées et niveaux de zoom/LOD | À FAIRE |
 | 2.6 | Globe manipulable, rotation, clipping géométrique et transition globe → atlas | À FAIRE |
-| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom, panoramique, labels progressifs, survol et clic intégrés ; sélection de territoires et couches à faire |
+| 2.7 | Navigation cartographique : zoom, déplacement, sélection, infobulles et couches activables | EN COURS — zoom et panoramique regroupés par image ; qualité du relief adaptative pendant le glissement ; validation FPS et sélection/couches restantes de territoires et couches à faire |
 | 2.8 | Frontières politiques historiques de 1444 et territoires comme couche séparée | À FAIRE |
 | 2.9 | Performance : chargement progressif, simplification et rendu adapté au zoom | À FAIRE |
 
@@ -174,3 +174,10 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - La classification est un traitement visuel du MNT global, pas une donnée géomorphologique scientifique sourcée.
 - Les classes ne demandent pas de nouveaux échantillonnages : le coût supplémentaire est limité aux calculs locaux et à une légère modulation RGB.
 - Validation visuelle navigateur toujours requise ; les seuils pourront être ajustés après inspection.
+
+
+### Optimisation navigation — 20 novembre 2026
+- Les rafales de `pointermove` et de molette sont coalescées avec `requestAnimationFrame` : au maximum un rendu cartographique est planifié par image.
+- Pendant le déplacement, le relief passe temporairement à une grille de rendu 384 × 192 ; à la fin du geste, une image plus détaillée est demandée (plafond 768 × 384).
+- Correction de l'échelle du raster ETOPO : le moteur transmet désormais les dimensions logiques CSS du canvas et le raster est composé depuis une surface hors écran quand le navigateur le permet, ce qui évite le décalage lié au facteur DPR.
+- Les tests automatisés couvrent les plafonds de qualité adaptative. La mesure réelle des FPS et l'inspection visuelle restent à effectuer dans un navigateur.
