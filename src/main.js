@@ -24,6 +24,7 @@ const dynamicMapLayers = [];
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
+let pendingMapFrame = null;
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 8;
 const $ = (id) => document.getElementById(id);
@@ -49,7 +50,7 @@ function zoomMap(factor, anchorX, anchorY) {
   mapViewport.zoom = newZoom;
   mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, latitudeAtAnchor + ratioY * 180 / newZoom));
-  renderMap();
+  scheduleMapRender();
   updateMapControls();
 }
 
@@ -57,7 +58,7 @@ function resetMapView() {
   mapViewport.zoom = 1;
   mapViewport.centerLongitude = 0;
   mapViewport.centerLatitude = 0;
-  renderMap();
+  scheduleMapRender();
   updateMapControls();
 }
 
@@ -86,6 +87,15 @@ function renderMap() {
   updateMapControls();
 }
 
+
+function scheduleMapRender() {
+  if (pendingMapFrame !== null) return;
+  pendingMapFrame = window.requestAnimationFrame(() => {
+    pendingMapFrame = null;
+    renderMap();
+  });
+}
+
 async function connectTerrainTilePersistence() {
   if (!terrainTileStore || !terrainGrid) return;
   try {
@@ -106,7 +116,7 @@ async function connectTerrainTilePersistence() {
     for (const snapshot of snapshots) {
       if (terrainTileStore.restoreTile(snapshot)) restored++;
     }
-    if (restored) renderMap();
+    if (restored) scheduleMapRender();
     console.info(`Persistance du relief prête : ${restored} tuile(s) restaurée(s).`);
   } catch (error) {
     console.warn("Stockage local du relief indisponible :", error);
@@ -152,7 +162,7 @@ function render() {
   $("run-state").textContent = state.clock.paused ? "EN PAUSE" : "EN COURS";
   $("toggle-clock").textContent = state.clock.paused ? "Lancer" : "Pause";
   $("speed").value = String(state.clock.speed);
-  renderMap();
+  scheduleMapRender();
 }
 
 function stopTimer() {
@@ -235,7 +245,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
-  renderMap();
+  scheduleMapRender();
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
