@@ -133,6 +133,9 @@ function renderMap() {
     if (result.terrainWebGLTileStats) {
       canvas.dataset.terrainWebglTileCount = String(result.terrainWebGLTileStats.tileCount);
       canvas.dataset.terrainWebglTileBytes = String(result.terrainWebGLTileStats.byteLength);
+      canvas.dataset.terrainWebglAtlasWidth = String(result.terrainWebGLTileStats.atlasWidth);
+      canvas.dataset.terrainWebglAtlasHeight = String(result.terrainWebGLTileStats.atlasHeight);
+      canvas.dataset.terrainWebglAtlasCapacity = String(result.terrainWebGLTileStats.capacity);
       canvas.dataset.terrainWebglTileSubmitMs = result.terrainWebGLTileStats.drawSubmitMs.toFixed(3);
       canvas.dataset.terrainWebglTileDrawCalls = String(result.terrainWebGLTileStats.drawCalls);
       canvas.dataset.terrainWebglTileVisible = String(result.terrainWebGLTileStats.visibleTiles);
@@ -149,6 +152,9 @@ function renderMap() {
     } else {
       delete canvas.dataset.terrainWebglTileCount;
       delete canvas.dataset.terrainWebglTileBytes;
+      delete canvas.dataset.terrainWebglAtlasWidth;
+      delete canvas.dataset.terrainWebglAtlasHeight;
+      delete canvas.dataset.terrainWebglAtlasCapacity;
       delete canvas.dataset.terrainWebglTileSubmitMs;
       delete canvas.dataset.terrainWebglTileDrawCalls;
       delete canvas.dataset.terrainWebglTileVisible;
