@@ -1328,6 +1328,11 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   // Un segment (6 sommets) + deux caps circulaires de 12 triangles (72 sommets).
   assert.equal(first.layers.rivers.vertices, 78);
   assert.equal(first.layers.rivers.uploadedBytes, 2496);
+  assert.ok(Number.isFinite(first.cacheBuildMs) && first.cacheBuildMs >= 0);
+  assert.ok(Number.isFinite(first.drawSubmitMs) && first.drawSubmitMs >= 0);
+  assert.ok(Number.isFinite(first.totalMs) && first.totalMs >= first.drawSubmitMs);
+  assert.equal(first.layers.rivers.cacheHit, false);
+  assert.ok(first.layers.rivers.cacheBuildMs >= 0);
   assert.equal(calls.find(call => call[0] === "drawArrays")?.[1], gl.TRIANGLES);
   assert.ok(calls.some(call => call[0] === "uniform1f" && call[1] === 1.25));
   assert.equal(renderer.supportsLine(ordinary), true);
@@ -1337,6 +1342,8 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
   assert.equal(second.cacheHit, true);
   assert.equal(second.bufferUploads, 0);
   assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.cacheBuildMs, 0);
+  assert.equal(second.layers.rivers.cacheBuildMs, 0);
   renderer.dispose();
 });
 
