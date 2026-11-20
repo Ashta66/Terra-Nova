@@ -1,3 +1,12 @@
+## 20 novembre 2026 — architecture cartographique par tuiles et familles de données
+- Ajout d'un planificateur de tuiles équirectangulaires à niveaux de zoom discrets, avec coordonnées stables, marge de préchargement, priorité dans le sens du déplacement et liste des tuiles parentes utilisables en repli.
+- Le planificateur est branché au préchargement inactif existant ; les index GeoJSON et le rendu Canvas/Worker restent le chemin de rendu de référence pendant cette première étape. Les tuiles ne sont pas encore des bitmaps vectoriels indépendants.
+- Introduction d'un cache LRU de tuiles pondéré en octets, plafonné en nombre d'entrées et en mémoire, ainsi que d'un résolveur de tuiles parentes. Le raccordement du stockage persistant et du rendu réel par tuiles reste une étape suivante.
+- Séparation du protocole Worker en trois familles indépendantes : physique (terres, hydrographie, relief), politique/historique (territoires, frontières, labels) et dynamique (géographie modifiée par les événements). Les objets GeoJSON restent partagés par référence.
+- La composition visuelle est désormais coalescée par un ordonnanceur dédié à `requestAnimationFrame`; les calculs de rendu demeurent déportés dans le Worker lorsqu'il est disponible.
+- Tests dédiés aux niveaux de tuiles, à l'antiméridien, aux parents de repli, aux familles de couches, à l'ordonnanceur et au budget LRU.
+- Limite explicitement conservée : ce jalon prépare la pyramide et les frontières d'architecture ; il ne prétend pas encore fournir un moteur WebGL ni des tuiles raster/vectorielles autonomes. Validation navigateur et mesures FPS/mémoire à effectuer après le raccordement du rendu par tuiles.
+
 ## 20 novembre 2026 — rafraîchissement progressif pendant la navigation
 - Le déplacement du bitmap reste immédiat pendant le glisser et le zoom à la molette.
 - Un rendu intermédiaire du Worker est désormais autorisé au maximum toutes les 120 ms pendant un geste continu ; les mouvements rapprochés sont coalescés par la file existante du Worker.

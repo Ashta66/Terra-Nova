@@ -1,4 +1,7 @@
 import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
+import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
+import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
+import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
@@ -44,11 +47,11 @@ let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
 let lastMapPrefetchViewport = null;
+let lastMapTilePlan = null;
 let lastRenderedMapSignature = null;
 let interactionRenderTimer = null;
 let interactionPreviewTimer = null;
 let interactionRenderAllowed = false;
-let composeFrame = null;
 let lastDragMoved = false;
 let mapInteractionActive = false;
 const sceneCanvas = document.createElement("canvas");
@@ -239,6 +242,10 @@ function scheduleMapPrefetch(collections) {
   if (direction.x > 180) direction.x -= 360;
   if (direction.x < -180) direction.x += 360;
   lastMapPrefetchViewport = { ...mapViewport };
+  // Pyramide de tuiles avec marge et priorité directionnelle. Les index GeoJSON
+  // existants restent le moteur de sélection pendant cette étape de transition.
+  const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: 48 });
+  lastMapTilePlan = tilePlan;
   let index = 0;
   const prepareNext = () => {
     mapPrefetchHandle = null;
@@ -248,7 +255,7 @@ function scheduleMapPrefetch(collections) {
     // Priorité à l'emprise élargie, avec un biais vers la trajectoire récente.
     // Une famille par tranche inactive : le rendu visible reste prioritaire.
     prefetchGeoSpatialFeatures(collections[index++], mapViewport, 1, {
-      coverage: 1.6, lookAhead: 0.55, direction, zoomDirection
+      coverage: tilePlan.truncated ? 1.35 : 1.6, lookAhead: 0.55, direction, zoomDirection
     });
     if (index >= collections.length || mapInteractionActive) return;
     if (typeof requestIdleCallback === "function") {
@@ -287,7 +294,7 @@ function updateMapDiagnostics(result) {
   }));
 }
 
-const MAP_WORKER_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "labels", "territories", "physicalWorld", "politicalBoundaries", "administrativeBoundaries", "terrain"];
+const MAP_WORKER_LAYER_FAMILIES = ["physical", "political", "dynamic"];
 function getMapRenderWorker() {
   if (mapRenderWorkerDisabled || typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
   if (mapRenderWorker) return mapRenderWorker;
@@ -356,23 +363,22 @@ function dispatchMapWorkerRender(job) {
     job.onFallback();
     return;
   }
-  const layerUpdates = {};
-  for (const key of MAP_WORKER_LAYER_KEYS) {
-    if (mapRenderWorkerLayerRefs[key] !== job.layers[key]) {
-      layerUpdates[key] = job.layers[key];
-    }
+  const familyUpdates = {};
+  const changedFamilies = new Set(getChangedMapLayerFamilies(mapRenderWorkerLayerRefs, job.families));
+  for (const family of MAP_WORKER_LAYER_FAMILIES) {
+    if (changedFamilies.has(family)) familyUpdates[family] = job.families[family];
   }
   const {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
     politicalBoundaries, administrativeBoundaries, terrain, ...options
   } = job.options;
   try {
-    mapRenderWorker.postMessage({ id: job.id, layerUpdates, options });
-    for (const key of Object.keys(layerUpdates)) mapRenderWorkerLayerRefs[key] = layerUpdates[key];
+    mapRenderWorker.postMessage({ id: job.id, familyUpdates, options });
+    for (const family of Object.keys(familyUpdates)) mapRenderWorkerLayerRefs[family] = job.families[family];
     mapRenderWorkerBusy = true;
     mapRenderWorkerActive = job;
   } catch (error) {
-    console.warn("Transfert des données cartographiques au Worker impossible :", error);
+    console.warn("Transfert des familles cartographiques au Worker impossible :", error);
     mapRenderWorkerDisabled = true;
     mapRenderWorker.terminate();
     mapRenderWorker = null;
@@ -390,7 +396,8 @@ function renderMapOffThread(land, options, onDone, onFallback) {
     politicalBoundaries: options.politicalBoundaries,
     administrativeBoundaries: options.administrativeBoundaries, terrain: options.terrain
   };
-  const job = { id: ++mapRenderWorkerSequence, layers, options, onDone, onFallback };
+  const families = createMapLayerFamilies(layers);
+  const job = { id: ++mapRenderWorkerSequence, families, options, onDone, onFallback };
   if (mapRenderWorkerBusy) mapRenderWorkerPending = job;
   else dispatchMapWorkerRender(job);
   return true;
@@ -403,7 +410,7 @@ function completeMapRender(result, context) {
   sceneLabelHits = result.labelHits ?? [];
   sceneReady = true;
   sceneRecenterPending = false;
-  composeScene();
+  requestCompose();
   updateMapDiagnostics(result);
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
@@ -494,7 +501,7 @@ function renderMapFrame() {
   ].join(':');
   if (signature === lastRenderedMapSignature) {
     // Le bitmap suffit toujours ; reconstruire uniquement les hitboxes après le relâchement.
-    composeScene();
+    requestCompose();
     return;
   }
   lastRenderedMapSignature = signature;
@@ -938,10 +945,7 @@ function composeScene() {
     }
   }
 }
-function requestCompose() {
-  if (composeFrame !== null) return;
-  composeFrame = requestAnimationFrame(() => { composeFrame = null; composeScene(); });
-}
+const requestCompose = createMapFrameScheduler(composeScene);
 function scheduleInteractionRender() {
   // Pendant un geste continu, une seule actualisation intermédiaire est
   // autorisée par intervalle. Les événements rapprochés sont coalescés.

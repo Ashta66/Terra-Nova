@@ -1,12 +1,20 @@
 import { renderWorldMap } from "./map-renderer.js";
 
 const surface = new OffscreenCanvas(1, 1);
-const layers = Object.create(null);
+const families = {
+  physical: Object.create(null),
+  political: Object.create(null),
+  dynamic: Object.create(null)
+};
 
 self.addEventListener("message", event => {
-  const { id, layerUpdates = {}, options } = event.data ?? {};
+  const { id, familyUpdates = {}, options } = event.data ?? {};
   try {
-    Object.assign(layers, layerUpdates);
+    for (const [family, updates] of Object.entries(familyUpdates)) {
+      if (!families[family]) continue;
+      Object.assign(families[family], updates);
+    }
+    const layers = { ...families.physical, ...families.political, ...families.dynamic };
     if (!layers.land) throw new Error("Couche terrestre absente du moteur de rendu.");
     const result = renderWorldMap(surface, layers.land, {
       ...options,
