@@ -830,7 +830,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
     const spatial=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,6);
     const adjacent=collectTerrainPredictiveLodTiles(tileStore,viewport,width,height,level,preferredLevel,8);
     const combined=[...adjacent,...spatial].filter((item,index,all)=>all.findIndex(other=>other.tile.level===item.tile.level&&other.tile.x===item.tile.x&&other.tile.y===item.tile.y)===index).slice(0,12);
-    cache.retainPending(new Set(combined.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
+    cache.retainPending(new Set([...visible,...combined].map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
     for(const {tile} of combined) {
       if(cache.enqueue(tile,protectedKeys)) renderer.lastPreloadedTiles++;
     }
