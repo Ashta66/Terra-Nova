@@ -238,6 +238,10 @@ export function getTerrainWebGLStats(grid) {
   return {
     textureUploadMs: renderer.textureUploadMs,
     textureBytes: renderer.textureBytes,
+    textureWidth: renderer.textureGrid.width,
+    textureHeight: renderer.textureGrid.height,
+    sourceWidth: renderer.grid.width,
+    sourceHeight: renderer.grid.height,
     drawSubmitMs: renderer.lastSubmitMs,
     gpuMs: renderer.lastGpuMs,
     timerQueriesSupported: Boolean(renderer.timerExtension)
