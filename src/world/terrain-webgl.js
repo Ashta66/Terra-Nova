@@ -558,6 +558,7 @@ precision highp float;
 uniform sampler2D u_elevation;
 uniform vec2 u_tileSize;
 uniform vec4 u_uvBounds;
+uniform float u_opacity;
 varying vec2 v_uv;
 float elevationAt(vec2 uv) {
   vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
@@ -589,7 +590,7 @@ void main() {
   vec3 lowland=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
   vec3 highland=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
   vec3 color=e<0.0?ocean:(e<1000.0?lowland:highland);
-  gl_FragColor=vec4(color*(e<0.0?1.0:shade),1.0);
+  gl_FragColor=vec4(color*(e<0.0?1.0:shade),u_opacity);
 }`;
 
 function createTileRenderer(tileStore) {
@@ -618,10 +619,16 @@ function createTileRenderer(tileStore) {
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileCache(gl,{maxTiles:128,maxBytes:64*1024*1024});
-  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:0,lastPreloadedTiles:0,lastPreloadAt:0};
+  const renderer={canvas,gl,program,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:0,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
+}
+
+export function getTerrainTileTransitionOpacity(progress) {
+  const value = Number(progress);
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
 }
 
 export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
@@ -634,39 +641,65 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
   if(renderer.revision!==revision) {
     cache.clear();
     renderer.revision=revision;
+    renderer.transitionFromLevel=null;
   }
   resizeTerrainWebGLSurface(canvas,width,height);
   gl.viewport(0,0,width,height);
   gl.disable(gl.SCISSOR_TEST);
   gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
   const level=selectTerrainTileLevel(tileStore,viewport,width);
+  const now=globalThis.performance?.now?.()??Date.now();
+  if(renderer.lastLevel!==level) {
+    if(renderer.lastLevel!==null && renderer.lastLevel!==undefined && renderer.lastLevel!==level) {
+      renderer.transitionFromLevel=renderer.lastLevel;
+      renderer.transitionStartedAt=now;
+    } else {
+      renderer.transitionFromLevel=null;
+    }
+    renderer.lastLevel=level;
+  }
+  const transitionFrom=renderer.transitionFromLevel;
+  const transitionProgress=transitionFrom===null?1:getTerrainTileTransitionOpacity((now-renderer.transitionStartedAt)/220);
+  if(transitionProgress>=1) renderer.transitionFromLevel=null;
+  renderer.transitionProgress=transitionProgress;
   const visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
-  renderer.lastLevel=level;
+  const previousVisible=transitionFrom!==null&&transitionProgress<1
+    ?collectTerrainViewportTiles(tileStore,viewport,width,height,transitionFrom):[];
   renderer.lastVisibleTiles=visible.length;
   renderer.lastDrawCalls=0;
-  const protectedKeys=new Set(visible.map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${tileStore.revision??0}`));
+  const revisionSuffix=tileStore.revision??0;
+  const protectedKeys=new Set([...visible,...previousVisible].map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`));
   cache.evict(protectedKeys);
   gl.useProgram(program);
   gl.activeTexture(gl.TEXTURE0);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   const uvLocation=gl.getUniformLocation(program,"u_uvBounds");
   const sizeLocation=gl.getUniformLocation(program,"u_tileSize");
+  const opacityLocation=gl.getUniformLocation(program,"u_opacity");
   const started=globalThis.performance?.now?.()??Date.now();
-  for(const {tile,rects} of visible) {
-    const entry=cache.get(tile,tileStore,protectedKeys);
-    if(!entry) continue;
-    gl.bindTexture(gl.TEXTURE_2D,entry.texture);
-    gl.uniform2f(sizeLocation,tile.width,tile.height);
-    for(const rect of rects) {
-      const x=Math.max(0,Math.floor(rect.x)), y=Math.max(0,Math.floor(rect.y));
-      const right=Math.min(width,Math.ceil(rect.x+rect.width));
-      const bottom=Math.min(height,Math.ceil(rect.y+rect.height));
-      if(right<=x||bottom<=y) continue;
-      gl.viewport(x,height-bottom,right-x,bottom-y);
-      gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
-      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-      renderer.lastDrawCalls++;
+  const drawLevel=(items,opacity)=>{
+    if(!items.length||opacity<=0) return;
+    gl.uniform1f(opacityLocation,opacity);
+    for(const {tile,rects} of items) {
+      const entry=cache.get(tile,tileStore,protectedKeys);
+      if(!entry) continue;
+      gl.bindTexture(gl.TEXTURE_2D,entry.texture);
+      gl.uniform2f(sizeLocation,tile.width,tile.height);
+      for(const rect of rects) {
+        const x=Math.max(0,Math.floor(rect.x)), y=Math.max(0,Math.floor(rect.y));
+        const right=Math.min(width,Math.ceil(rect.x+rect.width));
+        const bottom=Math.min(height,Math.ceil(rect.y+rect.height));
+        if(right<=x||bottom<=y) continue;
+        gl.viewport(x,height-bottom,right-x,bottom-y);
+        gl.uniform4f(uvLocation,rect.u0,rect.u1,rect.v0,rect.v1);
+        gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+        renderer.lastDrawCalls++;
+      }
     }
-  }
+  };
+  if(previousVisible.length) drawLevel(previousVisible,1);
+  drawLevel(visible,previousVisible.length?transitionProgress:1);
   const drawFinishedAt=globalThis.performance?.now?.()??Date.now();
   renderer.lastSubmitMs=drawFinishedAt-started;
   renderer.lastPreloadedTiles=0;
@@ -678,6 +711,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
       if(entry) renderer.lastPreloadedTiles++;
     }
   }
+  gl.disable(gl.BLEND);
   gl.viewport(0,0,width,height);
   if(gl.isContextLost?.()){renderer.contextLost=true;tileRenderers.delete(tileStore);return null;}
   return canvas;
@@ -686,5 +720,5 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,maxTextureSize:renderer.maxTextureSize};
 }
