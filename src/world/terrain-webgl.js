@@ -25,6 +25,8 @@ float elevationAt(vec2 uv) {
   vec2 p10 = p00 + vec2(1.0 / u_gridSize.x, 0.0);
   vec2 p01 = p00 + vec2(0.0, 1.0 / u_gridSize.y);
   vec2 p11 = p00 + vec2(1.0 / u_gridSize.x, 1.0 / u_gridSize.y);
+  p00.x = fract(p00.x); p10.x = fract(p10.x);
+  p01.x = fract(p01.x); p11.x = fract(p11.x);
   float a = texture2D(u_elevation, p00).r * 255.0 + texture2D(u_elevation, p00).g * 65280.0;
   float b = texture2D(u_elevation, p10).r * 255.0 + texture2D(u_elevation, p10).g * 65280.0;
   float c = texture2D(u_elevation, p01).r * 255.0 + texture2D(u_elevation, p01).g * 65280.0;
@@ -106,7 +108,9 @@ function createRenderer(grid) {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  // ETOPO est une texture NPOT : WebGL 1 impose CLAMP_TO_EDGE.
+  // Le shader applique lui-même le wrapping longitudinal via fract().
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, grid.width, grid.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, packed);
