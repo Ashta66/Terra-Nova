@@ -255,3 +255,12 @@ Après la préparation du MNT, la première navigation 2D est intégrée : zoom 
 - [ ] Étudier la séparation des couches statiques et dynamiques en surfaces indépendantes, puis un rendu Worker/OffscreenCanvas pour les couches vectorielles si les mesures le justifient.
 
 Les optimisations de code et les tests automatisés ne remplacent pas une mesure FPS sur le poste du joueur. Les éléments graphiques ne seront retirés qu'après ce profilage, en ciblant les couches réellement responsables.
+
+
+### Cache des couches et réutilisation des scènes — 20 novembre 2026
+- [x] Mettre le fond statique en surface hors écran avec cache LRU borné.
+- [x] Dessiner séparément les frontières dynamiques, catastrophes, sélection et étiquettes.
+- [x] Réutiliser la même scène lors des micro-déplacements dans une cellule de viewport quantifiée.
+- [x] Actualiser les hitboxes après relâchement sans forcer un nouveau rendu vectoriel.
+- [ ] Mesurer les gains de temps de rendu et la mémoire consommée sur navigateur réel.
+- [ ] Si les couches vectorielles restent le goulot d'étranglement, prototyper leur rendu dans un Worker avec OffscreenCanvas et transfert minimal des données.
