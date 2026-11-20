@@ -27,6 +27,7 @@ let lastRenderedMapSignature = null;
 let wheelZoomState = null;
 let wheelZoomTimer = null;
 let lastDragMoved = false;
+let mapInteractionActive = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
 const MIN_MAP_ZOOM = 1;
@@ -108,7 +109,7 @@ function renderMapFrame() {
   const canvas = $("world-map");
   const width = Math.max(320, Math.floor(canvas.clientWidth || 960));
   const year = Number(String(state.clock.date).slice(0, 4));
-  const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4)].join(':');
+  const signature = [width, year, mapViewport.zoom.toFixed(4), mapViewport.centerLongitude.toFixed(4), mapViewport.centerLatitude.toFixed(4), mapInteractionActive ? 'interactive' : 'full'].join(':');
   if (signature === lastRenderedMapSignature) return;
   lastRenderedMapSignature = signature;
   const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures);
@@ -125,6 +126,9 @@ function renderMapFrame() {
     elevationPoints,
     labels: labelDetail.features,
     terrain: terrainGrid,
+    terrainQuality: mapInteractionActive ? 0.35 : 1,
+    pixelRatio: mapInteractionActive ? 1 : undefined,
+    interactive: mapInteractionActive,
   });
   mapLabelHits = result.labelHits ?? [];
   $("map-era").textContent = result.theme.label;
@@ -267,7 +271,8 @@ $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
-  if (wheelZoomState) { clearWheelZoomPreview(); renderMap(); }
+  if (wheelZoomState) clearWheelZoomPreview();
+  mapInteractionActive = true;
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
@@ -291,9 +296,8 @@ mapCanvas.addEventListener("pointermove", (event) => {
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
-  // Déplacement visuel immédiat du bitmap déjà rendu : aucun recalcul du relief
-  // ou des géométries pendant le geste. Le rendu complet est fait au relâchement.
-  mapCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  // Prévisualisation légère à chaque frame : le canvas reste plein cadre et ne révèle pas le fond.
+  renderMap();
 });
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
@@ -325,6 +329,8 @@ function stopMapDrag() {
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
   mapCanvas.style.transform = "";
+  mapInteractionActive = false;
+  lastRenderedMapSignature = null;
   if (lastDragMoved) renderMap();
 }
 mapCanvas.addEventListener("click", (event) => {
@@ -345,22 +351,21 @@ mapCanvas.addEventListener("wheel", (event) => {
   if (!wheelZoomState) {
     const rect = mapCanvas.getBoundingClientRect();
     wheelZoomState = {
-      baseZoom: mapViewport.zoom,
       anchorX: event.clientX - rect.left,
       anchorY: event.clientY - rect.top,
       rect: { width: rect.width, height: rect.height }
     };
   }
   const anchor = wheelZoomState;
-  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, false, anchor.rect);
-  const scale = mapViewport.zoom / anchor.baseZoom;
-  mapCanvas.style.transformOrigin = "0 0";
-  mapCanvas.style.transform = "translate3d(" + anchor.anchorX * (1 - scale) + "px, " + anchor.anchorY * (1 - scale) + "px, 0) scale(" + scale + ")";
+  mapInteractionActive = true;
+  zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, anchor.anchorX, anchor.anchorY, true, anchor.rect);
   if (wheelZoomTimer !== null) clearTimeout(wheelZoomTimer);
   wheelZoomTimer = setTimeout(() => {
     clearWheelZoomPreview();
+    mapInteractionActive = false;
+    lastRenderedMapSignature = null;
     renderMap();
-  }, 130);
+  }, 150);
 }, { passive: false });
 
 state.clock = createClock();

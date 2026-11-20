@@ -220,12 +220,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85);
-  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
+  if (!options.interactive && ["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
   const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88);
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55);
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7);
-  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
-  const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const elevationPointCount = options.interactive ? 0 : drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
+  const labelHits = options.interactive ? [] : drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
 
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
