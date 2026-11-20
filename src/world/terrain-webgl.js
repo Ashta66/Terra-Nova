@@ -512,7 +512,7 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
 }
 
 export function getTerrainWebGLShaders() {
-  return { vertex: VERTEX_SHADER, fragment: FRAGMENT_SHADER };
+  return { vertex: VERTEX_SHADER, fragment: FRAGMENT_SHADER, tileFragment: TILE_FRAGMENT_SHADER };
 }
 
 
