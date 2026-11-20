@@ -193,7 +193,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
   // Le raster actuel est géoréférencé en équirectangulaire ; ne pas l’afficher sous une autre projection.
-  const terrainEnabled = projection.type === "equirectangular"
+  const terrainEnabled = options.terrainEnabled !== false
+    && projection.type === "equirectangular"
     && drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1);
 
   context.save();

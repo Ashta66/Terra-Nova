@@ -369,7 +369,6 @@ mapCanvas.addEventListener("wheel", (event) => {
     wheelZoomTimer = null;
     wheelZoomState = null;
     mapCanvas.style.transform = "";
-    mapPreviewOrigin = null;
     mapInteractionActive = false;
     lastRenderedMapSignature = null;
     renderMap();
