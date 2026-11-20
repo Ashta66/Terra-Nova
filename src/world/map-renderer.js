@@ -1,3 +1,4 @@
+import { renderTerrainWebGL } from "./terrain-webgl.js";
 import { projectCoordinate } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster } from "./terrain.js";
@@ -393,6 +394,22 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
+function drawPhysicalTerrain(context, width, height, terrain, viewport, webglGrid = null) {
+  if (webglGrid && typeof context.drawImage === "function") {
+    try {
+      const surface = renderTerrainWebGL(webglGrid, width, height, viewport);
+      if (surface) {
+        context.drawImage(surface, 0, 0, width, height);
+        return "webgl";
+      }
+    } catch {
+      // En cas d'échec GPU, conserver le rendu Canvas 2D.
+    }
+  }
+  drawTerrainRaster(context, width, height, terrain, viewport);
+  return "canvas2d";
+}
+
 function performanceNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
@@ -421,6 +438,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
   const terrainStartedAt = performanceNow();
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
+  const webglTerrainGrid = options.terrainWebGLGrid?.values ? options.terrainWebGLGrid : null;
+  let terrainRenderer = "canvas2d";
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
   let physicalHit = false;
@@ -436,7 +455,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         zoomTransitionFrame = previous;
       }
       let dirtyRegions = null;
-      if (previous
+      if (!webglTerrainGrid && previous
         && previous.terrain === options.terrain
         && previous.revision === (options.terrain?.revision ?? 0)
         && previous.width === canvas.width && previous.height === canvas.height
@@ -458,7 +477,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         }
         incremental = true;
       } else {
-        drawTerrainRaster(physicalSurface.context, canvas.width, canvas.height, options.terrain, projection.viewport);
+        terrainRenderer = drawPhysicalTerrain(physicalSurface.context, canvas.width, canvas.height,
+          options.terrain, projection.viewport, webglTerrainGrid);
       }
       lastPhysicalFrame = { surface: physicalSurface.surface, terrain: options.terrain,
         revision: options.terrain?.revision ?? 0, width: canvas.width, height: canvas.height,
@@ -492,11 +512,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       physicalHit = incremental;
     } else {
       lastPhysicalFrame = null;
-      drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
+      terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
+        options.terrain, projection.viewport, webglTerrainGrid);
     }
   } else if (terrainEnabled) {
     lastPhysicalFrame = null;
-    drawTerrainRaster(context, canvas.width, canvas.height, options.terrain, projection.viewport);
+    terrainRenderer = drawPhysicalTerrain(context, canvas.width, canvas.height,
+      options.terrain, projection.viewport, webglTerrainGrid);
   } else {
     lastPhysicalFrame = null;
   }
@@ -573,6 +595,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   return {
     performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
+    landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, terrainRenderer, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
 }
