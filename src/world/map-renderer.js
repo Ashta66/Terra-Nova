@@ -647,22 +647,23 @@ export function classifyPhysicalCellVisual(c){
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;ctx.save();
+ // Une passe unique pour les côtes modifiées, et non une passe complète par événement.
+ if(terrainGrid&&projection.type==="equirectangular"&&(world.events??[]).some(e=>["tsunami","meteor-impact","earthquake"].includes(e.type))){
+  drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);
+ }
  const zoom=Number(projection.viewport?.zoom??1);
  for(const event of world.events??[]){
   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
   const radius=center?Math.max(2,Math.min(900,Math.hypot((east?.x??center.x)-center.x,(north?.y??center.y)-center.y)/Math.SQRT2)):0;
-  if(terrainGrid&&projection.type==="equirectangular"&&center&&radius>1){
-   ctx.save();ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.clip();drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);ctx.restore();
-  }
-  if(center&&radius>1&&!event.visualExpired){
+   if(center&&radius>1&&!event.visualExpired){
    ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)));
    ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
    ctx.setLineDash?.(event.type==="earthquake"?[5,4]:[2,3]);
    for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
    if(event.type==="earthquake"){
-    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(238,211,170,.78)";ctx.lineWidth=Math.max(1,Math.sqrt(zoom));
+    ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,.95)";ctx.lineWidth=Math.max(2,1.6*Math.sqrt(zoom));
     const angle=(event.ruptureBearingDeg??35)*Math.PI/180;
     for(const sign of [-1,1]){const dx=Math.cos(angle+Math.PI/2)*radius*.8*sign,dy=Math.sin(angle+Math.PI/2)*radius*.8*sign;ctx.beginPath();ctx.moveTo(center.x-dx,center.y-dy);ctx.lineTo(center.x+dx*.72,center.y+dy*.72);ctx.stroke();}
    }
@@ -671,7 +672,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
   if(event.type==="meteor-impact"&&!event.surfaceExpired&&center&&terrainGrid&&sampleElevation(terrainGrid,event.longitude,event.latitude)>=0){
    const lavaNorth=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+(event.lavaRadiusKm??8)/111.32)],w,h,projection);
    const lavaEast=projectCoordinate([event.longitude+(event.lavaRadiusKm??8)/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
-   const lavaRadius=Math.max(3,Math.min(34,Math.hypot((lavaEast?.x??center.x)-center.x,(lavaNorth?.y??center.y)-center.y)/Math.SQRT2));
+   const lavaRadius=Math.max(5,Math.min(48,Math.hypot((lavaEast?.x??center.x)-center.x,(lavaNorth?.y??center.y)-center.y)/Math.SQRT2));
    if(typeof ctx.createRadialGradient==="function"){const glow=ctx.createRadialGradient(center.x,center.y,Math.max(1,lavaRadius*.08),center.x,center.y,lavaRadius);
    glow.addColorStop(0,"rgba(255,250,174,.98)");glow.addColorStop(.24,"rgba(255,119,24,.96)");glow.addColorStop(.62,"rgba(220,45,12,.78)");glow.addColorStop(1,"rgba(110,22,12,0)");
    ctx.save();ctx.globalCompositeOperation="screen";ctx.fillStyle=glow;ctx.beginPath();ctx.arc(center.x,center.y,lavaRadius,0,Math.PI*2);ctx.fill();ctx.restore();}
@@ -679,7 +680,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
   if(event.type==="earthquake"&&center&&radius>1){
    // Cicatrice diffuse permanente : elle reste après la disparition des anneaux.
    if(typeof ctx.createRadialGradient==="function"){const scar=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,radius);
-   scar.addColorStop(0,"rgba(105,73,55,.15)");scar.addColorStop(.48,"rgba(105,73,55,.075)");scar.addColorStop(1,"rgba(105,73,55,0)");
+   scar.addColorStop(0,"rgba(85,55,38,.34)");scar.addColorStop(.42,"rgba(105,73,55,.20)");scar.addColorStop(.78,"rgba(105,73,55,.08)");scar.addColorStop(1,"rgba(105,73,55,0)");
    ctx.save();ctx.fillStyle=scar;ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);ctx.fill();ctx.restore();}
   }
   if(!event.visualExpired)count++;

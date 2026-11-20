@@ -97,3 +97,29 @@ test("un séisme soulève un côté de faille et en abaisse l'autre",()=>{
  assert.ok(result.world.currentCells[0].elevationDeltaM>0);
  assert.ok(result.world.currentCells[1].elevationDeltaM<0);
 });
+
+test("un cratère terrestre éloigné de la mer ne crée jamais de lac",()=>{
+ const inland=[{id:"impact-land",longitude:0,latitude:0,elevationM:600,coastalDistanceKm:180},{id:"distant-ocean",longitude:2,latitude:0,elevationM:-4000,coastalDistanceKm:0}];
+ const w=applyPhysicalEvent(createPhysicalWorld(inland),{id:"dry-crater",type:"meteor-impact",date:"1500-01-01",longitude:0,latitude:0,radiusKm:120,craterRadiusKm:50,craterDepthM:1800});
+ assert.equal(w.result.event.waterContact,false);
+ assert.equal(w.world.currentCells[0].permanentlySubmerged,undefined);
+ assert.ok(w.world.currentCells[0].currentElevationM>=0);
+});
+test("un cratère qui touche réellement la côte peut communiquer avec la mer",()=>{
+ const coast=[{id:"impact-land",longitude:0,latitude:0,elevationM:20,coastalDistanceKm:1},{id:"ocean",longitude:.03,latitude:0,elevationM:-100,coastalDistanceKm:0}];
+ const w=applyPhysicalEvent(createPhysicalWorld(coast),{id:"wet-crater",type:"meteor-impact",date:"1500-01-01",longitude:0,latitude:0,radiusKm:100,craterRadiusKm:42,craterDepthM:1800});
+ assert.equal(w.result.event.waterContact,true);
+});
+test("cercles du tsunami et de la météorite restent actifs pendant leur effet mensuel",()=>{
+ const w=createPhysicalWorld(cells);
+ const meteor=applyPhysicalEvent(w,{id:"month-impact",type:"meteor-impact",date:"1500-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:1}).world;
+ assert.equal(expirePhysicalSurfaceEffects(meteor,"1500-01-20").events[0].visualExpired,undefined);
+ const tsunami=applyPhysicalEvent(w,{id:"month-wave",type:"tsunami",date:"1500-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100}).world;
+ assert.equal(expirePhysicalSurfaceEffects(tsunami,"1500-01-20").events[0].visualExpired,undefined);
+ assert.equal(expirePhysicalSurfaceEffects(tsunami,"1500-02-02").events[0].visualExpired,true);
+});
+test("le séisme calcule un déplacement tectonique par défaut",()=>{
+ const w=applyPhysicalEvent(createPhysicalWorld(cells),{id:"auto-quake",type:"earthquake",date:"1602-01-01",longitude:0,latitude:0,radiusKm:150,magnitude:8}).world;
+ assert.ok(w.events[0].ruptureOffsetM>0);
+ assert.ok(w.currentCells.some(c=>Math.abs(c.elevationDeltaM)>0));
+});
