@@ -843,3 +843,16 @@ test("l’opacité politique par défaut est réduite à 45 % pour révéler le 
   renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories });
   assert.ok(territoryFillAlphas.some(value => Math.abs(value - 0.45) < 0.001), territoryFillAlphas.join(", "));
 });
+
+
+test("le mode shade conserve la transparence des océans quand seul le terrain est demandé", () => {
+  const grid = { width: 4, height: 2, values: new Int16Array([-100, 100, 200, -50, -100, 100, 200, -50]) };
+  let image;
+  const context = {
+    createImageData(width, height) { image = { width, height, data: new Uint8ClampedArray(width * height * 4) }; return image; },
+    putImageData() {}
+  };
+  assert.equal(drawTerrainRaster(context, 4, 2, grid, {}, 1, true, null, false, false, "shade"), true);
+  assert.equal(image.data[3], 0);
+  assert.equal(image.data[(1 * 4 + 1) * 4 + 3], 255);
+});

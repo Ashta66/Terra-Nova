@@ -234,7 +234,7 @@ function drawTerrainTileRaster(context, width, height, grid, viewport, quality, 
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
   const sourceTileWidth = grid.width / 36, sourceTileHeight = grid.height / 18;
   const tileBase = Math.min(sourceTileWidth, sourceTileHeight);
-  const tileSize = Math.max(32, Math.min(192, Math.round(Math.max(48, tileBase) * Math.sqrt(zoom) * qualityScale)));
+  const tileSize = Math.max(1, Math.min(192, Math.round(Math.max(1, tileBase) * Math.sqrt(zoom) * qualityScale)));
   const dx = 360 / grid.width, dy = 180 / grid.height, physical = physicalLookup(physicalWorld);
   let cache = terrainTileCache.get(grid);
   if (!cache) { cache = new Map(); terrainTileCache.set(grid, cache); }

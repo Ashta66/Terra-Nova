@@ -181,3 +181,6 @@ Deux curseurs permettent d’ajuster l’exagération verticale (1 à 30, valeur
 ## Correctif de validation du relief
 
 Le Path2D terrestre n’est désormais construit que si une grille de terrain est effectivement disponible et que la projection équirectangulaire autorise les passes de relief. Les tests de résolution utilisent des dimensions de grille réalistes ou adaptées au viewport, tout en conservant un cas de grille plus petite pour vérifier le plafonnement.
+
+
+Le raster par tuiles respecte également la résolution source lorsque celle-ci est inférieure à 48 pixels par tuile, au lieu de suréchantillonner artificiellement les petites grilles.
