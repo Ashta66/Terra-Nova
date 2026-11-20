@@ -29,6 +29,9 @@ Les valeurs sont exposées sur le canvas cartographique via ses attributs `data-
 - `terrainWebglTileFallback`, `terrainWebglTileTransition`, `terrainWebglTileCapacity`
 - `terrainWebglTileAtlasBytes`, `terrainWebglTileCapacityLimited`
 - `terrainWebglTilePending`, `terrainWebglTileWaiting`
+- `geographicWebglCacheBuildMs` : construction CPU des meshes et upload des buffers lors d'un cache miss
+- `geographicWebglDrawSubmitMs` : temps CPU de soumission des commandes WebGL pour les couches géographiques
+- `geographicWebglTotalMs` : temps total du passage du renderer géographique (construction éventuelle + soumission)
 
 Dans la console du navigateur, sélectionner le canvas puis exécuter :
 
@@ -45,7 +48,8 @@ const keys = [
   "terrainWebglTileCapacity", "terrainWebglTileAtlasBytes",
   "terrainWebglTileCapacityLimited",
   "terrainWebglTileTransition", "terrainWebglTilePending",
-  "terrainWebglTileWaiting"
+  "terrainWebglTileWaiting", "geographicWebglCacheBuildMs",
+  "geographicWebglDrawSubmitMs", "geographicWebglTotalMs"
 ];
 Object.fromEntries(keys.map(key => [key, canvas?.dataset?.[key] ?? null]));
 ```
@@ -71,3 +75,8 @@ Ne pas conclure à un gain de performances sur la seule base du temps de soumiss
 - Les segments partagent des disques de raccord en espace écran aux sommets communs (12 facettes), ce qui ferme les jours aux angles et intersections.
 - Les extrémités réellement libres des lignes ouvertes reçoivent également des caps circulaires de 12 facettes ; les anneaux fermés n'en reçoivent pas.
 - La détection utilise le degré des extrémités, regroupées à 5 décimales. Contrôler les réseaux denses et les lignes distinctes très proches à plusieurs densités d'écran ; le contrôle visuel réel reste obligatoire.
+
+## Instrumentation des couches géographiques
+- Le renderer expose séparément le temps CPU de construction des meshes (`geographicWebglCacheBuildMs`), le temps CPU de soumission des commandes (`geographicWebglDrawSubmitMs`) et le temps total de son passage (`geographicWebglTotalMs`).
+- Les temps de construction sont nuls sur un cache hit ; ils ne comprennent pas une mesure fiable du temps d'exécution GPU.
+- Pour comparer les images, relever ces trois valeurs en même temps que les uploads, octets transférés, triangles, draw calls et métriques du relief.
