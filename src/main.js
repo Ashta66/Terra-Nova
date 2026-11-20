@@ -188,7 +188,7 @@ async function loadWorldMap() {
     const cacheStatus = await getMapPackStatus();
     if (cacheStatus.ready) {
       $("install-map-pack").textContent = "Pack cartographique installé";
-      $("map-pack-status").textContent = "Pack complet disponible hors connexion : données mondiales, relief et détails régionaux.";
+      $("map-pack-status").textContent = "Pack cartographique déjà enregistré dans ce navigateur : données mondiales, relief et détails régionaux.";
     } else {
       $("map-pack-status").textContent = cacheStatus.coreCount + "/" + cacheStatus.coreTotal + " ressources de base en cache · " + cacheStatus.regionalCount + "/4 couches régionales installées.";
       if (cacheStatus.regionalCount > 0) $("install-map-pack").textContent = "Reprendre le téléchargement du pack";
