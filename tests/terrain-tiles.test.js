@@ -60,3 +60,32 @@ test("le mode normal continue à évincer les tuiles hors viewport", () => {
   assert.ok(previous.some(id => !current.includes(id)));
   assert.deepEqual(new Set(store.loadedIds), new Set(current));
 });
+
+
+test("les tuiles visibles restent prioritaires quand le cache est sous pression", () => {
+  const store = createTerrainTileStore(
+    { width: 720, height: 360, values: new Int16Array(720 * 360) },
+    { tileSize: 30, maxTiles: 8 }
+  );
+  store.preloadViewport(
+    { zoom: 5, centerLongitude: 12, centerLatitude: 8 },
+    { padding: 0.5, lookAhead: 0.9, directionLongitude: 1, directionLatitude: 1 }
+  );
+  const centerId = store.getTileAt(12, 8).id;
+  assert.ok(store.loadedIds.includes(centerId));
+  assert.ok(store.size <= 8);
+});
+
+test("le préchargement sans direction ne crée pas de zone prédictive", () => {
+  const store = createStore();
+  const ids = store.preloadViewport(
+    { zoom: 4, centerLongitude: 0, centerLatitude: 0 },
+    { padding: 0.25, lookAhead: 0.9 }
+  );
+  const reference = createStore();
+  const referenceIds = reference.preloadViewport(
+    { zoom: 4, centerLongitude: 0, centerLatitude: 0 },
+    { padding: 0.25 }
+  );
+  assert.deepEqual(ids, referenceIds);
+});
