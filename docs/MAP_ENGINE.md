@@ -224,4 +224,4 @@ Au zoom mondial, la caméra revient au centre pour préserver l'affichage d'un s
 
 ## Budget mémoire global des chemins projetés
 
-Le cache Path2D est limité à trois variantes par entité et à 512 chemins au total, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.
+Le cache Path2D est limité à trois variantes par entité, à 512 chemins au total et à 250 000 sommets projetés cumulés, tous calques confondus. Une politique LRU retire les chemins les moins récemment utilisés et supprime aussi leur entrée de la WeakMap de l'entité. Le cache ne peut donc pas croître proportionnellement au nombre de secteurs explorés. Les géométries sources restent intactes.

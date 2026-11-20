@@ -489,6 +489,8 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     assert.ok(constructions >= 512, `Path2D créés : ${constructions}`);
     assert.ok(stats.cachedPaths <= 512);
     assert.equal(stats.maxCachedPaths, 512);
+    assert.ok(stats.cachedVertices <= stats.maxCachedVertices);
+    assert.equal(stats.maxCachedVertices, 250_000);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;

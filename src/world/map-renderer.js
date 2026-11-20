@@ -28,25 +28,30 @@ function createContinuousProjector(width, height, projection) {
 
 function traceRing(context, ring, width, height, projection) {
   let started = false;
+  let vertices = 0;
   const project = createContinuousProjector(width, height, projection);
   for (const coordinate of ring) {
     const point = project(coordinate);
     if (!point) { started = false; continue; }
     if (!started) { context.moveTo(point.x, point.y); started = true; }
     else context.lineTo(point.x, point.y);
+    vertices++;
   }
   if (started) context.closePath();
+  return vertices;
 }
 
 function traceGeometry(context, geometry, width, height, projection) {
   if (!geometry) return false;
   const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
   if (polygons.length) {
-    for (const polygon of polygons) for (const ring of polygon) traceRing(context, ring, width, height, projection);
-    return true;
+    let vertices = 0;
+    for (const polygon of polygons) for (const ring of polygon) vertices += traceRing(context, ring, width, height, projection);
+    return vertices;
   }
   const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
   if (lines.length) {
+    let vertices = 0;
     for (const line of lines) {
       let started = false;
       const project = createContinuousProjector(width, height, projection);
@@ -55,17 +60,20 @@ function traceGeometry(context, geometry, width, height, projection) {
         if (!point) { started = false; continue; }
         if (!started) { context.moveTo(point.x, point.y); started = true; }
         else context.lineTo(point.x, point.y);
+        vertices++;
       }
     }
-    return true;
+    return vertices;
   }
-  return false;
+  return 0;
 }
 
 const projectedPathCache = new WeakMap();
 const projectedPathCacheLru = new Map();
 const PROJECTED_PATHS_PER_FEATURE = 3;
 const MAX_PROJECTED_PATHS = 512;
+const MAX_PROJECTED_PATH_VERTICES = 250_000;
+let projectedPathVertexCount = 0;
 
 function touchProjectedPath(entry, feature) {
   projectedPathCacheLru.delete(entry);
@@ -92,18 +100,22 @@ function getProjectedPath(feature, width, height, projection) {
     return cached.path;
   }
   const path = new Path2D();
-  if (!traceGeometry(path, feature.geometry, width, height, projection)) return null;
-  const entry = { key, path };
+  const vertexCount = traceGeometry(path, feature.geometry, width, height, projection);
+  if (!vertexCount) return null;
+  const entry = { key, path, vertexCount };
   entries.set(key, entry);
   touchProjectedPath(entry, feature);
+  projectedPathVertexCount += vertexCount;
   while (entries.size > PROJECTED_PATHS_PER_FEATURE) {
     const oldest = entries.values().next().value;
     entries.delete(oldest.key);
     projectedPathCacheLru.delete(oldest);
+    projectedPathVertexCount -= oldest.vertexCount;
   }
-  while (projectedPathCacheLru.size > MAX_PROJECTED_PATHS) {
+  while (projectedPathCacheLru.size > MAX_PROJECTED_PATHS || projectedPathVertexCount > MAX_PROJECTED_PATH_VERTICES) {
     const [oldest, oldestFeature] = projectedPathCacheLru.entries().next().value;
     projectedPathCacheLru.delete(oldest);
+    projectedPathVertexCount -= oldest.vertexCount;
     const oldestEntries = projectedPathCache.get(oldestFeature);
     if (oldestEntries?.get(oldest.key) === oldest) oldestEntries.delete(oldest.key);
   }
@@ -398,5 +410,5 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 
 
 export function getProjectedPathCacheStats() {
-  return { cachedPaths: projectedPathCacheLru.size, maxCachedPaths: MAX_PROJECTED_PATHS };
+  return { cachedPaths: projectedPathCacheLru.size, maxCachedPaths: MAX_PROJECTED_PATHS, cachedVertices: projectedPathVertexCount, maxCachedVertices: MAX_PROJECTED_PATH_VERTICES };
 }
