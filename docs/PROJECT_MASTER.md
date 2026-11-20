@@ -1,3 +1,8 @@
+## Correction du doublon de littoral — 20 novembre 2026
+- Le fond terrestre ne trace plus de contour côtier propre : il reste un aplat de base et un masque pour le relief. Les contours politiques restent la référence visible.
+- Simplification du fond et des aplats territoriaux renforcée : tolérance de 3,2 à 4,4 px et suppression des anneaux inférieurs à 24–72 px² selon le zoom, pour réduire les micro-îles et les dentelures.
+- Les géométries sources et les frontières politiques détaillées ne sont pas supprimées ; les seuils s'appliquent au rendu.
+
 ## Fond terrestre neutralisé — 20 novembre 2026
 - Le fond des terres sous les aplats politiques n'utilise plus la palette ocre du thème historique : teinte neutre et désaturée.
 - Le trait du littoral est passé à un ton froid discret et affiné ; il reste un repère géographique, sans ressembler à une seconde frontière politique.

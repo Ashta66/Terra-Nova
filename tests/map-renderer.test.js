@@ -863,15 +863,20 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
 });
 
-test("les côtes physiques et le masque du relief sont plus simplifiés que les contours territoriaux", () => {
-  const land = getLandCoastSimplificationProfile(1);
-  const country = getCoastSimplificationProfile(1);
-  const closeLand = getLandCoastSimplificationProfile(20);
-  const closeCountry = getCoastSimplificationProfile(20);
-  assert.ok(land.tolerance > country.tolerance);
-  assert.ok(land.minRingArea > country.minRingArea);
-  assert.ok(closeLand.tolerance > closeCountry.tolerance);
-  assert.ok(closeLand.minRingArea > closeCountry.minRingArea);
+test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
+  const expected = [
+    [1, { tolerance: 3.2, minRingArea: 24 }],
+    [3, { tolerance: 3.6, minRingArea: 36 }],
+    [8, { tolerance: 4, minRingArea: 52 }],
+    [20, { tolerance: 4.4, minRingArea: 72 }]
+  ];
+  for (const [zoom, profile] of expected) {
+    const land = getLandCoastSimplificationProfile(zoom);
+    const country = getCoastSimplificationProfile(zoom);
+    assert.deepEqual(land, profile);
+    assert.ok(land.tolerance > country.tolerance);
+    assert.ok(land.minRingArea > country.minRingArea);
+  }
 });
 
 
