@@ -29,6 +29,24 @@ function compile(gl, type, source) {
 
 function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
+function buildLineBatch(features, gl) {
+  const positions = [];
+  let drawnFeatures = 0, skippedFeatures = 0;
+  for (const feature of features) {
+    const mesh = buildGeographicLineMesh(feature);
+    if (!mesh.supported || Array.from(mesh.positions).some((value, index) => index % 2 === 0 && (value < -180 || value > 180))) { skippedFeatures++; continue; }
+    for (const value of mesh.positions) positions.push(value);
+    drawnFeatures++;
+  }
+  if (!positions.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures, skippedFeatures, positions: new Float32Array() };
+  const data = new Float32Array(positions);
+  const lineBuffer = gl.createBuffer();
+  if (!lineBuffer) throw new Error("Impossible de créer le buffer de lignes géographiques.");
+  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+  return { lineBuffer, vertexCount: data.length / 2, drawnFeatures, skippedFeatures, positions: data };
+}
+
 function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
   if (offset + mesh.vertexCount > 65535) return false;
