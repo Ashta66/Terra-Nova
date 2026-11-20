@@ -21,6 +21,7 @@ export function createTerrainTileStore(grid, options = {}) {
   const modifiedTiles = new Map();
   let clock = 0;
   let onTileChange = typeof options.onTileChange === "function" ? options.onTileChange : null;
+  let storeRevision = 0;
 
   function tileId(x, y) {
     return `0/${x}/${y}`;
@@ -146,6 +147,7 @@ export function createTerrainTileStore(grid, options = {}) {
     const tile = getTile(position.x, position.y);
     tile.values[position.localY * tile.width + position.localX] = Math.round(elevation);
     tile.revision++;
+    storeRevision++;
     tile.dirty = true;
     modifiedTiles.set(tile.id, { values: tile.values.slice(), revision: tile.revision });
     if (onTileChange) {
@@ -177,6 +179,7 @@ export function createTerrainTileStore(grid, options = {}) {
       || snapshot.height !== tile.height || snapshot.values.length !== tile.values.length) return false;
     const values = snapshot.values.slice();
     modifiedTiles.set(tile.id, { values, revision: Math.max(0, snapshot.revision) });
+    storeRevision++;
     tile.values.set(values);
     tile.revision = Math.max(0, snapshot.revision);
     tile.dirty = false;
@@ -233,6 +236,7 @@ export function createTerrainTileStore(grid, options = {}) {
     tileSize, columns, rows, width: grid.width, height: grid.height,
     getTile, getTileAt, sample, sampleBilinear, sampleLod, setElevation, markPersisted, restoreTile, setOnTileChange, evictUnused, preloadViewport,
     get size() { return cache.size; },
+    get revision() { return storeRevision; },
     get loadedIds() { return [...cache.keys()]; },
     getTileId(x, y) { return x >= 0 && x < columns && y >= 0 && y < rows ? tileId(x, y) : null; }
   };
