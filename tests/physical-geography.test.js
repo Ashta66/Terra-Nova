@@ -50,10 +50,12 @@ test("impact météoritique : cratère et bourrelet modifient le profil altimét
  assert.ok(result.world.currentCells[0].elevationDeltaM<0);assert.ok(result.world.currentCells[1].elevationDeltaM>0);
 });
 
-test("la submersion d'un tsunami se retire après deux jours",()=>{
+test("la submersion d'un tsunami dure un mois puis se retire",()=>{
  const flooded=applyPhysicalEvent(createPhysicalWorld(cells),{id:"short-wave",type:"tsunami",date:"1900-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:20,maxCoastalDistanceKm:100}).world;
  assert.ok(flooded.currentCells[0].tsunamiWaterDepthM>0);
- const recovered=expirePhysicalSurfaceEffects(flooded,"1900-01-03");
+ const afterTwoDays=expirePhysicalSurfaceEffects(flooded,"1900-01-03");
+ assert.ok(afterTwoDays.currentCells[0].tsunamiWaterDepthM>0);
+ const recovered=expirePhysicalSurfaceEffects(afterTwoDays,"1900-02-01");
  assert.equal(recovered.currentCells[0].tsunamiWaterDepthM,0);
 });
 
