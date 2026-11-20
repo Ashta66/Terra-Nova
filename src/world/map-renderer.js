@@ -125,13 +125,13 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   return drawn;
 }
 
-function drawLandHachures(context, collection, width, height, projection, color) {
+function drawLandHachures(context, collection, width, height, projection, color, features = collection?.features) {
   if (!collection?.features || typeof context.clip !== "function") return;
   context.save();
   context.globalAlpha = 0.12;
   context.strokeStyle = color;
   context.lineWidth = 0.45;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (!feature?.geometry) continue;
     context.save();
     context.beginPath();
@@ -149,10 +149,10 @@ function drawLandHachures(context, collection, width, height, projection, color)
   context.restore();
 }
 
-function drawElevationPoints(context, collection, width, height, projection, theme) {
+function drawElevationPoints(context, collection, width, height, projection, theme, features = collection?.features) {
   if (!collection?.features) return 0;
   let drawn = 0;
-  for (const feature of collection.features) {
+  for (const feature of features ?? []) {
     if (feature.geometry?.type !== "Point") continue;
     const [longitude, latitude] = feature.geometry.coordinates;
     const point = projectCoordinate([longitude, latitude], width, height, projection);
@@ -189,11 +189,11 @@ function drawElevationPoints(context, collection, width, height, projection, the
 }
 
 
-function drawMapLabels(context, collection, width, height, projection, theme, zoom) {
+function drawMapLabels(context, collection, width, height, projection, theme, zoom, features = collection?.features) {
   if (!collection?.features) return [];
   const hits = [];
   const occupied = [];
-  const candidates = collection.features
+  const candidates = (features ?? [])
     .filter(feature => Number(feature.properties?.minZoom ?? 1) <= zoom)
     .sort((a, b) => {
       const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : 2;
@@ -353,11 +353,11 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
 
   const landFill = options.terrainEnabled ? "rgba(255,255,255,0.055)" : theme.colors.land;
   const landCount = drawPolygonLayer(context, featureCollection, width, height, projection, landFill, theme.colors.coast, 0.85, 1, visibleFeatures(featureCollection, projection));
-  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast);
+  if (["parchment", "paper"].includes(theme.texture)) drawLandHachures(context, featureCollection, width, height, projection, theme.colors.coast, visibleFeatures(featureCollection, projection));
   const glacierCount = drawPolygonLayer(context, options.glaciers, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, visibleFeatures(options.glaciers, projection));
   const lakeCount = drawPolygonLayer(context, options.lakes, width, height, projection, theme.colors.ocean, theme.colors.accent, 0.55, 1, visibleFeatures(options.lakes, projection));
   const riverCount = drawLineLayer(context, options.rivers, width, height, projection, theme.colors.accent, 0.7, visibleFeatures(options.rivers, projection));
-  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme);
+  const elevationPointCount = drawElevationPoints(context, options.elevationPoints, width, height, projection, theme, visibleFeatures(options.elevationPoints, projection));
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
