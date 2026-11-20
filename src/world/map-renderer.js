@@ -577,7 +577,7 @@ const ISO3_TO_ISO2 = {"AFG":"AF","ALB":"AL","DZA":"DZ","AND":"AD","AGO":"AO","AT
 export function frenchTerritoryName(value, properties = {}) {
   const raw = String(value ?? territoryName(properties) ?? "").trim();
   if (!raw) return "";
-  const key = raw.toLowerCase().replace(/\\s+/g, " ");
+  const key = raw.toLowerCase().replace(/\s+/g, " ");
   const owner = String(properties.SUBJECTO ?? properties.SOVEREIGNT ?? "").trim().toLowerCase();
   if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
   if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
