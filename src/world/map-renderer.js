@@ -203,11 +203,21 @@ function touchProjectedPath(entry, feature) {
 function getProjectedPath(feature, width, height, projection, coastProfile = null) {
   if (typeof Path2D === "undefined" || !feature?.geometry) return null;
   const viewport = projection.viewport ?? {};
+  const zoom = Math.max(1, Number(viewport.zoom ?? 1));
+  // Les chemins sont partagés dans de très petites cellules de vue. Le centre
+  // est quantifié à 1°/zoom (au plus ~1,34 px d'écart au rendu), ce qui évite
+  // de reconstruire toutes les géométries après chaque micro-déplacement.
+  const centerStep = 1 / zoom;
+  const normalizedLongitude = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180);
+  const snappedLongitude = Math.round(normalizedLongitude / centerStep) * centerStep;
+  const snappedLatitude = Math.round(Number(viewport.centerLatitude ?? 0) / centerStep) * centerStep;
+  const pathProjection = {
+    ...projection,
+    viewport: { ...viewport, centerLongitude: snappedLongitude, centerLatitude: snappedLatitude }
+  };
   const key = [
-    projection.type, width, height,
-    Number(viewport.zoom ?? 1).toFixed(4),
-    ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4),
-    Number(viewport.centerLatitude ?? 0).toFixed(4),
+    projection.type, width, height, zoom.toFixed(4),
+    snappedLongitude.toFixed(4), snappedLatitude.toFixed(4),
     coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
     coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all"
   ].join(":");
@@ -222,7 +232,7 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     return cached.path;
   }
   const path = new Path2D();
-  const vertexCount = traceGeometry(path, feature.geometry, width, height, projection, coastProfile);
+  const vertexCount = traceGeometry(path, feature.geometry, width, height, pathProjection, coastProfile);
   if (!vertexCount) return null;
   const entry = { key, path, vertexCount };
   entries.set(key, entry);

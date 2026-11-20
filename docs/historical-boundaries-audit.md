@@ -79,3 +79,7 @@ Pendant un déplacement, le canvas existant est déplacé par transformation GPU
 Le canvas est dimensionné selon les deux dimensions réelles du cadre, en conservant le ratio équirectangulaire 2:1. Il ne peut plus être calculé à partir de la seule largeur puis tronqué verticalement dans un cadre moins haut.
 
 Le pan et le zoom temporaires ne transforment plus le canvas principal. Un bitmap de prévisualisation est placé au-dessus du rendu intact ; lorsque son déplacement ou son échelle découvre une bordure, le rendu initial reste visible dessous au lieu de laisser apparaître le fond du conteneur. À la fin du geste, le bitmap temporaire est supprimé et la carte est recalculée à la nouvelle position.
+
+
+## Optimisation du cache géométrique pour les micro-déplacements
+Le cache Path2D ne dépend plus de chaque variation infime du centre de la carte. Les chemins sont calculés sur un centre de vue quantifié à 1°/niveau de zoom, puis réutilisés tant que le déplacement reste dans cette cellule. L'écart maximal de placement est inférieur à environ 1,34 pixel ; les grands déplacements et les changements de zoom continuent de recalculer les chemins. Les tests couvrent désormais la réutilisation après un petit déplacement et l'invalidation après un déplacement plus large.
