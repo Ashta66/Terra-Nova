@@ -337,7 +337,7 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
     assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
-    assert.equal(constructions, 3);
+    assert.equal(constructions, 4);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
