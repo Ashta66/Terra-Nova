@@ -300,7 +300,7 @@ export function createGeographicWebGLRenderer(gl) {
   function renderLayers(layers, width, height, viewport = {}) {
     const renderStartedAt = now();
     const empty = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
-      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, cacheBuildMs: 0, drawSubmitMs: 0, layers: {} };
+      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, cacheBuildMs: 0, drawSubmitMs: 0, totalMs: 0, layers: {} };
     if (disposed) return empty;
     const zoom = Number(viewport.zoom ?? 1);
     const centerLongitude = Number(viewport.centerLongitude ?? 0);
