@@ -541,7 +541,7 @@ test("le rendu expose des mesures séparées par famille de couches", () => {
 });
 
 
-import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity } from "../src/world/terrain-webgl.js";
+import { encodeTerrainTexture, renderTerrainWebGL, getTerrainWebGLShaders, getTerrainWebGLStats, resizeTerrainWebGLSurface, prepareTerrainTextureGrid, buildTerrainTileTexture, getTerrainTileGeoBounds, getTerrainTileScreenRects, createTerrainWebGLTileCache, selectTerrainTileLevel, collectTerrainViewportTiles, collectTerrainPredictiveTiles, getTerrainTileTransitionOpacity, buildTerrainTileBatchVertices } from "../src/world/terrain-webgl.js";
 
 test("le codage de texture WebGL conserve les altitudes ETOPO signées sur 16 bits", () => {
   const packed = encodeTerrainTexture(Int16Array.from([-32768, -1000, 0, 1200, 32767]));
@@ -811,6 +811,19 @@ test("le LOD GPU choisit le niveau parent selon la densité d'échantillons à l
   assert.equal(selectTerrainTileLevel(store, { zoom: 1 }, 960), 4);
   assert.equal(selectTerrainTileLevel(store, { zoom: 8 }, 960), 1);
   assert.equal(selectTerrainTileLevel(store, { zoom: 32 }, 960), 0);
+});
+
+test("le batch GPU regroupe plusieurs rectangles d'une tuile en quads", () => {
+  const rects = [
+    { x: 0, y: 0, width: 50, height: 40, u0: 0, u1: 0.5, v0: 0, v1: 1 },
+    { x: 50, y: 0, width: 50, height: 40, u0: 0.5, u1: 1, v0: 0, v1: 1 }
+  ];
+  const vertices = buildTerrainTileBatchVertices(rects, 100, 40);
+  assert.equal(vertices.length, 48);
+  assert.deepEqual(Array.from(vertices.slice(0, 4)), [-1, 1, 0, 0]);
+  assert.deepEqual(Array.from(vertices.slice(20, 24)), [0, -1, 0.5, 1]);
+  assert.equal(buildTerrainTileBatchVertices([{ x: -10, y: 0, width: 20, height: 20, u0: 0, u1: 1, v0: 0, v1: 1 }], 100, 100).length, 24);
+  assert.equal(buildTerrainTileBatchVertices(rects, 0, 40).length, 0);
 });
 
 test("la transition LOD GPU est progressive et bornée", () => {
