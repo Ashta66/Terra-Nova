@@ -1310,7 +1310,7 @@ test("le renderer WebGL met en cache les lignes compatibles et laisse l'antimér
     createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
     getAttribLocation: () => 0, getUniformLocation: () => ({}),
     viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
-    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    useProgram() {}, uniform2f() {}, uniform1f(location, value) { calls.push(["uniform1f", value]); }, uniform4fv() {},
     bindBuffer() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
     bufferData(target, data) { calls.push(["upload", target, data.byteLength]); },
     drawElements() {},
