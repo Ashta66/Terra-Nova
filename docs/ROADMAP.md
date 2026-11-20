@@ -357,3 +357,12 @@ Les optimisations de code et les tests automatisés ne remplacent pas une mesure
 
 ### Hiérarchie des détails secondaires — 20 novembre 2026
 L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altitude suivent désormais un profil LOD progressif. À faible zoom, seuls les cours d'eau et lacs de rang majeur sont dessinés, les glaciers sont masqués et les repères d'altitude sont fortement limités. Le détail augmente aux zooms régionaux puis locaux. Les frontières administratives secondaires sont également masquées plus longtemps et les frontières politiques restent prioritaires. Ces filtres ne suppriment aucune donnée source.
+
+
+## Préchargement prédictif de l'atlas — réalisé, 20 novembre 2026
+- Extension de l'emprise préparée au repos à environ 1,6× le viewport.
+- Biais des secteurs préchargés vers la dernière direction de déplacement, avec gestion de l'antiméridien.
+- Budget strict de 24 secteurs maximum par collection et réutilisation du cache LRU existant.
+- Préchargement interrompu/remplacé dès une nouvelle interaction ; une seule famille est préparée par tranche inactive.
+- Les niveaux mondiaux/régionaux restent séparés et les surfaces raster conservent leurs plafonds mémoire existants.
+- À valider ensuite : mesures navigateur de latence perçue, mémoire et fluidité sur plusieurs appareils.
