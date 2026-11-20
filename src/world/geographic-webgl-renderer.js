@@ -334,7 +334,9 @@ export function createGeographicWebGLRenderer(gl) {
       }
       allCacheHits = allCacheHits && cacheHit;
       const layerDrawCalls = type !== "polygons" ? (cached.vertexCount ? 1 : 0) : cached.batches.length;
-      const layerTriangles = cached.batches?.reduce((sum, batch) => sum + batch.triangles, 0) ?? 0;
+      const layerTriangles = type !== "polygons"
+        ? Math.floor((cached.vertexCount ?? 0) / 3)
+        : cached.batches.reduce((sum, batch) => sum + batch.triangles, 0);
       const layerBytes = cacheHit ? 0 : type !== "polygons" ? (cached.positions?.byteLength ?? 0) :
         cached.batches.reduce((sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
       const layerUploads = cacheHit ? 0 : type !== "polygons" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
