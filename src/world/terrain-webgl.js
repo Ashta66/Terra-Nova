@@ -199,6 +199,7 @@ function pollGpuQueries(renderer) {
   const { gl, timerExtension: ext, pendingQueries } = renderer;
   if (!ext) return;
   const disjoint = gl.getParameter(ext.GPU_DISJOINT_EXT);
+  if (disjoint) renderer.lastGpuMs = null;
   for (let i = pendingQueries.length - 1; i >= 0; i--) {
     const query = pendingQueries[i];
     if (!ext.getQueryObjectEXT(query, ext.QUERY_RESULT_AVAILABLE_EXT)) continue;
