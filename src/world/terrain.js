@@ -123,7 +123,7 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
-export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1) {
+export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
   // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
@@ -134,7 +134,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full"].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -183,7 +183,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         continue;
       }
       const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
-      pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
+      pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = landOnly ? 0 : 255;
     }
   }
   renderContext.putImageData(image, 0, 0);

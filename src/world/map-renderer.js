@@ -216,7 +216,7 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
       context.beginPath();
-      if (!traceGeometry(context, feature.geometry, width, height, projection)) continue;
+      if (!traceGeometry(context, feature.geometry, width, height, projection, coastProfile)) continue;
     }
     context.fillStyle = fill;
     context.strokeStyle = stroke;
@@ -446,9 +446,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
   // Le raster actuel est géoréférencé en équirectangulaire ; ne pas l’afficher sous une autre projection.
-  const terrainEnabled = options.terrainEnabled !== false
-    && projection.type === "equirectangular"
-    && drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1);
+  let terrainEnabled = false;
 
   context.save();
   context.strokeStyle = theme.colors.grid;
@@ -473,6 +471,20 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.restore();
 
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
+  const coastProfile = getCoastSimplificationProfile(projection.viewport?.zoom ?? 1);
+  // Le raster ETOPO est limité à la géométrie terrestre effectivement affichée.
+  // Ainsi, le trait de côte, le remplissage et le relief partagent le même contour
+  // simplifié : la côte du raster ne peut plus apparaître décalée sous le trait orange.
+  if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+    context.save();
+    context.beginPath();
+    for (const feature of visibleLand.features) {
+      if (feature?.geometry) traceGeometry(context, feature.geometry, width, height, projection, coastProfile);
+    }
+    context.clip("evenodd");
+    terrainEnabled = drawTerrainRaster(context, width, height, options.terrain, projection.viewport, options.terrainQuality ?? 1, true);
+    context.restore();
+  }
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
   const visibleLakes = selectVisibleFeatures(options.lakes, projection.viewport);
   const visibleRivers = selectVisibleFeatures(options.rivers, projection.viewport);
