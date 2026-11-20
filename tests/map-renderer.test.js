@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap } from "../src/world/map-renderer.js";
+import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 
 
@@ -513,4 +513,15 @@ test("le raster de relief ne calcule et ne place que la région sale demandée",
  assert.equal(placement.x,1);
  assert.equal(placement.y,0);
  assert.equal(image.data.length,16);
+});
+
+
+test("l'opacité de transition du relief est bornée et progressive", () => {
+  assert.equal(getTerrainTransitionOpacity(-1), 0);
+  assert.equal(getTerrainTransitionOpacity(0), 0);
+  assert.equal(getTerrainTransitionOpacity(0.25), 0.25);
+  assert.equal(getTerrainTransitionOpacity(0.5), 0.5);
+  assert.equal(getTerrainTransitionOpacity(1), 1);
+  assert.equal(getTerrainTransitionOpacity(2), 1);
+  assert.equal(getTerrainTransitionOpacity(Number.NaN), 1);
 });
