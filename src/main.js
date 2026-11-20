@@ -4,6 +4,7 @@ import { createGameState, validateGameState } from "./game/state.js";
 import { renderWorldMap } from "./world/map-renderer.js";
 import { createTerrainGrid } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 
 let state = createGameState();
 let interval = null;
@@ -15,6 +16,7 @@ let elevationPoints = null;
 let mapLabels = null;
 let terrainGrid = null;
 let terrainTileStore = null;
+let terrainTilePersistence = null;
 let mapLabelHits = [];
 let lastDragMoved = false;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
@@ -79,6 +81,33 @@ function renderMap() {
   updateMapControls();
 }
 
+async function connectTerrainTilePersistence() {
+  if (!terrainTileStore || !terrainGrid) return;
+  try {
+    const persistence = await createTerrainTilePersistence();
+    if (!persistence) return;
+    terrainTilePersistence = persistence;
+    const tileSize = terrainTileStore.tileSize;
+    terrainTileStore.setOnTileChange(async (snapshot) => {
+      try {
+        await persistence.saveTile(snapshot, terrainGrid, tileSize);
+        terrainTileStore?.markPersisted(snapshot.id, snapshot.revision);
+      } catch (error) {
+        console.warn("Persistance d’une tuile de relief impossible :", error);
+      }
+    });
+    const snapshots = await persistence.loadAll(terrainGrid, tileSize);
+    let restored = 0;
+    for (const snapshot of snapshots) {
+      if (terrainTileStore.restoreTile(snapshot)) restored++;
+    }
+    if (restored) renderMap();
+    console.info(`Persistance du relief prête : ${restored} tuile(s) restaurée(s).`);
+  } catch (error) {
+    console.warn("Stockage local du relief indisponible :", error);
+  }
+}
+
 async function loadWorldMap() {
   try {
     const responses = await Promise.all([
@@ -101,6 +130,7 @@ async function loadWorldMap() {
         // Les tuiles sont matérialisées à la demande et conservées en LRU.
         // La grille source reste intacte comme référence de chargement initial.
         terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96 });
+        void connectTerrainTilePersistence();
       }
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
