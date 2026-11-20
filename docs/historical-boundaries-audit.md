@@ -171,3 +171,8 @@ Le renderer construit un Path2D terrestre unique, puis applique une première pa
 ## Transparence des aplats politiques (étape 5)
 
 L’opacité politique par défaut passe à 0,45 (45 %) afin de laisser davantage de contraste au relief sous-jacent. La valeur est appliquée par le même chemin de peinture, qu’il utilise un Path2D ou le tracé Canvas de repli.
+
+
+## Réglages visuels du relief (étape 6)
+
+Deux curseurs permettent d’ajuster l’exagération verticale (1 à 30, valeur initiale 14) et la force de la passe d’ombrage (0 à 100 %, valeur initiale 85 %). Les changements redessinent la carte ; à la validation du curseur d’exagération, le Worker recalcule aussi sa variante pré-calculée. Aucun champ de sauvegarde n’est ajouté ou modifié.

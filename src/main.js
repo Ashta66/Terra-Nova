@@ -375,6 +375,32 @@ $("player-country").addEventListener("change", event => {
   previewCountry = event.target.value;
   renderMap();
 });
+
+$("terrain-mode")?.addEventListener("change", () => {
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("country-opacity")?.addEventListener("input", event => {
+  $("country-opacity-value").textContent = event.target.value + " %";
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("terrain-exaggeration")?.addEventListener("input", event => {
+  $("terrain-exaggeration-value").textContent = event.target.value + "×";
+  lastRenderedMapSignature = null;
+  renderMap();
+});
+$("terrain-exaggeration")?.addEventListener("change", event => {
+  if (!terrainGrid) return;
+  prepareTerrainHillshade(terrainGrid, Number(event.target.value)).then(ready => {
+    if (ready) { lastRenderedMapSignature = null; renderMap(); }
+  });
+});
+$("relief-strength")?.addEventListener("input", event => {
+  $("relief-strength-value").textContent = event.target.value + " %";
+  lastRenderedMapSignature = null;
+  renderMap();
+});
 $("sandbox-country").addEventListener("change", event => {
   if (!event.target.value) return;
   playerCountry = event.target.value;
