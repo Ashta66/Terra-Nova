@@ -798,7 +798,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const feature = candidates[candidateIndex];
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     const kind = feature.properties?.kind ?? "place";
-    if (zoom < 3 && (kind === "province" || kind === "city")) continue;
+    if (zoom < 3 && kind === "province") continue;
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
     if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;

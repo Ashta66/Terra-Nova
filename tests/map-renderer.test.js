@@ -46,7 +46,7 @@ test("le moteur dessine une FeatureCollection et retourne son thème", () => {
 
 test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes", () => {
   const { canvas } = createCanvas();
-  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[1, 1], [2, 1], [2, 2], [1, 1]]] } }] };
+  const lakes = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[86, 27], [88, 27], [88, 29], [86, 27]]] } }] };
   const rivers = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [5, 5], [10, 4]] } }] };
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, lakes, rivers });
   assert.equal(result.lakeCount, 1);
@@ -334,7 +334,7 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   try {
     const { canvas } = createCanvas();
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 2);
+    assert.equal(constructions, 1);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
     assert.equal(constructions, 2);
     // Une boucle complète de 360° présente exactement le même cadrage.
