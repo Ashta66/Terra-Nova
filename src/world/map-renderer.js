@@ -393,7 +393,12 @@ function drawPoliticalLayers(context, width, height, projection, theme, featureC
   return { landCount, glacierCount, lakeCount, riverCount, elevationPointCount };
 }
 
+function performanceNow() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
 export function renderWorldMap(canvas, featureCollection, options = {}) {
+  const frameStartedAt = performanceNow();
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
     throw new TypeError("Une FeatureCollection GeoJSON est requise.");
@@ -414,6 +419,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   context.fillStyle = theme.colors.ocean;
   context.fillRect(0, 0, width, height);
 
+  const terrainStartedAt = performanceNow();
   const terrainEnabled = projection.type === "equirectangular" && Boolean(options.terrain?.values || options.terrain?.sampleBilinear);
   const viewKey = viewportKey(projection.viewport);
   const physicalKey = [objectId(options.terrain), options.terrain?.revision ?? 0, width, height, pixelRatio, viewKey].join("|");
@@ -495,6 +501,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     lastPhysicalFrame = null;
   }
 
+  const terrainMs = performanceNow() - terrainStartedAt;
+  const politicalStartedAt = performanceNow();
   let politicalIncremental = false;
   let layerCounts;
   if (typeof context.drawImage === "function") {
@@ -546,17 +554,24 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     layerCounts = drawPoliticalLayers(context, width, height, projection, theme, featureCollection, { ...options, terrainEnabled });
   }
 
+  const politicalMs = performanceNow() - politicalStartedAt;
+  const labelsStartedAt = performanceNow();
   const labelHits = drawMapLabels(context, options.labels, width, height, projection, theme, projection.viewport.zoom ?? 1);
+  const labelsMs = performanceNow() - labelsStartedAt;
+  const dynamicStartedAt = performanceNow();
   let dynamicLayerCount = 0;
   for (const drawDynamic of options.dynamicLayers ?? []) {
     if (typeof drawDynamic !== "function") continue;
     drawDynamic(context, { width, height, projection, theme, viewport: projection.viewport });
     dynamicLayerCount++;
   }
+  const dynamicMs = performanceNow() - dynamicStartedAt;
+  const totalMs = performanceNow() - frameStartedAt;
   const { landCount, lakeCount, riverCount, glacierCount, elevationPointCount } = layerCounts;
 
 
   return {
+    performance: { totalMs, terrainMs, politicalMs, labelsMs, dynamicMs },
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
     landCount, lakeCount, riverCount, glacierCount, elevationPointCount, labelHits, terrainEnabled, physicalCacheHit: false, physicalIncremental: physicalHit, politicalCacheHit: false, politicalIncremental, dynamicLayerCount, width, height
   };
