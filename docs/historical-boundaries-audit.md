@@ -93,3 +93,12 @@ Le moteur possédait déjà un cache LRU borné de chemins projetés et un cache
 
 ## Tampon de navigation avec débordement géographique
 Après chaque rendu complet, le moteur prépare pendant le temps libre un bitmap de navigation 1,5 fois plus grand que le viewport. Son zoom est ajusté pour conserver l'échelle au centre tout en calculant réellement les régions voisines ; le déplacement et le zoom utilisent ce tampon au lieu d'une simple copie de la carte visible. Le tampon offre environ 25 % de débordement de chaque côté et reste facultatif : si sa préparation n'est pas terminée ou échoue, l'aperçu classique reste disponible. Il est reconstruit après le rendu final. Cette première version ne garantit pas un débordement illimité lors de très grands glissements ; le diagnostic permettra de mesurer le coût de préparation et d'ajuster le facteur.
+
+
+## Cache géographique à révisions locales (20 novembre 2026)
+
+- Les collections d'étiquettes combinant les labels régionaux et territoriaux sont conservées tant que leurs deux sources ne changent pas. L'index spatial peut donc réutiliser son index entre les images.
+- Introduction de tuiles géographiques stables de 10° × 10° et d'un compteur de révision par tuile.
+- Une catastrophe incrémente les révisions des tuiles contenant les cellules affectées et de leur voisinage immédiat (halo d'une tuile), nécessaire aux calculs de pente et d'ombrage.
+- Le calcul gère l'enroulement des longitudes à l'antiméridien.
+- Cette étape prépare l'invalidation sélective des futurs caches raster/vectoriels. Elle ne prétend pas encore précalculer les tuiles ni déplacer leur rasterisation dans un Worker : le moteur de rendu existant reste la source d'affichage.

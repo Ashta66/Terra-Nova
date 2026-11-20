@@ -49,6 +49,16 @@ let mapOverscanCanvas = null;
 let mapOverscanTask = null;
 let mapOverscanVersion = 0;
 let lastMapRenderConfig = null;
+let combinedLabelSources = { base: null, territories: null, collection: null };
+function getCombinedLabelCollection(base, territories) {
+  if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
+    combinedLabelSources = { base, territories, collection: {
+      type: "FeatureCollection",
+      features: [...(base?.features ?? []), ...(territories?.features ?? [])]
+    }};
+  }
+  return combinedLabelSources.collection;
+}
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
@@ -232,7 +242,7 @@ function renderMapFrame() {
     rivers: riverDetail.features,
     glaciers: glacierFeatures,
     elevationPoints,
-    labels: { type: "FeatureCollection", features: [...(labelDetail.features?.features ?? []), ...(territoryLabelFeatures?.features ?? [])] },
+    labels: getCombinedLabelCollection(labelDetail.features, territoryLabelFeatures),
     territories: territoryFeatures,
     physicalWorld: state.physicalWorld,
     selectedCountry: playerCountry || previewCountry,
