@@ -325,3 +325,23 @@ test("le préchargement respecte les limites polaires et les coordonnées invali
   assert.ok(ids.every(id => { const parts = id.split("/"); return parts.length === 3 && parts[0] === "0" && parts.slice(1).every(part => Number.isInteger(Number(part))); }));
   assert.ok(ids.every(id => store.loadedIds.includes(id)));
 });
+
+
+test("le niveau de détail du relief interpole progressivement entre les parents et les enfants", () => {
+  const values = Int16Array.from({ length: 64 }, (_, index) => index * 100);
+  const store = createTerrainTileStore({ width: 8, height: 8, values }, { tileSize: 2, maxTiles: 16 });
+  const fine = store.sampleLod(-135, 67.5, 0);
+  const parent = store.sampleLod(-135, 67.5, 1);
+  const halfway = store.sampleLod(-135, 67.5, 0.5);
+  assert.ok(Number.isFinite(fine));
+  assert.ok(Number.isFinite(parent));
+  assert.ok(Math.abs(halfway - (fine + parent) / 2) < 1e-8);
+  assert.equal(store.sampleLod(-135, 67.5, 0), store.sampleBilinear(-135, 67.5, 0));
+});
+
+test("le niveau de détail reste borné et accepte les coordonnées proches de l'antiméridien", () => {
+  const values = Int16Array.from({ length: 48 }, (_, index) => index);
+  const store = createTerrainTileStore({ width: 8, height: 6, values }, { tileSize: 2, maxTiles: 12 });
+  assert.equal(store.sampleLod(179.9, 0, 99), store.sampleLod(179.9, 0, 4));
+  assert.ok(Number.isFinite(store.sampleLod(-180.1, 0, 2.25)));
+});
