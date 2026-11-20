@@ -4,6 +4,7 @@ import { buildTerrainTileTexture, shouldUseTerrainParentFallback, getTerrainPend
 import { renderWorldMap, getTerrainTransitionOpacity } from "../src/world/map-renderer.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, getTerrainLod } from "../src/world/terrain.js";
 import { buildGeographicPolygonMesh, createGeographicMeshCache } from "../src/world/geographic-webgl.js";
+import { createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
 
 
 test("le LOD du relief suit progressivement la densité de pixels du viewport", () => {
@@ -1140,4 +1141,50 @@ test("le cache de maillages réutilise la triangulation d'une même feature", ()
   };
   const cache = createGeographicMeshCache();
   assert.equal(cache.get(feature), cache.get(feature));
+});
+
+
+test("le renderer WebGL géographique regroupe les polygones et ignore les géométries non supportées", () => {
+  let nextId = 0;
+  const calls = [];
+  const gl = {
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, DYNAMIC_DRAW: 7, FLOAT: 8,
+    TRIANGLES: 9, UNSIGNED_SHORT: 10, COLOR_BUFFER_BIT: 11, BLEND: 12,
+    SRC_ALPHA: 13, ONE_MINUS_SRC_ALPHA: 14,
+    createShader: () => ({ id: ++nextId }),
+    shaderSource() {}, compileShader() {}, getShaderParameter: () => true,
+    deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, deleteProgram() {},
+    createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    bindBuffer(target) { calls.push(["bindBuffer", target]); },
+    enableVertexAttribArray() {}, vertexAttribPointer() {},
+    bufferData(target, data) { calls.push(["bufferData", target, data.length]); },
+    drawElements(mode, count) { calls.push(["drawElements", mode, count]); }
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const polygon = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]] }
+  };
+  const withHole = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [
+      [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]],
+      [[1, 1], [2, 1], [2, 2], [1, 2], [1, 1]]
+    ] }
+  };
+  const stats = renderer.render([polygon, polygon, withHole], 800, 400,
+    { centerLongitude: 0, centerLatitude: 0, zoom: 1 }, [0.2, 0.3, 0.4, 1]);
+  assert.equal(stats.drawnFeatures, 2);
+  assert.equal(stats.skippedFeatures, 1);
+  assert.equal(stats.drawCalls, 1);
+  assert.equal(stats.triangles, 4);
+  assert.equal(calls.filter(call => call[0] === "drawElements").length, 1);
+  assert.ok(calls.some(call => call[0] === "bufferData" && call[1] === gl.ELEMENT_ARRAY_BUFFER));
+  renderer.dispose();
 });
