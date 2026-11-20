@@ -255,8 +255,9 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     for (const line of lines) {
       context.beginPath();
       let started = false;
+      const project = createContinuousProjector(width, height, projection);
       for (const coordinate of line) {
-        const point = projectCoordinate(coordinate, width, height, projection);
+        const point = project(coordinate);
         if (!point) { started = false; continue; }
         if (!started) { context.moveTo(point.x, point.y); started = true; }
         else context.lineTo(point.x, point.y);
