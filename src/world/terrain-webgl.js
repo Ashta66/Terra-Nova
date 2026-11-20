@@ -409,7 +409,9 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
  if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
  const out=[],push=(x,y,u,v,e,t)=>out.push(x/width*2-1,1-y/height*2,
   (e.slotX*atlas.cellSize+1+u*t.width)/atlas.atlasWidth,(e.slotY*atlas.cellSize+1+v*t.height)/atlas.atlasHeight,
-  1/atlas.atlasWidth,1/atlas.atlasHeight,1/(t.width+2),1/(t.height+2));
+  1/atlas.atlasWidth,1/atlas.atlasHeight,1/(t.width+2),1/(t.height+2),
+  (e.slotX*atlas.cellSize)/atlas.atlasWidth,(e.slotY*atlas.cellSize)/atlas.atlasHeight,
+  (e.slotX*atlas.cellSize+t.width+1)/atlas.atlasWidth,(e.slotY*atlas.cellSize+t.height+1)/atlas.atlasHeight);
  for(const {tile,rects} of items){
   const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}@${tile.revision??0}`)??Array.from(entries.values()).find(e=>e.level===tile.level&&e.x===tile.x&&e.y===tile.y);
   if(!entry)continue;
@@ -615,10 +617,12 @@ attribute vec2 a_position;
 attribute vec2 a_atlasUv;
 attribute vec2 a_atlasStep;
 attribute vec2 a_tileStep;
+attribute vec4 a_atlasBounds;
+varying vec4 v_atlasBounds;
 varying vec2 v_atlasUv;
 varying vec2 v_atlasStep;
 varying vec2 v_tileStep;
-void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;gl_Position=vec4(a_position,0.0,1.0);}
+void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;v_atlasBounds=a_atlasBounds;gl_Position=vec4(a_position,0.0,1.0);}
 `;
 
 
@@ -629,7 +633,8 @@ uniform float u_opacity;
 varying vec2 v_atlasUv;
 varying vec2 v_atlasStep;
 varying vec2 v_tileStep;
-float elevationAt(vec2 uv){vec4 s=texture2D(u_elevation,uv);float n=s.r*255.0+s.a*65280.0;return mod(n+32768.0,65536.0)-32768.0;}
+varying vec4 v_atlasBounds;
+float elevationAt(vec2 uv){vec2 p=clamp(uv,v_atlasBounds.xy,v_atlasBounds.zw);vec4 s=texture2D(u_elevation,p);float n=s.r*255.0+s.a*65280.0;return mod(n+32768.0,65536.0)-32768.0;}
 vec3 ramp(float v,float lo,float hi,vec3 a,vec3 b){float t=clamp((v-lo)/(hi-lo),0.0,1.0);t=t*t*(3.0-2.0*t);return mix(a,b,t);}
 void main(){
  float e=elevationAt(v_atlasUv);
@@ -666,16 +671,17 @@ function createTileRenderer(tileStore) {
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   gl.useProgram(program);
   const position=gl.getAttribLocation(program,"a_position"),atlasUv=gl.getAttribLocation(program,"a_atlasUv");
-  const atlasStep=gl.getAttribLocation(program,"a_atlasStep"),tileStep=gl.getAttribLocation(program,"a_tileStep");
+  const atlasStep=gl.getAttribLocation(program,"a_atlasStep"),tileStep=gl.getAttribLocation(program,"a_tileStep"),atlasBounds=gl.getAttribLocation(program,"a_atlasBounds");
   gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,32,0);
   gl.enableVertexAttribArray(atlasUv);gl.vertexAttribPointer(atlasUv,2,gl.FLOAT,false,32,8);
   gl.enableVertexAttribArray(atlasStep);gl.vertexAttribPointer(atlasStep,2,gl.FLOAT,false,32,16);
-  gl.enableVertexAttribArray(tileStep);gl.vertexAttribPointer(tileStep,2,gl.FLOAT,false,32,24);
+  gl.enableVertexAttribArray(tileStep);gl.vertexAttribPointer(tileStep,2,gl.FLOAT,false,48,24);
+  gl.enableVertexAttribArray(atlasBounds);gl.vertexAttribPointer(atlasBounds,4,gl.FLOAT,false,48,32);
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:4});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -759,15 +765,16 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
     if(!items.length||opacity<=0)return;
     gl.uniform1f(opacityLocation,opacity);gl.bindTexture(gl.TEXTURE_2D,cache.texture);
     gl.bindBuffer(gl.ARRAY_BUFFER,renderer.buffer);
-    gl.vertexAttribPointer(renderer.position,2,gl.FLOAT,false,32,0);
-    gl.vertexAttribPointer(renderer.atlasUv,2,gl.FLOAT,false,32,8);
-    gl.vertexAttribPointer(renderer.atlasStep,2,gl.FLOAT,false,32,16);
-    gl.vertexAttribPointer(renderer.tileStep,2,gl.FLOAT,false,32,24);
+    gl.vertexAttribPointer(renderer.position,2,gl.FLOAT,false,48,0);
+    gl.vertexAttribPointer(renderer.atlasUv,2,gl.FLOAT,false,48,8);
+    gl.vertexAttribPointer(renderer.atlasStep,2,gl.FLOAT,false,48,16);
+    gl.vertexAttribPointer(renderer.tileStep,2,gl.FLOAT,false,48,24);
+    gl.vertexAttribPointer(renderer.atlasBounds,4,gl.FLOAT,false,48,32);
     const entries=new Map();
     for(const {tile} of items){const entry=cache.get(tile,protectedKeys);if(entry)entries.set(entry.key,entry);}
     const vertices=buildTerrainTileAtlasBatchVertices(items,entries,width,height,cache);
     if(!vertices.length)return;
-    gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/8);renderer.lastDrawCalls++;
+    gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/12);renderer.lastDrawCalls++;
   };
   if(previousVisible.length)drawLevel(previousVisible,1);
   drawLevel(visible,previousVisible.length?transitionProgress:1);
@@ -778,7 +785,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={}) {
     renderer.lastPreloadAt=drawFinishedAt;
     const predictive=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,8);
     for(const {tile} of predictive) {
-      const entry=cache.get(tile,tileStore,protectedKeys);
+      const entry=cache.get(tile,protectedKeys);
       if(entry) renderer.lastPreloadedTiles++;
     }
   }
