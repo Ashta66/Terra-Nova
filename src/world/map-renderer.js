@@ -48,7 +48,7 @@ function getProjectedPath(feature, width, height, projection) {
   const key = [
     projection.type, width, height,
     Number(viewport.zoom ?? 1).toFixed(4),
-    Number(viewport.centerLongitude ?? 0).toFixed(4),
+    ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4),
     Number(viewport.centerLatitude ?? 0).toFixed(4)
   ].join(":");
   let entries = projectedPathCache.get(feature);
