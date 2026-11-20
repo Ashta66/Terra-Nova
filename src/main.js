@@ -272,7 +272,6 @@ $("map-reset").addEventListener("click", resetMapView);
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   if (wheelZoomState) clearWheelZoomPreview();
-  mapInteractionActive = true;
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapCanvas.classList.add("is-dragging");
   mapCanvas.setPointerCapture?.(event.pointerId);
@@ -297,6 +296,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
   mapViewport.centerLongitude = Math.max(-540, Math.min(540, mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom));
   mapViewport.centerLatitude = Math.max(-80, Math.min(80, mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom));
   // Prévisualisation légère à chaque frame : le canvas reste plein cadre et ne révèle pas le fond.
+  mapInteractionActive = true;
   renderMap();
 });
 function showMapTooltip(label, x, y, selected) {
