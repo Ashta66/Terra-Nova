@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit } from "../src/world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -605,7 +605,7 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     { type: "Feature", geometry: { type: "LineString", coordinates: [[1, 0], [6, 5]] } }
   ] };
   const result = renderWorldMap(canvas, land, {
-    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2.5 },
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 3.5 },
     politicalBoundaries, administrativeBoundaries
   });
   assert.equal(result.politicalBoundaryCount, 2);
@@ -842,4 +842,17 @@ test("les villes les plus importantes sont prioritaires dans le tri des labels",
   ] };
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, labels, viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 } });
   assert.ok(result.labelHits.findIndex(label => label.name === "Grande ville") < result.labelHits.findIndex(label => label.name === "Petite ville"));
+});
+
+
+test("le détail hydrographique, glaciaire et altimétrique augmente progressivement avec le zoom", () => {
+  const world = getSecondaryDetailProfile(1);
+  const regional = getSecondaryDetailProfile(3);
+  const local = getSecondaryDetailProfile(8);
+  assert.equal(world.glaciers, false);
+  assert.ok(world.riversMax < regional.riversMax);
+  assert.ok(regional.riversMax < local.riversMax);
+  assert.ok(world.elevationMax < regional.elevationMax);
+  assert.ok(regional.elevationMax < local.elevationMax);
+  assert.ok(world.lakesRank < local.lakesRank);
 });
