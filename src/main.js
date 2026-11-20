@@ -131,6 +131,17 @@ function renderMap() {
     }
     canvas.dataset.renderTerrainMs = result.performance.terrainMs.toFixed(2);
     canvas.dataset.renderPoliticalMs = result.performance.politicalMs.toFixed(2);
+    if (result.geographicWebGLStats) {
+      canvas.dataset.geographicWebglFeatures = String(result.geographicWebGLStats.drawnFeatures);
+      canvas.dataset.geographicWebglSkipped = String(result.geographicWebGLStats.skippedFeatures);
+      canvas.dataset.geographicWebglDrawCalls = String(result.geographicWebGLStats.drawCalls);
+      canvas.dataset.geographicWebglTriangles = String(result.geographicWebGLStats.triangles);
+    } else {
+      delete canvas.dataset.geographicWebglFeatures;
+      delete canvas.dataset.geographicWebglSkipped;
+      delete canvas.dataset.geographicWebglDrawCalls;
+      delete canvas.dataset.geographicWebglTriangles;
+    }
     canvas.dataset.renderLabelsMs = result.performance.labelsMs.toFixed(2);
     canvas.dataset.renderDynamicMs = result.performance.dynamicMs.toFixed(2);
     canvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
