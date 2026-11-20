@@ -54,6 +54,62 @@ const keys = [
 Object.fromEntries(keys.map(key => [key, canvas?.dataset?.[key] ?? null]));
 ```
 
+## Collecte automatique depuis la console
+
+Le script suivant échantillonne les attributs `data-*` du canvas à chaque frame pendant 10 secondes. Collez-le une fois dans la console, puis lancez `collectMapBenchmark()` et réalisez immédiatement le scénario à mesurer. Il retourne les échantillons bruts, la médiane et le percentile 95 de chaque métrique numérique, ainsi que les informations de la fenêtre et du navigateur.
+
+```js
+window.collectMapBenchmark = async ({ durationMs = 10000 } = {}) => {
+  const canvas = document.querySelector("canvas");
+  if (!canvas) throw new Error("Canvas cartographique introuvable");
+  const samples = [];
+  const startedAt = performance.now();
+  await new Promise(resolve => {
+    const sample = timestamp => {
+      const values = {};
+      for (const [key, raw] of Object.entries(canvas.dataset)) {
+        if (raw === "" || raw === "true" || raw === "false") continue;
+        const value = Number(raw);
+        if (Number.isFinite(value)) values[key] = value;
+      }
+      samples.push({ elapsedMs: timestamp - startedAt, ...values });
+      if (timestamp - startedAt < durationMs) requestAnimationFrame(sample);
+      else resolve();
+    };
+    requestAnimationFrame(sample);
+  });
+  const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample)))].filter(key => key !== "elapsedMs");
+  const percentile = (sorted, fraction) => sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+  const metrics = Object.fromEntries(metricKeys.map(key => {
+    const values = samples.map(sample => sample[key]).filter(Number.isFinite).sort((a, b) => a - b);
+    if (!values.length) return [key, null];
+    return [key, {
+      samples: values.length,
+      median: percentile(values, 0.5),
+      p95: percentile(values, 0.95),
+      min: values[0],
+      max: values[values.length - 1]
+    }];
+  }));
+  const result = {
+    metadata: {
+      userAgent: navigator.userAgent,
+      devicePixelRatio: window.devicePixelRatio,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      durationMs,
+      sampleCount: samples.length
+    },
+    metrics,
+    samples
+  };
+  console.log("TERRA NOVA benchmark", result);
+  return result;
+};
+```
+
+Le script mesure les valeurs publiées par l'application, pas le temps GPU matériel. Les métriques ne sont pas toutes mises à jour à chaque frame : leur nombre d'échantillons effectifs est donc indiqué individuellement. Pour comparer deux moteurs, exporter les deux résultats et garder les mêmes dimensions, DPR, navigateur, données, viewport et séquence d'interaction.
+
 ## Matrice de scénarios reproductibles
 Effectuer les relevés suivants à dimensions de canvas, ratio de pixels et jeu de données identiques. Pour chaque scénario, répéter au moins 5 fois et conserver médiane et percentile 95 ; séparer le premier passage (cache froid) des passages suivants (cache chaud).
 
