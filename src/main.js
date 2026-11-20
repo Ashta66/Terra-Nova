@@ -150,7 +150,7 @@ async function loadWorldMap() {
     } catch (terrainError) {
       console.warn("Grille ETOPO non chargée :", terrainError);
     }
-    renderMap();
+    scheduleMapRender();
   } catch (error) {
     $("map-status").textContent = `Carte indisponible : ${error.message}`;
   }
@@ -294,4 +294,4 @@ state.clock = createClock();
 render();
 updateMapControls();
 loadWorldMap();
-window.addEventListener("resize", () => renderMap());
+window.addEventListener("resize", scheduleMapRender);
