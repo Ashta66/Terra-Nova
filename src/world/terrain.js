@@ -152,7 +152,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   // Relief volontairement plus doux : résolution d'affichage plafonnée à 512 × 256.
   // Les grandes formes restent visibles, tandis que les micro-variations sont atténuées.
   const qualityScale = clamp(Number(quality) || 1, 0.25, 1);
-  const scale = Math.min(1, (1200 * qualityScale) / width, (600 * qualityScale) / height);
+  const scale = Math.min(1, (512 * qualityScale) / width, (256 * qualityScale) / height);
   const renderWidth = Math.max(1, Math.round(width * scale));
   const renderHeight = Math.max(1, Math.round(height * scale));
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
