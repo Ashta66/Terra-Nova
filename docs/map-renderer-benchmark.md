@@ -68,4 +68,5 @@ Ne pas conclure à un gain de performances sur la seule base du temps de soumiss
 - Les lignes et frontières sont dessinées comme rubans triangulés, pas avec `gl.LINES`.
 - La largeur est fournie en pixels de la surface GPU (largeur CSS multipliée par le ratio de rendu).
 - Vérifier les épaisseurs à plusieurs densités d'écran, aux angles aigus, aux jonctions de segments et autour de l'antiméridien.
-- Les rubans actuels utilisent des extrémités carrées et des segments indépendants ; les jonctions très aiguës peuvent encore présenter des irrégularités visuelles. Le contrôle visuel réel reste obligatoire.
+- Les segments partagent maintenant des disques de raccord en espace écran aux extrémités communes (12 facettes), ce qui ferme les jours aux angles et intersections.
+- Les extrémités libres restent carrées. Vérifier les angles très aigus, les croisements denses et les petits détails à plusieurs densités d'écran ; le contrôle visuel réel reste obligatoire.
