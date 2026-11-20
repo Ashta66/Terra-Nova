@@ -378,3 +378,33 @@ test("le magasin de tuiles expose une révision globale pour invalider le cache 
   }), true);
   assert.equal(store.revision, 2);
 });
+
+
+import { calculateViewportTransform } from "../src/world/map-renderer.js";
+
+test("la prévisualisation bitmap traduit correctement un déplacement du viewport", () => {
+  const transform = calculateViewportTransform(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 1, centerLongitude: 90, centerLatitude: 0 },
+    360, 180
+  );
+  assert.equal(transform.scale, 1);
+  assert.equal(transform.translateX, -90);
+  assert.equal(transform.translateY, 0);
+});
+
+test("la prévisualisation bitmap met à l'échelle autour du centre et suit le centre géographique", () => {
+  const transform = calculateViewportTransform(
+    { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    { zoom: 2, centerLongitude: 10, centerLatitude: 5 },
+    360, 180
+  );
+  assert.equal(transform.scale, 2);
+  assert.equal(transform.translateX, -200);
+  assert.equal(transform.translateY, 10);
+});
+
+test("la transformation bitmap reste finie pour des viewports incomplets", () => {
+  const transform = calculateViewportTransform({}, {}, 640, 320);
+  assert.deepEqual(transform, { scale: 1, translateX: 0, translateY: 0 });
+});
