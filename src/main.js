@@ -53,7 +53,6 @@ let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
 let sceneLabelHits = [];
 let sceneReady = false;
-let renderComparisonScheduled = false;
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
@@ -256,7 +255,9 @@ function updateMapDiagnostics(result) {
 }
 
 function renderMapFrame() {
-  if (!worldFeatures) return;
+  // Un chargement régional ou une invalidation asynchrone ne doit jamais
+  // lancer un rendu complet pendant que le joueur manipule la carte.
+  if (!worldFeatures || mapInteractionActive) return;
   if (mapViewport.zoom >= 4 && !regionalLandFeatures && !regionalLandLoadAttempted) {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
@@ -351,9 +352,7 @@ function renderMapFrame() {
     interactive: false,
     physicalOverlayContext: null,
   };
-  const renderStartedAt = globalThis.performance?.now?.() ?? Date.now();
   const result = renderWorldMap(sceneCanvas, landDetail.features, renderOptions);
-  const fullRenderMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt);
   sceneViewport = { ...mapViewport };
   sceneSize = { w: Ws, h: Hs, f };
   sceneOcean = result.theme.colors.ocean;
@@ -361,7 +360,6 @@ function renderMapFrame() {
   sceneReady = true;
   sceneRecenterPending = false;
   composeScene();
-  scheduleRenderComparisonBenchmark(landDetail.features, renderOptions, width, height, fullRenderMs, { ...mapViewport }, f);
   updateMapDiagnostics(result);
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
@@ -715,39 +713,6 @@ function showMapTooltip(label, x, y, selected) {
 function hideMapTooltip() {
   $("map-tooltip").hidden = true;
 }
-function scheduleRenderComparisonBenchmark(features, renderOptions, width, height, overscanRenderMs, viewSnapshot, factor) {
-  if (renderComparisonScheduled || factor <= 1.001) return;
-  renderComparisonScheduled = true;
-  const measure = () => {
-    const baselineCanvas = document.createElement("canvas");
-    const startedAt = globalThis.performance?.now?.() ?? Date.now();
-    try {
-      renderWorldMap(baselineCanvas, features, {
-        ...renderOptions,
-        width,
-        height,
-        viewport: viewSnapshot,
-        lodZoom: viewSnapshot.zoom,
-        renderScale: 1,
-        pixelRatio: MAP_PIXEL_RATIO
-      });
-      const baselineMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
-      const output = $("map-perf-comparison");
-      if (output) output.textContent =
-        `Comparatif initial (zoom ${viewSnapshot.zoom.toFixed(2)}) : sans overscan ${baselineMs.toFixed(1)} ms · avec ×${factor.toFixed(2)} ${overscanRenderMs.toFixed(1)} ms`;
-    } catch (error) {
-      const output = $("map-perf-comparison");
-      if (output) output.textContent = "Comparatif de rendu indisponible : " + error.message;
-      renderComparisonScheduled = false;
-    } finally {
-      baselineCanvas.width = 1;
-      baselineCanvas.height = 1;
-    }
-  };
-  if (typeof requestIdleCallback === "function") requestIdleCallback(measure, { timeout: 1800 });
-  else setTimeout(measure, 500);
-}
-
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
   const { width, height } = viewSize();
@@ -767,24 +732,28 @@ function composeScene() {
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
   }
+  // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
+  // chaque mouvement de souris pendant un glisser est du travail inutile.
   mapLabelHits = [];
-  for (const rect of composition.rects) {
-    const scaleX = rect.w / sceneSize.w;
-    const scaleY = rect.h / sceneSize.h;
-    for (const hit of sceneLabelHits) {
-      const bounds = {
-        left: rect.x + hit.bounds.left * scaleX,
-        right: rect.x + hit.bounds.right * scaleX,
-        top: rect.y + hit.bounds.top * scaleY,
-        bottom: rect.y + hit.bounds.bottom * scaleY
-      };
-      if (bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
-      mapLabelHits.push({
-        ...hit,
-        x: rect.x + hit.x * scaleX,
-        y: rect.y + hit.y * scaleY,
-        bounds
-      });
+  if (!mapDrag) {
+    for (const rect of composition.rects) {
+      const scaleX = rect.w / sceneSize.w;
+      const scaleY = rect.h / sceneSize.h;
+      for (const hit of sceneLabelHits) {
+        const bounds = {
+          left: rect.x + hit.bounds.left * scaleX,
+          right: rect.x + hit.bounds.right * scaleX,
+          top: rect.y + hit.bounds.top * scaleY,
+          bottom: rect.y + hit.bounds.bottom * scaleY
+        };
+        if (bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
+        mapLabelHits.push({
+          ...hit,
+          x: rect.x + hit.x * scaleX,
+          y: rect.y + hit.y * scaleY,
+          bounds
+        });
+      }
     }
   }
   // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
