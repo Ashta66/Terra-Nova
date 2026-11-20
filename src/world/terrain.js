@@ -100,35 +100,32 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
 }
 
-export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
-  if (![west, east, north, south, latitude, cellSizeDegrees].every(Number.isFinite) || cellSizeDegrees <= 0) return 1;
+export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6, exaggeration = 14) {
+  if (![west, east, north, south, latitude, cellSizeDegrees, exaggeration].every(Number.isFinite) || cellSizeDegrees <= 0 || exaggeration < 0) return 1;
   const metersPerDegree = 111320;
   const cellWidth = metersPerDegree * Math.max(0.15, Math.cos(latitude * Math.PI / 180)) * cellSizeDegrees;
   const cellHeight = metersPerDegree * cellSizeDegrees;
-  const slopeEast = (east - west) / (2 * cellWidth);
-  const slopeNorth = (north - south) / (2 * cellHeight);
+  const slopeEast = (east - west) / (2 * cellWidth) * exaggeration;
+  const slopeNorth = (north - south) / (2 * cellHeight) * exaggeration;
   const normalLength = Math.hypot(slopeEast, slopeNorth, 1);
   const normalEast = -slopeEast / normalLength;
   const normalNorth = -slopeNorth / normalLength;
   const normalUp = 1 / normalLength;
-  const altitude = 38 * Math.PI / 180;
-  const lightUp = Math.sin(altitude);
-  // Quatre sources lumineuses croisées : le relief reste lisible quelle que
-  // soit son orientation, au lieu de disparaître sur les versants mal éclairés.
   const lights = [
-    { azimuth: 315, weight: 0.40 },
-    { azimuth: 45, weight: 0.30 },
-    { azimuth: 135, weight: 0.20 },
-    { azimuth: 225, weight: 0.10 }
+    { azimuth: 315, altitude: 40, weight: 0.7 },
+    { azimuth: 20, altitude: 50, weight: 0.3 }
   ];
   let illumination = 0;
   for (const light of lights) {
     const azimuth = light.azimuth * Math.PI / 180;
+    const altitude = light.altitude * Math.PI / 180;
     const lightEast = Math.cos(altitude) * Math.sin(azimuth);
     const lightNorth = Math.cos(altitude) * Math.cos(azimuth);
+    const lightUp = Math.sin(altitude);
     illumination += Math.max(0, normalEast * lightEast + normalNorth * lightNorth + normalUp * lightUp) * light.weight;
   }
-  return clamp(1 + (illumination - lightUp) * 1.65, 0.48, 1.52);
+  const flat = 0.7 * Math.sin(40 * Math.PI / 180) + 0.3 * Math.sin(50 * Math.PI / 180);
+  return clamp(1 + (illumination - flat) * 1.6, 0.4, 1.6);
 }
 
 export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {

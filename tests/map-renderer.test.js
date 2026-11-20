@@ -149,14 +149,18 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
 });
 
 
-test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
-  assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
-  const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
-  const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
-  assert.notEqual(illuminatedSlope, 1);
-  assert.notEqual(oppositeSlope, 1);
-  assert.ok(illuminatedSlope >= 0.48 && illuminatedSlope <= 1.52);
-  assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
+test("le hillshade exagéré est neutre sur le plat et distingue les versants éclairés et ombragés", () => {
+  assert.ok(Math.abs(calculateHillshade(100, 100, 100, 100, 45) - 1) < 0.001);
+  const illuminatedSlope = calculateHillshade(0, 1800, 0, 0, 45);
+  const shadedSlope = calculateHillshade(1800, 0, 0, 0, 45);
+  assert.ok(illuminatedSlope > 1, `versant éclairé : ${illuminatedSlope}`);
+  assert.ok(shadedSlope < 1, `versant ombragé : ${shadedSlope}`);
+  assert.ok(illuminatedSlope >= 0.4 && illuminatedSlope <= 1.6);
+  assert.ok(shadedSlope >= 0.4 && shadedSlope <= 1.6);
+  const normalContrast = Math.abs(calculateHillshade(0, 1800, 0, 0, 45, 1 / 6, 1) - 1);
+  const exaggeratedContrast = Math.abs(illuminatedSlope - 1);
+  assert.ok(exaggeratedContrast > normalContrast);
+  assert.equal(calculateHillshade(NaN, 1, 1, 1, 45), 1);
 });
 
 

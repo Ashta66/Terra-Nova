@@ -146,3 +146,8 @@ Le raster ETOPO est désormais précalculé et mis en cache par tuiles géograph
 - Après 140 ms sans interaction, la scène est recalculée à la résolution DPR (plafonnée à 2), puis la référence de viewport est synchronisée.
 - Les couches physiques sont dessinées dans le canvas de scène lui-même afin d'éviter un second canvas visible.
 - Le canvas visible conserve une taille CSS indépendante de sa résolution bitmap. Le fond et le ratio 2:1 sont pilotés par CSS.
+
+
+## Relief : éclairage exagéré (étape 1)
+
+Le calcul du hillshade amplifie désormais les pentes par défaut d’un facteur 14 et combine une lumière principale à 315°/40° (70 %) et une lumière d’appoint à 20°/50° (30 %). La réponse est normalisée sur une surface plane et bornée entre 0,4 et 1,6. Le Worker reçoit le même facteur d’exagération afin que le relief pré-calculé et le calcul de secours restent cohérents.
