@@ -333,6 +333,26 @@ test("les maillages Natural Earth conservent l'aire de chaque polygone pris en c
   assert.ok(checkedPolygons >= checkedFeatures);
 });
 
+
+test("un polygone traversant l'antiméridien est explicitement délégué au rendu Canvas", () => {
+  const mesh = buildGeographicPolygonMesh({
+    geometry: {
+      type: "Polygon",
+      coordinates: [[[179, -10], [-179, -10], [-179, 10], [179, 10], [179, -10]]]
+    }
+  });
+  assert.equal(mesh.supported, false);
+  assert.equal(mesh.reason, "antimeridian-requires-canvas");
+});
+
+test("une ligne traversant l'antiméridien conserve le chemin court après déroulage", () => {
+  const mesh = buildGeographicLineMesh({
+    geometry: { type: "LineString", coordinates: [[179, 0], [-179, 1]] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.deepEqual(Array.from(mesh.positions), [179, 0, 181, 1]);
+});
+
 test("les géométries réelles Natural Earth produisent des maillages polygonaux valides", () => {
   const collection = JSON.parse(readFileSync(new URL("../data/ne_110m_land.geojson", import.meta.url), "utf8"));
   assert.equal(collection.type, "FeatureCollection");
