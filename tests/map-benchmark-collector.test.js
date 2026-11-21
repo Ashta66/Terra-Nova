@@ -30,3 +30,23 @@ test("clear réinitialise la session et permet une nouvelle collecte", () => {
   collector.start({ scenario: "new" }); collector.record({ totalRenderMs: 7 });
   assert.equal(collector.exportResults().metrics.renderTotalMs.median, 7);
 });
+
+
+test("collecte les métriques de préparation et de transition LOD",()=>{
+ const clock=createEnvironment(),collector=createMapBenchmarkCollector({environment:clock.environment});
+ collector.start({scenario:"lod-transition"});
+ collector.record({
+  totalRenderMs:12,
+  lodStats:{generatedLevels:2,cachedLevels:2,generationTimeMs:18,lastGenerationMs:11,removedVertices:420},
+  lodTransitionMs:220,
+  lodCrossfadeBytes:1024,
+  lodWarmupScheduled:true
+ });
+ const metrics=collector.exportResults().metrics;
+ assert.equal(metrics["lod:generatedLevels"].max,2);
+ assert.equal(metrics["lod:generationTimeMs"].max,18);
+ assert.equal(metrics["lod:removedVertices"].max,420);
+ assert.equal(metrics["lod:transitionMs"].max,220);
+ assert.equal(metrics["lod:crossfadeBytes"].max,1024);
+ assert.equal(metrics["lod:warmupScheduled"].max,1);
+});
