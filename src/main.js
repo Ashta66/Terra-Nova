@@ -14,7 +14,7 @@ import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
+import { fitMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
@@ -143,8 +143,7 @@ function viewSize() {
   const frame = mapCanvas?.parentElement;
   const availableWidth = frame?.clientWidth || mapCanvas?.clientWidth || 960;
   const availableHeight = frame?.clientHeight || availableWidth * 0.5;
-  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
-  return { width, height: Math.max(1, Math.round(width * 0.5)) };
+  return fitMapFrame(availableWidth, availableHeight, 2);
 }
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
@@ -1323,6 +1322,11 @@ function hideMapTooltip() {
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
   const { width, height } = viewSize();
+  // Les dimensions CSS suivent exactement le viewport 2:1 calculé dans le cadre.
+  // Sans cette synchronisation, le CSS width:100% peut étirer le canvas en largeur
+  // alors que le moteur compose une scène plus étroite, coupant les pôles verticalement.
+  if (mapCanvas.style.width !== width + "px") mapCanvas.style.width = width + "px";
+  if (mapCanvas.style.height !== height + "px") mapCanvas.style.height = height + "px";
   const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
   const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
   if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
