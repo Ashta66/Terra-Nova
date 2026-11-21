@@ -53,7 +53,7 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
   assert.ok(initialUploadBytes > 0);
 
   const changed = features.slice();
-  changed[10] = polygonFeature(10.25);
+  changed.push(polygonFeature(65));
   const second = renderer.renderLayers([{ key: "land", type: "polygons", features: changed }], 800, 400, viewport);
   assert.equal(second.cacheHit, false);
   assert.equal(second.bufferUploads, 2, "seul le compartiment contenant la feature modifiée doit être réuploadé");
