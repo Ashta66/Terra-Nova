@@ -26,15 +26,17 @@ attribute vec2 a_other;
 attribute float a_side;
 attribute vec2 a_join_offset;
 attribute float a_is_join;
+attribute float a_longitude_anchor;
 uniform vec2 u_center;
 uniform float u_zoom;
 uniform vec2 u_viewport;
 uniform float u_line_width;
 void main() {
-  float longitude = a_coordinate.x;
-  longitude += 360.0 * floor((u_center.x - longitude) / 360.0 + 0.5);
-  float otherLongitude = a_other.x;
-  otherLongitude += 360.0 * floor((longitude - otherLongitude) / 360.0 + 0.5);
+  float anchor = a_longitude_anchor;
+  anchor += 360.0 * floor((u_center.x - anchor) / 360.0 + 0.5);
+  float longitudeShift = anchor - a_longitude_anchor;
+  float longitude = a_coordinate.x + longitudeShift;
+  float otherLongitude = a_other.x + longitudeShift;
   vec2 point = vec2((longitude - u_center.x) * u_zoom / 180.0,
                     (a_coordinate.y - u_center.y) * u_zoom / 90.0);
   vec2 other = vec2((otherLongitude - u_center.x) * u_zoom / 180.0,
@@ -122,14 +124,16 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
   }
 
   const joinVertexCount = endpointGroups.reduce((sum, endpoints) => sum + endpoints.size * 36, 0);
-  const data = new Float32Array((segmentCount * 6 + joinVertexCount) * 8);
+  const data = new Float32Array((segmentCount * 6 + joinVertexCount) * 9);
   let cursor = 0;
+  let currentLongitudeAnchor = 0;
   const appendVertex = (ax, ay, bx, by, side, joinX = 0, joinY = 0, isJoin = 0) => {
     data[cursor++] = ax; data[cursor++] = ay;
     data[cursor++] = bx; data[cursor++] = by;
     data[cursor++] = side;
     data[cursor++] = joinX; data[cursor++] = joinY;
     data[cursor++] = isJoin;
+    data[cursor++] = currentLongitudeAnchor;
   };
   const steps = 12;
   const appendDisk = (x, y) => {
@@ -145,6 +149,7 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
   let groupIndex = 0;
   for (const group of segmentGroups ?? []) {
     if (!group || group.length < 4) continue;
+    currentLongitudeAnchor = group[0];
     for (let index = 0; index + 3 < group.length; index += 4) {
       const ax = group[index], ay = group[index + 1];
       const bx = group[index + 2], by = group[index + 3];
@@ -168,7 +173,7 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
     gl.deleteBuffer(lineBuffer);
     throw error;
   }
-  return { lineBuffer, vertexCount: cursor / 8, drawnFeatures: 0, skippedFeatures: 0,
+  return { lineBuffer, vertexCount: cursor / 9, drawnFeatures: 0, skippedFeatures: 0,
     positions: data, bufferUploadMs: Math.max(0, now() - uploadStartedAt) };
 }
 
@@ -289,6 +294,7 @@ export function createGeographicWebGLRenderer(gl) {
   const lineSideLocation = gl.getAttribLocation(lineProgram, "a_side");
   const lineJoinOffsetLocation = gl.getAttribLocation(lineProgram, "a_join_offset");
   const lineIsJoinLocation = gl.getAttribLocation(lineProgram, "a_is_join");
+  const lineLongitudeAnchorLocation = gl.getAttribLocation(lineProgram, "a_longitude_anchor");
   const lineCenterLocation = gl.getUniformLocation(lineProgram, "u_center");
   const lineZoomLocation = gl.getUniformLocation(lineProgram, "u_zoom");
   const lineViewportLocation = gl.getUniformLocation(lineProgram, "u_viewport");
@@ -586,19 +592,21 @@ export function createGeographicWebGLRenderer(gl) {
         // Désactive ceux laissés par un autre programme avant de configurer les rubans.
         resetVertexAttribArrays([
           lineCoordinateLocation, lineOtherLocation, lineSideLocation,
-          lineJoinOffsetLocation, lineIsJoinLocation
+          lineJoinOffsetLocation, lineIsJoinLocation, lineLongitudeAnchorLocation
         ]);
         gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
         gl.enableVertexAttribArray(lineCoordinateLocation);
-        gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 32, 0);
+        gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 36, 0);
         gl.enableVertexAttribArray(lineOtherLocation);
-        gl.vertexAttribPointer(lineOtherLocation, 2, gl.FLOAT, false, 32, 8);
+        gl.vertexAttribPointer(lineOtherLocation, 2, gl.FLOAT, false, 36, 8);
         gl.enableVertexAttribArray(lineSideLocation);
-        gl.vertexAttribPointer(lineSideLocation, 1, gl.FLOAT, false, 32, 16);
+        gl.vertexAttribPointer(lineSideLocation, 1, gl.FLOAT, false, 36, 16);
         gl.enableVertexAttribArray(lineJoinOffsetLocation);
-        gl.vertexAttribPointer(lineJoinOffsetLocation, 2, gl.FLOAT, false, 32, 20);
+        gl.vertexAttribPointer(lineJoinOffsetLocation, 2, gl.FLOAT, false, 36, 20);
         gl.enableVertexAttribArray(lineIsJoinLocation);
-        gl.vertexAttribPointer(lineIsJoinLocation, 1, gl.FLOAT, false, 32, 28);
+        gl.vertexAttribPointer(lineIsJoinLocation, 1, gl.FLOAT, false, 36, 28);
+        gl.enableVertexAttribArray(lineLongitudeAnchorLocation);
+        gl.vertexAttribPointer(lineLongitudeAnchorLocation, 1, gl.FLOAT, false, 36, 32);
         gl.drawArrays(gl.TRIANGLES, 0, layer.cached.vertexCount);
       } else {
         gl.useProgram(program);
