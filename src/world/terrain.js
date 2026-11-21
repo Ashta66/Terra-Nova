@@ -11,23 +11,37 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   for (let i = 0; i < values.length; i++) values[i] = view.getInt16(i * 2, true);
   let min = Infinity, max = -Infinity;
   for (const value of values) { if (value < min) min = value; if (value > max) max = value; }
+  const isEtopo10m = width === 2160 && height === 1080;
+  const longitudeSpacingDegrees = isEtopo10m ? 1 / 6 : 360 / width;
+  const latitudeSpacingDegrees = isEtopo10m ? 1 / 6 : 180 / height;
   return {
     width, height, values, min, max,
     // ETOPO 2022 décimé : coordonnées exactes des centres de pixels
-    // déclarées dans data/terrain/etopo_global_10m.json.
-    longitudeFirst: -179.99166666666667,
-    latitudeFirst: 89.84166666666667,
+    // déclarées dans data/terrain/etopo_global_10m.json. Les grilles
+    // synthétiques utilisent, elles, des cellules régulières couvrant le monde.
+    longitudeFirst: isEtopo10m ? -179.99166666666667 : -180 + longitudeSpacingDegrees / 2,
+    latitudeFirst: isEtopo10m ? 89.84166666666667 : 90 - latitudeSpacingDegrees / 2,
+    longitudeSpacingDegrees,
+    latitudeSpacingDegrees,
     spacingDegrees: 1 / 6
   };
 }
 
 function terrainGridCoordinates(grid, longitude, latitude) {
-  const spacing = Number(grid.spacingDegrees) || (180 / grid.height);
-  const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + spacing / 2;
-  const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - spacing / 2;
+  const fallbackSpacing = Number(grid.spacingDegrees) || (180 / grid.height);
+  const longitudeSpacing = Number(grid.longitudeSpacingDegrees) || fallbackSpacing;
+  const latitudeSpacing = Number(grid.latitudeSpacingDegrees) || fallbackSpacing;
+  const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + longitudeSpacing / 2;
+  const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - latitudeSpacing / 2;
   const wrappedLongitude = longitudeFirst + (((longitude - longitudeFirst) % 360) + 360) % 360;
-  const x = (wrappedLongitude - longitudeFirst) / spacing;
-  const y = clamp((latitudeFirst - latitude) / spacing, 0, grid.height - 1);
+  let x = (wrappedLongitude - longitudeFirst) / longitudeSpacing;
+  let y = clamp((latitudeFirst - latitude) / latitudeSpacing, 0, grid.height - 1);
+  // Les centres de pixels calculés depuis des coordonnées décimales peuvent
+  // tomber à quelques ulp d'un entier. Les recaler évite une interpolation
+  // parasite entre deux échantillons qui devraient être exactement confondus.
+  const nearestX = Math.round(x), nearestY = Math.round(y);
+  if (Math.abs(x - nearestX) < 1e-10) x = nearestX;
+  if (Math.abs(y - nearestY) < 1e-10) y = nearestY;
   return { x, y };
 }
 
