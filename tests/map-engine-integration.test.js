@@ -94,7 +94,7 @@ test("les maillages géographiques gèrent l'antiméridien et les polygones simp
   assert.equal(polygon.triangleCount, 2);
 });
 
-test("les polygones traversant l’antiméridien restent au rendu Canvas", () => {
+test("les MultiPolygon simples restent éligibles au remplissage WebGL", () => {\n  const mesh = buildGeographicPolygonMesh({\n    geometry: { type: "MultiPolygon", coordinates: [\n      [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],\n      [[[4, 0], [6, 0], [6, 2], [4, 2], [4, 0]]]\n    ] }\n  });\n  assert.equal(mesh.supported, true);\n  assert.equal(mesh.vertexCount, 8);\n  assert.equal(mesh.triangleCount, 4);\n});\ntest("les polygones traversant l’antiméridien restent au rendu Canvas", () => {
   const polygon = buildGeographicPolygonMesh({
     geometry: { type: "Polygon", coordinates: [[
       [179, -2], [-179, -2], [-179, 2], [179, 2], [179, -2]
