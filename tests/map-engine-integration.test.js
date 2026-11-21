@@ -311,19 +311,28 @@ test("le renderer WebGL libère les buffers des couches retirées puis ceux rest
   assert.equal(buffers.size, 1, "un buffer de contour doit être créé");
   const staleBuffer = [...buffers][0];
 
-  renderer.renderLayers([], 100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
-  assert.equal(deletedBuffers.has(staleBuffer), true,
-    "le buffer doit être libéré dès que sa couche disparaît");
-
-  renderer.renderLayers([{ key: "coast", type: "boundaries", features: [coast] }],
+  const political = { geometry: { type: "LineString", coordinates: [[-4, 2], [4, 3]] } };
+  renderer.renderLayers([{ key: "political", type: "boundaries", features: [political] }],
     100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
-  const activeBuffer = [...buffers].find(buffer => !deletedBuffers.has(buffer));
-  assert.ok(activeBuffer, "la couche réintroduite doit recréer son buffer");
+  assert.equal(deletedBuffers.has(staleBuffer), false,
+    "un passage de rendu indépendant ne doit pas invalider les buffers du littoral");
+  const coastAgain = renderer.renderLayers([{ key: "coast", type: "boundaries", features: [coast] }],
+    100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(coastAgain.cacheHit, true, "les buffers du littoral doivent être réutilisés");
+  assert.equal(deletedBuffers.has(staleBuffer), false);
+  renderer.clearLayerCache();
+  assert.equal(deletedBuffers.has(staleBuffer), true,
+    "le nettoyage explicite doit libérer les buffers en cache");
+  const activeBuffer = renderer.renderLayers([{ key: "coast", type: "boundaries", features: [coast] }],
+    100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(activeBuffer.cacheHit, false, "une couche nettoyée doit reconstruire son buffer");
+  const currentBuffer = [...buffers].find(buffer => !deletedBuffers.has(buffer));
+  assert.ok(currentBuffer);
   renderer.dispose();
-  assert.equal(deletedBuffers.has(activeBuffer), true,
+  assert.equal(deletedBuffers.has(currentBuffer), true,
     "dispose doit libérer les buffers encore actifs");
   renderer.renderLayers([], 100, 80);
-  assert.equal(deletedBuffers.has(activeBuffer), true, "dispose est idempotent");
+  assert.equal(deletedBuffers.has(currentBuffer), true, "dispose est idempotent");
 });
 
 
