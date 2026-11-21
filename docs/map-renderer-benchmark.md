@@ -140,3 +140,17 @@ Ce scénario est adapté à l'évaluation du rendu géographique et du relief d�
 Le benchmark au zoom 20 montre également que le cache de chemins projetés atteint sa limite de 1 024 entrées alors que le budget de sommets n'est utilisé qu'à environ 204 000 sur 500 000. La limite de chemins a donc été portée à 2 048 sans augmenter le budget de sommets estimé (16 Mo). Les masques composés restent limités à 12 entrées, car leur taille mémoire native n'est pas mesurable et le compteur de hits cumulés ne justifie pas à lui seul une hausse.
 
 Enfin, le cache polygonal WebGL utilise désormais huit compartiments stables basés sur l'identité des features, plutôt que des tranches dépendant de l'ordre courant de la liste visible. L'arrivée ou le départ local d'une feature ne doit plus invalider systématiquement les mêmes grands blocs séquentiels. Le coût potentiel est un maximum de huit appels de dessin pour cette couche ; le prochain benchmark doit donc comparer le temps de construction/upload et le temps de soumission GPU, ainsi que vérifier l'aspect visuel.
+
+
+### Protocole de référence — navigateur PC (à partir du 21 novembre 2026)
+
+Les benchmarks de référence de validation du moteur sont désormais collectés sur navigateur de bureau, sans émulation d'appareil mobile. Les exports enregistrent le viewport, la taille de l'écran, le DPR, l'échelle du visual viewport, le nombre maximal de points tactiles et un indicateur basé sur le user-agent mobile. Ces champs permettent de repérer une collecte mobile accidentelle ; ils ne remplacent pas la vérification manuelle de la barre d'émulation des DevTools.
+
+Avant chaque série PC :
+1. Ouvrir l'application dans une fenêtre de navigateur de bureau.
+2. Dans les DevTools, désactiver la barre d'outils des appareils (Device Toolbar) et vérifier qu'aucun profil mobile/tablette n'est sélectionné.
+3. Garder le zoom de page à 100 % et noter la résolution de la fenêtre, le DPR et le navigateur.
+4. Attendre le chargement complet de la carte, puis lancer un scénario identique avec cache chaud et durée d'environ 60 à 70 secondes.
+5. Exporter le JSON complet. Vérifier `mobileUserAgent: false`, `maxTouchPoints` cohérent avec le poste, ainsi que `screenWidth/screenHeight` et `viewportWidth/viewportHeight`.
+
+Ne pas comparer directement les résultats Pixel 10/mobile aux nouvelles références PC. Conserver deux séries distinctes : `desktop-pc` et `mobile-device`.
