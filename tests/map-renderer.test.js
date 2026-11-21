@@ -606,17 +606,17 @@ test("les rivières traversant l'antiméridien restent continues sans Path2D", (
   }
 });
 
-test("la simplification des côtes adapte le niveau de détail au zoom", async () => {
+test("la simplification des côtes restaure les détails lorsque le zoom augmente", async () => {
   const { getCoastSimplificationProfile } = await import("../src/world/map-renderer.js");
   const world = getCoastSimplificationProfile(1);
   const regional = getCoastSimplificationProfile(3);
   const close = getCoastSimplificationProfile(12);
-  assert.deepEqual(world, { tolerance: 1.3, minRingArea: 2.2 });
-  assert.deepEqual(regional, { tolerance: 1.65, minRingArea: 3.1 });
-  assert.deepEqual(close, { tolerance: 2.5, minRingArea: 6 });
-  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 2.05, minRingArea: 4.4 });
-  assert.ok(world.tolerance < regional.tolerance && regional.tolerance < close.tolerance);
-  assert.ok(world.minRingArea < regional.minRingArea && regional.minRingArea < close.minRingArea);
+  assert.deepEqual(world, { tolerance: 2.5, minRingArea: 6 });
+  assert.deepEqual(regional, { tolerance: 2.05, minRingArea: 4.4 });
+  assert.deepEqual(close, { tolerance: 1.3, minRingArea: 2.2 });
+  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 1.65, minRingArea: 3.1 });
+  assert.ok(world.tolerance > regional.tolerance && regional.tolerance > close.tolerance);
+  assert.ok(world.minRingArea > regional.minRingArea && regional.minRingArea > close.minRingArea);
 });
 
 import { selectHistoricalSnapshot, historicalPolygonsToBoundaries } from "../src/world/historical-boundaries.js";
@@ -900,12 +900,12 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
 });
 
-test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
+test("les côtes physiques gagnent en détail à mesure que le zoom augmente", () => {
   const expected = [
-    [1, { tolerance: 2.8, minRingArea: 14 }],
-    [3, { tolerance: 3.4, minRingArea: 24 }],
-    [8, { tolerance: 3.9, minRingArea: 40 }],
-    [20, { tolerance: 4.4, minRingArea: 60 }]
+    [1, { tolerance: 4.4, minRingArea: 60 }],
+    [3, { tolerance: 3.9, minRingArea: 40 }],
+    [8, { tolerance: 3.4, minRingArea: 24 }],
+    [20, { tolerance: 2.8, minRingArea: 14 }]
   ];
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
@@ -914,6 +914,7 @@ test("les côtes physiques filtrent fortement les micro-îles à tous les niveau
     assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
   }
   assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
+  assert.ok(getLandCoastSimplificationProfile(20).tolerance > getCoastSimplificationProfile(20).tolerance);
 });
 
 
