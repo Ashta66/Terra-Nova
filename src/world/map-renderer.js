@@ -197,8 +197,7 @@ function simplifyOpenLine(points, tolerance = 0.5) {
       const distance = distanceToSegmentSquared(points[i], points[first], points[last]);
       if (distance > maxDistance) { maxDistance = distance; farthest = i; }
     }
-    if (farthest !== -1) {
-      keep[farthest] = 1;
+    if (farthest !== -1) {      keep[farthest] = 1;
       stack.push([first, farthest], [farthest, last]);
     }
   }
@@ -397,8 +396,7 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
 
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
-  let drawn = 0;
-  const renderScale = projection.renderScale ?? 1;
+  let drawn = 0;  const renderScale = projection.renderScale ?? 1;
   context.save();
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
@@ -597,8 +595,7 @@ function drawElevationPoints(context, collection, width, height, projection, the
     if (isMountain) {
       // Les triangles de sommets sont supprimés : le relief ETOPO suffit à
       // lire les montagnes. On conserve uniquement le nom des très hauts sommets.
-      if (elevation >= 5000 && typeof context.fillText === "function") {
-        context.font = `${10 * renderScale}px Georgia, serif`;
+      if (elevation >= 5000 && typeof context.fillText === "function") {        context.font = `${10 * renderScale}px Georgia, serif`;
         context.textAlign = "left";
         context.fillStyle = theme.colors.text;
         context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
@@ -797,8 +794,7 @@ const FRENCH_HISTORICAL_NAMES = {
   "papal states": "États pontificaux",
   "mughal empire": "Empire moghol",
   "qing dynasty": "Dynastie Qing",
-  "ming dynasty": "Dynastie Ming",
-  "japanese empire": "Empire du Japon",
+  "ming dynasty": "Dynastie Ming",  "japanese empire": "Empire du Japon",
   "russian empire": "Empire russe",
   "austrian empire": "Empire d’Autriche",
   "prussia": "Prusse",
@@ -997,8 +993,7 @@ export function getCityLabelLimit(_zoom = 1) {
 }
 
 /** Taille des labels interpolée sans seuil brutal, en pixels de rendu. */
-export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {
-  const level = Math.max(1, Math.min(20, Number(zoom) || 1));
+export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {  const level = Math.max(1, Math.min(20, Number(zoom) || 1));
   const smooth = value => value * value * (3 - 2 * value);
   const blend = (value, start, end) => smooth(Math.max(0, Math.min(1, (value - start) / (end - start))));
   const base = kind === "continent" ? 13 : kind === "country" ? 13 : kind === "province" ? 9 : 10;
@@ -1133,7 +1128,8 @@ function staticLayerSignature(width, height, pixelRatio, year, theme, projection
     renderObjectId(options.terrain), isTerrainHillshadePrepared(options.terrain) ? 1 : 0,
     renderObjectId(options.terrainTileStore), terrainGpu?.uploads ?? 0, terrainGpu?.tileCount ?? 0,
     terrainGpu?.lod ?? -1, terrainGpu?.visibleTiles ?? 0,
-    options.terrainEnabled !== false ? 1 : 0, options.terrainQuality ?? 1,
+    options.terrainEnabled !== false ? 1 : 0,
+    globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES === true ? 1 : 0, options.terrainQuality ?? 1,
     options.terrainMode ?? "political", Number(options.physicalWorld?.revision ?? 0),
     Number(options.countryOpacity ?? 0.52), options.interactive ? 1 : 0
   ].join("|");
@@ -1197,7 +1193,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     renderTimings[name] = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
     return value;
   };
-
   const visibleLand = selectVisibleFeatures(featureCollection, projection.viewport);
   const visibleGlaciers = selectVisibleFeatures(options.glaciers, projection.viewport);
   const visibleLakes = selectVisibleFeatures(options.lakes, projection.viewport);
@@ -1261,7 +1256,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         }
         target.clip("evenodd");
       }
-      if (options.terrainTileStore && !hasPhysicalTerrainChanges(options.physicalWorld)
+      if (options.terrainTileStore && globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES !== true
+        && !hasPhysicalTerrainChanges(options.physicalWorld)
         && typeof target.drawImage === "function") {
         try {
           const surface = renderTerrainWebGLTiles(options.terrainTileStore, backingWidth, backingHeight,
@@ -1397,8 +1393,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         measureLayer("details-geographiques-webgl", () => geographicRenderer.renderLayers([
           { key: "glacier-fills", type: "polygons", features: supportedGlaciers, color: glacierColor },
           { key: "lake-fills", type: "polygons", features: supportedLakes, color: lakeColor },
-          { key: "river-lines", type: "lines", features: supportedRivers, color: riverColor, lineWidth: 0.7 * ratio }
-        ], backingWidth, backingHeight, projection.viewport));
+          { key: "river-lines", type: "lines", features: supportedRivers, color: riverColor, lineWidth: 0.7 * ratio }        ], backingWidth, backingHeight, projection.viewport));
         target.save();
         target.setTransform(1, 0, 0, 1, 0, 0);
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
