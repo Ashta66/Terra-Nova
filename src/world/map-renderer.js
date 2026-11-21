@@ -1366,10 +1366,62 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     physicalContext.clearRect(0, 0, width, height);
   }
   const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(physicalContext, options.physicalWorld, width, height, projection, options.terrain));
-  const politicalBoundaryCount = measureLayer("frontieres-politiques", () =>
-    drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
-    + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
-  const administrativeBoundaryCount = measureLayer("frontieres-administratives", () => drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true));
+  const boundaryRenderer = options.geographicWebGLRenderer;
+  const canRenderBoundariesWebGL = boundaryRenderer?.renderLayers && boundaryRenderer.canvas
+    && projection.type === "equirectangular";
+  let boundariesWebGLRendered = false;
+  let politicalBoundaryCount = 0;
+  let administrativeBoundaryCount = 0;
+  if (canRenderBoundariesWebGL) {
+    try {
+      const supportedPolitical = (visiblePoliticalBoundaries?.features ?? [])
+        .filter(feature => boundaryRenderer.supportsBoundary(feature));
+      const supportedAdministrative = (visibleAdministrativeBoundaries?.features ?? [])
+        .filter(feature => boundaryRenderer.supportsBoundary(feature));
+      const unsupportedPolitical = (visiblePoliticalBoundaries?.features ?? [])
+        .filter(feature => !boundaryRenderer.supportsBoundary(feature));
+      const unsupportedAdministrative = (visibleAdministrativeBoundaries?.features ?? [])
+        .filter(feature => !boundaryRenderer.supportsBoundary(feature));
+      const ratio = backingWidth / width;
+      boundaryRenderer.renderLayers([
+        { key: "political-boundary-halo", type: "boundaries", features: supportedPolitical,
+          color: parseWebGLColor("#ead7aa"), lineWidth: (options.interactive ? 1.65 : 2.35) * ratio },
+        { key: "political-boundary-core", type: "boundaries", features: supportedPolitical,
+          color: parseWebGLColor("#293945"), lineWidth: (options.interactive ? 0.75 : 1.05) * ratio },
+        { key: "administrative-boundary-lines", type: "boundaries", features: supportedAdministrative,
+          color: parseWebGLColor("#91b7c4"), lineWidth: (options.interactive ? 0.48 : 0.65) * ratio }
+      ], backingWidth, backingHeight, projection.viewport);
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(boundaryRenderer.canvas, 0, 0, backingWidth, backingHeight);
+      context.restore();
+      politicalBoundaryCount = supportedPolitical.length;
+      administrativeBoundaryCount = supportedAdministrative.length;
+      if (unsupportedPolitical.length) {
+        politicalBoundaryCount += drawStyledBoundaryLayer(context,
+          { ...visiblePoliticalBoundaries, features: unsupportedPolitical }, width, height, projection,
+          "#ead7aa", options.interactive ? 1.65 : 2.35, [], true);
+        drawStyledBoundaryLayer(context,
+          { ...visiblePoliticalBoundaries, features: unsupportedPolitical }, width, height, projection,
+          "#293945", options.interactive ? 0.75 : 1.05, [], true);
+      }
+      if (unsupportedAdministrative.length) {
+        administrativeBoundaryCount += drawStyledBoundaryLayer(context,
+          { ...visibleAdministrativeBoundaries, features: unsupportedAdministrative }, width, height, projection,
+          "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true);
+      }
+      boundariesWebGLRendered = true;
+    } catch (error) {
+      console.info("Frontières WebGL indisponibles ; fallback Canvas conservé.", error);
+    }
+  }
+  if (!boundariesWebGLRendered) {
+    politicalBoundaryCount = measureLayer("frontieres-politiques", () =>
+      drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
+      + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
+    administrativeBoundaryCount = measureLayer("frontieres-administratives", () =>
+      drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true));
+  }
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
 
   return {
