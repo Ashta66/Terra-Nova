@@ -57,11 +57,11 @@ test("les deux côtés d'une frontière de tuiles échantillonnent le halo à mi
     ["0/0/0", { slotX: 1, slotY: 0 }],
     ["0/1/0", { slotX: 2, slotY: 0 }]
   ]);
-  const left = buildTerrainTileAtlasBatchVertices([{ tile: leftTile, rects: [leftRect] }], entries, 4, 2, atlas);
-  const right = buildTerrainTileAtlasBatchVertices([{ tile: rightTile, rects: [rightRect] }], entries, 4, 2, atlas);
-  // Les bords utilisent respectivement le dernier échantillon + halo droit,
-  // puis le halo gauche + premier échantillon, avec le même décalage de 0,5.
-  assert.ok(Math.abs((left[14] * atlas.atlasWidth - 0.5) - (entries.get("0/0/0").slotX * 4 + 2.5)) < 1e-7);
+  const left = buildTerrainTileAtlasBatchVertices([{ tile: leftTile, rects: [leftRect] }], entries, 4, 2, atlas, 0);
+  const right = buildTerrainTileAtlasBatchVertices([{ tile: rightTile, rects: [rightRect] }], entries, 4, 2, atlas, 0);
+  // Au même bord géographique, chaque tuile interpole entre son échantillon
+  // intérieur et son halo : indices locaux 2,5 et 0,5 respectivement.
+  assert.ok(Math.abs((left[26] * atlas.atlasWidth - 0.5) - (entries.get("0/0/0").slotX * 4 + 2.5)) < 1e-7);
   assert.ok(Math.abs((right[2] * atlas.atlasWidth - 0.5) - (entries.get("0/1/0").slotX * 4 + 0.5)) < 1e-7);
 });
 
