@@ -93,3 +93,30 @@ La simplification elle-même reste synchrone à l'intérieur de cette tâche dif
 Le cache LOD expose le nombre de niveaux générés et conservés, le temps cumulé et le dernier temps de génération, le nombre de sommets supprimés et les tolérances mises en cache. Le collecteur de benchmark exporte ces valeurs avec la durée nominale de transition et la taille de la surface de fondu. Le fondu est désactivé lorsque la surface temporaire dépasserait 48 Mio, ou 24 Mio sur les appareils déclarant au plus 4 Gio de mémoire. Cette limite réduit le risque d'une allocation bitmap excessive ; elle ne remplace pas une mesure réelle du pic mémoire.
 
 Les tests couvrent le préchauffage vers un niveau plus détaillé et vers un niveau plus grossier, la réutilisation du cache et l'export des nouvelles métriques. Les mesures réelles de fluidité, de mémoire et de coût de préparation restent à effectuer dans le navigateur cible.
+
+
+## Instrumentation WebGL détaillée et conservation des buffers
+
+Le renderer géographique exporte maintenant, pour chaque passage de couche, le temps de préparation des géométries, le temps d'upload des buffers, le coût de construction du cache, le temps de soumission des commandes GPU, les octets transférés, les octets des buffers conservés, les draw calls et les triangles. Le collecteur expose ces valeurs sous les clés `webgl:*`. Les mesures de temps et les compteurs d'octets sont séparés : les octets ne sont jamais présentés comme des millisecondes.
+
+Le renderer est appelé successivement pour plusieurs familles indépendantes (terres/côtes, détails géographiques, frontières). Les caches de buffers sont désormais conservés entre ces appels. Ils sont gérés par un LRU plafonné à 12 couches, suffisant pour les familles actuelles, et libérés explicitement ou lors de l'éviction. Cela évite qu'un appel consacré aux frontières invalide les buffers du littoral, qui seraient sinon reconstruits au rendu suivant. Le test d'intégration vérifie la réutilisation entre familles et la libération explicite.
+
+Le benchmark expose aussi les tailles du cache de chemins projetés. L'estimation mémoire de ce cache utilise 32 octets par sommet et ne constitue pas une mesure native de Path2D ; elle sert uniquement à suivre le budget logiciel. Les buffers GPU conservés sont comptabilisés séparément à partir des tableaux CPU associés.
+
+## Généralisation LOD dans un Worker
+
+Le préchauffage du prochain palier LOD utilise désormais un Worker module lorsque le navigateur le permet. Le thread principal conserve la géométrie de base pendant le calcul ; la version généralisée est ajoutée au cache à la réception du résultat, puis la carte est invalidée pour afficher le nouveau palier préparé. Si Worker est indisponible ou échoue, le moteur conserve le chemin de repli local existant. Le transfert structuré de la collection GeoJSON a lui-même un coût mémoire et de copie ; les benchmarks doivent donc comparer la fluidité et la mémoire sur appareil réel avant de conclure au bénéfice net.
+
+Les métriques `lod:generationTimeMs` et `lod:lastGenerationMs` mesurent désormais le temps écoulé jusqu'à la réception du résultat worker lorsqu'il est utilisé, et non uniquement le temps CPU interne du worker. Elles ne doivent donc pas être interprétées comme un profilage CPU pur.
+
+## Protocole après optimisation
+
+Pour mesurer l'effet de la conservation des buffers, exécuter le même scénario monde zoom 20 / pan avec cache chaud, DPR et viewport identiques. Vérifier en particulier :
+
+- `layer:land-feature-classification`, `layer:land-mask-path` et `layer:terres-et-cotes` ;
+- `webgl:cacheHit`, `webgl:geometryBuildMs`, `webgl:bufferUploadMs`, `webgl:drawSubmitMs` ;
+- `webgl:uploadedBytes` et `webgl:cachedGpuBytes` ;
+- `geometryCache:cachedPaths`, `geometryCache:cachedVertices` et `geometryCache:estimatedBytes` ;
+- `lod:lastGenerationMs`, cadence des rendus et mémoire JS.
+
+Les changements réduisent les reconstructions de buffers prévues par l'architecture ; aucun gain chiffré n'est revendiqué avant un nouvel export Pixel 10.
