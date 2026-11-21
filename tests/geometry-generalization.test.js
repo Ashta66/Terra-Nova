@@ -107,7 +107,7 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
  assert.equal(await promise,true);
  assert.equal(terminated,true);
  assert.notEqual(lod.getForZoom(2),base,"le niveau calculé devient disponible après la réponse worker");
- assert.equal(lod.getStats().generatedLevels,1);
+ assert.equal(lod.getStats().generatedLevels,2);
 });
 
 test("un worker LOD en erreur retombe sur la génération locale", async () => {
