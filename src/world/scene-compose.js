@@ -11,7 +11,12 @@ export function fitMapFrame(width, height, aspectRatio = 2) {
   const availableWidth = clampPositive(width);
   const availableHeight = clampPositive(height);
   const ratio = clampPositive(aspectRatio, 2);
-  const fittedWidth = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * ratio)));
+  const maxWidth = Math.floor(Math.min(availableWidth, availableHeight * ratio));
+  // Pour le ratio 2:1, une largeur paire garantit des dimensions entières
+  // strictement cohérentes, sans un pixel de débordement vertical.
+  const fittedWidth = ratio === 2 && maxWidth >= 2
+    ? maxWidth - (maxWidth % 2)
+    : Math.max(1, maxWidth);
   const fittedHeight = Math.max(1, Math.floor(fittedWidth / ratio));
   return { width: fittedWidth, height: fittedHeight };
 }
@@ -26,6 +31,10 @@ export function coverMapFrame(width, height, aspectRatio = 2) {
   const ratio = clampPositive(aspectRatio, 2);
   if (availableWidth / availableHeight < ratio) {
     return { width: Math.max(1, Math.ceil(availableHeight * ratio)), height: Math.ceil(availableHeight) };
+  }
+  if (ratio === 2) {
+    const fittedWidth = Math.ceil(availableWidth / 2) * 2;
+    return { width: fittedWidth, height: fittedWidth / 2 };
   }
   return { width: Math.ceil(availableWidth), height: Math.max(1, Math.ceil(availableWidth / ratio)) };
 }
