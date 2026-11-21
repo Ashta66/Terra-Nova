@@ -50,3 +50,23 @@ test("collecte les métriques de préparation et de transition LOD",()=>{
  assert.equal(metrics["lod:crossfadeBytes"].max,1024);
  assert.equal(metrics["lod:warmupScheduled"].max,1);
 });
+
+test("collecte les coûts détaillés WebGL et la taille des caches géométriques", () => {
+  const clock = createEnvironment(), collector = createMapBenchmarkCollector({ environment: clock.environment });
+  collector.start({ scenario: "webgl-pipeline" });
+  collector.record({
+    totalRenderMs: 80,
+    webglStats: { geometryBuildMs: 12, bufferUploadMs: 3, cacheBuildMs: 15,
+      drawSubmitMs: 2, totalMs: 18, uploadedBytes: 4096, cachedGpuBytes: 8192,
+      bufferUploads: 4, drawCalls: 2, triangles: 300, cacheHit: false },
+    projectedPathCacheStats: { cachedPaths: 42, cachedVertices: 12000 }
+  });
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["webgl:geometryBuildMs"].median, 12);
+  assert.equal(metrics["webgl:bufferUploadMs"].median, 3);
+  assert.equal(metrics["webgl:uploadedBytes"].median, 4096);
+  assert.equal(metrics["webgl:cachedGpuBytes"].median, 8192);
+  assert.equal(metrics["webgl:cacheHit"].median, 0);
+  assert.equal(metrics["geometryCache:cachedPaths"].median, 42);
+  assert.equal(metrics["geometryCache:cachedVertices"].median, 12000);
+});
