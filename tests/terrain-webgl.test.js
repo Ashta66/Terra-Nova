@@ -41,10 +41,28 @@ test("les UV atlas visent le centre des texels et les limites incluent le halo",
   const atlas = { cellSize: 4, atlasWidth: 16, atlasHeight: 16 };
   const vertices = buildTerrainTileAtlasBatchVertices([{ tile, rects }], entries, 2, 2, atlas);
   assert.equal(vertices.length, 72);
-  assert.ok(Math.abs(vertices[2] - 5.5 / 16) < 1e-7, "UV x au centre du premier texel intérieur");
-  assert.ok(Math.abs(vertices[3] - 9.5 / 16) < 1e-7, "UV y au centre du premier texel intérieur");
+  assert.ok(Math.abs(vertices[2] - 5 / 16) < 1e-7, "UV x aligné sur la frontière à mi-distance des échantillons");
+  assert.ok(Math.abs(vertices[3] - 9 / 16) < 1e-7, "UV y aligné sur la frontière à mi-distance des échantillons");
   assert.ok(Math.abs(vertices[8] - 4.5 / 16) < 1e-7, "borne minimale au centre du halo");
   assert.ok(Math.abs(vertices[10] - 7.5 / 16) < 1e-7, "borne maximale au centre du halo opposé");
+});
+
+test("les deux côtés d'une frontière de tuiles échantillonnent le halo à mi-distance", () => {
+  const atlas = { cellSize: 4, atlasWidth: 16, atlasHeight: 16 };
+  const leftTile = { level: 0, x: 0, y: 0, width: 2, height: 2 };
+  const rightTile = { level: 0, x: 1, y: 0, width: 2, height: 2 };
+  const leftRect = { x: 0, y: 0, width: 2, height: 2, u0: 0, u1: 1, v0: 0, v1: 1 };
+  const rightRect = { x: 2, y: 0, width: 2, height: 2, u0: 0, u1: 1, v0: 0, v1: 1 };
+  const entries = new Map([
+    ["0/0/0", { slotX: 1, slotY: 0 }],
+    ["0/1/0", { slotX: 2, slotY: 0 }]
+  ]);
+  const left = buildTerrainTileAtlasBatchVertices([{ tile: leftTile, rects: [leftRect] }], entries, 4, 2, atlas);
+  const right = buildTerrainTileAtlasBatchVertices([{ tile: rightTile, rects: [rightRect] }], entries, 4, 2, atlas);
+  // Les bords utilisent respectivement le dernier échantillon + halo droit,
+  // puis le halo gauche + premier échantillon, avec le même décalage de 0,5.
+  assert.ok(Math.abs((left[14] * atlas.atlasWidth - 0.5) - (entries.get("0/0/0").slotX * 4 + 2.5)) < 1e-7);
+  assert.ok(Math.abs((right[2] * atlas.atlasWidth - 0.5) - (entries.get("0/1/0").slotX * 4 + 0.5)) < 1e-7);
 });
 
 test("le buffer de sommets WebGL grandit par paliers et réutilise sa capacité", () => {
