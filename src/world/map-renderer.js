@@ -277,7 +277,7 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
 const projectedPathCache = new WeakMap();
 const projectedPathCacheLru = new Map();
 const PROJECTED_PATHS_PER_FEATURE = 6;
-const MAX_PROJECTED_PATHS = 1024;
+const MAX_PROJECTED_PATHS = 2048;
 const MAX_PROJECTED_PATH_VERTICES = 500_000;
 let projectedPathVertexCount = 0;
 let projectedPathCacheHits = 0;
