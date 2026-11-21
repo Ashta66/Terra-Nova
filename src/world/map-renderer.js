@@ -1381,11 +1381,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
         const lakeColor = parseWebGLColor(theme.colors.ocean);
         const riverColor = parseWebGLColor(theme.colors.accent);
-        geographicRenderer.renderLayers([
+        measureLayer("details-geographiques-webgl", () => geographicRenderer.renderLayers([
           { key: "glacier-fills", type: "polygons", features: supportedGlaciers, color: glacierColor },
           { key: "lake-fills", type: "polygons", features: supportedLakes, color: lakeColor },
           { key: "river-lines", type: "lines", features: supportedRivers, color: riverColor, lineWidth: 0.7 * ratio }
-        ], backingWidth, backingHeight, projection.viewport);
+        ], backingWidth, backingHeight, projection.viewport));
         target.save();
         target.setTransform(1, 0, 0, 1, 0, 0);
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
@@ -1490,14 +1490,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       const unsupportedAdministrative = (visibleAdministrativeBoundaries?.features ?? [])
         .filter(feature => !boundaryRenderer.supportsBoundary(feature));
       const ratio = backingWidth / width;
-      boundaryRenderer.renderLayers([
+      measureLayer("frontieres-webgl", () => boundaryRenderer.renderLayers([
         { key: "political-boundary-halo", type: "boundaries", features: supportedPolitical,
           color: parseWebGLColor("#ead7aa"), lineWidth: (options.interactive ? 1.65 : 2.35) * ratio },
         { key: "political-boundary-core", type: "boundaries", features: supportedPolitical,
           color: parseWebGLColor("#293945"), lineWidth: (options.interactive ? 0.75 : 1.05) * ratio },
         { key: "administrative-boundary-lines", type: "boundaries", features: supportedAdministrative,
           color: parseWebGLColor("#91b7c4"), lineWidth: (options.interactive ? 0.48 : 0.65) * ratio }
-      ], backingWidth, backingHeight, projection.viewport);
+      ], backingWidth, backingHeight, projection.viewport));
       context.save();
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.drawImage(boundaryRenderer.canvas, 0, 0, backingWidth, backingHeight);
@@ -1531,9 +1531,15 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
 
+  const sumFamilyTimings = keys => keys.reduce((sum, key) => sum + (renderTimings[key] ?? 0), 0);
+  const renderFamilies = {
+    physicalMs: sumFamilyTimings(["relief-base", "ombrage-multidirectionnel", "catastrophes-et-geographie"]),
+    politicalMs: sumFamilyTimings(["territoires-couleurs", "frontières-territoriales", "frontieres-politiques", "frontieres-administratives", "frontieres-webgl"]),
+    dynamicMs: sumFamilyTimings(["etiquettes", "hachures", "details-geographiques-webgl"])
+  };
   return {
     theme, projection: projection.type, viewport: { ...projection.viewport }, featureCount: featureCollection.features.length,
-    renderTimings, totalRenderMs: Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt),
+    renderTimings, renderFamilies, totalRenderMs: Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - renderStartedAt),
     landCount: staticStats?.landCount ?? 0, territoryCount: staticStats?.territoryCount ?? 0,
     territoryOutlineCount, physicalChangeCount, glacierCount: staticStats?.glacierCount ?? 0,
     lakeCount: staticStats?.lakeCount ?? 0, riverCount: staticStats?.riverCount ?? 0,
