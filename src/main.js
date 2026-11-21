@@ -1340,6 +1340,9 @@ function composeScene() {
   // alors que le moteur compose une scène plus étroite, coupant les pôles verticalement.
   if (mapCanvas.style.width !== width + "px") mapCanvas.style.width = width + "px";
   if (mapCanvas.style.height !== height + "px") mapCanvas.style.height = height + "px";
+  const zoomedFrame = mapViewport.zoom > 1.001;
+  mapCanvas.style.maxWidth = zoomedFrame ? "none" : "100%";
+  mapCanvas.style.maxHeight = zoomedFrame ? "none" : "100%";
   const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
   const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
   if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
