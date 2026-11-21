@@ -85,6 +85,7 @@ let landLodWarmupUsesIdleCallback = false;
 let landLodWarmupToken = 0;
 let lastLandLodWarmupZoom = null;
 let landLodWarmupScheduled = false;
+let landLodWarmupRunningToken = null;
 let landLodWarmupCompleted = 0;
 const landLodWarmupDiagnostics = { scheduled: 0, started: 0, completed: 0, generated: 0, cancelled: 0, failed: 0 };
 let landLodCrossfadeSkippedForMemory = 0;
@@ -674,7 +675,10 @@ function animateLandLodTransition() {
 
 function cancelLandLodWarmup() {
   landLodWarmupToken += 1;
-  if (landLodWarmupHandle !== null) landLodWarmupDiagnostics.cancelled += 1;
+  if (landLodWarmupHandle !== null || landLodWarmupRunningToken !== null) {
+    landLodWarmupDiagnostics.cancelled += 1;
+  }
+  landLodWarmupRunningToken = null;
   landLodWarmupScheduled = false;
   if (landLodWarmupHandle === null) return;
   if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
@@ -705,34 +709,38 @@ function scheduleLandLodWarmup(lodSet, zoom) {
       return;
     }
     landLodWarmupDiagnostics.started += 1;
+    landLodWarmupRunningToken = token;
     const startedAt = globalThis.performance?.now?.() ?? Date.now();
     const prepareCurrent = lodSet.prepareZoomAsync
       ? lodSet.prepareZoomAsync(zoom)
       : Promise.resolve(false);
-    Promise.resolve(prepareCurrent).then(currentGenerated => {
+    let currentGenerated = false;
+    Promise.resolve(prepareCurrent).then(result => {
       if (token !== landLodWarmupToken) return false;
-      if (currentGenerated && !mapInteractionActive) {
-        lastRenderedMapSignature = null;
-        renderMap();
-      }
+      currentGenerated = Boolean(result);
+      // Ne pas relancer renderMap ici : il invaliderait le jeton du préchauffage
+      // avant que le niveau adjacent ait pu être préparé et comptabilisé.
       if (lodSet.prepareAdjacentAsync && targetZoom !== null && targetZoom !== undefined) {
         return lodSet.prepareAdjacentAsync(zoom, direction);
       }
-      return currentGenerated;
-    }).then(generated => {
+      return false;
+    }).then(adjacentGenerated => {
       if (token !== landLodWarmupToken) return;
-      landLodWarmupCompleted += generated ? 1 : 0;
+      const generatedCount = Number(currentGenerated) + Number(Boolean(adjacentGenerated));
+      landLodWarmupCompleted += generatedCount;
       landLodWarmupDiagnostics.completed += 1;
-      if (generated) landLodWarmupDiagnostics.generated += 1;
+      landLodWarmupDiagnostics.generated += generatedCount;
+      landLodWarmupRunningToken = null;
       landLodWarmupScheduled = false;
       const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
       if (elapsed > 24) console.info("Préparation LOD asynchrone :", elapsed.toFixed(1), "ms");
-      if (generated && !mapInteractionActive) {
+      if (generatedCount > 0 && !mapInteractionActive) {
         lastRenderedMapSignature = null;
         renderMap();
       }
     }).catch(error => {
       if (token !== landLodWarmupToken) return;
+      landLodWarmupRunningToken = null;
       landLodWarmupScheduled = false;
       landLodWarmupDiagnostics.failed += 1;
       console.warn("Préparation LOD impossible :", error);
