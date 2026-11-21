@@ -133,12 +133,18 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     removedVertices += result?.geometryStats?.removedVertices ?? 0;
   }
 
+  function getLevelForZoom(zoom = 1) {
+    return normalizedLevels.find(item => Number(zoom) <= item.maxZoom && item.tolerance > baseTolerance) ?? null;
+  }
+
   function getForZoom(zoom = 1) {
     if (!baseCollection?.features) return baseCollection;
-    const level = normalizedLevels.find(item => Number(zoom) <= item.maxZoom);
-    if (!level || level.tolerance <= baseTolerance) return baseCollection;
+    const level = getLevelForZoom(zoom);
+    if (!level) return baseCollection;
     if (cache.has(level.tolerance)) return cache.get(level.tolerance);
-    if (pending.has(level.tolerance)) return baseCollection;
+    // Lorsque le Worker est configuré, ne jamais lancer une simplification lourde
+    // pendant le rendu. Le niveau de base reste affiché jusqu'à la réponse du Worker.
+    if (typeof options.createWorker === "function" && !workerFailed) return baseCollection;
     const startedAt = now();
     const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
     recordResult(level.tolerance, generalized, now() - startedAt);
@@ -178,7 +184,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       recordResult(job.tolerance, result, now() - job.startedAt);
       job.resolve(true);
     } else {
-      job.resolve(failed ? prepareAdjacent(job.zoom, job.direction) : false);
+      job.resolve(failed ? (job.fallback?.() ?? false) : false);
     }
   }
 
@@ -204,23 +210,19 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     return worker;
   }
 
-  function prepareAdjacentAsync(zoom = 1, direction = 1) {
-    const targetZoom = getAdjacentZoom(zoom, direction);
-    if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
-    const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
-    if (!level || level.tolerance <= baseTolerance || cache.has(level.tolerance)) return Promise.resolve(false);
+  function prepareLevelAsync(level, fallback) {
+    if (!level || cache.has(level.tolerance)) return Promise.resolve(false);
     if (pending.has(level.tolerance)) return pending.get(level.tolerance);
     const activeWorker = getWorker();
-    if (!activeWorker) return Promise.resolve(prepareAdjacent(zoom, direction));
-
+    if (!activeWorker) return Promise.resolve(fallback());
     const requestId = nextWorkerRequestId++;
     let resolveJob;
     const promise = new Promise(resolve => { resolveJob = resolve; });
-    workerJobs.set(requestId, { tolerance: level.tolerance, zoom, direction, startedAt: now(), resolve: resolveJob });
+    workerJobs.set(requestId, { tolerance: level.tolerance, startedAt: now(), resolve: resolveJob, fallback });
     pending.set(level.tolerance, promise);
     try {
-      // La collection GeoJSON est transférée une seule fois à ce worker.
-      // Les prochains niveaux réutilisent sa copie locale sans nouveau clone massif.
+      // La collection est clonée une seule fois ; les niveaux suivants réutilisent
+      // la copie conservée dans le Worker.
       if (!workerInitializationSent) {
         activeWorker.postMessage({ type: "init", collection: baseCollection });
         workerInitializationSent = true;
@@ -232,6 +234,23 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       failWorker();
     }
     return promise;
+  }
+
+  function prepareZoomAsync(zoom = 1) {
+    const level = getLevelForZoom(zoom);
+    if (!level || !baseCollection?.features || cache.has(level.tolerance)) return Promise.resolve(false);
+    return prepareLevelAsync(level, () => {
+      const startedAt = now();
+      recordResult(level.tolerance, simplifyGeoJsonCollection(baseCollection, level.tolerance), now() - startedAt);
+      return true;
+    });
+  }
+
+  function prepareAdjacentAsync(zoom = 1, direction = 1) {
+    const targetZoom = getAdjacentZoom(zoom, direction);
+    if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
+    const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
+    return prepareLevelAsync(level, () => prepareAdjacent(zoom, direction));
   }
 
   function dispose() {
@@ -246,6 +265,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     getForZoom,
     prepareAdjacent,
     prepareAdjacentAsync,
+    prepareZoomAsync,
     getAdjacentZoom,
     dispose,
     getStats() {
