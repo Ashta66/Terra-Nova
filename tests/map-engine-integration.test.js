@@ -266,7 +266,7 @@ test("les buffers de lignes géographiques sont construits directement en Float3
   assert.ok(result.positions instanceof Float32Array);
   assert.equal(result.positions, uploaded, "aucune conversion ou copie intermédiaire ne doit être nécessaire");
   assert.equal(result.vertexCount, 78, "six sommets de ruban et deux disques de jointure de 36 sommets");
-  assert.equal(result.positions.length, result.vertexCount * 8);
+  assert.equal(result.positions.length, result.vertexCount * 9, "chaque sommet inclut aussi son ancrage longitudinal");
   assert.equal(result.lineBuffer, buffer);
 });
 
