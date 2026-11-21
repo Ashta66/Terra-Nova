@@ -431,7 +431,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  const atlasWidth=side*cell,atlasHeight=side*cell,texture=gl.createTexture();
  if(!texture)return null;
  gl.bindTexture(gl.TEXTURE_2D,texture);
- gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
  gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);
@@ -485,14 +485,16 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
  const out=new Float32Array(vertexCount*12);let offset=0;
  const push=(x,y,u,v,e,t)=>{
   out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
-  out[offset++]=(e.slotX*atlas.cellSize+1+u*t.width)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+1+v*t.height)/atlas.atlasHeight;
+  // Les UV pointent au centre des texels, pas à leur frontière.
+  out[offset++]=(e.slotX*atlas.cellSize+1.5+u*t.width)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+1.5+v*t.height)/atlas.atlasHeight;
   out[offset++]=1/atlas.atlasWidth;out[offset++]=1/atlas.atlasHeight;
   out[offset++]=1/(t.width+2);out[offset++]=1/(t.height+2);
-  out[offset++]=(e.slotX*atlas.cellSize)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize)/atlas.atlasHeight;
-  out[offset++]=(e.slotX*atlas.cellSize+t.width+1)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+t.height+1)/atlas.atlasHeight;
+  // Les limites incluent le halo, exprimées elles aussi en centres de texels.
+  out[offset++]=(e.slotX*atlas.cellSize+0.5)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+0.5)/atlas.atlasHeight;
+  out[offset++]=(e.slotX*atlas.cellSize+t.width+1.5)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+t.height+1.5)/atlas.atlasHeight;
  };
  for(const {tile,rects} of items){
   const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}`);
@@ -716,7 +718,27 @@ varying vec2 v_atlasUv;
 varying vec2 v_atlasStep;
 varying vec2 v_tileStep;
 varying vec4 v_atlasBounds;
-float elevationAt(vec2 uv){vec2 p=clamp(uv,v_atlasBounds.xy,v_atlasBounds.zw);vec4 s=texture2D(u_elevation,p);float n=s.r*255.0+s.a*65280.0;return mod(n+32768.0,65536.0)-32768.0;}
+float decodeElevation(vec2 uv){
+ vec4 s=texture2D(u_elevation,uv);
+ float n=s.r*255.0+s.a*65280.0;
+ return mod(n+32768.0,65536.0)-32768.0;
+}
+float elevationAt(vec2 uv){
+ // Décoder chaque échantillon avant interpolation : le sampler ne doit jamais
+ // mélanger séparément les octets bas/haut d'une altitude 16 bits.
+ vec2 pixel=uv/v_atlasStep-0.5;
+ vec2 minPixel=v_atlasBounds.xy/v_atlasStep-0.5;
+ vec2 maxPixel=v_atlasBounds.zw/v_atlasStep-0.5;
+ pixel=clamp(pixel,minPixel,maxPixel);
+ vec2 base=floor(pixel),f=fract(pixel);
+ vec2 p00=clamp((base+0.5)*v_atlasStep,v_atlasBounds.xy,v_atlasBounds.zw);
+ vec2 p10=clamp((base+vec2(1.5,0.5))*v_atlasStep,v_atlasBounds.xy,v_atlasBounds.zw);
+ vec2 p01=clamp((base+vec2(0.5,1.5))*v_atlasStep,v_atlasBounds.xy,v_atlasBounds.zw);
+ vec2 p11=clamp((base+1.5)*v_atlasStep,v_atlasBounds.xy,v_atlasBounds.zw);
+ float a=decodeElevation(p00),b=decodeElevation(p10);
+ float c=decodeElevation(p01),d=decodeElevation(p11);
+ return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
 vec3 ramp(float v,float lo,float hi,vec3 a,vec3 b){float t=clamp((v-lo)/(hi-lo),0.0,1.0);t=t*t*(3.0-2.0*t);return mix(a,b,t);}
 void main(){
  float e=elevationAt(v_atlasUv);
