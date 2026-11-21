@@ -204,7 +204,11 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       const data = event?.data ?? {};
       if (data.type === "ready") return;
       if (data.requestId === undefined) return;
-      settleWorkerJob(data.requestId, data.result ?? null, Boolean(data.error));
+      if (data.error) {
+        failWorker();
+        return;
+      }
+      settleWorkerJob(data.requestId, data.result ?? null, false);
     };
     worker.onerror = failWorker;
     return worker;
@@ -230,7 +234,6 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       }
       activeWorker.postMessage({ type: "simplify", requestId, tolerance: level.tolerance });
     } catch {
-      settleWorkerJob(requestId, null, true);
       failWorker();
     }
     return promise;
