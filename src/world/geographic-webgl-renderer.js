@@ -548,6 +548,14 @@ export function createGeographicWebGLRenderer(gl) {
     gl.useProgram(program);
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
+    const maxVertexAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS);
+    const resetVertexAttribArrays = (activeLocations) => {
+      const active = new Set(activeLocations.filter(location => Number.isInteger(location) && location >= 0));
+      for (let location = 0; location < maxVertexAttribs; location++) {
+        if (!active.has(location)) gl.disableVertexAttribArray(location);
+      }
+    };
+
     for (const layer of prepared) {
       const layerDrawStartedAt = now();
       if (layer.type === "lines" || layer.type === "boundaries") {
@@ -561,6 +569,12 @@ export function createGeographicWebGLRenderer(gl) {
         gl.uniform2f(lineViewportLocation, Math.round(width), Math.round(height));
         gl.uniform1f(lineWidthLocation, Math.max(0.25, Number.isFinite(layer.lineWidth) ? layer.lineWidth : 0.55));
         gl.uniform4fv(lineColorLocation, layer.color);
+        // Les attributs sont globaux au contexte WebGL, pas propres au programme.
+        // Désactive ceux laissés par un autre programme avant de configurer les rubans.
+        resetVertexAttribArrays([
+          lineCoordinateLocation, lineOtherLocation, lineSideLocation,
+          lineJoinOffsetLocation, lineIsJoinLocation
+        ]);
         gl.bindBuffer(gl.ARRAY_BUFFER, layer.cached.lineBuffer);
         gl.enableVertexAttribArray(lineCoordinateLocation);
         gl.vertexAttribPointer(lineCoordinateLocation, 2, gl.FLOAT, false, 32, 0);
@@ -576,6 +590,9 @@ export function createGeographicWebGLRenderer(gl) {
       } else {
         gl.useProgram(program);
         gl.uniform4fv(colorLocation, layer.color);
+        // Les attributs activés par le programme des lignes peuvent référencer
+        // des buffers déjà libérés. Ne conserver que l'attribut polygonal requis.
+        resetVertexAttribArrays([positionLocation]);
         for (const batch of layer.cached.batches) {
           // Un buffer supprimé (par éviction ou perte de contexte) laisse l'attribut
           // actif sans source valide et provoque INVALID_OPERATION à drawElements.
