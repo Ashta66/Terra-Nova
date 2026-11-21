@@ -776,6 +776,7 @@ async function installFullMapPack() {
       status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
     regionalLandFeatures = null;
+    regionalLandLod = null;
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
