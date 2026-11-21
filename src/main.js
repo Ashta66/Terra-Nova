@@ -37,6 +37,44 @@ window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
 window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
 window.getTerrainTileDebugStats = () => getTerrainWebGLTileStats(terrainTileStore);
 
+window.getTerrainRasterDiagnostics = () => {
+  const grid = terrainGrid;
+  if (!grid?.values) return { ready: false, message: "Grille ETOPO non chargée." };
+  const { width, height, values } = grid;
+  const rowMeans = new Float64Array(height), colMeans = new Float64Array(width);
+  const rowMin = new Int16Array(height), rowMax = new Int16Array(height);
+  rowMin.fill(32767); rowMax.fill(-32768);
+  let globalMin = Infinity, globalMax = -Infinity, sum = 0;
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0;
+    const offset = y * width;
+    for (let x = 0; x < width; x++) {
+      const v = values[offset + x];
+      rowSum += v; colMeans[x] += v;
+      if (v < rowMin[y]) rowMin[y] = v;
+      if (v > rowMax[y]) rowMax[y] = v;
+      if (v < globalMin) globalMin = v;
+      if (v > globalMax) globalMax = v;
+    }
+    rowMeans[y] = rowSum / width;
+    sum += rowSum;
+  }
+  for (let x = 0; x < width; x++) colMeans[x] /= height;
+  const strongestJumps = series => {
+    const jumps = [];
+    for (let i = 1; i < series.length; i++) jumps.push({ index: i, delta: Number((series[i] - series[i - 1]).toFixed(2)) });
+    return jumps.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12);
+  };
+  return {
+    ready: true, width, height, min: globalMin, max: globalMax,
+    mean: Number((sum / values.length).toFixed(2)),
+    rowMeanJumps: strongestJumps(rowMeans),
+    columnMeanJumps: strongestJumps(colMeans),
+    sampleRows: [0, Math.floor(height * .25), Math.floor(height * .5), Math.floor(height * .75), height - 1]
+      .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
+  };
+};
+
 let state = createGameState();
 let interval = null;
 let worldFeatures = null;
