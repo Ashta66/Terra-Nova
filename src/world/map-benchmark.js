@@ -23,6 +23,10 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
     add("renderTotalMs", result.totalRenderMs);
     for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
+    const families = result.renderFamilies ?? {};
+    add("family:physicalMs", families.physicalMs);
+    add("family:politicalMs", families.politicalMs);
+    add("family:dynamicMs", families.dynamicMs);
     const webgl = result.webglStats ?? {};
     for (const key of ["geometryBuildMs", "bufferUploadMs", "cacheBuildMs", "drawSubmitMs",
       "totalMs", "uploadedBytes", "cachedGpuBytes", "cacheBudgetBytes", "cacheEvictedLayers",
