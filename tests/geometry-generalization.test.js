@@ -52,3 +52,36 @@ test("les collections LOD absentes restent sans effet et les seuils sont ordonn�
  assert.equal(lod.getForZoom(1),null);
  assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1});
 });
+
+
+test("prépare le palier LOD adjacent sans attendre son premier affichage",()=>{
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:1.8,tolerance:0.04},
+  {maxZoom:3.5,tolerance:0.02},
+  {maxZoom:6,tolerance:0.008}
+ ],0.0001);
+ const coarse=lod.getForZoom(1);
+ assert.equal(lod.getAdjacentZoom(1,1),1.801);
+ assert.equal(lod.prepareAdjacent(1,1),true);
+ assert.equal(lod.getForZoom(2),lod.getForZoom(1.801));
+ assert.notEqual(lod.getForZoom(2),coarse);
+ assert.equal(lod.getStats().generatedLevels,2);
+ assert.ok(lod.getStats().generationTimeMs>=0);
+ assert.ok(Array.isArray(lod.getStats().cachedTolerances));
+});
+
+test("le préchauffage LOD vers un zoom inférieur prépare le niveau plus grossier",()=>{
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:1.8,tolerance:0.04},
+  {maxZoom:3.5,tolerance:0.02},
+  {maxZoom:6,tolerance:0.008}
+ ],0.0001);
+ lod.getForZoom(5);
+ assert.equal(lod.getAdjacentZoom(5,-1),3.5);
+ assert.equal(lod.prepareAdjacent(5,-1),true);
+ assert.equal(lod.getStats().generatedLevels,1);
+});
