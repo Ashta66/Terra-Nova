@@ -97,3 +97,21 @@ test("exporte les métadonnées permettant de distinguer un navigateur PC d'une 
   assert.equal(result.metadata.maxTouchPoints, 0);
   assert.equal(result.metadata.mobileUserAgent, false);
 });
+
+
+test("enregistre le cycle de vie du préchauffage LOD sans confondre planification et exécution", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 10;
+  collector.record({ totalRenderMs: 10, lodWarmupDiagnostics: {
+    scheduled: 2, started: 1, completed: 1, generated: 1, cancelled: 1, failed: 0, completedJobs: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["lod:warmup:scheduled"].median, 2);
+  assert.equal(metrics["lod:warmup:started"].median, 1);
+  assert.equal(metrics["lod:warmup:generated"].median, 1);
+  assert.equal(metrics["lod:warmup:cancelled"].median, 1);
+  assert.equal(metrics["lod:warmup:failed"].median, 0);
+});
