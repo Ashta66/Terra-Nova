@@ -280,7 +280,10 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
      cache.bytes-=Math.max(0,(oldest?.width??0)*(oldest?.height??0)*4);
     }
    }else{cache.delete(key);cache.set(key,surface);}
-   context.drawImage(surface,screenX,screenY,destW,destH);drawn=true;
+   context.save?.();
+   context.imageSmoothingEnabled = globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING !== true;
+   context.drawImage(surface,screenX,screenY,destW,destH);
+   context.restore?.();drawn=true;
   }
  }
  return drawn;
@@ -313,7 +316,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   if (cachedSurface && context.drawImage) {
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
-    context.imageSmoothingEnabled = true;
+    context.imageSmoothingEnabled = globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING !== true;
     context.drawImage(cachedSurface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
     context.restore?.();
     return true;
