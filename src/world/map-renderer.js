@@ -339,6 +339,25 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
   return path;
 }
 
+/** Construit le masque terrestre en réutilisant les Path2D déjà préparés pour le remplissage. */
+export function buildLandClipPath(collection, width, height, projection, coastProfile) {
+  if (typeof Path2D === "undefined") return null;
+  const combined = new Path2D();
+  if (typeof combined.addPath !== "function") return null;
+  let appended = 0;
+  for (const feature of collection?.features ?? []) {
+    if (!feature?.geometry) continue;
+    const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
+    if (cachedPath) {
+      combined.addPath(cachedPath);
+      appended++;
+    } else if (traceGeometry(combined, feature.geometry, width, height, projection, coastProfile)) {
+      appended++;
+    }
+  }
+  return appended ? combined : null;
+}
+
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
   let drawn = 0;
@@ -1040,7 +1059,7 @@ const staticLayerCache = new WeakMap();
 const STATIC_LAYER_CACHE_LIMIT = 3;
 const STATIC_LAYER_CACHE_MAX_BYTES = 48 * 1024 * 1024;
 const STATIC_LAYER_TIMING_KEYS = [
-  "relief-base", "terres-et-cotes", "territoires-couleurs",
+  "relief-base", "land-mask-path", "terres-et-cotes", "territoires-couleurs",
   "ombrage-multidirectionnel", "hachures", "glaciers", "lacs", "rivières", "repères-altitude"
 ];
 
@@ -1180,11 +1199,17 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
-      target.beginPath();
-      for (const feature of visibleLand.features) {
-        if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+      const landClipPath = measureLayer("land-mask-path", () =>
+        buildLandClipPath(visibleLand, width, height, projection, coastProfile));
+      if (landClipPath) {
+        target.clip(landClipPath, "evenodd");
+      } else {
+        target.beginPath();
+        for (const feature of visibleLand.features) {
+          if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+        }
+        target.clip("evenodd");
       }
-      target.clip("evenodd");
       if (options.terrainTileStore && !hasPhysicalTerrainChanges(options.physicalWorld)
         && typeof target.drawImage === "function") {
         try {
