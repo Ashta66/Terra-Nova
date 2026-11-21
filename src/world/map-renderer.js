@@ -1148,6 +1148,7 @@ function staticLayerSignature(width, height, pixelRatio, year, theme, projection
     terrainGpu?.lod ?? -1, terrainGpu?.visibleTiles ?? 0,
     options.terrainEnabled !== false ? 1 : 0,
     globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES === true ? 1 : 0,
+    globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL === true ? 1 : 0,
     typeof window !== "undefined" && window.__TERRA_CAPTURE_LAYER_STAGES === true ? 1 : 0, options.terrainQuality ?? 1,
     options.terrainMode ?? "political", Number(options.physicalWorld?.revision ?? 0),
     Number(options.countryOpacity ?? 0.52), options.interactive ? 1 : 0
@@ -1318,7 +1319,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // géométries traversant l'antiméridien conservent le remplissage Canvas.
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
     const geographicRenderer = options.geographicWebGLRenderer;
-    const canRenderLandWebGL = geographicRenderer?.renderLayers && geographicRenderer.canvas
+    const canRenderLandWebGL = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL !== true
+      && geographicRenderer?.renderLayers && geographicRenderer.canvas
       && projection.type === "equirectangular" && typeof geographicRenderer.supports === "function";
     const landCount = measureLayer("terres-et-cotes", () => {
       if (!canRenderLandWebGL) {
