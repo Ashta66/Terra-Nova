@@ -361,9 +361,13 @@ export function createGeographicWebGLRenderer(gl) {
       seenKeys.add(key);
       const features = layer.features ?? [];
       const type = layer.type === "lines" || layer.type === "boundaries" ? layer.type : "polygons";
-      const signature = type + ":" + features.map(featureId).join(",");
       let cached = layerCaches.get(key);
-      const cacheHit = Boolean(cached && cached.signature === signature);
+      const sameFeatures = Boolean(cached && cached.type === type && (
+        cached.featuresRef === features
+        || (cached.featureRefs.length === features.length
+          && cached.featureRefs.every((feature, featureIndex) => feature === features[featureIndex]))
+      ));
+      const cacheHit = sameFeatures;
       let cacheBuildMs = 0;
       if (!cacheHit) {
         const buildStartedAt = now();
@@ -371,7 +375,7 @@ export function createGeographicWebGLRenderer(gl) {
         cacheBuildMs = Math.max(0, now() - buildStartedAt);
         releaseBatches(cached?.batches);
         if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
-        cached = { signature, type, ...next };
+        cached = { type, featuresRef: features, featureRefs: [...features], ...next };
         layerCaches.set(key, cached);
       }
       allCacheHits = allCacheHits && cacheHit;
@@ -393,6 +397,12 @@ export function createGeographicWebGLRenderer(gl) {
       empty.layers[key] = { type, drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
         drawCalls: layerDrawCalls, triangles: layerTriangles, vertices: cached.vertexCount ?? 0,
         cacheHit, cacheBuildMs, bufferUploads: layerUploads, uploadedBytes: layerBytes };
+    }
+    for (const [key, cached] of layerCaches) {
+      if (seenKeys.has(key)) continue;
+      releaseBatches(cached.batches);
+      if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+      layerCaches.delete(key);
     }
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
