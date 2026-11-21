@@ -106,31 +106,64 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
  * au chargement et sert de repli lorsque le zoom dépasse les seuils configurés.
  */
 export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0) {
-  const normalizedLevels = levels
+  const normalizedLevels = [...new Map(levels
     .filter(level => Number.isFinite(level?.maxZoom) && Number.isFinite(level?.tolerance) && level.tolerance > 0)
     .map(level => ({ maxZoom: level.maxZoom, tolerance: level.tolerance }))
-    .sort((a, b) => a.maxZoom - b.maxZoom);
+    .sort((a, b) => a.maxZoom - b.maxZoom)
+    .map(level => [level.maxZoom, level])).values()];
   const cache = new Map();
+  const generationSamples = [];
   let generatedLevels = 0;
+  let removedVertices = 0;
 
   function getForZoom(zoom = 1) {
     if (!baseCollection?.features) return baseCollection;
     const level = normalizedLevels.find(item => Number(zoom) <= item.maxZoom);
     if (!level || level.tolerance <= baseTolerance) return baseCollection;
     if (cache.has(level.tolerance)) return cache.get(level.tolerance);
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
     const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
+    const durationMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
     cache.set(level.tolerance, generalized);
+    generationSamples.push(durationMs);
     generatedLevels += 1;
+    removedVertices += generalized?.geometryStats?.removedVertices ?? 0;
     return generalized;
+  }
+
+  function getAdjacentZoom(zoom = 1, direction = 1) {
+    if (!normalizedLevels.length) return null;
+    const current = Number(zoom);
+    if (!Number.isFinite(current)) return null;
+    if (direction >= 0) {
+      const next = normalizedLevels.find(level => level.maxZoom > current && level.tolerance > baseTolerance);
+      return next ? Math.max(0, next.maxZoom - 0.001) : null;
+    }
+    const previous = [...normalizedLevels].reverse().find(level => level.maxZoom < current && level.tolerance > baseTolerance);
+    return previous ? previous.maxZoom : null;
+  }
+
+  function prepareAdjacent(zoom = 1, direction = 1) {
+    const targetZoom = getAdjacentZoom(zoom, direction);
+    if (targetZoom === null) return false;
+    const before = generatedLevels;
+    getForZoom(targetZoom);
+    return generatedLevels > before;
   }
 
   return {
     getForZoom,
+    prepareAdjacent,
+    getAdjacentZoom,
     getStats() {
       return {
         generatedLevels,
         cachedLevels: cache.size,
-        configuredLevels: normalizedLevels.length
+        configuredLevels: normalizedLevels.length,
+        generationTimeMs: generationSamples.reduce((sum, value) => sum + value, 0),
+        lastGenerationMs: generationSamples.at(-1) ?? 0,
+        removedVertices,
+        cachedTolerances: [...cache.keys()]
       };
     }
   };
