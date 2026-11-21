@@ -280,6 +280,10 @@ const PROJECTED_PATHS_PER_FEATURE = 3;
 const MAX_PROJECTED_PATHS = 512;
 const MAX_PROJECTED_PATH_VERTICES = 250_000;
 let projectedPathVertexCount = 0;
+let projectedPathCacheHits = 0;
+let projectedPathCacheMisses = 0;
+let combinedLandMaskCacheHits = 0;
+let combinedLandMaskCacheMisses = 0;
 
 function touchProjectedPath(entry, feature) {
   projectedPathCacheLru.delete(entry);
@@ -313,10 +317,12 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     projectedPathCache.set(feature, entries);
   }
   if (entries.has(key)) {
+    projectedPathCacheHits++;
     const cached = entries.get(key);
     touchProjectedPath(cached, feature);
     return cached.path;
   }
+  projectedPathCacheMisses++;
   const path = new Path2D();
   const vertexCount = traceGeometry(path, feature.geometry, width, height, pathProjection, coastProfile);
   if (!vertexCount) return null;
@@ -362,10 +368,12 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
   ].join(":");
   const cached = combinedLandMaskCache.get(key);
   if (cached) {
+    combinedLandMaskCacheHits++;
     combinedLandMaskCache.delete(key);
     combinedLandMaskCache.set(key, cached);
     return cached;
   }
+  combinedLandMaskCacheMisses++;
   const combined = new Path2D();
   if (typeof combined.addPath !== "function") return null;
   let appended = 0;
@@ -1546,6 +1554,11 @@ export function getProjectedPathCacheStats() {
     cachedVertices: projectedPathVertexCount,
     maxCachedVertices: MAX_PROJECTED_PATH_VERTICES,
     estimatedBytes: projectedPathVertexCount * 32,
-    maxEstimatedBytes: MAX_PROJECTED_PATH_VERTICES * 32
+    maxEstimatedBytes: MAX_PROJECTED_PATH_VERTICES * 32,
+    projectedPathCacheHits,
+    projectedPathCacheMisses,
+    combinedLandMaskCacheHits,
+    combinedLandMaskCacheMisses,
+    combinedLandMaskCacheEntries: combinedLandMaskCache.size
   };
 }
