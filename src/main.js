@@ -86,6 +86,7 @@ let landLodWarmupToken = 0;
 let lastLandLodWarmupZoom = null;
 let landLodWarmupScheduled = false;
 let landLodWarmupCompleted = 0;
+const landLodWarmupDiagnostics = { scheduled: 0, started: 0, completed: 0, generated: 0, cancelled: 0, failed: 0 };
 let landLodCrossfadeSkippedForMemory = 0;
 const sceneCanvas = document.createElement("canvas");
 const previousSceneCanvas = document.createElement("canvas");
@@ -668,6 +669,7 @@ function animateLandLodTransition() {
 
 function cancelLandLodWarmup() {
   landLodWarmupToken += 1;
+  if (landLodWarmupHandle !== null) landLodWarmupDiagnostics.cancelled += 1;
   landLodWarmupScheduled = false;
   if (landLodWarmupHandle === null) return;
   if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
@@ -697,6 +699,7 @@ function scheduleLandLodWarmup(lodSet, zoom) {
       landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
       return;
     }
+    landLodWarmupDiagnostics.started += 1;
     const startedAt = globalThis.performance?.now?.() ?? Date.now();
     const prepareCurrent = lodSet.prepareZoomAsync
       ? lodSet.prepareZoomAsync(zoom)
@@ -714,6 +717,8 @@ function scheduleLandLodWarmup(lodSet, zoom) {
     }).then(generated => {
       if (token !== landLodWarmupToken) return;
       landLodWarmupCompleted += generated ? 1 : 0;
+      landLodWarmupDiagnostics.completed += 1;
+      if (generated) landLodWarmupDiagnostics.generated += 1;
       landLodWarmupScheduled = false;
       const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
       if (elapsed > 24) console.info("Préparation LOD asynchrone :", elapsed.toFixed(1), "ms");
@@ -724,10 +729,12 @@ function scheduleLandLodWarmup(lodSet, zoom) {
     }).catch(error => {
       if (token !== landLodWarmupToken) return;
       landLodWarmupScheduled = false;
+      landLodWarmupDiagnostics.failed += 1;
       console.warn("Préparation LOD impossible :", error);
     });
   };
   landLodWarmupScheduled = true;
+  landLodWarmupDiagnostics.scheduled += 1;
   if (typeof requestIdleCallback === "function") {
     landLodWarmupUsesIdleCallback = true;
     landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
@@ -758,6 +765,7 @@ function completeMapRender(result, context) {
   mapBenchmarkCollector.record({
     ...result,
     lodStats: context.landLodSet?.getStats?.(),
+    lodWarmupDiagnostics: { ...landLodWarmupDiagnostics, completedJobs: landLodWarmupCompleted },
     lodTransitionMs: context.landLodTransition ? LAND_LOD_CROSSFADE_MS : 0,
     lodCrossfadeBytes: context.landLodTransition ? previousSceneCanvas.width * previousSceneCanvas.height * 4 : 0,
     lodWarmupScheduled: landLodWarmupScheduled
