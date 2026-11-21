@@ -87,8 +87,21 @@ window.getTerrainRasterDiagnostics = () => {
     for (let i = 1; i < series.length; i++) jumps.push({ index: i, delta: Number((series[i] - series[i - 1]).toFixed(2)) });
     return jumps.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12);
   };
+  const inspect = (x, y, radius = 6) => {
+    x = Math.max(0, Math.min(width - 1, Math.round(x)));
+    y = Math.max(0, Math.min(height - 1, Math.round(y)));
+    radius = Math.max(1, Math.min(12, Math.round(radius)));
+    const rows = [];
+    for (let yy = Math.max(0, y - radius); yy <= Math.min(height - 1, y + radius); yy++) {
+      const row = { y: yy, latitude: Number((90 - (yy + 0.5) / height * 180).toFixed(4)) };
+      for (let xx = Math.max(0, x - radius); xx <= Math.min(width - 1, x + radius); xx++) row["x" + xx] = values[yy * width + xx];
+      rows.push(row);
+    }
+    return { center: { x, y, longitude: Number((-180 + (x + 0.5) / width * 360).toFixed(4)), latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)) }, rows };
+  };
   return {
     ready: true, width, height, min: globalMin, max: globalMax,
+    inspect,
     mean: Number((sum / values.length).toFixed(2)),
     rowMeanJumps: strongestJumps(rowMeans),
     columnMeanJumps: strongestJumps(colMeans),
