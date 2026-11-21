@@ -50,7 +50,7 @@ test("les niveaux LOD sont calculés une fois puis réutilisés pendant les dép
 test("les collections LOD absentes restent sans effet et les seuils sont ordonnés",()=>{
  const lod=createGeoJsonLodSet(null,[{maxZoom:3,tolerance:0.1}],0);
  assert.equal(lod.getForZoom(1),null);
- assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1});
+ assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1,generationTimeMs:0,lastGenerationMs:0,removedVertices:0,cachedTolerances:[]});
 });
 
 
@@ -83,5 +83,5 @@ test("le préchauffage LOD vers un zoom inférieur prépare le niveau plus gross
  lod.getForZoom(5);
  assert.equal(lod.getAdjacentZoom(5,-1),3.5);
  assert.equal(lod.prepareAdjacent(5,-1),true);
- assert.equal(lod.getStats().generatedLevels,1);
+ assert.equal(lod.getStats().generatedLevels,2);
 });
