@@ -47,8 +47,8 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
 
   const first = renderer.renderLayers([{ key: "land", type: "polygons", features }], 800, 400, viewport);
   assert.equal(first.cacheHit, false);
-  assert.equal(first.bufferUploads, 4, "deux blocs polygonaux produisent chacun un buffer vertex et index");
-  assert.equal(first.drawCalls, 2);
+  assert.equal(first.bufferUploads, 16, "les huit compartiments stables produisent chacun un buffer vertex et index");
+  assert.equal(first.drawCalls, 8);
   const initialUploadBytes = first.uploadedBytes;
   assert.ok(initialUploadBytes > 0);
 
@@ -56,15 +56,15 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
   changed[10] = polygonFeature(10.25);
   const second = renderer.renderLayers([{ key: "land", type: "polygons", features: changed }], 800, 400, viewport);
   assert.equal(second.cacheHit, false);
-  assert.equal(second.bufferUploads, 2, "le bloc inchangé doit conserver ses deux buffers GPU");
-  assert.equal(second.drawCalls, 2);
+  assert.equal(second.bufferUploads, 2, "seul le compartiment contenant la feature modifiée doit être réuploadé");
+  assert.equal(second.drawCalls, 8);
   assert.ok(second.uploadedBytes < initialUploadBytes);
 
   const third = renderer.renderLayers([{ key: "land", type: "polygons", features: changed.slice() }], 800, 400, viewport);
   assert.equal(third.cacheHit, true, "une nouvelle liste avec les mêmes références doit réutiliser les deux blocs");
   assert.equal(third.bufferUploads, 0);
   assert.equal(third.uploadedBytes, 0);
-  assert.equal(uploaded.length, 6);
+  assert.equal(uploaded.length, 18);
   renderer.dispose();
 });
 
