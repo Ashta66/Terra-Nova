@@ -11,7 +11,7 @@ function createMockGl() {
     VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
     ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, STATIC_DRAW: 7, DYNAMIC_DRAW: 8,
     COLOR_BUFFER_BIT: 9, BLEND: 10, SRC_ALPHA: 11, ONE_MINUS_SRC_ALPHA: 12,
-    FLOAT: 13, TRIANGLES: 14, UNSIGNED_SHORT: 15,
+    FLOAT: 13, TRIANGLES: 14, UNSIGNED_SHORT: 15, MAX_VERTEX_ATTRIBS: 0x8869,
     createShader: () => ({ id: ++nextId }),
     shaderSource() {}, compileShader() {}, getShaderParameter: () => true, deleteShader() {},
     createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
@@ -21,9 +21,10 @@ function createMockGl() {
     deleteBuffer(buffer) { deleted.add(buffer); },
     bindBuffer() {},
     bufferData(_target, data) { uploaded.push(data.byteLength); },
+    getParameter(parameter) { return parameter === this.MAX_VERTEX_ATTRIBS ? 16 : null; },
     viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
     useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
-    enableVertexAttribArray() {}, vertexAttribPointer() {}, drawArrays() {}, drawElements() {}
+    enableVertexAttribArray() {}, disableVertexAttribArray() {}, vertexAttribPointer() {}, drawArrays() {}, drawElements() {}
   };
   return { gl, uploaded, deleted };
 }
