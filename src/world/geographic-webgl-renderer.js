@@ -63,7 +63,7 @@ function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
 const MAX_CACHED_LAYERS = 12;
 const MAX_CACHED_GPU_BYTES = 128 * 1024 * 1024;
-const MAX_FEATURES_PER_GPU_CHUNK = 64;
+const POLYGON_FEATURE_BUCKETS = 8;
 
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 
@@ -360,18 +360,25 @@ export function createGeographicWebGLRenderer(gl) {
   }
 
   function buildIncrementalPolygonLayer(features, previous) {
-    const chunks = [];
-    const reusedChunks = new Set();
+    const previousChunks = previous?.chunks instanceof Map ? previous.chunks : new Map();
+    const grouped = new Map();
+    for (const feature of features) {
+      const bucket = featureId(feature) % POLYGON_FEATURE_BUCKETS;
+      if (!grouped.has(bucket)) grouped.set(bucket, []);
+      grouped.get(bucket).push(feature);
+    }
+    const chunks = new Map();
     let drawnFeatures = 0, skippedFeatures = 0;
     let geometryBuildMs = 0, bufferUploadMs = 0, uploadedBytes = 0, bufferUploads = 0;
     let cacheBuildMs = 0;
-    for (let offset = 0, chunkIndex = 0; offset < features.length; offset += MAX_FEATURES_PER_GPU_CHUNK, chunkIndex++) {
-      const featureRefs = features.slice(offset, offset + MAX_FEATURES_PER_GPU_CHUNK);
-      const oldChunk = previous?.chunks?.[chunkIndex];
+    let reusedChunks = 0;
+    for (const [bucket, featureRefs] of grouped) {
+      featureRefs.sort((a, b) => featureId(a) - featureId(b));
+      const oldChunk = previousChunks.get(bucket);
       let chunk;
       if (oldChunk && sameFeatureRefs(oldChunk.featureRefs, featureRefs)) {
         chunk = oldChunk;
-        reusedChunks.add(oldChunk);
+        reusedChunks++;
       } else {
         const startedAt = now();
         const built = buildBatches(featureRefs);
@@ -383,21 +390,22 @@ export function createGeographicWebGLRenderer(gl) {
         const uploads = built.batches.length * 2;
         uploadedBytes += bytes;
         bufferUploads += uploads;
-        chunk = { featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
+        chunk = { bucket, featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
+        if (oldChunk) releaseBatches(oldChunk.batches);
       }
       drawnFeatures += chunk.drawnFeatures;
       skippedFeatures += chunk.skippedFeatures;
-      chunks.push(chunk);
+      chunks.set(bucket, chunk);
     }
-    for (const oldChunk of previous?.chunks ?? []) {
-      if (!reusedChunks.has(oldChunk)) releaseBatches(oldChunk.batches);
+    for (const [bucket, oldChunk] of previousChunks) {
+      if (!chunks.has(bucket)) releaseBatches(oldChunk.batches);
     }
-    const batches = chunks.flatMap(chunk => chunk.batches);
+    const batches = [...chunks.values()].flatMap(chunk => chunk.batches);
     return {
       type: "polygons", featuresRef: features, featureRefs: [...features], chunks, batches,
       drawnFeatures, skippedFeatures, geometryBuildMs, bufferUploadMs, cacheBuildMs,
       uploadedBytes, bufferUploads,
-      cacheHit: chunks.length === (previous?.chunks?.length ?? 0) && reusedChunks.size === chunks.length
+      cacheHit: chunks.size === previousChunks.size && reusedChunks === chunks.size
     };
   }
 
