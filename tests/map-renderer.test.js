@@ -363,6 +363,7 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -371,18 +372,18 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   try {
     const { canvas } = createCanvas();
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 3);
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 4);
     // Un petit pan reste dans la même cellule de cache et réutilise les chemins.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 5);
     // Un déplacement plus large invalide bien le cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
-    assert.equal(constructions, 2);
+    assert.equal(constructions, 7);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -395,6 +396,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -411,7 +413,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const pathsAfterFirstRender = constructions;
     assert.ok(pathsAfterFirstRender >= 1);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, pathsAfterFirstRender);
+    assert.equal(constructions, pathsAfterFirstRender + 1, "seul le conteneur temporaire du masque est recréé");
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
