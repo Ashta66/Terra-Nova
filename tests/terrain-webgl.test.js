@@ -49,8 +49,8 @@ test("l'atlas des altitudes utilise NEAREST pour éviter le mélange des octets 
   };
   const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { slotsPerSide: 2, maxBytes: 4096 });
   assert.ok(atlas);
-  assert.ok(calls.some(args => args[0] === gl.TEXTURE_MIN_FILTER && args[1] === gl.NEAREST));
-  assert.ok(calls.some(args => args[0] === gl.TEXTURE_MAG_FILTER && args[1] === gl.NEAREST));
-  assert.ok(calls.every(args => args[1] !== gl.LINEAR));
+  assert.ok(calls.some(args => args[1] === gl.TEXTURE_MIN_FILTER && args[2] === gl.NEAREST));
+  assert.ok(calls.some(args => args[1] === gl.TEXTURE_MAG_FILTER && args[2] === gl.NEAREST));
+  assert.ok(calls.every(args => args[2] !== gl.LINEAR));
   atlas.dispose();
 });
