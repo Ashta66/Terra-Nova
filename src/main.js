@@ -17,6 +17,8 @@ import { constrainEquirectangularViewport } from "./world/projection.js";
 import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
+import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
@@ -43,6 +45,7 @@ let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
 let terrainTileStore = null;
 let terrainTilePersistence = null;
+let terrainPreloadCoordinator = null;
 let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
@@ -636,11 +639,31 @@ function renderMapFrame() {
     const preloadKey = [renderViewport.zoom, renderViewport.centerLongitude, renderViewport.centerLatitude].join(":");
     if (preloadKey !== lastTerrainStorePreloadKey) {
       lastTerrainStorePreloadKey = preloadKey;
-      terrainTileStore.preloadViewport(renderViewport, {
-        padding: 0.55,
+      if (!terrainPreloadCoordinator) {
+        terrainPreloadCoordinator = createTerrainPreloadCoordinator({
+          calculate: calculateZoomTilePlan,
+          onWorkerError: error => console.info("Worker de préchargement du relief indisponible ; calcul local conservé.", error)
+        });
+      }
+      const preloadInput = {
+        width: terrainTileStore.width,
+        height: terrainTileStore.height,
+        tileSize: terrainTileStore.tileSize,
+        viewport: renderViewport,
         zoomLevels: [renderViewport.zoom * 1.35, Math.max(1, renderViewport.zoom / 1.35)],
-        lookAhead: 0.2
-      });
+        padding: 0.55
+      };
+      terrainPreloadCoordinator.request(preloadInput, (tileIds, requestId) => {
+        void terrainTileStore.preloadTileIds(tileIds, {
+          batchSize: 12,
+          shouldCancel: () => !terrainPreloadCoordinator?.isCurrent(requestId)
+        }).then(result => {
+          if (!terrainPreloadCoordinator?.isCurrent(requestId) || result.cancelled) return;
+          terrainTileStore.evictUnused(tileIds);
+        }).catch(error => {
+          console.info("Préchargement des tuiles de relief interrompu ; le rendu courant reste actif.", error);
+        });
+      }, error => console.warn("Planification des tuiles de relief impossible :", error));
     }
   }
   const year = Number(String(state.clock.date).slice(0, 4));
