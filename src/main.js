@@ -589,7 +589,7 @@ function completeMapRender(result, context) {
   sceneRecenterPending = false;
   requestCompose();
   updateMapDiagnostics(result);
-  mapBenchmarkCollector.record(result, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom, cache: "runtime" });
+  mapBenchmarkCollector.record(result, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
