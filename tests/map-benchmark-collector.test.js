@@ -59,7 +59,9 @@ test("collecte les coûts détaillés WebGL et la taille des caches géométriqu
     webglStats: { geometryBuildMs: 12, bufferUploadMs: 3, cacheBuildMs: 15,
       drawSubmitMs: 2, totalMs: 18, uploadedBytes: 4096, cachedGpuBytes: 8192,
       bufferUploads: 4, drawCalls: 2, triangles: 300, cacheHit: false },
-    projectedPathCacheStats: { cachedPaths: 42, cachedVertices: 12000 }
+    projectedPathCacheStats: { cachedPaths: 42, cachedVertices: 12000, estimatedBytes: 384000,
+      maxEstimatedBytes: 8000000, projectedPathCacheHits: 12, projectedPathCacheMisses: 4,
+      combinedLandMaskCacheHits: 8, combinedLandMaskCacheMisses: 2, combinedLandMaskCacheEntries: 6 }
   });
   const metrics = collector.exportResults().metrics;
   assert.equal(metrics["webgl:geometryBuildMs"].median, 12);
@@ -69,4 +71,10 @@ test("collecte les coûts détaillés WebGL et la taille des caches géométriqu
   assert.equal(metrics["webgl:cacheHit"].median, 0);
   assert.equal(metrics["geometryCache:cachedPaths"].median, 42);
   assert.equal(metrics["geometryCache:cachedVertices"].median, 12000);
+  assert.equal(metrics["geometryCache:estimatedBytes"].median, 384000);
+  assert.equal(metrics["geometryCache:projectedPathHits"].median, 12);
+  assert.equal(metrics["geometryCache:projectedPathMisses"].median, 4);
+  assert.equal(metrics["geometryCache:combinedMaskHits"].median, 8);
+  assert.equal(metrics["geometryCache:combinedMaskMisses"].median, 2);
+  assert.equal(metrics["geometryCache:combinedMaskEntries"].median, 6);
 });
