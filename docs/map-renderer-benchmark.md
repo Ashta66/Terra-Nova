@@ -40,3 +40,30 @@ npm test
 ```
 
 Les tests vérifient les calculs, les métadonnées divergentes, les métriques manquantes et les entrées invalides.
+
+## Collecteur navigateur (branche d'intégration)
+
+Le collecteur est maintenant raccordé aux résultats réels du renderer de la branche d'intégration. Il reste inactif tant qu'il n'est pas démarré depuis la console du navigateur.
+
+Démarrer une mesure (préciser le scénario et l'état du cache pour pouvoir comparer deux exports) :
+
+```js
+window.collectMapBenchmark({ scenario: "zoom-4-pan", cache: "warm" });
+```
+
+Effectuer ensuite les manipulations voulues (zoom, déplacement ou vue statique), puis exporter :
+
+```js
+const report = window.exportMapBenchmark();
+copy(JSON.stringify(report, null, 2));
+```
+
+Réinitialiser une session :
+
+```js
+window.clearMapBenchmark();
+```
+
+L'export contient les statistiques min, médiane, p95, max et moyenne pour le temps total de rendu, les temps par couche, la cadence entre rendus (FPS dérivés), les compteurs de géométrie et, lorsque le navigateur l'expose, la mémoire JS. Les métadonnées incluent dimensions du viewport, DPR, zoom, renderer terrain/géographique, agent utilisateur, scénario et état de cache déclaré.
+
+**Important :** la cadence mesurée est l'intervalle entre deux rendus complets terminés, pas le FPS continu de l'écran. La mémoire JS n'est pas disponible dans tous les navigateurs. Les temps d'upload GPU ne sont pas encore exposés par tous les chemins WebGL et ne sont donc pas inventés. Les tests automatisés valident le collecteur, mais ne remplacent pas une session navigateur sur le matériel cible.
