@@ -88,7 +88,7 @@ Le fondu porte sur la scène cartographique complète afin de préserver la coh�
 
 Le moteur prépare désormais le palier terrestre adjacent dans la direction du zoom, après le rendu courant et pendant une période d'inactivité. La tâche est annulable dès qu'un nouveau rendu prend la main et elle est abandonnée si une interaction a repris. Le préchauffage ne change jamais la géométrie affichée : il remplit simplement le cache du prochain palier. Sur les navigateurs sans `requestIdleCallback`, un délai différé sert de repli.
 
-La simplification elle-même reste synchrone à l'intérieur de cette tâche différée ; elle n'est pas encore exécutée dans un Worker dédié. Le mécanisme évite donc de la lancer au milieu d'un geste, mais une préparation particulièrement volumineuse peut encore occuper le thread principal pendant une période d'inactivité. Ce point devra être mesuré avant toute migration vers un Worker, car le transfert structuré des collections GeoJSON peut lui-même coûter du temps et de la mémoire.
+La simplification est exécutée dans un Worker module dédié lorsque le navigateur le permet. Le Worker conserve une copie de la collection GeoJSON source et réutilise cette copie pour préparer plusieurs paliers LOD successifs : le transfert structuré volumineux n'est donc effectué qu'une fois par jeu LOD, plutôt qu'à chaque niveau. Le thread principal conserve la géométrie affichée pendant le calcul et invalide la carte à la réception du niveau préparé. Si le Worker est indisponible ou échoue, le calcul local reste le mécanisme de repli. Le premier transfert et la génération restent à mesurer sur appareil réel ; les durées LOD incluent l'aller-retour worker et ne sont pas un profilage CPU pur.
 
 Le cache LOD expose le nombre de niveaux générés et conservés, le temps cumulé et le dernier temps de génération, le nombre de sommets supprimés et les tolérances mises en cache. Le collecteur de benchmark exporte ces valeurs avec la durée nominale de transition et la taille de la surface de fondu. Le fondu est désactivé lorsque la surface temporaire dépasserait 48 Mio, ou 24 Mio sur les appareils déclarant au plus 4 Gio de mémoire. Cette limite réduit le risque d'une allocation bitmap excessive ; elle ne remplace pas une mesure réelle du pic mémoire.
 
@@ -120,3 +120,14 @@ Pour mesurer l'effet de la conservation des buffers, exécuter le même scénari
 - `lod:lastGenerationMs`, cadence des rendus et mémoire JS.
 
 Les changements réduisent les reconstructions de buffers prévues par l'architecture ; aucun gain chiffré n'est revendiqué avant un nouvel export Pixel 10.
+
+
+## Optimisations incrémentales et budgets mémoire
+
+Les couches polygonales WebGL sont découpées en blocs stables de 64 features. Lorsqu'une collection change, le renderer compare les références des features bloc par bloc et ne reconstruit que les blocs dont le contenu a changé. Les blocs inchangés conservent leurs buffers GPU. Cette stratégie évite de réuploader une couche polygonale entière pour une modification localisée ; une insertion ou une réorganisation peut toutefois décaler plusieurs blocs et provoquer davantage de reconstructions.
+
+Le cache de chemins projetés est borné à 1 024 chemins et 500 000 sommets estimés (environ 16 Mo selon l'estimation logicielle de 32 octets par sommet), avec au plus six variantes par feature. Le cache des masques terrestres composés conserve jusqu'à 12 vues quantifiées. Ces limites bornent la rétention, mais les objets Path2D ne fournissent pas leur taille mémoire native.
+
+Le cache de buffers géographiques conserve au plus 12 couches et applique également un budget cible de 128 Mio aux tableaux associés aux buffers. Les couches utilisées dans le passage courant ne sont pas évincées avant le dessin ; si les seules couches actives dépassent le budget, elles restent disponibles pour ce passage et seront réévaluées au suivant. Les octets sont calculés à partir des tableaux CPU associés et ne constituent pas une mesure exacte de la mémoire GPU du pilote.
+
+Le collecteur exporte désormais `webgl:cacheBudgetBytes`, `webgl:cacheEvictedLayers`, les limites du cache géographique et les compteurs de réutilisation du Worker LOD (`lod:workerCollectionTransfers`, `lod:workerJobsCompleted`, `lod:workerActive`). Après chaque changement, comparer médiane et p95 dans des conditions strictement identiques, puis vérifier la fidélité des frontières, des côtes et des transitions sur l'appareil cible.
