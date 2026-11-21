@@ -42,6 +42,25 @@ function polygonFeature(offset = 0) {
   };
 }
 
+test("les segments d'un même tracé partagent un ancrage longitudinal", () => {
+  const { gl } = createMockGl();
+  const firstPath = new Float32Array([
+    179, 0, 181, 1,
+    181, 1, 182, 2
+  ]);
+  const secondPath = new Float32Array([-179, 0, -178, 1]);
+  const result = buildRibbonBuffer([firstPath, secondPath], gl);
+  const stride = 9;
+  assert.equal(result.positions.length % stride, 0);
+  const vertexCount = result.positions.length / stride;
+  for (let index = 0; index < vertexCount; index++) {
+    const anchor = result.positions[index * stride + 8];
+    if (index < 120) assert.equal(anchor, 179, "tous les sommets du premier tracé doivent garder son ancrage");
+    else assert.equal(anchor, -179, "le second tracé doit conserver son propre ancrage");
+  }
+  gl.deleteBuffer(result.lineBuffer);
+});
+
 test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié", () => {
   const { gl, uploaded } = createMockGl();
   const renderer = createGeographicWebGLRenderer(gl);
