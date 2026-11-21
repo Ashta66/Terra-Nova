@@ -96,6 +96,7 @@ export function buildGeographicPolygonMesh(feature) {
     return { supported: false, reason: "invalid-geometry", positions: new Float32Array(), indices: new Uint16Array() };
   }
   const positions = [];
+  const anchors = [];
   const indices = [];
   for (const polygon of polygons) {
     if (!Array.isArray(polygon) || polygon.length !== 1) {
@@ -116,12 +117,17 @@ export function buildGeographicPolygonMesh(feature) {
     if (offset + ring.length > 65535) {
       return { supported: false, reason: "index-limit", positions: new Float32Array(), indices: new Uint16Array() };
     }
-    for (const point of ring) positions.push(point[0], point[1]);
+    const anchor = ring[0][0];
+    for (const point of ring) {
+      positions.push(point[0], point[1]);
+      anchors.push(anchor);
+    }
     for (const index of triangles) indices.push(offset + index);
   }
   return {
     supported: true,
     positions: new Float32Array(positions),
+    anchors: new Float32Array(anchors),
     indices: new Uint16Array(indices),
     vertexCount: positions.length / 2,
     triangleCount: indices.length / 3
