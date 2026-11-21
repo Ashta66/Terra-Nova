@@ -451,3 +451,18 @@ Cette synthèse formalise les principes déjà traduits dans le moteur. Elle ne 
 - [ ] Réaliser la validation visuelle et les mesures longues avant de sortir la PR #46 du brouillon.
 
 Les tests automatisés prouvent les invariants du code, pas l'absence d'artefacts visuels sur le matériel réel. Les lignes signalées par le joueur restent donc un défaut ouvert jusqu'à reproduction et correction confirmée.
+
+
+## Cadrage du viewport et diagnostics LOD — 21 novembre 2026
+
+- [x] Centraliser le calcul d'un rectangle de carte au ratio géographique 2:1, contenu dans les dimensions réelles du cadre (`fitMapFrame`).
+- [x] Synchroniser les dimensions CSS du canvas visible avec les dimensions utilisées par la composition interne, afin que `width: 100%` ne puisse plus étirer le canvas au-delà de la hauteur disponible.
+- [x] Ajouter des tests de cadrage sur des conteneurs paysage, carrés et portrait ; les pôles doivent rester dans le cadre.
+- [x] Ajouter des compteurs de cycle de vie LOD (planifié, démarré, terminé, généré, annulé, échoué) pour distinguer une tâche simplement programmée d'un Worker réellement exécuté.
+- [x] Ajouter les métriques correspondantes à l'export benchmark et leurs tests.
+- [ ] Exécuter la CI sur le dernier commit et confirmer le résultat.
+- [ ] Vérifier le cadrage sur le navigateur Live Preview, en grand écran et fenêtre réduite.
+- [ ] Identifier et corriger les lignes persistantes du relief avec une reproduction et un test de continuité des tuiles ; aucun correctif visuel n'est encore revendiqué.
+- [ ] Continuer le découplage des couches et les optimisations GPU après validation du cadrage et diagnostic des artefacts.
+
+**Attention :** le cadrage 2:1 garantit que la carte complète tient dans le rectangle calculé par le moteur. La validation visuelle dans le navigateur reste nécessaire, notamment après redimensionnement de la fenêtre.
