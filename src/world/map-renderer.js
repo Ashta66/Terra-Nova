@@ -1266,32 +1266,51 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       target.restore();
     }
     // Le fond terrestre sert uniquement de masque géographique sous les pays.
-    // Une teinte neutre évite le doublon ocre des anciens atlas ; le littoral
-    // reste visible en trait froid discret, sans concurrencer les frontières.
+    // Les polygones simples passent au GPU ; les trous, anneaux invalides et
+    // géométries traversant l'antiméridien conservent le remplissage Canvas.
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
-    const landCount = measureLayer("terres-et-cotes", () => drawPolygonLayer(target, visibleLand, width, height, projection, landFill, null, 0, 1, true, Infinity, coastProfile));
     const geographicRenderer = options.geographicWebGLRenderer;
-    if (geographicRenderer?.renderLayers && geographicRenderer.canvas && projection.type === "equirectangular") {
+    const canRenderLandWebGL = geographicRenderer?.renderLayers && geographicRenderer.canvas
+      && projection.type === "equirectangular" && typeof geographicRenderer.supports === "function";
+    const landCount = measureLayer("terres-et-cotes", () => {
+      if (!canRenderLandWebGL) {
+        return drawPolygonLayer(target, visibleLand, width, height, projection, landFill,
+          theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+      }
       try {
+        const supportedLand = [];
+        const unsupportedLand = [];
+        const supportedCoasts = [];
+        const unsupportedCoasts = [];
+        for (const feature of visibleLand.features) {
+          (geographicRenderer.supports(feature) ? supportedLand : unsupportedLand).push(feature);
+          (geographicRenderer.supportsBoundary(feature) ? supportedCoasts : unsupportedCoasts).push(feature);
+        }
+        let drawn = 0;
+        if (unsupportedLand.length) {
+          drawn += drawPolygonLayer(target, { ...visibleLand, features: unsupportedLand }, width, height,
+            projection, landFill, null, 0, 1, true, Infinity, coastProfile);
+        }
         const ratio = backingWidth / width;
-        geographicRenderer.renderLayers([{
-          key: "land-coast", type: "boundaries", features: visibleLand.features,
-          color: parseWebGLColor(theme.colors.coast), lineWidth: 0.85 * ratio
-        }], backingWidth, backingHeight, projection.viewport);
+        geographicRenderer.renderLayers([
+          { key: "land-fill", type: "polygons", features: supportedLand, color: parseWebGLColor(landFill) },
+          { key: "land-coast", type: "boundaries", features: supportedCoasts,
+            color: parseWebGLColor(theme.colors.coast), lineWidth: 0.85 * ratio }
+        ], backingWidth, backingHeight, projection.viewport);
         target.save();
         target.setTransform(1, 0, 0, 1, 0, 0);
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
         target.restore();
-        const unsupportedCoasts = visibleLand.features.filter(feature => !geographicRenderer.supportsBoundary(feature));
         if (unsupportedCoasts.length) {
-          drawPolygonLayer(target, { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
-            "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+          drawPolygonLayer(target, { ...visibleLand, features: unsupportedCoasts }, width, height,
+            projection, "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
         }
+        return drawn + supportedLand.length;
       } catch {
-        drawPolygonLayer(target, visibleLand, width, height, projection,
-          "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+        return drawPolygonLayer(target, visibleLand, width, height, projection, landFill,
+          theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
-    }
+    });
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
