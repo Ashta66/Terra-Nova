@@ -357,7 +357,7 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
     snappedLongitude.toFixed(4), snappedLatitude.toFixed(4),
     coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
     coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all",
-    ...features.map(renderObjectId)
+    renderObjectId(features)
   ].join(":");
   const cached = combinedLandMaskCache.get(key);
   if (cached) {
