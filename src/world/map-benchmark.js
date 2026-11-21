@@ -1,4 +1,3 @@
-const now = () => globalThis.performance?.now?.() ?? Date.now();
 function percentile(sorted, ratio) {
   if (!sorted.length) return null;
   const position = (sorted.length - 1) * ratio;
@@ -11,15 +10,16 @@ function summarize(values) {
   return { count: finite.length, min: finite[0], median: percentile(finite, 0.5), p95: percentile(finite, 0.95), max: finite.at(-1), average: finite.reduce((sum, value) => sum + value, 0) / finite.length };
 }
 export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
+  const clockNow = () => environment.performance?.now?.() ?? Date.now();
   let active = false, startedAt = 0, previousFrameAt = null, metadata = {}, samples = [];
   function start(options = {}) {
     metadata = { scenario: "manual", cache: "unspecified", ...options };
-    samples = []; startedAt = now(); previousFrameAt = null; active = true;
+    samples = []; startedAt = clockNow(); previousFrameAt = null; active = true;
     return { active, startedAt };
   }
   function record(result, context = {}) {
     if (!active || !result) return false;
-    const timestamp = now(), metrics = {};
+    const timestamp = clockNow(), metrics = {};
     const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
     add("renderTotalMs", result.totalRenderMs);
     for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
@@ -35,7 +35,7 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     if (stop) active = false;
     const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample.metrics)))];
     const metrics = Object.fromEntries(metricKeys.map(key => [key, summarize(samples.map(sample => sample.metrics[key]).filter(Number.isFinite))]));
-    return { schemaVersion: 1, metadata: { ...metadata, ...(samples.at(-1)?.metadata ?? {}), sampleCount: samples.length, durationMs: Math.max(0, now() - startedAt), userAgent: environment.navigator?.userAgent ?? "unknown", collectedAt: new Date().toISOString() }, metrics };
+    return { schemaVersion: 1, metadata: { ...metadata, ...(samples.at(-1)?.metadata ?? {}), sampleCount: samples.length, durationMs: Math.max(0, clockNow() - startedAt), userAgent: environment.navigator?.userAgent ?? "unknown", collectedAt: new Date().toISOString() }, metrics };
   }
   function clear() { active = false; samples = []; previousFrameAt = null; startedAt = 0; }
   return { start, record, exportResults, clear, get active() { return active; }, get sampleCount() { return samples.length; } };
