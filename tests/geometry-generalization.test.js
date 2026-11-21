@@ -50,7 +50,7 @@ test("les niveaux LOD sont calculés une fois puis réutilisés pendant les dép
 test("les collections LOD absentes restent sans effet et les seuils sont ordonnés",()=>{
  const lod=createGeoJsonLodSet(null,[{maxZoom:3,tolerance:0.1}],0);
  assert.equal(lod.getForZoom(1),null);
- assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1,generationTimeMs:0,lastGenerationMs:0,removedVertices:0,cachedTolerances:[]});
+ assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1,generationTimeMs:0,lastGenerationMs:0,removedVertices:0,cachedTolerances:[],workerCollectionTransfers:0,workerJobsCompleted:0,workerActive:false});
 });
 
 
@@ -95,7 +95,13 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
   {maxZoom:1.8,tolerance:0.04},{maxZoom:3.5,tolerance:0.02}
  ],0.0001,{
   createWorker:()=>({
-   postMessage(message){posted=message;queueMicrotask(()=>this.onmessage({data:{result:simplifyGeoJsonCollection(message.collection,message.tolerance)}}));},
+   postMessage(message){
+    posted=message;
+    if(message.type==="simplify")queueMicrotask(()=>this.onmessage({data:{
+     requestId:message.requestId,
+     result:simplifyGeoJsonCollection(base,message.tolerance)
+    }}));
+   },
    terminate(){terminated=true;}
   })
  });
@@ -103,11 +109,16 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
  assert.notEqual(currentLevel,base);
  const promise=lod.prepareAdjacentAsync(1,1);
  assert.equal(lod.getForZoom(2),base,"le niveau adjacent en attente ne doit pas être généré sur le thread principal");
- assert.ok(posted);
+ assert.equal(posted.type,"simplify");
  assert.equal(await promise,true);
- assert.equal(terminated,true);
+ assert.equal(terminated,false,"le worker reste actif pour réutiliser la collection source");
  assert.notEqual(lod.getForZoom(2),base,"le niveau calculé devient disponible après la réponse worker");
  assert.equal(lod.getStats().generatedLevels,2);
+ assert.equal(lod.getStats().workerCollectionTransfers,1);
+ assert.equal(lod.getStats().workerJobsCompleted,1);
+ assert.equal(lod.getStats().workerActive,true);
+ lod.dispose();
+ assert.equal(terminated,true);
 });
 
 test("un worker LOD en erreur retombe sur la génération locale", async () => {
