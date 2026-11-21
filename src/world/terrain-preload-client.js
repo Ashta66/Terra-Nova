@@ -1,3 +1,5 @@
+import { calculateZoomTilePlan } from "./terrain-preload-worker.js";
+
 export function createTerrainPreloadCoordinator(options = {}) {
   const createWorker = options.createWorker ?? (() => {
     if (typeof Worker !== "function") return null;
@@ -60,9 +62,7 @@ export function createTerrainPreloadCoordinator(options = {}) {
     latestRequestId = requestId;
     const requestData = {
       requestId, input, onPlan, onError,
-      calculate: options.calculate ?? (value => {
-        throw new Error("Aucun calculateur de plan de tuiles n'est configuré.");
-      })
+      calculate: options.calculate ?? calculateZoomTilePlan
     };
     latestRequest = requestData;
     const activeWorker = ensureWorker();
