@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compareMapBenchmarks } from "../scripts/compare-map-benchmarks.mjs";
+import { createMapBenchmarkCollector } from "../src/world/map-benchmark.js";
 
 function benchmark(mode, metrics, overrides = {}) {
   return {
@@ -70,4 +71,29 @@ test("refuse une statistique ou un export invalide", () => {
     benchmark("webgl", { x: { median: 2 } }),
     { statistic: "average" }
   ), /Statistique attendue/);
+});
+
+
+test("exporte les métadonnées permettant de distinguer un navigateur PC d'une émulation mobile", () => {
+  let now = 0;
+  const environment = {
+    performance: { now: () => now },
+    navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/158.0.0.0 Safari/537.36", maxTouchPoints: 0 },
+    screen: { width: 1920, height: 1080, availWidth: 1920, availHeight: 1040 },
+    visualViewport: { scale: 1 },
+    innerWidth: 1440,
+    innerHeight: 900,
+    devicePixelRatio: 1
+  };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start({ scenario: "desktop-validation", cache: "warm" });
+  now = 16;
+  collector.record({ totalRenderMs: 16, terrainRenderer: "webgl" });
+  const result = collector.exportResults();
+  assert.equal(result.metadata.viewportWidth, 1440);
+  assert.equal(result.metadata.screenWidth, 1920);
+  assert.equal(result.metadata.screenHeight, 1080);
+  assert.equal(result.metadata.visualViewportScale, 1);
+  assert.equal(result.metadata.maxTouchPoints, 0);
+  assert.equal(result.metadata.mobileUserAgent, false);
 });
