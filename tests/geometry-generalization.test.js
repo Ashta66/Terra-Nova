@@ -106,7 +106,9 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
   })
  });
  const currentLevel=lod.getForZoom(1);
- assert.notEqual(currentLevel,base);
+ assert.equal(currentLevel,base,"le rendu initial conserve le niveau de base sans calcul synchrone");
+ assert.equal(await lod.prepareZoomAsync(1),true);
+ assert.notEqual(lod.getForZoom(1),base,"le niveau courant devient disponible après le Worker");
  const promise=lod.prepareAdjacentAsync(1,1);
  assert.equal(lod.getForZoom(2),base,"le niveau adjacent en attente ne doit pas être généré sur le thread principal");
  assert.equal(posted.type,"simplify");
