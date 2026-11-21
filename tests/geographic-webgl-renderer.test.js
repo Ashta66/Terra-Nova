@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
+import { buildRibbonBuffer, createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
 
 function createMockGl() {
   let nextId = 0;
@@ -91,4 +91,47 @@ test("le renderer refuse un buffer polygonal WebGL invalide avant drawElements",
   ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }),
   /Cache WebGL géographique invalide/);
   renderer.dispose();
+});
+
+
+test("les jonctions partagées ne créent qu'un raccord par sommet exact", () => {
+  const { gl } = createMockGl();
+  const group = new Float32Array([
+    0, 0, 1, 0,
+    1, 0, 1, 1
+  ]);
+  const result = buildRibbonBuffer([group], gl);
+  assert.equal(result.vertexCount, 120, "deux rubans (12 sommets) et trois disques de jonction (108 sommets)");
+  result.lineBuffer && gl.deleteBuffer(result.lineBuffer);
+});
+
+test("les segments disjoints conservent leurs quatre extrémités", () => {
+  const { gl } = createMockGl();
+  const group = new Float32Array([
+    0, 0, 1, 0,
+    2, 0, 3, 0
+  ]);
+  const result = buildRibbonBuffer([group], gl);
+  assert.equal(result.vertexCount, 156, "deux rubans et quatre disques indépendants");
+  gl.deleteBuffer(result.lineBuffer);
+});
+
+test("deux extrémités distinctes proches ne sont pas fusionnées par arrondi", () => {
+  const { gl } = createMockGl();
+  const group = new Float32Array([
+    0, 0, 1.000001, 0,
+    1.000004, 0, 2, 0
+  ]);
+  const result = buildRibbonBuffer([group], gl);
+  assert.equal(result.vertexCount, 156, "les quatre coordonnées exactes doivent garder leurs propres disques");
+  gl.deleteBuffer(result.lineBuffer);
+});
+
+test("des groupes de lignes distincts ne fusionnent pas leurs extrémités", () => {
+  const { gl } = createMockGl();
+  const first = new Float32Array([0, 0, 1, 0]);
+  const second = new Float32Array([1, 0, 2, 0]);
+  const result = buildRibbonBuffer([first, second], gl);
+  assert.equal(result.vertexCount, 156, "chaque groupe conserve ses deux extrémités");
+  gl.deleteBuffer(result.lineBuffer);
 });
