@@ -77,6 +77,13 @@ let interactionPreviewTimer = null;
 let interactionRenderAllowed = false;
 let lastDragMoved = false;
 let mapInteractionActive = false;
+let landLodWarmupHandle = null;
+let landLodWarmupUsesIdleCallback = false;
+let landLodWarmupToken = 0;
+let lastLandLodWarmupZoom = null;
+let landLodWarmupScheduled = false;
+let landLodWarmupCompleted = 0;
+let landLodCrossfadeSkippedForMemory = 0;
 const sceneCanvas = document.createElement("canvas");
 const previousSceneCanvas = document.createElement("canvas");
 let previousSceneViewport = null;
@@ -86,6 +93,7 @@ let pendingLandLodTransition = false;
 let landLodTransitionStartedAt = 0;
 let landLodTransitionFrame = null;
 const LAND_LOD_CROSSFADE_MS = 220;
+const LAND_LOD_CROSSFADE_MAX_BYTES = 48 * 1024 * 1024;
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
@@ -593,6 +601,15 @@ function renderMapOffThread(land, options, onDone, onFallback) {
 function prepareLandLodTransition(nextLevel) {
   pendingLandLodTransition = Boolean(sceneReady && sceneLandDetailLevel && nextLevel !== sceneLandDetailLevel);
   if (!pendingLandLodTransition || !sceneCanvas.width || !sceneCanvas.height) return false;
+  const estimatedBytes = sceneCanvas.width * sceneCanvas.height * 4;
+  const memoryBudget = Number(globalThis.navigator?.deviceMemory) > 0 && Number(globalThis.navigator.deviceMemory) <= 4
+    ? LAND_LOD_CROSSFADE_MAX_BYTES / 2
+    : LAND_LOD_CROSSFADE_MAX_BYTES;
+  if (estimatedBytes > memoryBudget) {
+    pendingLandLodTransition = false;
+    landLodCrossfadeSkippedForMemory += 1;
+    return false;
+  }
   if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
   landLodTransitionFrame = null;
   previousSceneCanvas.width = 1;
@@ -632,6 +649,49 @@ function animateLandLodTransition() {
   landLodTransitionFrame = requestAnimationFrame(tick);
 }
 
+function cancelLandLodWarmup() {
+  landLodWarmupToken += 1;
+  if (landLodWarmupHandle === null) return;
+  if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
+  else clearTimeout(landLodWarmupHandle);
+  landLodWarmupHandle = null;
+}
+
+function scheduleLandLodWarmup(lodSet, zoom) {
+  cancelLandLodWarmup();
+  landLodWarmupScheduled = false;
+  if (!lodSet?.prepareAdjacent || mapInteractionActive) return;
+  const previousZoom = lastLandLodWarmupZoom;
+  const direction = previousZoom === null || zoom >= previousZoom ? 1 : -1;
+  lastLandLodWarmupZoom = zoom;
+  const targetZoom = lodSet.getAdjacentZoom?.(zoom, direction);
+  if (targetZoom === null || targetZoom === undefined) return;
+  const token = landLodWarmupToken;
+  const run = deadline => {
+    landLodWarmupHandle = null;
+    if (token !== landLodWarmupToken || mapInteractionActive) return;
+    if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 8) {
+      landLodWarmupUsesIdleCallback = true;
+      landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+      return;
+    }
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    const generated = lodSet.prepareAdjacent(zoom, direction);
+    landLodWarmupCompleted += generated ? 1 : 0;
+    landLodWarmupScheduled = false;
+    const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
+    if (elapsed > 24) console.info("Préparation LOD différée :", elapsed.toFixed(1), "ms");
+  };
+  landLodWarmupScheduled = true;
+  if (typeof requestIdleCallback === "function") {
+    landLodWarmupUsesIdleCallback = true;
+    landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    landLodWarmupUsesIdleCallback = false;
+    landLodWarmupHandle = setTimeout(() => run(null), 240);
+  }
+}
+
 function completeMapRender(result, context) {
   if (!result) return;
   const shouldCrossfadeLandLod = Boolean(context.landLodTransition && pendingLandLodTransition && previousSceneCanvas.width > 1);
@@ -649,7 +709,14 @@ function completeMapRender(result, context) {
   }
   requestCompose();
   updateMapDiagnostics(result);
-  mapBenchmarkCollector.record(result, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom });
+  scheduleLandLodWarmup(context.landLodSet, context.sceneViewport.zoom);
+  mapBenchmarkCollector.record({
+    ...result,
+    lodStats: context.landLodSet?.getStats?.(),
+    lodTransitionMs: context.landLodTransition ? LAND_LOD_CROSSFADE_MS : 0,
+    lodCrossfadeBytes: context.landLodTransition ? previousSceneCanvas.width * previousSceneCanvas.height * 4 : 0,
+    lodWarmupScheduled: landLodWarmupScheduled
+  }, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
@@ -676,6 +743,7 @@ function renderMapFrame() {
       regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, [
         { maxZoom: 9, tolerance: 0.004 }
       ], 0.0018);
+      lastLandLodWarmupZoom = null;
       if (features) {
         lastRenderedMapSignature = null;
         renderMap();
@@ -779,6 +847,7 @@ function renderMapFrame() {
   lastRenderedMapSignature = signature;
   const selectedLandDetail = landLodSelector.select(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
   const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
+  cancelLandLodWarmup();
   const landDetail = {
     ...selectedLandDetail,
     features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
@@ -817,7 +886,7 @@ function renderMapFrame() {
   const landLodTransition = prepareLandLodTransition(landDetail.level);
   const completionContext = {
     sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
-    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition
+    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition, landLodSet: landLod
   };
   const fallback = () => {
     try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
@@ -877,6 +946,7 @@ async function loadWorldMap() {
       { maxZoom: 3.5, tolerance: 0.02 },
       { maxZoom: 6, tolerance: 0.008 }
     ], 0.008);
+    lastLandLodWarmupZoom = null;
     lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
     riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
     glacierFeatures = simplifyGeoJsonCollection(glacierFeatures,0.008);
