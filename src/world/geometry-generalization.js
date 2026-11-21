@@ -114,8 +114,24 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   const cache = new Map();
   const generationSamples = [];
   const pending = new Map();
+  const workerJobs = new Map();
   let generatedLevels = 0;
   let removedVertices = 0;
+  let worker = null;
+  let workerInitializationSent = false;
+  let workerCollectionTransfers = 0;
+  let workerJobsCompleted = 0;
+  let workerFailed = false;
+  let nextWorkerRequestId = 1;
+
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
+
+  function recordResult(tolerance, result, durationMs) {
+    cache.set(tolerance, result);
+    generationSamples.push(Math.max(0, durationMs));
+    generatedLevels += 1;
+    removedVertices += result?.geometryStats?.removedVertices ?? 0;
+  }
 
   function getForZoom(zoom = 1) {
     if (!baseCollection?.features) return baseCollection;
@@ -123,13 +139,9 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     if (!level || level.tolerance <= baseTolerance) return baseCollection;
     if (cache.has(level.tolerance)) return cache.get(level.tolerance);
     if (pending.has(level.tolerance)) return baseCollection;
-    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    const startedAt = now();
     const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
-    const durationMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
-    cache.set(level.tolerance, generalized);
-    generationSamples.push(durationMs);
-    generatedLevels += 1;
-    removedVertices += generalized?.geometryStats?.removedVertices ?? 0;
+    recordResult(level.tolerance, generalized, now() - startedAt);
     return generalized;
   }
 
@@ -156,46 +168,78 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     return generatedLevels > before;
   }
 
+  function settleWorkerJob(requestId, result, failed = false) {
+    const job = workerJobs.get(requestId);
+    if (!job) return;
+    workerJobs.delete(requestId);
+    pending.delete(job.tolerance);
+    if (result) {
+      workerJobsCompleted += 1;
+      recordResult(job.tolerance, result, now() - job.startedAt);
+      job.resolve(true);
+    } else {
+      job.resolve(failed ? prepareAdjacent(job.zoom, job.direction) : false);
+    }
+  }
+
+  function failWorker() {
+    if (workerFailed) return;
+    workerFailed = true;
+    worker?.terminate?.();
+    worker = null;
+    for (const requestId of [...workerJobs.keys()]) settleWorkerJob(requestId, null, true);
+  }
+
+  function getWorker() {
+    if (worker || workerFailed || typeof options.createWorker !== "function") return worker;
+    try { worker = options.createWorker(); } catch { worker = null; }
+    if (!worker) return null;
+    worker.onmessage = event => {
+      const data = event?.data ?? {};
+      if (data.type === "ready") return;
+      if (data.requestId === undefined) return;
+      settleWorkerJob(data.requestId, data.result ?? null, Boolean(data.error));
+    };
+    worker.onerror = failWorker;
+    return worker;
+  }
+
   function prepareAdjacentAsync(zoom = 1, direction = 1) {
     const targetZoom = getAdjacentZoom(zoom, direction);
     if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
     const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
     if (!level || level.tolerance <= baseTolerance || cache.has(level.tolerance)) return Promise.resolve(false);
     if (pending.has(level.tolerance)) return pending.get(level.tolerance);
-    if (typeof options.createWorker !== "function") return Promise.resolve(prepareAdjacent(zoom, direction));
-    let worker;
-    try { worker = options.createWorker(); } catch { worker = null; }
-    if (!worker) return Promise.resolve(prepareAdjacent(zoom, direction));
+    const activeWorker = getWorker();
+    if (!activeWorker) return Promise.resolve(prepareAdjacent(zoom, direction));
+
+    const requestId = nextWorkerRequestId++;
     const promise = new Promise(resolve => {
-      const startedAt = globalThis.performance?.now?.() ?? Date.now();
-      let settled = false;
-      const finish = (result, fallback = false) => {
-        if (settled) return;
-        settled = true;
-        worker.terminate?.();
-        pending.delete(level.tolerance);
-        if (result) {
-          cache.set(level.tolerance, result);
-          generationSamples.push(Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt));
-          generatedLevels += 1;
-          removedVertices += result?.geometryStats?.removedVertices ?? 0;
-          resolve(true);
-        } else if (fallback) {
-          resolve(prepareAdjacent(zoom, direction));
-        } else {
-          resolve(false);
-        }
-      };
-      worker.onmessage = event => finish(event?.data?.result ?? null, !event?.data?.result);
-      worker.onerror = () => finish(null, true);
+      workerJobs.set(requestId, { tolerance: level.tolerance, zoom, direction, startedAt: now(), resolve });
+      pending.set(level.tolerance, promise);
       try {
-        worker.postMessage({ collection: baseCollection, tolerance: level.tolerance });
+        // La collection GeoJSON est transférée une seule fois à ce worker.
+        // Les prochains niveaux réutilisent sa copie locale sans nouveau clone massif.
+        if (!workerInitializationSent) {
+          activeWorker.postMessage({ type: "init", collection: baseCollection });
+          workerInitializationSent = true;
+          workerCollectionTransfers += 1;
+        }
+        activeWorker.postMessage({ type: "simplify", requestId, tolerance: level.tolerance });
       } catch {
-        finish(null, true);
+        settleWorkerJob(requestId, null, true);
+        failWorker();
       }
     });
-    pending.set(level.tolerance, promise);
     return promise;
+  }
+
+  function dispose() {
+    worker?.terminate?.();
+    worker = null;
+    for (const job of workerJobs.values()) job.resolve(false);
+    workerJobs.clear();
+    pending.clear();
   }
 
   return {
@@ -203,6 +247,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     prepareAdjacent,
     prepareAdjacentAsync,
     getAdjacentZoom,
+    dispose,
     getStats() {
       return {
         generatedLevels,
@@ -211,7 +256,10 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
         generationTimeMs: generationSamples.reduce((sum, value) => sum + value, 0),
         lastGenerationMs: generationSamples.at(-1) ?? 0,
         removedVertices,
-        cachedTolerances: [...cache.keys()]
+        cachedTolerances: [...cache.keys()],
+        workerCollectionTransfers,
+        workerJobsCompleted,
+        workerActive: Boolean(worker && !workerFailed)
       };
     }
   };
