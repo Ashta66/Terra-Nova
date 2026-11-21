@@ -1247,14 +1247,16 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       target.save();
       landClipPath = measureLayer("land-mask-path", () =>
         buildLandClipPath(visibleLand, width, height, projection, coastProfile));
-      if (landClipPath) {
-        target.clip(landClipPath, "evenodd");
-      } else {
-        target.beginPath();
-        for (const feature of visibleLand.features) {
-          if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+      if (globalThis.__TERRA_DISABLE_LAND_TERRAIN_CLIP !== true) {
+        if (landClipPath) {
+          target.clip(landClipPath, "evenodd");
+        } else {
+          target.beginPath();
+          for (const feature of visibleLand.features) {
+            if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+          }
+          target.clip("evenodd");
         }
-        target.clip("evenodd");
       }
       if (options.terrainTileStore && globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES !== true
         && !hasPhysicalTerrainChanges(options.physicalWorld)
@@ -1357,12 +1359,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       && (projection.lodZoom ?? 1) >= 2.5 && options.terrainEnabled !== false
       && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
-      if (landClipPath) {
-        target.clip(landClipPath, "evenodd");
-      } else {
-        target.beginPath();
-        for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
-        target.clip("evenodd");
+      if (globalThis.__TERRA_DISABLE_LAND_TERRAIN_CLIP !== true) {
+        if (landClipPath) {
+          target.clip(landClipPath, "evenodd");
+        } else {
+          target.beginPath();
+          for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+          target.clip("evenodd");
+        }
       }
       target.globalCompositeOperation = "overlay";
       target.globalAlpha = reliefMode ? 0.66 : 0.52;
