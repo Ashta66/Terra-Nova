@@ -77,3 +77,9 @@ Les collections terrestres possèdent également un cache LOD paresseux : les ve
 Les tests de profils vérifient les niveaux mondial, régional et rapproché, ainsi que la cohérence des profils utilisés par les aplats et les contours territoriaux. Ces tests valident la sélection des tolérances ; seul un benchmark visuel et temporel sur navigateur permet de quantifier le gain et de contrôler la fidélité des côtes.
 
 **Important :** la cadence mesurée est l'intervalle entre deux rendus complets terminés, pas le FPS continu de l'écran. La mémoire JS n'est pas disponible dans tous les navigateurs. Les temps d'upload GPU ne sont pas encore exposés par tous les chemins WebGL et ne sont donc pas inventés. Les tests automatisés valident le collecteur, mais ne remplacent pas une session navigateur sur le matériel cible.
+
+## Transitions entre niveaux LOD
+
+Le sélecteur de détail applique une hystérésis autour du seuil régional afin d'éviter les bascules répétées lorsque le zoom oscille à proximité de la limite. Lorsqu'un changement de source terrestre est effectivement rendu, le moteur conserve temporairement l'image de la scène précédente et compose un fondu croisé de 220 ms avec la nouvelle scène. Les deux images sont réutilisées pendant cette courte transition : les géométries ne sont pas recalculées à chaque frame, seule leur composition alpha est synchronisée par `requestAnimationFrame`.
+
+Le fondu porte sur la scène cartographique complète afin de préserver la cohérence visuelle des couches qui partagent la projection. Il est interrompu et recapturé proprement si une nouvelle transition LOD intervient avant sa fin. Cette transition ajoute temporairement une surface bitmap de la taille de la scène ; son coût mémoire et son impact sur la fluidité doivent être vérifiés sur les appareils cibles. Aucun gain de performance n'est présumé avant un nouveau benchmark navigateur.
