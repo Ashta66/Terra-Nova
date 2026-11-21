@@ -162,7 +162,7 @@ test("des groupes de lignes distincts ne fusionnent pas leurs extrémités", () 
 test("les raccords circulaires transmettent au shader des offsets écran unitaires", () => {
   const { gl } = createMockGl();
   const result = buildRibbonBuffer([new Float32Array([10, 20, 30, 40])], gl);
-  const stride = 8;
+  const stride = 9;
   assert.equal(result.vertexCount, 78);
   const joins = result.positions.slice(6 * stride);
   assert.equal(joins.length / stride, 72, "deux extrémités reçoivent chacune un disque de 12 triangles");
@@ -171,6 +171,7 @@ test("les raccords circulaires transmettent au shader des offsets écran unitair
     const otherX = joins[index + 2], otherY = joins[index + 3];
     const offsetX = joins[index + 5], offsetY = joins[index + 6];
     assert.equal(joins[index + 7], 1, "les sommets du disque doivent activer le chemin de raccord du shader");
+    assert.equal(joins[index + 8], 10, "les raccords doivent conserver l’ancrage du tracé");
     assert.ok(Number.isFinite(x) && Number.isFinite(y));
     assert.ok(Number.isFinite(otherX) && Number.isFinite(otherY));
     if (offsetX !== 0 || offsetY !== 0) {
