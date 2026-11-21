@@ -1380,8 +1380,14 @@ function composeScene() {
     }
   }
   context.globalAlpha = transitionProgress;
-  for (const rect of composition.rects) {
-    context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+  if (globalThis.__TERRA_BYPASS_SCENE_COMPOSITION === true) {
+    // Diagnostic A/B : affiche directement le bitmap de scène à l'échelle du viewport,
+    // sans calcul de rectangles, répétition longitudinale ni recadrage intermédiaire.
+    context.drawImage(sceneCanvas, 0, 0, width, height);
+  } else {
+    for (const rect of composition.rects) {
+      context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
   }
   context.globalAlpha = 1;
   // Diagnostic A/B : isole les bitmaps de tuiles physiques superposés à la scène.
