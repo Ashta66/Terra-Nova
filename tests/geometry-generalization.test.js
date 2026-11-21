@@ -143,6 +143,30 @@ test("un worker LOD en erreur retombe sur la génération locale", async () => {
 
 
 
+test("getForZoom ne généralise pas sur le thread principal quand un Worker est configuré", async () => {
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ let jobs=0, init=0;
+ const lod=createGeoJsonLodSet(base,[{maxZoom:2,tolerance:0.01}],0.0001,{
+  createWorker:()=>({
+   postMessage(message){
+    if(message.type==="init"){init++;return;}
+    if(message.type==="simplify"){
+     jobs++;
+     queueMicrotask(()=>this.onmessage({data:{requestId:message.requestId,result:simplifyGeoJsonCollection(base,message.tolerance)}}));
+    }
+   },
+   terminate(){}
+  })
+ });
+ assert.equal(lod.getForZoom(1),base,"le premier rendu doit utiliser le niveau de base, sans calcul synchrone");
+ assert.equal(await lod.prepareZoomAsync(1),true);
+ assert.equal(jobs,1);
+ assert.equal(init,1);
+ assert.notEqual(lod.getForZoom(1),base,"le niveau généralisé doit être disponible après la réponse Worker");
+ lod.dispose();
+});
+
 test("les niveaux LOD successifs réutilisent le même worker et ne retransfèrent pas le GeoJSON", async () => {
  const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
  const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
