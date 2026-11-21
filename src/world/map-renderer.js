@@ -1337,7 +1337,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           for (const feature of visibleLand.features) {
             (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
               ? unsupportedLand : supportedLand).push(feature);
-            (geographicRenderer.supportsBoundary(feature) ? supportedCoasts : unsupportedCoasts).push(feature);
+            (
+              globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
+                || !geographicRenderer.supportsBoundary(feature)
+                ? unsupportedCoasts
+                : supportedCoasts
+            ).push(feature);
           }
           return { supportedLand, unsupportedLand, supportedCoasts, unsupportedCoasts };
         });
