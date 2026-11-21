@@ -141,6 +141,8 @@ test("un worker LOD en erreur retombe sur la génération locale", async () => {
  lod.getForZoom(1);
  assert.equal(await lod.prepareAdjacentAsync(1,1),true);
  assert.notEqual(lod.getForZoom(2),base);
+ assert.equal(lod.getStats().workerRuntimeFailures,1);
+ assert.equal(lod.getStats().workerSyncFallbackJobs,1);
 });
 
 
