@@ -186,7 +186,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
           resolve(false);
         }
       };
-      worker.onmessage = event => finish(event?.data?.result ?? null, false);
+      worker.onmessage = event => finish(event?.data?.result ?? null, !event?.data?.result);
       worker.onerror = () => finish(null, true);
       try {
         worker.postMessage({ collection: baseCollection, tolerance: level.tolerance });
