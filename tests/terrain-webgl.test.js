@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileAtlasBatchVertices, getTerrainWebGLShaders } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileAtlasBatchVertices, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
 
 test("le shader des tuiles décode chaque altitude avant le filtrage bilinéaire", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
@@ -22,4 +22,12 @@ test("les UV atlas visent le centre des texels et les limites incluent le halo",
   assert.ok(Math.abs(vertices[3] - 9.5 / 16) < 1e-7, "UV y au centre du premier texel intérieur");
   assert.ok(Math.abs(vertices[8] - 4.5 / 16) < 1e-7, "borne minimale au centre du halo");
   assert.ok(Math.abs(vertices[10] - 7.5 / 16) < 1e-7, "borne maximale au centre du halo opposé");
+});
+
+test("le buffer de sommets WebGL grandit par paliers et réutilise sa capacité", () => {
+  assert.equal(getTerrainVertexBufferCapacity(32, 24), 32);
+  assert.equal(getTerrainVertexBufferCapacity(32, 33), 4096);
+  assert.equal(getTerrainVertexBufferCapacity(4096, 4096), 4096);
+  assert.equal(getTerrainVertexBufferCapacity(4096, 4097), 8192);
+  assert.equal(getTerrainVertexBufferCapacity(0, 0), 0);
 });
