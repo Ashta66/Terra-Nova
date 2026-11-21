@@ -1,0 +1,42 @@
+const now = () => globalThis.performance?.now?.() ?? Date.now();
+function percentile(sorted, ratio) {
+  if (!sorted.length) return null;
+  const position = (sorted.length - 1) * ratio;
+  const lower = Math.floor(position), upper = Math.ceil(position);
+  return lower === upper ? sorted[lower] : sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+function summarize(values) {
+  const finite = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!finite.length) return null;
+  return { count: finite.length, min: finite[0], median: percentile(finite, 0.5), p95: percentile(finite, 0.95), max: finite.at(-1), average: finite.reduce((sum, value) => sum + value, 0) / finite.length };
+}
+export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
+  let active = false, startedAt = 0, previousFrameAt = null, metadata = {}, samples = [];
+  function start(options = {}) {
+    metadata = { scenario: "manual", cache: "unspecified", ...options };
+    samples = []; startedAt = now(); previousFrameAt = null; active = true;
+    return { active, startedAt };
+  }
+  function record(result, context = {}) {
+    if (!active || !result) return false;
+    const timestamp = now(), metrics = {};
+    const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
+    add("renderTotalMs", result.totalRenderMs);
+    for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
+    for (const key of ["landCount", "territoryCount", "glacierCount", "lakeCount", "riverCount", "elevationPointCount", "physicalChangeCount", "politicalBoundaryCount", "administrativeBoundaryCount", "labelHits"]) add(key, typeof result[key] === "number" ? result[key] : null);
+    if (previousFrameAt !== null) { const interval = timestamp - previousFrameAt; if (interval > 0) add("renderCadenceFps", 1000 / interval); }
+    previousFrameAt = timestamp;
+    const memory = environment.performance?.memory;
+    if (memory && Number.isFinite(memory.usedJSHeapSize)) add("jsHeapUsedBytes", memory.usedJSHeapSize);
+    samples.push({ metrics, metadata: { ...context, terrainRenderer: result.terrainRenderer ?? "unknown", viewportWidth: environment.innerWidth ?? null, viewportHeight: environment.innerHeight ?? null, devicePixelRatio: environment.devicePixelRatio ?? 1 } });
+    return true;
+  }
+  function exportResults({ stop = true } = {}) {
+    if (stop) active = false;
+    const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample.metrics)))];
+    const metrics = Object.fromEntries(metricKeys.map(key => [key, summarize(samples.map(sample => sample.metrics[key]).filter(Number.isFinite))]));
+    return { schemaVersion: 1, metadata: { ...metadata, ...(samples.at(-1)?.metadata ?? {}), sampleCount: samples.length, durationMs: Math.max(0, now() - startedAt), userAgent: environment.navigator?.userAgent ?? "unknown", collectedAt: new Date().toISOString() }, metrics };
+  }
+  function clear() { active = false; samples = []; previousFrameAt = null; startedAt = 0; }
+  return { start, record, exportResults, clear, get active() { return active; }, get sampleCount() { return samples.length; } };
+}
