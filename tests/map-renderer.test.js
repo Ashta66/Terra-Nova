@@ -374,16 +374,16 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
     assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 3);
+    assert.equal(constructions, 2);
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
-    assert.equal(constructions, 4);
+    assert.equal(constructions, 2);
     // Un petit pan reste dans la même cellule de cache et réutilise les chemins.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
-    assert.equal(constructions, 5);
+    assert.equal(constructions, 2);
     // Un déplacement plus large invalide bien le cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
-    assert.equal(constructions, 7);
+    assert.equal(constructions, 4);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -413,7 +413,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const pathsAfterFirstRender = constructions;
     assert.ok(pathsAfterFirstRender >= 1);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, pathsAfterFirstRender + 1, "seul le conteneur temporaire du masque est recréé");
+    assert.equal(constructions, pathsAfterFirstRender, "le masque composé et les chemins des features sont réutilisés");
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
