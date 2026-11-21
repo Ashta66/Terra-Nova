@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createTerrainTileStore } from "../src/world/terrain-tiles.js";
 import { calculateZoomTilePlan } from "../src/world/terrain-preload-worker.js";
+import { createTerrainPreloadCoordinator } from "../src/world/terrain-preload-client.js";
 import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
 import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
 
@@ -100,4 +101,47 @@ test("les polygones avec trous restent explicitement au rendu Canvas", () => {
   });
   assert.equal(polygon.supported, false);
   assert.equal(polygon.reason, "polygon-holes-require-canvas");
+});
+
+
+test("le worker de préchargement ignore les réponses d'un viewport devenu obsolète", () => {
+  const listeners = {};
+  const sent = [];
+  const fakeWorker = {
+    addEventListener(type, callback) { listeners[type] = callback; },
+    postMessage(message) { sent.push(message); },
+    terminate() {}
+  };
+  const plans = [];
+  const coordinator = createTerrainPreloadCoordinator({
+    createWorker: () => fakeWorker,
+    calculate: calculateZoomTilePlan
+  });
+  const input = {
+    width: 360, height: 180, tileSize: 60,
+    viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 },
+    zoomLevels: [1.5, 3], padding: 0.25
+  };
+  const first = coordinator.request(input, ids => plans.push(["first", ids]));
+  const second = coordinator.request({ ...input, viewport: { ...input.viewport, centerLongitude: 45 } },
+    ids => plans.push(["second", ids]));
+  listeners.message({ data: { requestId: first, tileIds: ["0/0/0"] } });
+  assert.equal(plans.length, 0);
+  listeners.message({ data: { requestId: second, tileIds: ["0/1/0"] } });
+  assert.deepEqual(plans, [["second", ["0/1/0"]]]);
+  assert.equal(sent.length, 2);
+  coordinator.dispose();
+});
+
+test("le préchargement de terrain retombe sur le calcul local si Worker est indisponible", () => {
+  const plans = [];
+  const coordinator = createTerrainPreloadCoordinator({
+    createWorker: () => null,
+    calculate: input => ["fallback", String(input.viewport.zoom)]
+  });
+  const requestId = coordinator.request({ viewport: { zoom: 4 } },
+    (ids, id) => plans.push({ ids, id }));
+  assert.deepEqual(plans, [{ ids: ["fallback", "4"], id: requestId }]);
+  assert.equal(coordinator.workerActive, false);
+  coordinator.dispose();
 });
