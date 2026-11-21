@@ -159,17 +159,18 @@ function buildBoundaryLineBatch(features, gl) {
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
     const geometry = feature?.geometry;
-    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-    if (!polygons?.length) { skippedFeatures++; continue; }
+    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
+      : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
+    const lines = geometry?.type === "LineString" ? [geometry.coordinates]
+      : geometry?.type === "MultiLineString" ? geometry.coordinates : null;
+    if (!polygons?.length && !lines?.length) { skippedFeatures++; continue; }
     const featureGroups = [];
     let valid = true;
-    for (const polygon of polygons) {
-      for (const ring of polygon ?? []) {
-        const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
-        if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
-        featureGroups.push(mesh.positions);
-      }
-      if (!valid) break;
+    const paths = lines ?? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring));
+    for (const coordinates of paths) {
+      const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } });
+      if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
+      featureGroups.push(mesh.positions);
     }
     if (!valid || !featureGroups.length) { skippedFeatures++; continue; }
     segmentGroups.push(...featureGroups);
@@ -434,13 +435,15 @@ export function createGeographicWebGLRenderer(gl) {
       const geometry = feature.geometry;
       const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
         geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-      let supported = Boolean(polygons?.length);
-      if (supported) for (const polygon of polygons) {
-        for (const ring of polygon ?? []) {
-          const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates: ring } });
-          if (!hasSupportedLineCoordinates(mesh)) { supported = false; break; }
+      const lines = geometry?.type === "LineString" ? [geometry.coordinates] :
+        geometry?.type === "MultiLineString" ? geometry.coordinates : null;
+      let supported = Boolean(polygons?.length || lines?.length);
+      const paths = lines ?? (polygons ? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring)) : []);
+      for (const coordinates of paths) {
+        if (!hasSupportedLineCoordinates(buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } }))) {
+          supported = false;
+          break;
         }
-        if (!supported) break;
       }
       boundarySupportCache.set(feature, supported);
       return supported;
