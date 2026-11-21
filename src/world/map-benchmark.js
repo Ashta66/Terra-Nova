@@ -35,6 +35,14 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
       add("webgl:" + key, webgl[key]);
     }
     add("webgl:cacheHit", typeof webgl.cacheHit === "boolean" ? (webgl.cacheHit ? 1 : 0) : null);
+    const terrainTiles = result.terrainTileStats ?? {};
+    for (const key of ["tileCount", "pendingCount", "hits", "misses", "uploads", "uploadedBytes",
+      "evictions", "visibleTiles", "preloadedTiles", "lod", "transitionProgress", "transitionFromLevel",
+      "atlasCapacity", "atlasMemoryBytes", "readyChildTiles", "pendingChildTiles"]) {
+      add("terrainTiles:" + key, terrainTiles[key]);
+    }
+    add("terrainTiles:waitingForTiles", typeof terrainTiles.waitingForTiles === "boolean" ? (terrainTiles.waitingForTiles ? 1 : 0) : null);
+    add("terrainTiles:capacityLimited", typeof terrainTiles.capacityLimited === "boolean" ? (terrainTiles.capacityLimited ? 1 : 0) : null);
     const pathCache = result.projectedPathCacheStats ?? {};
     add("geometryCache:cachedPaths", pathCache.cachedPaths);
     add("geometryCache:maxCachedPaths", pathCache.maxCachedPaths);
