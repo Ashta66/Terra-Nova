@@ -57,7 +57,6 @@ let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
 let regionalLandFeatures = null;
-    regionalLandLod = null;
 let regionalLandLod = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
