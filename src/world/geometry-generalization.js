@@ -214,23 +214,23 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     if (!activeWorker) return Promise.resolve(prepareAdjacent(zoom, direction));
 
     const requestId = nextWorkerRequestId++;
-    const promise = new Promise(resolve => {
-      workerJobs.set(requestId, { tolerance: level.tolerance, zoom, direction, startedAt: now(), resolve });
-      pending.set(level.tolerance, promise);
-      try {
-        // La collection GeoJSON est transférée une seule fois à ce worker.
-        // Les prochains niveaux réutilisent sa copie locale sans nouveau clone massif.
-        if (!workerInitializationSent) {
-          activeWorker.postMessage({ type: "init", collection: baseCollection });
-          workerInitializationSent = true;
-          workerCollectionTransfers += 1;
-        }
-        activeWorker.postMessage({ type: "simplify", requestId, tolerance: level.tolerance });
-      } catch {
-        settleWorkerJob(requestId, null, true);
-        failWorker();
+    let resolveJob;
+    const promise = new Promise(resolve => { resolveJob = resolve; });
+    workerJobs.set(requestId, { tolerance: level.tolerance, zoom, direction, startedAt: now(), resolve: resolveJob });
+    pending.set(level.tolerance, promise);
+    try {
+      // La collection GeoJSON est transférée une seule fois à ce worker.
+      // Les prochains niveaux réutilisent sa copie locale sans nouveau clone massif.
+      if (!workerInitializationSent) {
+        activeWorker.postMessage({ type: "init", collection: baseCollection });
+        workerInitializationSent = true;
+        workerCollectionTransfers += 1;
       }
-    });
+      activeWorker.postMessage({ type: "simplify", requestId, tolerance: level.tolerance });
+    } catch {
+      settleWorkerJob(requestId, null, true);
+      failWorker();
+    }
     return promise;
   }
 
