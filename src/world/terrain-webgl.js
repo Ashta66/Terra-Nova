@@ -496,7 +496,7 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
  const push=(x,y,u,v,e,t)=>{
   out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
   // Les UV pointent au centre des texels, pas à leur frontière.
-  out[offset++]=// Le bord géographique tombe à mi-distance des deux échantillons voisins.
+  // Le bord géographique tombe à mi-distance des deux échantillons voisins.
   // Le demi-pixel supplémentaire alignait chaque tuile sur son premier échantillon
   // intérieur et créait une discontinuité aux frontières entre tuiles.
   out[offset++]=(e.slotX*atlas.cellSize+1.0+u*t.width)/atlas.atlasWidth;
