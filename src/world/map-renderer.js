@@ -1310,9 +1310,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         renderTimings["land-webgl-buffer-upload"] = landWebGLStats.bufferUploadMs ?? 0;
         renderTimings["land-webgl-cache-build"] = landWebGLStats.cacheBuildMs ?? 0;
         renderTimings["land-webgl-draw-submit"] = landWebGLStats.drawSubmitMs ?? 0;
-        renderTimings["land-webgl-cache-hit"] = landWebGLStats.cacheHit ? 1 : 0;
-        renderTimings["land-webgl-uploaded-bytes"] = landWebGLStats.uploadedBytes ?? 0;
-        renderTimings["land-webgl-cached-bytes"] = landWebGLStats.cachedGpuBytes ?? 0;
         measureLayer("land-webgl-compose", () => {
           target.save();
           target.setTransform(1, 0, 0, 1, 0, 0);
