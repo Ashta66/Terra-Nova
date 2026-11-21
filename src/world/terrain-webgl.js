@@ -496,8 +496,11 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
  const push=(x,y,u,v,e,t)=>{
   out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
   // Les UV pointent au centre des texels, pas à leur frontière.
-  out[offset++]=(e.slotX*atlas.cellSize+1.5+u*t.width)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+1.5+v*t.height)/atlas.atlasHeight;
+  out[offset++]=// Le bord géographique tombe à mi-distance des deux échantillons voisins.
+  // Le demi-pixel supplémentaire alignait chaque tuile sur son premier échantillon
+  // intérieur et créait une discontinuité aux frontières entre tuiles.
+  out[offset++]=(e.slotX*atlas.cellSize+1.0+u*t.width)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+1.0+v*t.height)/atlas.atlasHeight;
   out[offset++]=1/atlas.atlasWidth;out[offset++]=1/atlas.atlasHeight;
   out[offset++]=1/(t.width+2);out[offset++]=1/(t.height+2);
   // Les limites incluent le halo, exprimées elles aussi en centres de texels.
