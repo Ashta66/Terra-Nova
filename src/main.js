@@ -24,6 +24,7 @@ import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
+import { getMapQualityProfile } from "./world/map-quality-profile.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
@@ -126,7 +127,8 @@ const OVERSCAN = 1.4;
 // Le rendu cartographique est volontairement plafonné à 1,25× : sur les écrans
 // Retina, cela réduit fortement le nombre de pixels à composer sans dégrader
 // sensiblement la lecture à l'échelle normale.
-const MAP_PIXEL_RATIO = Math.min(1.25, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
+const MAP_QUALITY_PROFILE = getMapQualityProfile();
+const MAP_PIXEL_RATIO = MAP_QUALITY_PROFILE.pixelRatio;
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -782,7 +784,7 @@ function completeMapRender(result, context) {
     lodTransitionMs: context.landLodTransition ? LAND_LOD_CROSSFADE_MS : 0,
     lodCrossfadeBytes: context.landLodTransition ? previousSceneCanvas.width * previousSceneCanvas.height * 4 : 0,
     lodWarmupScheduled: landLodWarmupScheduled
-  }, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom });
+  }, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom, qualityProfile: MAP_QUALITY_PROFILE });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
@@ -942,7 +944,8 @@ function renderMapFrame() {
     onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
     geographicWebGLRenderer: getGeographicWebGLRenderer(),
     terrainEnabled: true,
-    terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
+    terrainQuality: (mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9) * MAP_QUALITY_PROFILE.terrainQualityMultiplier,
+    qualityProfile: MAP_QUALITY_PROFILE,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: MAP_PIXEL_RATIO,
