@@ -687,9 +687,15 @@ function getSortedLabelCandidates(collection) {
         const rankA = Number(a.properties?.scalerank ?? a.properties?.SCALERANK ?? a.properties?.minZoom ?? 99);
         const rankB = Number(b.properties?.scalerank ?? b.properties?.SCALERANK ?? b.properties?.minZoom ?? 99);
         if (rankA !== rankB) return rankA - rankB;
-        return Number(b.properties?.POP_MAX ?? b.properties?.pop_max ?? 0) - Number(a.properties?.POP_MAX ?? a.properties?.pop_max ?? 0);
+        const populationDifference = Number(b.properties?.POP_MAX ?? b.properties?.pop_max ?? 0)
+          - Number(a.properties?.POP_MAX ?? a.properties?.pop_max ?? 0);
+        if (populationDifference) return populationDifference;
       }
-      return 0;
+      // Départage stable : à priorité égale, l'ordre ne dépend pas de l'ordre
+      // d'arrivée des sources GeoJSON ou de leur fusion asynchrone.
+      return String(a.properties?.name ?? "").localeCompare(
+        String(b.properties?.name ?? ""), "fr", { sensitivity: "base" }
+      );
     });
     sortedLabelCollections.set(collection, candidates);
   }
@@ -1000,7 +1006,7 @@ export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {
   return (base + progressive) * Math.max(0.1, Number(renderScale) || 1);
 }
 
-function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null) {
+function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null, labelDensity = 1) {
   if (!collection?.features) return [];
   const hits = [];
   const occupiedCells = new Map();
@@ -1008,9 +1014,12 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   const collisionCellSize = LABEL_COLLISION_CELL_SIZE * renderScale;
   // L'ordre de priorité est calculé une seule fois par collection ; le seuil de zoom
   // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
-  const candidateLimit = zoom < 1.5 ? 48 : zoom < 3 ? 90 : zoom < 6 ? 180 : Infinity;
+  const density = Math.max(0.5, Math.min(1.1, Number(labelDensity) || 1));
+  const baseCandidateLimit = zoom < 1.5 ? 48 : zoom < 3 ? 90 : zoom < 6 ? 180 : Infinity;
+  const candidateLimit = Number.isFinite(baseCandidateLimit)
+    ? Math.max(24, Math.floor(baseCandidateLimit * density)) : Infinity;
   const candidates = getSortedLabelCandidates(collection);
-  const cityLabelLimit = getCityLabelLimit(zoom);
+  const cityLabelLimit = Math.max(2, Math.round(getCityLabelLimit(zoom) * density));
   let cityLabelsDrawn = 0;
   for (let candidateIndex = 0; candidateIndex < Math.min(candidates.length, candidateLimit); candidateIndex++) {
     const feature = candidates[candidateIndex];
@@ -1529,7 +1538,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     administrativeBoundaryCount = measureLayer("frontieres-administratives", () =>
       drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true));
   }
-  const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld));
+  const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld, options.qualityProfile?.labelDensity ?? 1));
 
   const sumFamilyTimings = keys => keys.reduce((sum, key) => sum + (renderTimings[key] ?? 0), 0);
   const renderFamilies = {
