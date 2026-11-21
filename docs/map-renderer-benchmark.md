@@ -101,7 +101,7 @@ Le renderer géographique exporte maintenant, pour chaque passage de couche, le 
 
 Le renderer est appelé successivement pour plusieurs familles indépendantes (terres/côtes, détails géographiques, frontières). Les caches de buffers sont désormais conservés entre ces appels. Ils sont gérés par un LRU plafonné à 12 couches, suffisant pour les familles actuelles, et libérés explicitement ou lors de l'éviction. Cela évite qu'un appel consacré aux frontières invalide les buffers du littoral, qui seraient sinon reconstruits au rendu suivant. Le test d'intégration vérifie la réutilisation entre familles et la libération explicite.
 
-Le benchmark expose aussi les tailles du cache de chemins projetés. L'estimation mémoire de ce cache utilise 32 octets par sommet et ne constitue pas une mesure native de Path2D ; elle sert uniquement à suivre le budget logiciel. Les buffers GPU conservés sont comptabilisés séparément à partir des tableaux CPU associés.
+Le benchmark expose aussi les tailles et les compteurs de succès/échec des caches de chemins projetés et du masque terrestre composé. L'estimation mémoire du cache de chemins projetés utilise 32 octets par sommet et ne constitue pas une mesure native de Path2D ; elle sert uniquement à suivre le budget logiciel. Les buffers GPU conservés sont comptabilisés séparément à partir des tableaux CPU associés.
 
 ## Généralisation LOD dans un Worker
 
