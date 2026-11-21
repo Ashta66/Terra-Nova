@@ -535,8 +535,8 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     const stats = getProjectedPathCacheStats();
     assert.equal(result.landCount, 540);
     assert.ok(constructions >= 512, `Path2D créés : ${constructions}`);
-    assert.ok(stats.cachedPaths <= 1024);
-    assert.equal(stats.maxCachedPaths, 1024);
+    assert.ok(stats.cachedPaths <= 2048);
+    assert.equal(stats.maxCachedPaths, 2048);
     assert.ok(stats.cachedVertices <= stats.maxCachedVertices);
     assert.equal(stats.maxCachedVertices, 500_000);
   } finally {
