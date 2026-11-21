@@ -169,3 +169,23 @@ test("les frontières traversant l'antiméridien restent au fallback Canvas", ()
   ] } };
   assert.equal(isSupportedGeographicBoundary(boundary), false);
 });
+
+test("les anneaux de frontières polygonales ouverts sont fermés avant le rendu WebGL", () => {
+  const boundary = { geometry: { type: "Polygon", coordinates: [[
+    [-5, 40], [2, 40], [2, 45], [-5, 45]
+  ]] } };
+  assert.equal(isSupportedGeographicBoundary(boundary), true);
+});
+
+test("les frontières polygonales avec trous restent compatibles WebGL en rendu de contours", () => {
+  const boundary = { geometry: { type: "Polygon", coordinates: [
+    [[-5, 40], [5, 40], [5, 50], [-5, 50], [-5, 40]],
+    [[-2, 43], [2, 43], [2, 47], [-2, 47], [-2, 43]]
+  ] } };
+  assert.equal(isSupportedGeographicBoundary(boundary), true);
+});
+
+test("les frontières aux coordonnées invalides restent au fallback Canvas", () => {
+  const boundary = { geometry: { type: "LineString", coordinates: [[0, 0], [10, 95]] } };
+  assert.equal(isSupportedGeographicBoundary(boundary), false);
+});
