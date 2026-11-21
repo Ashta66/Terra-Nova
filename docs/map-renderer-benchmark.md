@@ -68,4 +68,10 @@ L'export contient les statistiques min, médiane, p95, max et moyenne pour le te
 
 **Lecture des métriques géométriques :** `land-mask-path` mesure la préparation du masque terrestre utilisé pour découper le relief. Lorsque `Path2D` est disponible, les chemins projetés des terres sont réutilisés pour le remplissage et le masque composé est conservé dans un petit cache LRU pour les cellules de viewport identiques. Une baisse de cette métrique indique moins de préparation CPU ; elle ne mesure pas le temps d'exécution GPU.
 
+## Généralisation géographique adaptative
+
+Les profils de simplification des côtes et du masque terrestre sont exprimés en pixels projetés. La tolérance et l'aire minimale des anneaux diminuent lorsque le zoom augmente : les vues mondiales éliminent davantage de détails coûteux, tandis que les vues rapprochées restaurent progressivement les petites formes côtières et les îles. Le masque physique reste volontairement plus simplifié que les contours d'habillage, sans inverser cette progression.
+
+Les tests de profils vérifient les niveaux mondial, régional et rapproché, ainsi que la cohérence des profils utilisés par les aplats et les contours territoriaux. Ces tests valident la sélection des tolérances ; seul un benchmark visuel et temporel sur navigateur permet de quantifier le gain et de contrôler la fidélité des côtes.
+
 **Important :** la cadence mesurée est l'intervalle entre deux rendus complets terminés, pas le FPS continu de l'écran. La mémoire JS n'est pas disponible dans tous les navigateurs. Les temps d'upload GPU ne sont pas encore exposés par tous les chemins WebGL et ne sont donc pas inventés. Les tests automatisés valident le collecteur, mais ne remplacent pas une session navigateur sur le matériel cible.
