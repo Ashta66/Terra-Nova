@@ -351,7 +351,9 @@ test("le renderer WebGL expose le coût de géométrie, upload, cache et mémoir
     createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
     getProgramParameter: () => true, getAttribLocation: () => 0, getUniformLocation: () => ({}),
     deleteProgram() {}, createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
-    bindBuffer() {}, bufferData() {}, viewport() {}, clearColor() {}, clear() {},
+    bindBuffer() {}, bufferData() {},
+    getParameter(parameter) { return parameter === this.MAX_VERTEX_ATTRIBS ? 16 : null; },
+    viewport() {}, clearColor() {}, clear() {},
     enable() {}, blendFunc() {}, useProgram() {}, uniform2f() {}, uniform1f() {},
     uniform4fv() {}, enableVertexAttribArray() {}, disableVertexAttribArray() {}, vertexAttribPointer() {},
     drawArrays() {}, drawElements() {}
