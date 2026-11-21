@@ -1521,7 +1521,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   const physicalChangeCount = measureLayer("catastrophes-et-geographie", () => drawPhysicalWorldLayer(physicalContext, options.physicalWorld, width, height, projection, options.terrain));
   const boundaryRenderer = options.geographicWebGLRenderer;
-  const canRenderBoundariesWebGL = boundaryRenderer?.renderLayers && boundaryRenderer.canvas
+  const canRenderBoundariesWebGL = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES !== true
+    && boundaryRenderer?.renderLayers && boundaryRenderer.canvas
     && projection.type === "equirectangular";
   let boundariesWebGLRendered = false;
   let politicalBoundaryCount = 0;
