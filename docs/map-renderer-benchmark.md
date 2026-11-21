@@ -131,3 +131,12 @@ Le cache de chemins projetés est borné à 1 024 chemins et 500 000 sommets est
 Le cache de buffers géographiques conserve au plus 12 couches et applique également un budget cible de 128 Mio aux tableaux associés aux buffers. Les couches utilisées dans le passage courant ne sont pas évincées avant le dessin ; si les seules couches actives dépassent le budget, elles restent disponibles pour ce passage et seront réévaluées au suivant. Les octets sont calculés à partir des tableaux CPU associés et ne constituent pas une mesure exacte de la mémoire GPU du pilote.
 
 Le collecteur exporte désormais `webgl:cacheBudgetBytes`, `webgl:cacheEvictedLayers`, les limites du cache géographique et les compteurs de réutilisation du Worker LOD (`lod:workerCollectionTransfers`, `lod:workerJobsCompleted`, `lod:workerActive`). Après chaque changement, comparer médiane et p95 dans des conditions strictement identiques, puis vérifier la fidélité des frontières, des côtes et des transitions sur l'appareil cible.
+
+
+### Lecture du benchmark Pixel 10 au zoom 20 (21 novembre 2026)
+
+Ce scénario est adapté à l'évaluation du rendu géographique et du relief détaillé, mais il ne sollicite pas les paliers LOD mondiaux/régionaux configurés jusqu'aux zooms 6 et 9. Des compteurs `lod:worker*` à zéro à zoom 20 ne démontrent donc pas un échec du Worker : ils indiquent que ce scénario ne lui a pas demandé de travail. Pour valider le Worker, effectuer un essai séparé après stabilisation de la carte à un zoom mondial (par exemple 3 à 5), puis laisser le préchauffage inactif se déclencher.
+
+Le benchmark au zoom 20 montre également que le cache de chemins projetés atteint sa limite de 1 024 entrées alors que le budget de sommets n'est utilisé qu'à environ 204 000 sur 500 000. La limite de chemins a donc été portée à 2 048 sans augmenter le budget de sommets estimé (16 Mo). Les masques composés restent limités à 12 entrées, car leur taille mémoire native n'est pas mesurable et le compteur de hits cumulés ne justifie pas à lui seul une hausse.
+
+Enfin, le cache polygonal WebGL utilise désormais huit compartiments stables basés sur l'identité des features, plutôt que des tranches dépendant de l'ordre courant de la liste visible. L'arrivée ou le départ local d'une feature ne doit plus invalider systématiquement les mêmes grands blocs séquentiels. Le coût potentiel est un maximum de huit appels de dessin pour cette couche ; le prochain benchmark doit donc comparer le temps de construction/upload et le temps de soumission GPU, ainsi que vérifier l'aspect visuel.
