@@ -128,11 +128,56 @@ test("un worker LOD en erreur retombe sur la génération locale", async () => {
   {maxZoom:1.8,tolerance:0.04},{maxZoom:3.5,tolerance:0.02}
  ],0.0001,{
   createWorker:()=>({
-   postMessage(){queueMicrotask(()=>this.onmessage({data:{error:"worker failure"}}));},
+   postMessage(message){
+    if(message.type==="simplify")queueMicrotask(()=>this.onmessage({data:{
+     requestId:message.requestId,error:"worker failure"
+    }}));
+   },
    terminate(){}
   })
  });
  lod.getForZoom(1);
  assert.equal(await lod.prepareAdjacentAsync(1,1),true);
  assert.notEqual(lod.getForZoom(2),base);
+});
+
+
+
+test("les niveaux LOD successifs réutilisent le même worker et ne retransfèrent pas le GeoJSON", async () => {
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ let workerCreations=0, initMessages=0, jobs=0;
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:1.8,tolerance:0.04},
+  {maxZoom:3.5,tolerance:0.02},
+  {maxZoom:6,tolerance:0.008}
+ ],0.0001,{
+  createWorker:()=>{
+   workerCreations++;
+   return {
+    postMessage(message){
+     if(message.type==="init"){initMessages++;return;}
+     if(message.type==="simplify"){
+      jobs++;
+      queueMicrotask(()=>this.onmessage({data:{
+       requestId:message.requestId,
+       result:simplifyGeoJsonCollection(base,message.tolerance)
+      }}));
+     }
+    },
+    terminate(){}
+   };
+  }
+ });
+ lod.getForZoom(1);
+ assert.equal(await lod.prepareAdjacentAsync(1,1),true);
+ assert.equal(await lod.prepareAdjacentAsync(2,1),true);
+ const stats=lod.getStats();
+ assert.equal(workerCreations,1);
+ assert.equal(initMessages,1);
+ assert.equal(jobs,2);
+ assert.equal(stats.workerCollectionTransfers,1);
+ assert.equal(stats.workerJobsCompleted,2);
+ assert.notEqual(lod.getForZoom(4),base);
+ lod.dispose();
 });
