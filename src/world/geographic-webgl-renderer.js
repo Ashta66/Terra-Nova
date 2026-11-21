@@ -577,6 +577,13 @@ export function createGeographicWebGLRenderer(gl) {
         gl.useProgram(program);
         gl.uniform4fv(colorLocation, layer.color);
         for (const batch of layer.cached.batches) {
+          // Un buffer supprimé (par éviction ou perte de contexte) laisse l'attribut
+          // actif sans source valide et provoque INVALID_OPERATION à drawElements.
+          // Le renderer appelant peut alors basculer proprement sur Canvas.
+          if (typeof gl.isBuffer === "function"
+            && (!gl.isBuffer(batch.vertexBuffer) || !gl.isBuffer(batch.elementBuffer))) {
+            throw new Error("Cache WebGL géographique invalide : buffer polygonal indisponible.");
+          }
           gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
           gl.enableVertexAttribArray(positionLocation);
           gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
