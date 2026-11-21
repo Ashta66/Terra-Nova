@@ -1424,7 +1424,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       try {
         const supportedGlaciers = glaciersVisible.features.filter(feature => geographicRenderer.supports(feature));
         const supportedLakes = majorLakes.features.filter(feature => geographicRenderer.supports(feature));
-        const supportedRivers = majorRivers.features.filter(feature => geographicRenderer.supportsLine(feature));
+        // Diagnostic A/B : bascule les rivières WebGL vers le rendu Canvas sans toucher aux autres couches.
+        const disableGpuRiverLines = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES === true;
+        const supportedRivers = disableGpuRiverLines ? []
+          : majorRivers.features.filter(feature => geographicRenderer.supportsLine(feature));
         const ratio = backingWidth / width;
         const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
         const lakeColor = parseWebGLColor(theme.colors.ocean);
@@ -1439,7 +1442,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         target.restore();
         const unsupportedGlaciers = glaciersVisible.features.filter(feature => !geographicRenderer.supports(feature));
         const unsupportedLakes = majorLakes.features.filter(feature => !geographicRenderer.supports(feature));
-        const unsupportedRivers = majorRivers.features.filter(feature => !geographicRenderer.supportsLine(feature));
+        const unsupportedRivers = disableGpuRiverLines ? majorRivers.features
+          : majorRivers.features.filter(feature => !geographicRenderer.supportsLine(feature));
         glacierCount = measureLayer("glaciers", () => {
           drawPolygonLayer(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, "#dce8e5", null, 0, 0.88, false, 4);
           drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.7, 0.88, false, 4);
