@@ -1152,6 +1152,7 @@ function staticLayerSignature(width, height, pixelRatio, year, theme, projection
     globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true ? 1 : 0,
     globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true ? 1 : 0,
     globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES === true ? 1 : 0,
+    globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES === true ? 1 : 0,
     typeof window !== "undefined" && window.__TERRA_CAPTURE_LAYER_STAGES === true ? 1 : 0, options.terrainQuality ?? 1,
     options.terrainMode ?? "political", Number(options.physicalWorld?.revision ?? 0),
     Number(options.countryOpacity ?? 0.52), options.interactive ? 1 : 0
