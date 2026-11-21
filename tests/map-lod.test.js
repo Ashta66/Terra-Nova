@@ -153,3 +153,22 @@ test("le préchauffage ne change pas les seuils de rendu des couches régionales
   assert.equal(selectMapLayerDetailLevel(7.9, world, regional, 8).features, world);
   assert.equal(selectMapLayerDetailLevel(8, world, regional, 8).features, regional);
 });
+
+
+test("le sélecteur LOD applique une hystérésis autour du seuil régional", async () => {
+  const { createMapLayerLodSelector } = await import("../src/world/map-lod.js");
+  const selector = createMapLayerLodSelector(0.2);
+  assert.equal(selector.select(6.05, world, regional, 6).level, "world-110m");
+  assert.equal(selector.select(6.11, world, regional, 6).level, "regional-10m");
+  assert.equal(selector.select(6.02, world, regional, 6).level, "regional-10m");
+  assert.equal(selector.select(5.89, world, regional, 6).level, "world-110m");
+});
+
+test("le sélecteur LOD conserve le repli mondial si les données régionales manquent", async () => {
+  const { createMapLayerLodSelector } = await import("../src/world/map-lod.js");
+  const selector = createMapLayerLodSelector(0.2);
+  assert.equal(selector.select(8, world, null, 6).features, world);
+  assert.equal(selector.select(8, world, regional, 6).level, "regional-10m");
+  selector.reset();
+  assert.equal(selector.select(6.05, world, regional, 6).level, "world-110m");
+});

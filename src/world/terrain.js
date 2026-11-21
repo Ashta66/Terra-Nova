@@ -11,20 +11,62 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   for (let i = 0; i < values.length; i++) values[i] = view.getInt16(i * 2, true);
   let min = Infinity, max = -Infinity;
   for (const value of values) { if (value < min) min = value; if (value > max) max = value; }
-  return { width, height, values, min, max };
+  const isEtopo10m = width === 2160 && height === 1080;
+  const longitudeSpacingDegrees = isEtopo10m ? 1 / 6 : 360 / width;
+  const latitudeSpacingDegrees = isEtopo10m ? 1 / 6 : 180 / height;
+  return {
+    width, height, values, min, max,
+    // ETOPO 2022 décimé : coordonnées exactes des centres de pixels
+    // déclarées dans data/terrain/etopo_global_10m.json. Les grilles
+    // synthétiques utilisent, elles, des cellules régulières couvrant le monde.
+    longitudeFirst: isEtopo10m ? -179.99166666666667 : -180 + longitudeSpacingDegrees / 2,
+    latitudeFirst: isEtopo10m ? 89.84166666666667 : 90 - latitudeSpacingDegrees / 2,
+    longitudeSpacingDegrees,
+    latitudeSpacingDegrees,
+    spacingDegrees: 1 / 6
+  };
+}
+
+function terrainGridCoordinates(grid, longitude, latitude) {
+  const fallbackSpacing = Number(grid.spacingDegrees) || (180 / grid.height);
+  const longitudeSpacing = Number(grid.longitudeSpacingDegrees) || fallbackSpacing;
+  const latitudeSpacing = Number(grid.latitudeSpacingDegrees) || fallbackSpacing;
+  const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + longitudeSpacing / 2;
+  const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - latitudeSpacing / 2;
+  const longitudeDelta = longitude - longitudeFirst;
+  // Éviter le modulo (et ses additions à 360°) dans le cas courant :
+  // ces opérations ajoutent une erreur flottante inutile aux demi-cellules.
+  const wrappedDelta = longitudeDelta >= 0 && longitudeDelta < 360
+    ? longitudeDelta
+    : ((longitudeDelta % 360) + 360) % 360;
+  let x = wrappedDelta / longitudeSpacing;
+  let y = clamp((latitudeFirst - latitude) / latitudeSpacing, 0, grid.height - 1);
+  // Les centres de pixels calculés depuis des coordonnées décimales peuvent
+  // tomber à quelques ulp d'un entier. Les recaler évite une interpolation
+  // parasite entre deux échantillons qui devraient être exactement confondus.
+  const nearestX = Math.round(x), nearestY = Math.round(y);
+  if (Math.abs(x - nearestX) < 1e-10) x = nearestX;
+  if (Math.abs(y - nearestY) < 1e-10) y = nearestY;
+  return { x, y };
 }
 
 export function sampleElevation(grid, longitude, latitude) {
   if (!grid?.values || !Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
-  const lon = ((longitude + 180) % 360 + 360) % 360;
-  const x = lon / 360 * grid.width - 0.5;
-  const y = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
+  const { x, y } = terrainGridCoordinates(grid, longitude, latitude);
   const rawX = Math.floor(x), x0 = ((rawX % grid.width) + grid.width) % grid.width, x1 = (x0 + 1) % grid.width;
   const y0 = Math.floor(y), y1 = Math.min(grid.height - 1, y0 + 1), fx = x - rawX, fy = y - y0;
+  // Stabiliser les fractions proches des valeurs simples (0, 1/2, 1).
+  // Les coordonnées ETOPO décimales peuvent sinon décaler une demi-cellule
+  // de quelques ULP et produire une altitude artificiellement imprécise.
+  const snapFraction = value => {
+    const nearest = Math.round(value * 1e12) / 1e12;
+    return Math.abs(value - nearest) < 1e-12 ? nearest : value;
+  };
+  const sampleX = snapFraction(fx), sampleY = snapFraction(fy);
   const at = (column, row) => grid.values[row * grid.width + column];
-  const a = at(x0, y0) * (1 - fx) + at(x1, y0) * fx;
-  const b = at(x0, y1) * (1 - fx) + at(x1, y1) * fx;
-  return a * (1 - fy) + b * fy;
+  const a = at(x0, y0) + (at(x1, y0) - at(x0, y0)) * sampleX;
+  const b = at(x0, y1) + (at(x1, y1) - at(x0, y1)) * sampleX;
+  return a + (b - a) * sampleY;
 }
 
 function interpolateStops(value, stops) {
@@ -73,6 +115,15 @@ function applyLandformTint(color, landform) {
   if (!tint) return color;
   const strength = landform === "mountains" ? 0.04 : 0.035;
   return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
+}
+
+
+function terrainDebugElevationColor(elevation) {
+  const value = elevation < 0
+    ? 128 + clamp(elevation / 11000, -1, 0) * 128
+    : 128 + clamp(elevation / 6734, 0, 1) * 127;
+  const channel = Math.round(value);
+  return [channel, channel, channel];
 }
 
 export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands") {
@@ -179,7 +230,7 @@ export function prepareTerrainHillshade(grid) {
 }
 function samplePreparedHillshade(grid,longitude,latitude){
  const shades=hillshadeGridCache.get(grid);if(!(shades instanceof Uint8Array))return null;
- const x=(((longitude+180)%360+360)%360)/360*grid.width-.5,y=clamp((90-latitude)/180*grid.height-.5,0,grid.height-1);
+ const {x,y}=terrainGridCoordinates(grid,longitude,latitude);
  const rawX=Math.floor(x),x0=((rawX%grid.width)+grid.width)%grid.width,x1=(x0+1)%grid.width,y0=Math.floor(y),y1=Math.min(grid.height-1,y0+1),fx=x-rawX,fy=y-y0;
  const at=(ix,iy)=>shades[iy*grid.width+ix]/255,a=at(x0,y0)*(1-fx)+at(x1,y0)*fx,b=at(x0,y1)*(1-fx)+at(x1,y1)*fx;
  return .48+(a*(1-fy)+b*fy)*1.04;
@@ -193,7 +244,7 @@ function physicalLookup(world) {
 }
 export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
- const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
+ const {x,y}=terrainGridCoordinates(grid,lon,lat);
  if(!(lookup.levels instanceof Map)){const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);return base+(Number(c.elevationDeltaM)||0);}
  for(const step of lookup.steps??[...lookup.levels.keys()].sort((a,b)=>a-b)){
   const level=lookup.levels.get(step);if(!level)continue;
@@ -224,7 +275,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
  const dx=360/grid.width,dy=180/grid.height,hasPhysicalChanges=Number(physicalWorld?.revision??0)>0,physical=hasPhysicalChanges?physicalLookup(physicalWorld):null;
  let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
  const revisions=physicalWorld?.tileRevisions,hasLocalRevisions=revisions&&Object.keys(revisions).length>0;
- const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array;
+ const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true;
  let drawn=false;
  for(let ty=0;ty<18;ty++){
   const north=90-ty*10,south=north-10,screenY=height/2-(north-cy)*height*zoom/180,destH=10*height*zoom/180;
@@ -233,7 +284,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
    const west=-180+tx*10,center=west+5,shift=360*Math.round((cx-center)/360),screenX=width/2+(west+shift-cx)*width*zoom/360,destW=10*width*zoom/360;
    if(screenX+destW<0||screenX>width)continue;
    const tileKey=tx+":"+ty,revision=hasLocalRevisions?Number(revisions[tileKey]??0):Number(physicalWorld?.revision??0);
-   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync"].join("|");
+   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync",globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true?"no-precomputed":"prepared",globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth",globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true?"elevation-debug":"styled"].join("|");
    let surface=cache.get(key);
    if(!surface){
     surface=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(tileSize,tileSize):document.createElement("canvas");
@@ -257,8 +308,17 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const shade=samplePreparedHillshade(grid,lon,lat)??1;
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
         else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
-       }else color=hillshadeOnly?[128,128,128]:terrainColorForElevation(e,1);
+       }else{
+        const w=hasPhysicalChanges?samplePhysicalElevation(grid,lon-dx,lat,physical):sampleElevation(grid,lon-dx,lat);
+        const east=hasPhysicalChanges?samplePhysicalElevation(grid,lon+dx,lat,physical):sampleElevation(grid,lon+dx,lat);
+        const n=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat+dy,physical):sampleElevation(grid,lon,lat+dy);
+        const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
+        const shade=calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
+        if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
+        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
+       }
       }else color=terrainColorForElevation(e,1,"ocean");
+      if(globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true) color=terrainDebugElevationColor(e);
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
     }
@@ -272,18 +332,73 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
      cache.bytes-=Math.max(0,(oldest?.width??0)*(oldest?.height??0)*4);
     }
    }else{cache.delete(key);cache.set(key,surface);}
-   context.drawImage(surface,screenX,screenY,destW,destH);drawn=true;
+   context.save?.();
+   context.imageSmoothingEnabled = globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING !== true;
+   context.drawImage(surface,screenX,screenY,destW,destH);
+   context.restore?.();drawn=true;
   }
  }
  return drawn;
+}
+
+// Diagnostic ponctuel : analyse les pixels du canvas de relief réellement rendu.
+let lastTerrainDiagnosticCanvas = null;
+if (typeof window !== "undefined") {
+  window.getTerrainCanvasDiagnostics = () => {
+    const canvas = window.__TERRA_TERRAIN_DIAGNOSTIC_CANVAS ?? lastTerrainDiagnosticCanvas;
+    if (!canvas) return { error: "Canvas de relief non capturé : attendre un rendu de la carte." };
+    const context = canvas.getContext?.("2d", { willReadFrequently: true });
+    if (!context) return { error: "Contexte 2D du canvas indisponible." };
+    const { width, height } = canvas;
+    let image;
+    try { image = context.getImageData(0, 0, width, height).data; }
+    catch (error) { return { error: "Lecture des pixels impossible : " + error.message }; }
+    const rowMeans = [], rowStdDevs = [], rowAlpha = [];
+    const columnMeans = [];
+    for (let y = 0; y < height; y++) {
+      let sum = 0, sum2 = 0, alpha = 0, count = 0;
+      const step = Math.max(1, Math.floor(width / 512));
+      for (let x = 0; x < width; x += step) {
+        const i = (y * width + x) * 4;
+        const a = image[i + 3] / 255;
+        const v = (image[i] * .2126 + image[i + 1] * .7152 + image[i + 2] * .0722) * a;
+        sum += v; sum2 += v * v; alpha += a; count++;
+      }
+      const mean = count ? sum / count : 0;
+      rowMeans.push(Number(mean.toFixed(2)));
+      rowStdDevs.push(Number(Math.sqrt(Math.max(0, sum2 / Math.max(1,count) - mean * mean)).toFixed(2)));
+      rowAlpha.push(Number((alpha / Math.max(1,count)).toFixed(3)));
+    }
+    const colStep = Math.max(1, Math.floor(height / 256));
+    for (let x = 0; x < width; x += Math.max(1, Math.floor(width / 512))) {
+      let sum = 0, count = 0;
+      for (let y = 0; y < height; y += colStep) {
+        const i = (y * width + x) * 4;
+        sum += (image[i] * .2126 + image[i + 1] * .7152 + image[i + 2] * .0722) * image[i + 3] / 255;
+        count++;
+      }
+      columnMeans.push(Number((sum / Math.max(1,count)).toFixed(2)));
+    }
+    const jumps = values => values.slice(1).map((v,i)=>({index:i+1,delta:Number((v-values[i]).toFixed(2))}))
+      .sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,20);
+    return {
+      width, height, rowMeans, rowStdDevs, rowAlpha,
+      largestRowJumps: jumps(rowMeans),
+      columnMeans,
+      largestColumnJumps: jumps(columnMeans),
+      sampledAt: new Date().toISOString()
+    };
+  };
 }
 
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false, hillshadeOnly = false) {
+  if (typeof window !== "undefined" && context?.canvas) lastTerrainDiagnosticCanvas = context.canvas;
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  if (typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
+  if (globalThis.__TERRA_DISABLE_TERRAIN_RASTER_TILES !== true
+    && typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
     return drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly);
   }
   // Raster compact : l'ombrage multidirectionnel donne le détail, pas une haute résolution brute.
@@ -294,7 +409,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", hillshadeGridCache.get(grid) instanceof Uint8Array ? "precomputed" : "on-demand", visibleTileRevisionSignature(viewport, physicalWorld?.tileRevisions ?? {})].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", (hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true) ? "precomputed" : "on-demand", globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true ? "no-precomputed" : "prepared", globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth",globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true?"elevation-debug":"styled", visibleTileRevisionSignature(viewport, physicalWorld?.tileRevisions ?? {})].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -304,7 +419,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   if (cachedSurface && context.drawImage) {
     context.save?.();
     context.setTransform?.(1, 0, 0, 1, 0, 0);
-    context.imageSmoothingEnabled = true;
+    context.imageSmoothingEnabled = globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING !== true;
     context.drawImage(cachedSurface, 0, 0, context.canvas?.width ?? width, context.canvas?.height ?? height);
     context.restore?.();
     return true;
@@ -343,12 +458,12 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
         const gray = Math.round(28 + relief * 214);
         const baseShade = 1 + (shade - 1) * 0.35;
-        const color = hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform);
+        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform));
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
       }
-      const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
+      const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = (landOnly && !changedOnly) ? 0 : 255;
     }
   }

@@ -97,3 +97,210 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   });
   return {...collection,features,geometryStats:{originalVertices,simplifiedVertices,removedVertices:originalVertices-simplifiedVertices,changedFeatures,tolerance}};
 }
+
+
+/**
+ * Cache paresseusement plusieurs versions généralisées d'une même collection.
+ * Les géométries sont calculées une seule fois par niveau de zoom puis réutilisées
+ * pendant les pans et les rendus suivants. Le niveau de base est déjà généralisé
+ * au chargement et sert de repli lorsque le zoom dépasse les seuils configurés.
+ */
+export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0, options = {}) {
+  const normalizedLevels = [...new Map(levels
+    .filter(level => Number.isFinite(level?.maxZoom) && Number.isFinite(level?.tolerance) && level.tolerance > 0)
+    .map(level => ({ maxZoom: level.maxZoom, tolerance: level.tolerance }))
+    .sort((a, b) => a.maxZoom - b.maxZoom)
+    .map(level => [level.maxZoom, level])).values()];
+  const cache = new Map();
+  const generationSamples = [];
+  const pending = new Map();
+  const workerJobs = new Map();
+  let generatedLevels = 0;
+  let removedVertices = 0;
+  let worker = null;
+  let workerInitializationSent = false;
+  let workerCollectionTransfers = 0;
+  let workerJobsCompleted = 0;
+  let workerCreationAttempts = 0;
+  let workerCreationFailures = 0;
+  let workerRuntimeFailures = 0;
+  let workerSyncFallbackJobs = 0;
+  let workerFailed = false;
+  let nextWorkerRequestId = 1;
+
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
+
+  function recordResult(tolerance, result, durationMs) {
+    cache.set(tolerance, result);
+    generationSamples.push(Math.max(0, durationMs));
+    generatedLevels += 1;
+    removedVertices += result?.geometryStats?.removedVertices ?? 0;
+  }
+
+  function getLevelForZoom(zoom = 1) {
+    return normalizedLevels.find(item => Number(zoom) <= item.maxZoom && item.tolerance > baseTolerance) ?? null;
+  }
+
+  function getForZoom(zoom = 1) {
+    if (!baseCollection?.features) return baseCollection;
+    const level = getLevelForZoom(zoom);
+    if (!level) return baseCollection;
+    if (cache.has(level.tolerance)) return cache.get(level.tolerance);
+    // Lorsque le Worker est configuré, ne jamais lancer une simplification lourde
+    // pendant le rendu. Le niveau de base reste affiché jusqu'à la réponse du Worker.
+    if (typeof options.createWorker === "function" && !workerFailed) return baseCollection;
+    const startedAt = now();
+    const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
+    recordResult(level.tolerance, generalized, now() - startedAt);
+    return generalized;
+  }
+
+  function getAdjacentZoom(zoom = 1, direction = 1) {
+    if (!normalizedLevels.length) return null;
+    const current = Number(zoom);
+    if (!Number.isFinite(current)) return null;
+    if (direction >= 0) {
+      const activeIndex = normalizedLevels.findIndex(level => current <= level.maxZoom);
+      if (activeIndex < 0) return null;
+      const active = normalizedLevels[activeIndex];
+      if (active.tolerance <= baseTolerance) return null;
+      return active.maxZoom + 0.001;
+    }
+    const previous = [...normalizedLevels].reverse().find(level => level.maxZoom < current && level.tolerance > baseTolerance);
+    return previous ? previous.maxZoom : null;
+  }
+
+  function prepareAdjacent(zoom = 1, direction = 1) {
+    const targetZoom = getAdjacentZoom(zoom, direction);
+    if (targetZoom === null) return false;
+    const before = generatedLevels;
+    getForZoom(targetZoom);
+    return generatedLevels > before;
+  }
+
+  function settleWorkerJob(requestId, result, failed = false) {
+    const job = workerJobs.get(requestId);
+    if (!job) return;
+    workerJobs.delete(requestId);
+    pending.delete(job.tolerance);
+    if (result) {
+      workerJobsCompleted += 1;
+      recordResult(job.tolerance, result, now() - job.startedAt);
+      job.resolve(true);
+    } else {
+      if (failed && job.fallback) workerSyncFallbackJobs += 1;
+      job.resolve(failed ? (job.fallback?.() ?? false) : false);
+    }
+  }
+
+  function failWorker() {
+    if (workerFailed) return;
+    workerRuntimeFailures += 1;
+    workerFailed = true;
+    worker?.terminate?.();
+    worker = null;
+    for (const requestId of [...workerJobs.keys()]) settleWorkerJob(requestId, null, true);
+  }
+
+  function getWorker() {
+    if (worker || workerFailed || typeof options.createWorker !== "function") return worker;
+    workerCreationAttempts += 1;
+    try { worker = options.createWorker(); } catch { worker = null; }
+    if (!worker) {
+      workerCreationFailures += 1;
+      return null;
+    }
+    worker.onmessage = event => {
+      const data = event?.data ?? {};
+      if (data.type === "ready") return;
+      if (data.requestId === undefined) return;
+      if (data.error) {
+        failWorker();
+        return;
+      }
+      settleWorkerJob(data.requestId, data.result ?? null, false);
+    };
+    worker.onerror = failWorker;
+    return worker;
+  }
+
+  function prepareLevelAsync(level, fallback) {
+    if (!level || cache.has(level.tolerance)) return Promise.resolve(false);
+    if (pending.has(level.tolerance)) return pending.get(level.tolerance);
+    const activeWorker = getWorker();
+    if (!activeWorker) {
+      workerSyncFallbackJobs += 1;
+      return Promise.resolve(fallback());
+    }
+    const requestId = nextWorkerRequestId++;
+    let resolveJob;
+    const promise = new Promise(resolve => { resolveJob = resolve; });
+    workerJobs.set(requestId, { tolerance: level.tolerance, startedAt: now(), resolve: resolveJob, fallback });
+    pending.set(level.tolerance, promise);
+    try {
+      // La collection est clonée une seule fois ; les niveaux suivants réutilisent
+      // la copie conservée dans le Worker.
+      if (!workerInitializationSent) {
+        activeWorker.postMessage({ type: "init", collection: baseCollection });
+        workerInitializationSent = true;
+        workerCollectionTransfers += 1;
+      }
+      activeWorker.postMessage({ type: "simplify", requestId, tolerance: level.tolerance });
+    } catch {
+      failWorker();
+    }
+    return promise;
+  }
+
+  function prepareZoomAsync(zoom = 1) {
+    const level = getLevelForZoom(zoom);
+    if (!level || !baseCollection?.features || cache.has(level.tolerance)) return Promise.resolve(false);
+    return prepareLevelAsync(level, () => {
+      const startedAt = now();
+      recordResult(level.tolerance, simplifyGeoJsonCollection(baseCollection, level.tolerance), now() - startedAt);
+      return true;
+    });
+  }
+
+  function prepareAdjacentAsync(zoom = 1, direction = 1) {
+    const targetZoom = getAdjacentZoom(zoom, direction);
+    if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
+    const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
+    return prepareLevelAsync(level, () => prepareAdjacent(zoom, direction));
+  }
+
+  function dispose() {
+    worker?.terminate?.();
+    worker = null;
+    for (const job of workerJobs.values()) job.resolve(false);
+    workerJobs.clear();
+    pending.clear();
+  }
+
+  return {
+    getForZoom,
+    prepareAdjacent,
+    prepareAdjacentAsync,
+    prepareZoomAsync,
+    getAdjacentZoom,
+    dispose,
+    getStats() {
+      return {
+        generatedLevels,
+        cachedLevels: cache.size,
+        configuredLevels: normalizedLevels.length,
+        generationTimeMs: generationSamples.reduce((sum, value) => sum + value, 0),
+        lastGenerationMs: generationSamples.at(-1) ?? 0,
+        removedVertices,
+        cachedTolerances: [...cache.keys()],
+        workerCollectionTransfers,
+        workerJobsCompleted,
+        workerCreationAttempts,
+        workerCreationFailures,
+        workerRuntimeFailures,
+        workerSyncFallbackJobs,
+        workerActive: Boolean(worker && !workerFailed)
+      };
+    }
+  };
+}

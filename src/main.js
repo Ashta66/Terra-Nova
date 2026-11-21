@@ -5,7 +5,7 @@ import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
-import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
@@ -14,15 +14,141 @@ import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
+import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
+import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { getTerrainWebGLTileStats } from "./world/terrain-webgl.js";
+import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
+import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.js";
+import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
+import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
+import { getMapQualityProfile } from "./world/map-quality-profile.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
+
+const mapBenchmarkCollector = createMapBenchmarkCollector();
+const createLandLodWorker = () => typeof Worker === "function"
+  ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
+  : null;
+window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
+window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
+window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
+window.getTerrainTileDebugStats = () => getTerrainWebGLTileStats(terrainTileStore);
+
+window.getTerrainRasterDiagnostics = () => {
+  const grid = terrainGrid;
+  if (!grid?.values) return { ready: false, message: "Grille ETOPO non chargée." };
+  const { width, height, values } = grid;
+  const rowStats = y => {
+    const offset = y * width;
+    let sum = 0, sumSquares = 0, min = Infinity, max = -Infinity;
+    const samples = [];
+    const stride = Math.max(1, Math.floor(width / 24));
+    for (let x = 0; x < width; x++) {
+      const v = values[offset + x];
+      sum += v; sumSquares += v * v;
+      if (v < min) min = v;
+      if (v > max) max = v;
+      if (x % stride === 0) samples.push(v);
+    }
+    const mean = sum / width;
+    return {
+      y, latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)),
+      min, max, mean: Number(mean.toFixed(2)),
+      stdDev: Number(Math.sqrt(Math.max(0, sumSquares / width - mean * mean)).toFixed(2)),
+      samples
+    };
+  };
+  const edgeRows = [...Array(16)].map((_, i) => rowStats(i))
+    .concat([...Array(16)].map((_, i) => rowStats(height - 16 + i)));
+  const rowMeans = new Float64Array(height), colMeans = new Float64Array(width);
+  const rowMin = new Int16Array(height), rowMax = new Int16Array(height);
+  rowMin.fill(32767); rowMax.fill(-32768);
+  let globalMin = Infinity, globalMax = -Infinity, sum = 0;
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0;
+    const offset = y * width;
+    for (let x = 0; x < width; x++) {
+      const v = values[offset + x];
+      rowSum += v; colMeans[x] += v;
+      if (v < rowMin[y]) rowMin[y] = v;
+      if (v > rowMax[y]) rowMax[y] = v;
+      if (v < globalMin) globalMin = v;
+      if (v > globalMax) globalMax = v;
+    }
+    rowMeans[y] = rowSum / width;
+    sum += rowSum;
+  }
+  for (let x = 0; x < width; x++) colMeans[x] /= height;
+  const strongestJumps = series => {
+    const jumps = [];
+    for (let i = 1; i < series.length; i++) jumps.push({ index: i, delta: Number((series[i] - series[i - 1]).toFixed(2)) });
+    return jumps.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12);
+  };
+  const transitionCoherence = axis => {
+    const count = axis === "row" ? height - 1 : width - 1;
+    const span = axis === "row" ? width : height;
+    const results = [];
+    for (let i = 0; i < count; i++) {
+      let signed = 0, absolute = 0, squares = 0, positive = 0, negative = 0;
+      for (let j = 0; j < span; j++) {
+        const a = axis === "row" ? values[i * width + j] : values[j * width + i];
+        const b = axis === "row" ? values[(i + 1) * width + j] : values[j * width + i + 1];
+        const delta = b - a;
+        signed += delta;
+        absolute += Math.abs(delta);
+        squares += delta * delta;
+        if (delta > 0) positive++;
+        else if (delta < 0) negative++;
+      }
+      const meanSigned = signed / span;
+      const meanAbsolute = absolute / span;
+      const dominantSignRatio = Math.max(positive, negative) / span;
+      const deltaStdDev = Math.sqrt(Math.max(0, squares / span - meanSigned * meanSigned));
+      results.push({
+        index: i + 1,
+        meanSignedDelta: Number(meanSigned.toFixed(2)),
+        meanAbsoluteDelta: Number(meanAbsolute.toFixed(2)),
+        dominantSignRatio: Number(dominantSignRatio.toFixed(3)),
+        deltaStdDev: Number(deltaStdDev.toFixed(2)),
+        coherenceScore: Number((meanAbsolute * dominantSignRatio).toFixed(2))
+      });
+    }
+    return results.sort((a, b) => b.coherenceScore - a.coherenceScore).slice(0, 15);
+  };
+  const inspect = (x, y, radius = 6) => {
+    x = Math.max(0, Math.min(width - 1, Math.round(x)));
+    y = Math.max(0, Math.min(height - 1, Math.round(y)));
+    radius = Math.max(1, Math.min(12, Math.round(radius)));
+    const rows = [];
+    for (let yy = Math.max(0, y - radius); yy <= Math.min(height - 1, y + radius); yy++) {
+      const row = { y: yy, latitude: Number((90 - (yy + 0.5) / height * 180).toFixed(4)) };
+      for (let xx = Math.max(0, x - radius); xx <= Math.min(width - 1, x + radius); xx++) row["x" + xx] = values[yy * width + xx];
+      rows.push(row);
+    }
+    return { center: { x, y, longitude: Number((-180 + (x + 0.5) / width * 360).toFixed(4)), latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)) }, rows };
+  };
+  return {
+    ready: true, width, height, min: globalMin, max: globalMax,
+    inspect,
+    mean: Number((sum / values.length).toFixed(2)),
+    rowMeanJumps: strongestJumps(rowMeans),
+    columnMeanJumps: strongestJumps(colMeans),
+    rowTransitionCoherence: transitionCoherence("row"),
+    columnTransitionCoherence: transitionCoherence("column"),
+    edgeRows,
+    sampleRows: [0, Math.floor(height * .25), Math.floor(height * .5), Math.floor(height * .75), height - 1]
+      .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
+  };
+};
 
 let state = createGameState();
 let interval = null;
 let worldFeatures = null;
+let worldLandLod = null;
+const landLodSelector = createMapLayerLodSelector(0.18);
 let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
@@ -38,7 +164,14 @@ let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
+let terrainTileStore = null;
+let terrainTilePersistence = null;
+let terrainPreloadCoordinator = null;
+let lastTerrainStorePreloadKey = null;
+let geographicWebGLRenderer = null;
+let geographicWebGLRendererUnavailable = false;
 let regionalLandFeatures = null;
+let regionalLandLod = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
 let regionalRiverFeatures = null;
@@ -57,7 +190,25 @@ let interactionPreviewTimer = null;
 let interactionRenderAllowed = false;
 let lastDragMoved = false;
 let mapInteractionActive = false;
+let landLodWarmupHandle = null;
+let landLodWarmupUsesIdleCallback = false;
+let landLodWarmupToken = 0;
+let lastLandLodWarmupZoom = null;
+let landLodWarmupScheduled = false;
+let landLodWarmupRunningToken = null;
+let landLodWarmupCompleted = 0;
+const landLodWarmupDiagnostics = { scheduled: 0, started: 0, completed: 0, generated: 0, cancelled: 0, failed: 0 };
+let landLodCrossfadeSkippedForMemory = 0;
 const sceneCanvas = document.createElement("canvas");
+const previousSceneCanvas = document.createElement("canvas");
+let previousSceneViewport = null;
+let previousSceneSize = null;
+let sceneLandDetailLevel = null;
+let pendingLandLodTransition = false;
+let landLodTransitionStartedAt = 0;
+let landLodTransitionFrame = null;
+const LAND_LOD_CROSSFADE_MS = 220;
+const LAND_LOD_CROSSFADE_MAX_BYTES = 48 * 1024 * 1024;
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
@@ -85,7 +236,8 @@ const OVERSCAN = 1.4;
 // Le rendu cartographique est volontairement plafonné à 1,25× : sur les écrans
 // Retina, cela réduit fortement le nombre de pixels à composer sans dégrader
 // sensiblement la lecture à l'échelle normale.
-const MAP_PIXEL_RATIO = Math.min(1.25, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
+const MAP_QUALITY_PROFILE = getMapQualityProfile();
+const MAP_PIXEL_RATIO = MAP_QUALITY_PROFILE.pixelRatio;
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -104,8 +256,12 @@ function viewSize() {
   const frame = mapCanvas?.parentElement;
   const availableWidth = frame?.clientWidth || mapCanvas?.clientWidth || 960;
   const availableHeight = frame?.clientHeight || availableWidth * 0.5;
-  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
-  return { width, height: Math.max(1, Math.round(width * 0.5)) };
+  // À l'échelle monde, conserver le planisphère entier. Dès le zoom,
+  // couvrir le cadre en débordant sur son axe long : aucune bande résiduelle
+  // et aucune déformation de la projection (le cadre masque le débordement).
+  return mapViewport.zoom > 1.001
+    ? coverMapFrame(availableWidth, availableHeight, 2)
+    : fitMapFrame(availableWidth, availableHeight, 2);
 }
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
@@ -184,6 +340,25 @@ function failInitialLoading(error){
   $("loading-message").textContent="Certaines données n’ont pas pu être chargées : "+(error?.message??"erreur inconnue");
   $("loading-retry").hidden=false;
   $("loading-retry").addEventListener("click",()=>location.reload(),{once:true});
+}
+
+function getGeographicWebGLRenderer() {
+  if (geographicWebGLRenderer || geographicWebGLRendererUnavailable) return geographicWebGLRenderer;
+  try {
+    const surface = document.createElement("canvas");
+    const gl = surface.getContext("webgl", {
+      alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
+    });
+    if (!gl) {
+      geographicWebGLRendererUnavailable = true;
+      return null;
+    }
+    geographicWebGLRenderer = createGeographicWebGLRenderer(gl);
+  } catch (error) {
+    geographicWebGLRendererUnavailable = true;
+    console.info("Renderer géographique WebGL indisponible : rendu Canvas conservé.", error);
+  }
+  return geographicWebGLRenderer;
 }
 
 function updateMapControls() {
@@ -419,6 +594,8 @@ function updateMapDiagnostics(result) {
   const layers = $("map-perf-layers");
   if (!total || !layers) return;
   total.textContent = (result.totalRenderMs ?? 0).toFixed(1) + " ms";
+  const mapCanvas = $("world-map");
+  if (mapCanvas?.dataset) mapCanvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
   const labels = {
     "relief-base": "Relief de base", "terres-et-cotes": "Terres et côtes",
     territoires: "Territoires", "ombrage-multidirectionnel": "Ombrage du relief",
@@ -434,6 +611,7 @@ function updateMapDiagnostics(result) {
 }
 
 const MAP_WORKER_LAYER_FAMILIES = ["physical", "political", "dynamic"];
+let mapRenderWorkerTerrainFallbackLogged = false;
 function getMapRenderWorker() {
   if (mapRenderWorkerDisabled || typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
   if (mapRenderWorker) return mapRenderWorker;
@@ -511,6 +689,20 @@ function dispatchMapWorkerRender(job) {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
     politicalBoundaries, administrativeBoundaries, terrain, ...options
   } = job.options;
+  // Ces services sont des objets vivants du thread principal : le store de
+  // tuiles expose des méthodes (getTile/getTileAt) et le renderer WebGL détient
+  // un contexte GPU. Ni l'un ni l'autre ne doit entrer dans structured clone.
+  // Le rendu local les conserve intégralement ; surtout, ne désactivons pas le
+  // Worker pour une limite de transfert attendue.
+  const requiresMainThreadServices = Boolean(job.options.terrainTileStore || job.options.geographicWebGLRenderer);
+  if (requiresMainThreadServices) {
+    if (!mapRenderWorkerTerrainFallbackLogged) {
+      console.info("Rendu cartographique local conservé : les services de terrain/WebGL restent attachés au thread principal.");
+      mapRenderWorkerTerrainFallbackLogged = true;
+    }
+    job.onFallback();
+    return;
+  }
   try {
     mapRenderWorker.postMessage({ id: job.id, familyUpdates, options });
     for (const family of Object.keys(familyUpdates)) mapRenderWorkerLayerRefs[family] = job.families[family];
@@ -541,16 +733,167 @@ function renderMapOffThread(land, options, onDone, onFallback) {
   else dispatchMapWorkerRender(job);
   return true;
 }
+function prepareLandLodTransition(nextLevel) {
+  pendingLandLodTransition = Boolean(sceneReady && sceneLandDetailLevel && nextLevel !== sceneLandDetailLevel);
+  if (!pendingLandLodTransition || !sceneCanvas.width || !sceneCanvas.height) return false;
+  const estimatedBytes = sceneCanvas.width * sceneCanvas.height * 4;
+  const memoryBudget = Number(globalThis.navigator?.deviceMemory) > 0 && Number(globalThis.navigator.deviceMemory) <= 4
+    ? LAND_LOD_CROSSFADE_MAX_BYTES / 2
+    : LAND_LOD_CROSSFADE_MAX_BYTES;
+  if (estimatedBytes > memoryBudget) {
+    pendingLandLodTransition = false;
+    landLodCrossfadeSkippedForMemory += 1;
+    return false;
+  }
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  landLodTransitionFrame = null;
+  previousSceneCanvas.width = 1;
+  previousSceneCanvas.height = 1;
+  previousSceneViewport = null;
+  previousSceneSize = null;
+  previousSceneCanvas.width = sceneCanvas.width;
+  previousSceneCanvas.height = sceneCanvas.height;
+  const previousContext = previousSceneCanvas.getContext("2d");
+  if (!previousContext) {
+    pendingLandLodTransition = false;
+    return false;
+  }
+  previousContext.clearRect(0, 0, previousSceneCanvas.width, previousSceneCanvas.height);
+  previousContext.drawImage(sceneCanvas, 0, 0);
+  previousSceneViewport = { ...sceneViewport };
+  previousSceneSize = { ...sceneSize };
+  return true;
+}
+
+function animateLandLodTransition() {
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  const tick = now => {
+    landLodTransitionFrame = null;
+    if (!previousSceneCanvas.width || !previousSceneCanvas.height) return;
+    if (now - landLodTransitionStartedAt < LAND_LOD_CROSSFADE_MS) {
+      requestCompose();
+      landLodTransitionFrame = requestAnimationFrame(tick);
+      return;
+    }
+    previousSceneCanvas.width = 1;
+    previousSceneCanvas.height = 1;
+    previousSceneViewport = null;
+    previousSceneSize = null;
+    requestCompose();
+  };
+  landLodTransitionFrame = requestAnimationFrame(tick);
+}
+
+function cancelLandLodWarmup() {
+  landLodWarmupToken += 1;
+  if (landLodWarmupHandle !== null || landLodWarmupRunningToken !== null) {
+    landLodWarmupDiagnostics.cancelled += 1;
+  }
+  landLodWarmupRunningToken = null;
+  landLodWarmupScheduled = false;
+  if (landLodWarmupHandle === null) return;
+  if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
+  else clearTimeout(landLodWarmupHandle);
+  landLodWarmupHandle = null;
+}
+
+function scheduleLandLodWarmup(lodSet, zoom) {
+  cancelLandLodWarmup();
+  landLodWarmupScheduled = false;
+  if (!lodSet?.getAdjacentZoom || (!lodSet.prepareAdjacentAsync && !lodSet.prepareAdjacent) || mapInteractionActive) return;
+  const previousZoom = lastLandLodWarmupZoom;
+  const direction = previousZoom === null || zoom >= previousZoom ? 1 : -1;
+  lastLandLodWarmupZoom = zoom;
+  const targetZoom = lodSet.getAdjacentZoom?.(zoom, direction);
+  if ((targetZoom === null || targetZoom === undefined) && !lodSet.prepareZoomAsync) return;
+  const token = landLodWarmupToken;
+  const run = deadline => {
+    landLodWarmupHandle = null;
+    if (token !== landLodWarmupToken) return;
+    if (mapInteractionActive) {
+      landLodWarmupScheduled = false;
+      return;
+    }
+    if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 8) {
+      landLodWarmupUsesIdleCallback = true;
+      landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+      return;
+    }
+    landLodWarmupDiagnostics.started += 1;
+    landLodWarmupRunningToken = token;
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    const prepareCurrent = lodSet.prepareZoomAsync
+      ? lodSet.prepareZoomAsync(zoom)
+      : Promise.resolve(false);
+    let currentGenerated = false;
+    Promise.resolve(prepareCurrent).then(result => {
+      if (token !== landLodWarmupToken) return false;
+      currentGenerated = Boolean(result);
+      // Ne pas relancer renderMap ici : il invaliderait le jeton du préchauffage
+      // avant que le niveau adjacent ait pu être préparé et comptabilisé.
+      if (lodSet.prepareAdjacentAsync && targetZoom !== null && targetZoom !== undefined) {
+        return lodSet.prepareAdjacentAsync(zoom, direction);
+      }
+      return false;
+    }).then(adjacentGenerated => {
+      if (token !== landLodWarmupToken) return;
+      const generatedCount = Number(currentGenerated) + Number(Boolean(adjacentGenerated));
+      landLodWarmupCompleted += generatedCount;
+      landLodWarmupDiagnostics.completed += 1;
+      landLodWarmupDiagnostics.generated += generatedCount;
+      landLodWarmupRunningToken = null;
+      landLodWarmupScheduled = false;
+      const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
+      if (elapsed > 24) console.info("Préparation LOD asynchrone :", elapsed.toFixed(1), "ms");
+      if (generatedCount > 0 && !mapInteractionActive) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      }
+    }).catch(error => {
+      if (token !== landLodWarmupToken) return;
+      landLodWarmupRunningToken = null;
+      landLodWarmupScheduled = false;
+      landLodWarmupDiagnostics.failed += 1;
+      console.warn("Préparation LOD impossible :", error);
+    });
+  };
+  landLodWarmupScheduled = true;
+  landLodWarmupDiagnostics.scheduled += 1;
+  if (typeof requestIdleCallback === "function") {
+    landLodWarmupUsesIdleCallback = true;
+    landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    landLodWarmupUsesIdleCallback = false;
+    landLodWarmupHandle = setTimeout(() => run(null), 240);
+  }
+}
+
 function completeMapRender(result, context) {
   if (!result) return;
+  const shouldCrossfadeLandLod = Boolean(context.landLodTransition && pendingLandLodTransition && previousSceneCanvas.width > 1);
+  pendingLandLodTransition = false;
   sceneViewport = context.sceneViewport;
   sceneSize = context.sceneSize;
   sceneOcean = result.theme.colors.ocean;
   sceneLabelHits = result.labelHits ?? [];
   sceneReady = true;
+  sceneLandDetailLevel = context.landDetail?.level ?? sceneLandDetailLevel;
   sceneRecenterPending = false;
+  if (shouldCrossfadeLandLod) {
+    landLodTransitionStartedAt = globalThis.performance?.now?.() ?? Date.now();
+    animateLandLodTransition();
+  }
   requestCompose();
   updateMapDiagnostics(result);
+  scheduleLandLodWarmup(context.landLodSet, context.sceneViewport.zoom);
+  mapBenchmarkCollector.record({
+    ...result,
+    lodStats: context.landLodSet?.getStats?.(),
+    lodWarmupDiagnostics: { ...landLodWarmupDiagnostics, completedJobs: landLodWarmupCompleted },
+    lodTransitionMs: context.landLodTransition ? LAND_LOD_CROSSFADE_MS : 0,
+    lodCrossfadeBytes: context.landLodTransition ? previousSceneCanvas.width * previousSceneCanvas.height * 4 : 0,
+    lodWarmupScheduled: landLodWarmupScheduled
+  }, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom, qualityProfile: MAP_QUALITY_PROFILE });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
@@ -574,6 +917,10 @@ function renderMapFrame() {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
       regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
+      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, [
+        { maxZoom: 9, tolerance: 0.004 }
+      ], 0.0018, { createWorker: createLandLodWorker });
+      lastLandLodWarmupZoom = null;
       if (features) {
         lastRenderedMapSignature = null;
         renderMap();
@@ -603,6 +950,37 @@ function renderMapFrame() {
   const snappedSceneViewport = snapSceneViewportCenter(mapViewport, renderViewport.zoom);
   renderViewport.centerLongitude = snappedSceneViewport.centerLongitude;
   renderViewport.centerLatitude = snappedSceneViewport.centerLatitude;
+  if (terrainTileStore) {
+    const preloadKey = [renderViewport.zoom, renderViewport.centerLongitude, renderViewport.centerLatitude].join(":");
+    if (preloadKey !== lastTerrainStorePreloadKey) {
+      lastTerrainStorePreloadKey = preloadKey;
+      if (!terrainPreloadCoordinator) {
+        terrainPreloadCoordinator = createTerrainPreloadCoordinator({
+          calculate: calculateZoomTilePlan,
+          onWorkerError: error => console.info("Worker de préchargement du relief indisponible ; calcul local conservé.", error)
+        });
+      }
+      const preloadInput = {
+        width: terrainTileStore.width,
+        height: terrainTileStore.height,
+        tileSize: terrainTileStore.tileSize,
+        viewport: renderViewport,
+        zoomLevels: [renderViewport.zoom * 1.35, Math.max(1, renderViewport.zoom / 1.35)],
+        padding: 0.55
+      };
+      terrainPreloadCoordinator.request(preloadInput, (tileIds, requestId) => {
+        void terrainTileStore.preloadTileIds(tileIds, {
+          batchSize: 12,
+          shouldCancel: () => !terrainPreloadCoordinator?.isCurrent(requestId)
+        }).then(result => {
+          if (!terrainPreloadCoordinator?.isCurrent(requestId) || result.cancelled) return;
+          terrainTileStore.evictUnused(tileIds);
+        }).catch(error => {
+          console.info("Préchargement des tuiles de relief interrompu ; le rendu courant reste actif.", error);
+        });
+      }, error => console.warn("Planification des tuiles de relief impossible :", error));
+    }
+  }
   const year = Number(String(state.clock.date).slice(0, 4));
   const administrativeDetail = mapViewport.zoom >= 7 ? "regional" : "world";
   const boundaryRequestKey = year + ":" + administrativeDetail;
@@ -644,7 +1022,13 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const selectedLandDetail = landLodSelector.select(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
+  cancelLandLodWarmup();
+  const landDetail = {
+    ...selectedLandDetail,
+    features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
+  };
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, null, Infinity);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
@@ -665,17 +1049,22 @@ function renderMapFrame() {
     politicalBoundaries: politicalBoundaryFeatures,
     administrativeBoundaries: administrativeBoundaryFeatures,
     terrain: terrainGrid,
+    terrainTileStore,
+    onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
+    geographicWebGLRenderer: getGeographicWebGLRenderer(),
     terrainEnabled: true,
-    terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
+    terrainQuality: (mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9) * MAP_QUALITY_PROFILE.terrainQualityMultiplier,
+    qualityProfile: MAP_QUALITY_PROFILE,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: MAP_PIXEL_RATIO,
     interactive: false,
     physicalOverlayContext: null,
   };
+  const landLodTransition = prepareLandLodTransition(landDetail.level);
   const completionContext = {
     sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
-    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail
+    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition, landLodSet: landLod
   };
   const fallback = () => {
     try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
@@ -693,6 +1082,8 @@ async function installFullMapPack() {
       status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
     regionalLandFeatures = null;
+    regionalLandLod = null;
+    landLodSelector.reset();
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
@@ -728,6 +1119,12 @@ async function loadWorldMap() {
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
     worldFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(worldFeatures,100,false),0.008);
+    worldLandLod = createGeoJsonLodSet(worldFeatures, [
+      { maxZoom: 1.8, tolerance: 0.04 },
+      { maxZoom: 3.5, tolerance: 0.02 },
+      { maxZoom: 6, tolerance: 0.008 }
+    ], 0.008, { createWorker: createLandLodWorker });
+    lastLandLodWarmupZoom = null;
     lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
     riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
     glacierFeatures = simplifyGeoJsonCollection(glacierFeatures,0.008);
@@ -737,6 +1134,33 @@ async function loadWorldMap() {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) {
         terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96, maxBytes: 48 * 1024 * 1024 });
+        try {
+          terrainTilePersistence = await createTerrainTilePersistence();
+          if (terrainTilePersistence) {
+            const savedTiles = await terrainTilePersistence.loadAll(terrainGrid, terrainTileStore.tileSize);
+            let restoredTiles = 0;
+            for (const tile of savedTiles) {
+              if (terrainTileStore.restoreTile(tile)) restoredTiles++;
+            }
+            terrainTileStore.setOnTileChange(snapshot =>
+              terrainTilePersistence.saveTile(snapshot, terrainGrid, terrainTileStore.tileSize)
+                .then(revision => {
+                  terrainTileStore.markPersisted(snapshot.id, revision);
+                  return revision;
+                })
+            );
+            if (restoredTiles) console.info("Tuiles de relief restaurées depuis IndexedDB :", restoredTiles);
+            window.addEventListener("pagehide", () => {
+              void terrainTilePersistence?.flush().catch(error =>
+                console.warn("Synchronisation du cache de relief interrompue :", error)
+              );
+            }, { once: true });
+          }
+        } catch (persistenceError) {
+          terrainTilePersistence = null;
+          console.warn("Cache persistant du relief indisponible ; utilisation du cache mémoire :", persistenceError);
+        }
         prepareTerrainHillshade(terrainGrid).then(ready => { if (ready) { lastRenderedMapSignature = null; renderMap(); } });
         if (!state.physicalWorld?.currentCells?.length) {
           const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
@@ -882,27 +1306,51 @@ $("advance-day").addEventListener("click", () => {
   state.clock = advanceClock(state.clock);
   render();
 });
-function moveClockToYear(year) {
-  const month = Number(state.clock.date.slice(5, 7));
-  const day = Number(state.clock.date.slice(8, 10));
-  const monthIndex = month - 1;
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const nextDate = new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay)));
+const MIN_SIMULATION_YEAR = 1444;
+const MAX_SIMULATION_YEAR = 9999;
+function moveClockToDate(nextDate) {
   const oldDate = new Date(state.clock.date + "T00:00:00Z");
   const delta = Math.round((nextDate - oldDate) / 86400000);
   state.clock.date = nextDate.toISOString().slice(0, 10);
   state.clock.day = Math.max(1, state.clock.day + delta);
   render();
 }
+function moveClockToYear(year) {
+  const month = Number(state.clock.date.slice(5, 7));
+  const day = Number(state.clock.date.slice(8, 10));
+  const nextDate = new Date(0);
+  nextDate.setUTCHours(0, 0, 0, 0);
+  nextDate.setUTCFullYear(year, month - 1, 1);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  nextDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(nextDate);
+}
+function moveClockByMonths(amount) {
+  const [year, month, day] = state.clock.date.split("-").map(Number);
+  const monthDate = new Date(0);
+  monthDate.setUTCHours(0, 0, 0, 0);
+  monthDate.setUTCFullYear(year, month - 1 + amount, 1);
+  const targetYear = monthDate.getUTCFullYear();
+  const targetMonth = monthDate.getUTCMonth();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  monthDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(monthDate);
+}
 $("advance-year").addEventListener("click", () => {
-  moveClockToYear(Math.min(2100, Number(state.clock.date.slice(0, 4)) + 1));
+  const year = Number(state.clock.date.slice(0, 4));
+  if (year < MAX_SIMULATION_YEAR) moveClockToYear(year + 1);
+});
+$("advance-month").addEventListener("click", () => {
+  const year = Number(state.clock.date.slice(0, 4));
+  const month = Number(state.clock.date.slice(5, 7));
+  if (year < MAX_SIMULATION_YEAR || month < 12) moveClockByMonths(1);
 });
 document.querySelectorAll("[data-year]").forEach(button => button.addEventListener("click", () => {
   const year = Number(button.dataset.year);
-  if (Number.isFinite(year)) moveClockToYear(Math.max(1444, Math.min(2100, year)));
+  if (Number.isFinite(year)) moveClockToYear(Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, year)));
 }));
 $("year-scrubber").addEventListener("input", event => {
-  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
+  const year = Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, Number(event.target.value)));
   moveClockToYear(year);
 });
 document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
@@ -1031,6 +1479,14 @@ function hideMapTooltip() {
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
   const { width, height } = viewSize();
+  // Les dimensions CSS suivent exactement le viewport 2:1 calculé dans le cadre.
+  // Sans cette synchronisation, le CSS width:100% peut étirer le canvas en largeur
+  // alors que le moteur compose une scène plus étroite, coupant les pôles verticalement.
+  if (mapCanvas.style.width !== width + "px") mapCanvas.style.width = width + "px";
+  if (mapCanvas.style.height !== height + "px") mapCanvas.style.height = height + "px";
+  const zoomedFrame = mapViewport.zoom > 1.001;
+  mapCanvas.style.maxWidth = zoomedFrame ? "none" : "100%";
+  mapCanvas.style.maxHeight = zoomedFrame ? "none" : "100%";
   const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
   const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
   if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
@@ -1044,10 +1500,31 @@ function composeScene() {
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = mapInteractionActive ? "low" : "high";
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
-  for (const rect of composition.rects) {
-    context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+  const transitionProgress = previousSceneViewport && landLodTransitionStartedAt
+    ? Math.min(1, Math.max(0, ((globalThis.performance?.now?.() ?? Date.now()) - landLodTransitionStartedAt) / LAND_LOD_CROSSFADE_MS))
+    : 1;
+  if (transitionProgress < 1 && previousSceneCanvas.width > 1 && previousSceneViewport && previousSceneSize) {
+    const previousComposition = composeRects(mapViewport, previousSceneViewport, previousSceneSize, width, height);
+    context.globalAlpha = 1 - transitionProgress;
+    for (const rect of previousComposition.rects) {
+      context.drawImage(previousSceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
   }
-  drawMapTileFallbacks(context, width, height, composition);
+  context.globalAlpha = transitionProgress;
+  if (globalThis.__TERRA_BYPASS_SCENE_COMPOSITION === true) {
+    // Diagnostic A/B : affiche directement le bitmap de scène à l'échelle du viewport,
+    // sans calcul de rectangles, répétition longitudinale ni recadrage intermédiaire.
+    context.drawImage(sceneCanvas, 0, 0, width, height);
+  } else {
+    for (const rect of composition.rects) {
+      context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
+  }
+  context.globalAlpha = 1;
+  // Diagnostic A/B : isole les bitmaps de tuiles physiques superposés à la scène.
+  if (globalThis.__TERRA_DISABLE_MAP_TILE_FALLBACKS !== true) {
+    drawMapTileFallbacks(context, width, height, composition);
+  }
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
   mapLabelHits = [];

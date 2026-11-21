@@ -1,3 +1,22 @@
+## 21 novembre 2026 — intégration du moteur cartographique (PR #46)
+
+Cette tranche d'intégration est développée sur `integration/unified-map-engine-main` et proposée à `main` via PR #46, maintenue en brouillon.
+
+- [x] Porter le relief WebGL tuilé et le renderer géographique WebGL sans écraser les systèmes de simulation de `main`.
+- [x] Ajouter la persistance IndexedDB, le préchargement des tuiles et les fallbacks Canvas.
+- [x] Ajouter le cache WebGL polygonal incrémental par huit compartiments stables, le budget de buffers et l'observabilité des reconstructions/uploads.
+- [x] Porter le cache de chemins projetés à 2 048 entrées / 500 000 sommets estimés (16 Mo max estimés) et conserver 12 masques composés.
+- [x] Maintenir le Worker LOD persistant pour les niveaux mondiaux/régionaux.
+- [x] Ajouter aux exports de benchmark les métadonnées écran/viewport/DPR/tactiles pour détecter les essais involontairement réalisés en émulation mobile.
+- [x] CI vérifiée sur le commit `f4f104b1357809e820c0cf6844f393190f2500d6` : 252 tests réussis, 0 échec.
+- [ ] Valider visuellement dans un navigateur PC réel : continuité des tuiles, transitions parent/enfant, frontières, relief, labels, couches physiques et fallbacks.
+- [ ] Refaire le benchmark de référence sur navigateur PC en mode bureau (cache chaud, zoom 20, même viewport et durée), sans comparer avec les mesures Pixel 10.
+- [ ] Réaliser un test séparé du préchauffage LOD aux zooms 3–5 et vérifier les compteurs du Worker.
+- [ ] Comparer la fluidité, les uploads WebGL et la mémoire sur une session prolongée avant toute fusion.
+
+Les tests automatisés ne remplacent pas les essais visuels et matériels. PR #46 reste en brouillon jusqu'à validation et accord explicite.
+
+
 ## 20 novembre 2026 — remplacement progressif des tuiles parentes
 - La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
 - Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.
@@ -404,3 +423,81 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Interpolation continue des tailles de labels et réduction des ruptures typographiques.
 - Côtes terrestres un peu moins simplifiées aux faibles zooms pour limiter les espaces visuellement trop vides.
 - À valider dans le navigateur : fluidité à ×20, mémoire consommée et rendu des petits archipels.
+
+
+## 21 novembre 2026 — bilan des principes inspirés des moteurs cartographiques grand public
+
+Cette synthèse formalise les principes déjà traduits dans le moteur. Elle ne remplace pas le compte rendu source de l'analyse comparative initiale, qui n'a pas été retrouvé dans les ressources accessibles.
+
+| Principe | Implémentation présente | État réel |
+|---|---|---|
+| Pyramide multi-échelle | Planificateur de tuiles et niveaux LOD mondiaux/régionaux | Intégré, validation visuelle à poursuivre |
+| Raffinement progressif | Affichage des parents puis fondu des enfants | Intégré, raccords visuels à valider |
+| Préchargement spatial prédictif | Secteurs voisins, direction du pan, zooms anticipés | Intégré, réglage matériel à poursuivre |
+| Cache et persistance | LRU mémoire, IndexedDB pour les tuiles physiques modifiées | Intégré, mémoire réelle longue durée à mesurer |
+| Séparation des familles | Physique, politique/historique, dynamique | Architecture intégrée, indépendance complète des pipelines non achevée |
+| Rendu GPU | Relief tuilé WebGL et renderer géographique WebGL avec fallbacks Canvas | Partiel, bandes visuelles à diagnostiquer |
+| Généralisation par échelle | Simplification GeoJSON et filtres par rang/zoom | Intégrée, contrôle visuel nécessaire |
+| Calculs asynchrones | Worker de préchargement et Worker LOD persistant | Partiel ; les métriques LOD nulles au zoom 3–5 restent à expliquer |
+| Labels adaptatifs | Plafonds par zoom et priorités de catégories | Partiel ; collision/placement global à approfondir |
+| Adaptation aux appareils | Pixel ratio plafonné et budgets de caches | Partiel ; profils adaptatifs CPU/GPU non généralisés |
+
+### Écarts prioritaires
+- [ ] Corriger et tester les lignes persistantes observées pendant et après le panoramique ; vérifier halos, coordonnées UV, limites de l'atlas et raccords entre rangées de tuiles.
+- [ ] Instrumenter le cycle de vie du préchauffage LOD (planifié, annulé, démarré, terminé) pour expliquer les compteurs nuls aux zooms 3–5.
+- [ ] Terminer la séparation des pipelines physiques, politiques et dynamiques sans transférer d'objets vivants (store de tuiles, contexte WebGL) par structured clone.
+- [ ] Compléter le placement des labels : priorité, collision, stabilité pendant le pan et transitions entre niveaux.
+- [ ] Définir des profils de qualité selon résolution, DPR, mémoire et capacités WebGL, puis les valider sur PC et mobile.
+- [ ] Réaliser la validation visuelle et les mesures longues avant de sortir la PR #46 du brouillon.
+
+Les tests automatisés prouvent les invariants du code, pas l'absence d'artefacts visuels sur le matériel réel. Les lignes signalées par le joueur restent donc un défaut ouvert jusqu'à reproduction et correction confirmée.
+
+
+## Cadrage du viewport et diagnostics LOD — 21 novembre 2026
+
+- [x] Centraliser le calcul d'un rectangle de carte au ratio géographique 2:1, contenu dans les dimensions réelles du cadre (`fitMapFrame`).
+- [x] Synchroniser les dimensions CSS du canvas visible avec les dimensions utilisées par la composition interne, afin que `width: 100%` ne puisse plus étirer le canvas au-delà de la hauteur disponible.
+- [x] Ajouter des tests de cadrage sur des conteneurs paysage, carrés et portrait ; les pôles doivent rester dans le cadre.
+- [x] Ajouter des compteurs de cycle de vie LOD (planifié, démarré, terminé, généré, annulé, échoué) pour distinguer une tâche simplement programmée d'un Worker réellement exécuté.
+- [x] Ajouter les métriques correspondantes à l'export benchmark et leurs tests.
+- [ ] Exécuter la CI sur le dernier commit et confirmer le résultat.
+- [ ] Vérifier le cadrage sur le navigateur Live Preview, en grand écran et fenêtre réduite.
+- [ ] Identifier et corriger les lignes persistantes du relief avec une reproduction et un test de continuité des tuiles ; aucun correctif visuel n'est encore revendiqué.
+- [ ] Continuer le découplage des couches et les optimisations GPU après validation du cadrage et diagnostic des artefacts.
+
+**Attention :** le cadrage 2:1 garantit que la carte complète tient dans le rectangle calculé par le moteur. La validation visuelle dans le navigateur reste nécessaire, notamment après redimensionnement de la fenêtre.
+
+
+## 21 novembre 2026 — lot d'optimisations moteur (PR #46)
+
+### Rendu du relief et continuité des tuiles
+- [x] Correction du filtrage des altitudes encodées sur 16 bits dans l'atlas WebGL : le sampler utilise désormais `NEAREST`, chaque échantillon est décodé avant interpolation bilinéaire.
+- [x] Aligner les UV sur les centres des texels et borner les lectures aux centres du halo périphérique.
+- [x] Ajouter des tests sur le décodage avant interpolation, les centres UV, le halo et le mode de filtrage.
+- [ ] Valider visuellement sur Live Preview que les lignes horizontales persistantes ont disparu ; le correctif cible une cause technique avérée dans le chemin d'échantillonnage, mais l'absence d'artefact reste à confirmer sur navigateur.
+
+### Cycle de vie LOD
+- [x] Ne plus déclencher un nouveau rendu au milieu de la chaîne de préchauffage : les niveaux courant et adjacent sont d'abord traités, puis le rendu est invalidé une seule fois.
+- [x] Distinguer les tâches planifiées, démarrées, terminées, générées, annulées et échouées.
+- [ ] Refaire une mesure dédiée entre les zooms 3 et 5 et confirmer les transferts de collection et jobs Worker.
+
+### Séparation des familles de rendu
+- [x] Exposer des durées agrégées distinctes pour les familles physique, politique et dynamique.
+- [x] Inclure les passes WebGL de frontières et de détails dans les durées mesurées, pas seulement les fallbacks Canvas.
+- [ ] Poursuivre l'extraction des surfaces indépendantes sans cloner les services vivants (store et contexte WebGL).
+
+### Mémoire et transferts GPU
+- [x] Réutiliser un VBO terrain à capacité croissante plutôt que réallouer son stockage à chaque passe ; transférer les sommets avec `bufferSubData`.
+- [x] Exporter capacité, volume transféré et nombre d'allocations dans les benchmarks.
+- [ ] Comparer les nouvelles mesures sur PC et Pixel 10 avant de modifier les budgets d'atlas ou de caches.
+
+### Labels et qualité adaptative
+- [x] Départager les labels de même priorité de façon déterministe, y compris les villes de population équivalente.
+- [x] Adapter le ratio de pixels, la qualité du relief et la densité des labels aux capacités déclarées du navigateur/appareil.
+- [x] Ajouter des tests aux profils bas, équilibré et élevé.
+- [ ] Vérifier visuellement la stabilité des labels et calibrer les profils sur les mesures réelles, sans déduire la mémoire GPU native à partir des seuls tableaux CPU.
+
+### Validation technique
+- [x] CI GitHub Actions verte sur le lot initial d'optimisations.
+- [ ] Confirmer la CI du dernier commit après les tests complémentaires.
+- [ ] Validation visuelle utilisateur obligatoire avant de sortir la PR #46 du brouillon.

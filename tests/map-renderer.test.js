@@ -363,6 +363,7 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -371,18 +372,18 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   try {
     const { canvas } = createCanvas();
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     // Un petit pan reste dans la même cellule de cache et réutilise les chemins.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     // Un déplacement plus large invalide bien le cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
-    assert.equal(constructions, 2);
+    assert.equal(constructions, 4);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -395,6 +396,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -411,7 +413,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const pathsAfterFirstRender = constructions;
     assert.ok(pathsAfterFirstRender >= 1);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, pathsAfterFirstRender);
+    assert.equal(constructions, pathsAfterFirstRender, "le masque composé et les chemins des features sont réutilisés");
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
@@ -533,10 +535,10 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     const stats = getProjectedPathCacheStats();
     assert.equal(result.landCount, 540);
     assert.ok(constructions >= 512, `Path2D créés : ${constructions}`);
-    assert.ok(stats.cachedPaths <= 512);
-    assert.equal(stats.maxCachedPaths, 512);
+    assert.ok(stats.cachedPaths <= 2048);
+    assert.equal(stats.maxCachedPaths, 2048);
     assert.ok(stats.cachedVertices <= stats.maxCachedVertices);
-    assert.equal(stats.maxCachedVertices, 250_000);
+    assert.equal(stats.maxCachedVertices, 500_000);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -604,17 +606,17 @@ test("les rivières traversant l'antiméridien restent continues sans Path2D", (
   }
 });
 
-test("la simplification des côtes adapte le niveau de détail au zoom", async () => {
+test("la simplification des côtes restaure les détails lorsque le zoom augmente", async () => {
   const { getCoastSimplificationProfile } = await import("../src/world/map-renderer.js");
   const world = getCoastSimplificationProfile(1);
   const regional = getCoastSimplificationProfile(3);
   const close = getCoastSimplificationProfile(12);
-  assert.deepEqual(world, { tolerance: 1.3, minRingArea: 2.2 });
-  assert.deepEqual(regional, { tolerance: 1.65, minRingArea: 3.1 });
-  assert.deepEqual(close, { tolerance: 2.5, minRingArea: 6 });
-  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 2.05, minRingArea: 4.4 });
-  assert.ok(world.tolerance < regional.tolerance && regional.tolerance < close.tolerance);
-  assert.ok(world.minRingArea < regional.minRingArea && regional.minRingArea < close.minRingArea);
+  assert.deepEqual(world, { tolerance: 2.5, minRingArea: 6 });
+  assert.deepEqual(regional, { tolerance: 2.05, minRingArea: 4.4 });
+  assert.deepEqual(close, { tolerance: 1.3, minRingArea: 2.2 });
+  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 1.65, minRingArea: 3.1 });
+  assert.ok(world.tolerance > regional.tolerance && regional.tolerance > close.tolerance);
+  assert.ok(world.minRingArea > regional.minRingArea && regional.minRingArea > close.minRingArea);
 });
 
 import { selectHistoricalSnapshot, historicalPolygonsToBoundaries } from "../src/world/historical-boundaries.js";
@@ -864,6 +866,37 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
 });
 
 
+test("les bascules WebGL des côtes et rivières invalident le cache statique", () => {
+  const previous = globalThis.OffscreenCanvas;
+  const previousCoast = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  const previousRivers = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+  class MockOffscreenCanvas {
+    constructor(width, height) { this.width = width; this.height = height; this.context = createCanvas().canvas.getContext("2d"); }
+    getContext() { return this.context; }
+  }
+  globalThis.OffscreenCanvas = MockOffscreenCanvas;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+  try {
+    const { canvas } = createCanvas();
+    const first = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+    const coastToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    const riverToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    assert.equal(first.staticCacheHit, false);
+    assert.equal(coastToggle.staticCacheHit, false);
+    assert.equal(riverToggle.staticCacheHit, false);
+  } finally {
+    if (previous === undefined) delete globalThis.OffscreenCanvas;
+    else globalThis.OffscreenCanvas = previous;
+    if (previousCoast === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = previousCoast;
+    if (previousRivers === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = previousRivers;
+  }
+});
+
 test("le nombre de villes affichées ne dépasse jamais cinq, quel que soit le zoom", () => {
   for (const zoom of [1, 2, 4, 8, 14, 35]) assert.equal(getCityLabelLimit(zoom), 5);
 });
@@ -898,12 +931,12 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
 });
 
-test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
+test("les côtes physiques gagnent en détail à mesure que le zoom augmente", () => {
   const expected = [
-    [1, { tolerance: 2.8, minRingArea: 14 }],
-    [3, { tolerance: 3.4, minRingArea: 24 }],
-    [8, { tolerance: 3.9, minRingArea: 40 }],
-    [20, { tolerance: 4.4, minRingArea: 60 }]
+    [1, { tolerance: 4.4, minRingArea: 60 }],
+    [3, { tolerance: 3.9, minRingArea: 40 }],
+    [8, { tolerance: 3.4, minRingArea: 24 }],
+    [20, { tolerance: 2.8, minRingArea: 14 }]
   ];
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
@@ -912,6 +945,7 @@ test("les côtes physiques filtrent fortement les micro-îles à tous les niveau
     assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
   }
   assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
+  assert.ok(getLandCoastSimplificationProfile(20).tolerance > getCoastSimplificationProfile(20).tolerance);
 });
 
 
