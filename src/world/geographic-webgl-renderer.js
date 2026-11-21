@@ -151,6 +151,7 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
 
   const lineBuffer = gl.createBuffer();
   if (!lineBuffer) throw new Error(message);
+  const uploadStartedAt = now();
   try {
     gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
@@ -158,10 +159,12 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
     gl.deleteBuffer(lineBuffer);
     throw error;
   }
-  return { lineBuffer, vertexCount: cursor / 8, drawnFeatures: 0, skippedFeatures: 0, positions: data };
+  return { lineBuffer, vertexCount: cursor / 8, drawnFeatures: 0, skippedFeatures: 0,
+    positions: data, bufferUploadMs: Math.max(0, now() - uploadStartedAt) };
 }
 
 function buildLineBatch(features, gl) {
+  const geometryStartedAt = now();
   const segmentGroups = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
@@ -180,10 +183,13 @@ function buildLineBatch(features, gl) {
     segmentGroups.push(...featureGroups);
     drawnFeatures++;
   }
-  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer de lignes géographiques."), drawnFeatures, skippedFeatures };
+  const geometryBuildMs = Math.max(0, now() - geometryStartedAt);
+  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer de lignes géographiques."),
+    drawnFeatures, skippedFeatures, geometryBuildMs };
 }
 
 function buildBoundaryLineBatch(features, gl) {
+  const geometryStartedAt = now();
   const segmentGroups = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
@@ -200,7 +206,9 @@ function buildBoundaryLineBatch(features, gl) {
     segmentGroups.push(...featureGroups);
     drawnFeatures++;
   }
-  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
+  const geometryBuildMs = Math.max(0, now() - geometryStartedAt);
+  return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer des contours géographiques."),
+    drawnFeatures, skippedFeatures, geometryBuildMs };
 }
 
 export function isSupportedGeographicBoundary(feature) {
@@ -299,6 +307,7 @@ export function createGeographicWebGLRenderer(gl) {
   }
 
   function buildBatches(features) {
+    const geometryStartedAt = now();
     const batches = [makeBatch()];
     let drawnFeatures = 0;
     let skippedFeatures = 0;
@@ -313,7 +322,9 @@ export function createGeographicWebGLRenderer(gl) {
       if (!appendMesh(batch, mesh)) { skippedFeatures++; continue; }
       drawnFeatures++;
     }
+    const geometryBuildMs = Math.max(0, now() - geometryStartedAt);
     const gpuBatches = [];
+    const uploadStartedAt = now();
     try {
       for (const batch of batches) {
         if (!batch.indices.length) continue;
@@ -336,13 +347,16 @@ export function createGeographicWebGLRenderer(gl) {
       releaseBatches(gpuBatches);
       throw error;
     }
-    return { batches: gpuBatches, drawnFeatures, skippedFeatures };
+    return { batches: gpuBatches, drawnFeatures, skippedFeatures, geometryBuildMs,
+      bufferUploadMs: Math.max(0, now() - uploadStartedAt) };
   }
 
   function renderLayers(layers, width, height, viewport = {}) {
     const renderStartedAt = now();
     const empty = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
-      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, cacheBuildMs: 0, drawSubmitMs: 0, totalMs: 0, layers: {} };
+      cacheHit: false, bufferUploads: 0, uploadedBytes: 0, cacheBuildMs: 0,
+      geometryBuildMs: 0, bufferUploadMs: 0, drawSubmitMs: 0, totalMs: 0,
+      cachedGpuBytes: 0, layers: {} };
     if (disposed) return empty;
     const zoom = Number(viewport.zoom ?? 1);
     const centerLongitude = Number(viewport.centerLongitude ?? 0);
@@ -394,9 +408,19 @@ export function createGeographicWebGLRenderer(gl) {
       bufferUploads += layerUploads;
       uploadedBytes += layerBytes;
       empty.cacheBuildMs += cacheBuildMs;
+      if (!cacheHit) {
+        empty.geometryBuildMs += cached.geometryBuildMs ?? 0;
+        empty.bufferUploadMs += cached.bufferUploadMs ?? 0;
+      }
+      empty.cachedGpuBytes += type === "polygons"
+        ? (cached.batches ?? []).reduce((sum, batch) => sum + (batch.positions?.byteLength ?? 0)
+          + (batch.indices?.byteLength ?? 0), 0)
+        : (cached.positions?.byteLength ?? 0);
       empty.layers[key] = { type, drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
         drawCalls: layerDrawCalls, triangles: layerTriangles, vertices: cached.vertexCount ?? 0,
-        cacheHit, cacheBuildMs, bufferUploads: layerUploads, uploadedBytes: layerBytes };
+        cacheHit, cacheBuildMs, geometryBuildMs: cacheHit ? 0 : (cached.geometryBuildMs ?? 0),
+        bufferUploadMs: cacheHit ? 0 : (cached.bufferUploadMs ?? 0),
+        bufferUploads: layerUploads, uploadedBytes: layerBytes };
     }
     for (const [key, cached] of layerCaches) {
       if (seenKeys.has(key)) continue;
@@ -459,7 +483,9 @@ export function createGeographicWebGLRenderer(gl) {
     empty.totalMs = Math.max(0, now() - renderStartedAt);
     return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
       bufferUploads, uploadedBytes, cacheBuildMs: empty.cacheBuildMs,
-      drawSubmitMs: empty.drawSubmitMs, totalMs: empty.totalMs, layers: empty.layers };
+      geometryBuildMs: empty.geometryBuildMs, bufferUploadMs: empty.bufferUploadMs,
+      cachedGpuBytes: empty.cachedGpuBytes, drawSubmitMs: empty.drawSubmitMs,
+      totalMs: empty.totalMs, layers: empty.layers };
   }
 
   function render(features, width, height, viewport = {}, color = [0.32, 0.39, 0.31, 1]) {
