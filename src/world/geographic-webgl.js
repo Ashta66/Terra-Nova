@@ -14,9 +14,14 @@ function unwrapRing(ring) {
       while (x - previous > 180) x -= 360;
       while (x - previous < -180) x += 360;
     }
+    // La triangulation doit travailler sur les mêmes coordonnées que le GPU.
+    // Quantifier avant la déduplication évite de créer des sommets distincts
+    // en Number qui s'effondreront ensuite vers le même Float32.
+    x = Math.fround(x);
+    const y = Math.fround(latitude);
     const previousPoint = points[points.length - 1];
     if (!previousPoint || Math.abs(previousPoint[0] - x) > EPSILON
-      || Math.abs(previousPoint[1] - latitude) > EPSILON) points.push([x, latitude]);
+      || Math.abs(previousPoint[1] - y) > EPSILON) points.push([x, y]);
   }
   if (points.length > 2) {
     const first = points[0], last = points[points.length - 1];
