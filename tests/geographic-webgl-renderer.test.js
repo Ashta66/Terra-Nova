@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { buildRibbonBuffer, createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
 import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
 
@@ -307,7 +308,6 @@ test("la triangulation reste valide sur un anneau concave de 128 sommets", () =>
 
 
 test("les géométries réelles Natural Earth produisent des maillages polygonaux valides", () => {
-  const { readFileSync } = await import("node:fs");
   const collection = JSON.parse(readFileSync(new URL("../data/ne_110m_land.geojson", import.meta.url), "utf8"));
   assert.equal(collection.type, "FeatureCollection");
   assert.equal(collection.features.length, 127);
