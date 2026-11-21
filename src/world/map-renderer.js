@@ -1265,6 +1265,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           const surface = renderTerrainWebGLTiles(options.terrainTileStore, backingWidth, backingHeight,
             projection.viewport, { onTileReady: options.onTerrainTileReady });
           if (surface) {
+            if (typeof window !== "undefined") {
+              // Surface WebGL dédiée : relief seul, avant composition Canvas et masques.
+              window.__TERRA_TERRAIN_ONLY_CANVAS = surface;
+              window.__TERRA_TERRAIN_ONLY_MODE = "webgl-tiles";
+            }
             target.save();
             target.setTransform(1, 0, 0, 1, 0, 0);
             target.drawImage(surface, 0, 0, backingWidth, backingHeight);
