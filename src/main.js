@@ -17,6 +17,7 @@ import { constrainEquirectangularViewport } from "./world/projection.js";
 import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
@@ -41,6 +42,7 @@ let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
 let terrainTileStore = null;
+let terrainTilePersistence = null;
 let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
@@ -779,6 +781,32 @@ async function loadWorldMap() {
       if (terrainResponse.ok) {
         terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
         terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96, maxBytes: 48 * 1024 * 1024 });
+        try {
+          terrainTilePersistence = await createTerrainTilePersistence();
+          if (terrainTilePersistence) {
+            const savedTiles = await terrainTilePersistence.loadAll(terrainGrid, terrainTileStore.tileSize);
+            let restoredTiles = 0;
+            for (const tile of savedTiles) {
+              if (terrainTileStore.restoreTile(tile)) restoredTiles++;
+            }
+            terrainTileStore.setOnTileChange(snapshot =>
+              terrainTilePersistence.saveTile(snapshot, terrainGrid, terrainTileStore.tileSize)
+                .then(revision => {
+                  terrainTileStore.markPersisted(snapshot.id, revision);
+                  return revision;
+                })
+            );
+            if (restoredTiles) console.info("Tuiles de relief restaurées depuis IndexedDB :", restoredTiles);
+            window.addEventListener("pagehide", () => {
+              void terrainTilePersistence?.flush().catch(error =>
+                console.warn("Synchronisation du cache de relief interrompue :", error)
+              );
+            }, { once: true });
+          }
+        } catch (persistenceError) {
+          terrainTilePersistence = null;
+          console.warn("Cache persistant du relief indisponible ; utilisation du cache mémoire :", persistenceError);
+        }
         prepareTerrainHillshade(terrainGrid).then(ready => { if (ready) { lastRenderedMapSignature = null; renderMap(); } });
         if (!state.physicalWorld?.currentCells?.length) {
           const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
