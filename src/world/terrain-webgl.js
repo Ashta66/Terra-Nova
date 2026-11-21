@@ -785,7 +785,7 @@ function createTileRenderer(tileStore) {
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,capacityLimited:false};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
@@ -829,6 +829,15 @@ export function shouldUseTerrainParentFallback(level, missingCount, visibleCount
   return Number.isInteger(level) && level >= 0 && level < 4
     && Number.isInteger(missingCount) && missingCount > 0
     && terrainTileSetFitsAtlas(visibleCount, parentCount, capacity);
+}
+
+export function getTerrainVertexBufferCapacity(currentBytes, requiredBytes) {
+ const current=Number.isSafeInteger(currentBytes)&&currentBytes>0?currentBytes:0;
+ const required=Number.isSafeInteger(requiredBytes)&&requiredBytes>0?requiredBytes:0;
+ if(required<=current)return current;
+ let capacity=Math.max(4096,current);
+ while(capacity<required)capacity*=2;
+ return capacity;
 }
 
 export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},options={}) {
@@ -937,7 +946,15 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     }
     const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache);
     if(!vertices.length)return;
-    gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.DYNAMIC_DRAW);gl.drawArrays(gl.TRIANGLES,0,vertices.length/12);renderer.lastDrawCalls++;
+    const nextCapacity=getTerrainVertexBufferCapacity(renderer.vertexBufferCapacityBytes,vertices.byteLength);
+    if(nextCapacity!==renderer.vertexBufferCapacityBytes){
+      gl.bufferData(gl.ARRAY_BUFFER,nextCapacity,gl.DYNAMIC_DRAW);
+      renderer.vertexBufferCapacityBytes=nextCapacity;
+      renderer.vertexBufferAllocations++;
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER,0,vertices);
+    renderer.vertexBufferUploadBytes+=vertices.byteLength;
+    gl.drawArrays(gl.TRIANGLES,0,vertices.length/12);renderer.lastDrawCalls++;
   };
   if(previousVisible.length)drawLevel(previousVisible,1);
   drawLevel(visible,previousVisible.length?transitionProgress:1);
@@ -971,5 +988,5 @@ export function cancelTerrainWebGLPending(tileStore) {
 export function getTerrainWebGLTileStats(tileStore) {
   const renderer=tileStore&&tileRenderers.get(tileStore);
   if(!renderer||renderer.contextLost||renderer.gl.isContextLost?.()) return null;
-  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,fallbackReason:renderer.lastFallbackReason,capacityLimited:renderer.capacityLimited,atlasCapacity:renderer.cache.capacity,atlasMemoryBytes:renderer.cache.memoryBytes,waitingForTiles:renderer.waitingForTiles,readyChildTiles:renderer.readyChildTiles,pendingChildTiles:renderer.pendingChildTiles,maxTextureSize:renderer.maxTextureSize};
+  return {...renderer.cache.stats,drawSubmitMs:renderer.lastSubmitMs,vertexBufferCapacityBytes:renderer.vertexBufferCapacityBytes,vertexBufferUploadBytes:renderer.vertexBufferUploadBytes,vertexBufferAllocations:renderer.vertexBufferAllocations,drawCalls:renderer.lastDrawCalls,visibleTiles:renderer.lastVisibleTiles,preloadedTiles:renderer.lastPreloadedTiles,lod:renderer.lastLevel,transitionProgress:renderer.transitionProgress,transitionFromLevel:renderer.transitionFromLevel,fallbackReason:renderer.lastFallbackReason,capacityLimited:renderer.capacityLimited,atlasCapacity:renderer.cache.capacity,atlasMemoryBytes:renderer.cache.memoryBytes,waitingForTiles:renderer.waitingForTiles,readyChildTiles:renderer.readyChildTiles,pendingChildTiles:renderer.pendingChildTiles,maxTextureSize:renderer.maxTextureSize};
 }
