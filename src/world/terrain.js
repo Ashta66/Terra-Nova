@@ -318,7 +318,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
 let lastTerrainDiagnosticCanvas = null;
 if (typeof window !== "undefined") {
   window.getTerrainCanvasDiagnostics = () => {
-    const canvas = lastTerrainDiagnosticCanvas;
+    const canvas = window.__TERRA_TERRAIN_DIAGNOSTIC_CANVAS ?? lastTerrainDiagnosticCanvas;
     if (!canvas) return { error: "Canvas de relief non capturé : attendre un rendu de la carte." };
     const context = canvas.getContext?.("2d", { willReadFrequently: true });
     if (!context) return { error: "Contexte 2D du canvas indisponible." };
