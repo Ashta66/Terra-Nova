@@ -23,6 +23,15 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
     add("renderTotalMs", result.totalRenderMs);
     for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
+    const webgl = result.webglStats ?? {};
+    for (const key of ["geometryBuildMs", "bufferUploadMs", "cacheBuildMs", "drawSubmitMs",
+      "totalMs", "uploadedBytes", "cachedGpuBytes", "bufferUploads", "drawCalls", "triangles"]) {
+      add("webgl:" + key, webgl[key]);
+    }
+    add("webgl:cacheHit", typeof webgl.cacheHit === "boolean" ? (webgl.cacheHit ? 1 : 0) : null);
+    const pathCache = result.projectedPathCacheStats ?? {};
+    add("geometryCache:cachedPaths", pathCache.cachedPaths);
+    add("geometryCache:cachedVertices", pathCache.cachedVertices);
     const lod = result.lodStats ?? {};
     add("lod:generatedLevels", lod.generatedLevels);
     add("lod:cachedLevels", lod.cachedLevels);
