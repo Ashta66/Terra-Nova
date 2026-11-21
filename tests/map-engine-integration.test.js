@@ -6,7 +6,7 @@ import { createTerrainPreloadCoordinator } from "../src/world/terrain-preload-cl
 import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
 import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
 import { buildLandClipPath } from "../src/world/map-renderer.js";
-import { isSupportedGeographicBoundary } from "../src/world/geographic-webgl-renderer.js";
+import { isSupportedGeographicBoundary, buildRibbonBuffer } from "../src/world/geographic-webgl-renderer.js";
 
 function makeGrid() {
   return { width: 4, height: 2, values: new Int16Array([0, 10, 20, 30, 40, 50, 60, 70]) };
@@ -226,4 +226,33 @@ test("le masque terrestre réutilise les Path2D projetés du remplissage", () =>
     if (previousPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previousPath2D;
   }
+});
+
+
+test("les buffers de lignes géographiques sont construits directement en Float32Array", () => {
+  let uploaded = null;
+  const buffer = {};
+  const gl = {
+    ARRAY_BUFFER: 1, STATIC_DRAW: 2,
+    createBuffer: () => buffer,
+    bindBuffer: () => {},
+    bufferData: (_target, data) => { uploaded = data; },
+    deleteBuffer: () => {}
+  };
+  const result = buildRibbonBuffer([new Float32Array([0, 0, 1, 0])], gl);
+  assert.ok(result.positions instanceof Float32Array);
+  assert.equal(result.positions, uploaded, "aucune conversion ou copie intermédiaire ne doit être nécessaire");
+  assert.equal(result.vertexCount, 78, "six sommets de ruban et deux disques de jointure de 36 sommets");
+  assert.equal(result.positions.length, result.vertexCount * 8);
+  assert.equal(result.lineBuffer, buffer);
+});
+
+test("un groupe de segments vide ne crée aucun buffer GPU", () => {
+  let created = false;
+  const result = buildRibbonBuffer([new Float32Array()], {
+    createBuffer() { created = true; }
+  });
+  assert.equal(created, false);
+  assert.equal(result.vertexCount, 0);
+  assert.equal(result.lineBuffer, null);
 });
