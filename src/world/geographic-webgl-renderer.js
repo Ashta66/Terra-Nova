@@ -93,14 +93,35 @@ function getBoundaryPaths(feature) {
   return paths;
 }
 
-function buildRibbonBuffer(segmentGroups, gl, message) {
-  const groups = segmentGroups.filter(group => group?.length >= 4);
-  if (!groups.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
-  const vertices = [];
+export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de créer le buffer de lignes.") {
+  let segmentCount = 0;
+  const endpointGroups = [];
+  for (const group of segmentGroups ?? []) {
+    if (!group || group.length < 4) continue;
+    const endpoints = new Map();
+    for (let index = 0; index + 3 < group.length; index += 4) {
+      segmentCount++;
+      const ax = group[index], ay = group[index + 1];
+      const bx = group[index + 2], by = group[index + 3];
+      endpoints.set(`${ax.toFixed(5)},${ay.toFixed(5)}`, [ax, ay]);
+      endpoints.set(`${bx.toFixed(5)},${by.toFixed(5)}`, [bx, by]);
+    }
+    endpointGroups.push(endpoints);
+  }
+  if (!segmentCount) {
+    return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
+  }
+
+  const joinVertexCount = endpointGroups.reduce((sum, endpoints) => sum + endpoints.size * 36, 0);
+  const data = new Float32Array((segmentCount * 6 + joinVertexCount) * 8);
+  let cursor = 0;
   const appendVertex = (ax, ay, bx, by, side, joinX = 0, joinY = 0, isJoin = 0) => {
-    vertices.push(ax, ay, bx, by, side, joinX, joinY, isJoin);
+    data[cursor++] = ax; data[cursor++] = ay;
+    data[cursor++] = bx; data[cursor++] = by;
+    data[cursor++] = side;
+    data[cursor++] = joinX; data[cursor++] = joinY;
+    data[cursor++] = isJoin;
   };
-  const endpointKey = (x, y) => `${x.toFixed(5)},${y.toFixed(5)}`;
   const steps = 12;
   const appendDisk = (x, y) => {
     for (let stepIndex = 0; stepIndex < steps; stepIndex++) {
@@ -111,10 +132,13 @@ function buildRibbonBuffer(segmentGroups, gl, message) {
       appendVertex(x, y, x, y, 0, Math.cos(b), Math.sin(b), 1);
     }
   };
-  for (const segments of groups) {
-    for (let index = 0; index < segments.length; index += 4) {
-      const ax = segments[index], ay = segments[index + 1];
-      const bx = segments[index + 2], by = segments[index + 3];
+
+  let groupIndex = 0;
+  for (const group of segmentGroups ?? []) {
+    if (!group || group.length < 4) continue;
+    for (let index = 0; index + 3 < group.length; index += 4) {
+      const ax = group[index], ay = group[index + 1];
+      const bx = group[index + 2], by = group[index + 3];
       appendVertex(ax, ay, bx, by, -1);
       appendVertex(ax, ay, bx, by, 1);
       appendVertex(bx, by, ax, ay, -1);
@@ -122,25 +146,9 @@ function buildRibbonBuffer(segmentGroups, gl, message) {
       appendVertex(ax, ay, bx, by, 1);
       appendVertex(bx, by, ax, ay, 1);
     }
-    // Endpoint topology is local to this path: unrelated features never create joins.
-    const endpointCounts = new Map();
-    for (let index = 0; index < segments.length; index += 4) {
-      const startKey = endpointKey(segments[index], segments[index + 1]);
-      const endKey = endpointKey(segments[index + 2], segments[index + 3]);
-      endpointCounts.set(startKey, (endpointCounts.get(startKey) ?? 0) + 1);
-      endpointCounts.set(endKey, (endpointCounts.get(endKey) ?? 0) + 1);
-    }
-    const processed = new Set();
-    for (let index = 0; index < segments.length; index += 4) {
-      for (const [x, y] of [[segments[index], segments[index + 1]], [segments[index + 2], segments[index + 3]]]) {
-        const key = endpointKey(x, y);
-        if (processed.has(key)) continue;
-        processed.add(key);
-        if ((endpointCounts.get(key) ?? 0) >= 2 || endpointCounts.get(key) === 1) appendDisk(x, y);
-      }
-    }
+    for (const [x, y] of endpointGroups[groupIndex++].values()) appendDisk(x, y);
   }
-  const data = new Float32Array(vertices);
+
   const lineBuffer = gl.createBuffer();
   if (!lineBuffer) throw new Error(message);
   try {
@@ -150,7 +158,7 @@ function buildRibbonBuffer(segmentGroups, gl, message) {
     gl.deleteBuffer(lineBuffer);
     throw error;
   }
-  return { lineBuffer, vertexCount: data.length / 8, drawnFeatures: 0, skippedFeatures: 0, positions: data };
+  return { lineBuffer, vertexCount: cursor / 8, drawnFeatures: 0, skippedFeatures: 0, positions: data };
 }
 
 function buildLineBatch(features, gl) {
