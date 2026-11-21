@@ -32,6 +32,8 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const pathCache = result.projectedPathCacheStats ?? {};
     add("geometryCache:cachedPaths", pathCache.cachedPaths);
     add("geometryCache:cachedVertices", pathCache.cachedVertices);
+    add("geometryCache:estimatedBytes", pathCache.estimatedBytes);
+    add("geometryCache:maxEstimatedBytes", pathCache.maxEstimatedBytes);
     const lod = result.lodStats ?? {};
     add("lod:generatedLevels", lod.generatedLevels);
     add("lod:cachedLevels", lod.cachedLevels);
