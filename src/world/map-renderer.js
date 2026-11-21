@@ -1262,7 +1262,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     } : { type: "FeatureCollection", features: [] };
     const majorLakes = { type: "FeatureCollection", features: selectMajorLakeFeatures(visibleLakes, detailProfile.lakesRank, MAX_VISIBLE_LAKES) };
     const majorRivers = { type: "FeatureCollection", features: selectMajorRiverFeatures(visibleRivers, detailProfile.riversRank, detailProfile.riversMax) };
-    const geographicRenderer = options.geographicWebGLRenderer;
     let geographicDetailGpu = false;
     let glacierCount = 0, lakeCount = 0, riverCount = 0;
     const lakeProfile = getLakeCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
