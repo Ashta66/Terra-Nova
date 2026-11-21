@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fitMapFrame, sceneRenderParams, composeRects, snapSceneViewportCenter } from "../src/world/scene-compose.js";
+import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, snapSceneViewportCenter } from "../src/world/scene-compose.js";
 
 const close = (actual, expected, epsilon = 1e-6) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `attendu ${expected}, reçu ${actual}`);
@@ -144,4 +144,27 @@ test("le cadre cartographique contient toujours le monde entier au ratio 2:1", (
 test("le cadre étroit en hauteur réduit la largeur plutôt que de couper les pôles", () => {
   assert.deepEqual(fitMapFrame(1500, 500, 2), { width: 1000, height: 500 });
   assert.deepEqual(fitMapFrame(700, 900, 2), { width: 700, height: 350 });
+});
+
+
+test("le mode zoom couvre le cadre sans déformer le ratio géographique", () => {
+  for (const [availableWidth, availableHeight] of [
+    [1680, 700], [1083, 1042], [900, 900], [420, 900], [1920, 1080], [640, 320]
+  ]) {
+    const fitted = coverMapFrame(availableWidth, availableHeight, 2);
+    assert.ok(fitted.width >= availableWidth, "la largeur couvre le cadre");
+    assert.ok(fitted.height >= availableHeight, "la hauteur couvre le cadre");
+    close(fitted.width / fitted.height, 2);
+    assert.ok(fitted.width === availableWidth || fitted.height === availableHeight,
+      "un axe reste exactement aligné sur le cadre");
+  }
+});
+
+test("en zoom, un cadre moins large que 2:1 déborde horizontalement et remplit sa hauteur", () => {
+  assert.deepEqual(coverMapFrame(1500, 900), { width: 1800, height: 900 });
+  assert.deepEqual(coverMapFrame(700, 900), { width: 1800, height: 900 });
+});
+
+test("en zoom, un cadre plus large que 2:1 déborde verticalement et remplit sa largeur", () => {
+  assert.deepEqual(coverMapFrame(1800, 700), { width: 1800, height: 900 });
 });
