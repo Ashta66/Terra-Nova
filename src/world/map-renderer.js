@@ -1614,33 +1614,6 @@ export function getProjectedPathCacheStats() {
     maxCombinedLandMaskCacheEntries: COMBINED_LAND_MASK_CACHE_LIMIT
   };
 }
-function getStaticLayerCache(canvas) {
-  let cache = staticLayerCache.get(canvas);
-  if (!cache) { cache = new Map(); staticLayerCache.set(canvas, cache); }
-  return cache;
-}
-
-function createStaticSurface(width, height) {
-  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(width, height);
-  if (typeof document !== "undefined") {
-    const surface = document.createElement("canvas");
-    surface.width = width;
-    surface.height = height;
-    return surface;
-  }
-  return null;
-}
-
-export function getStaticLayerCacheStats(canvas) {
-  const cache = canvas && staticLayerCache.get(canvas);
-  return {
-    entries: cache?.size ?? 0,
-    maxEntries: STATIC_LAYER_CACHE_LIMIT,
-    bytes: cache?.bytes ?? 0,
-    maxBytes: STATIC_LAYER_CACHE_MAX_BYTES
-  };
-}
-
 export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
