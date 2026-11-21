@@ -50,7 +50,7 @@ test("les niveaux LOD sont calculés une fois puis réutilisés pendant les dép
 test("les collections LOD absentes restent sans effet et les seuils sont ordonnés",()=>{
  const lod=createGeoJsonLodSet(null,[{maxZoom:3,tolerance:0.1}],0);
  assert.equal(lod.getForZoom(1),null);
- assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1,generationTimeMs:0,lastGenerationMs:0,removedVertices:0,cachedTolerances:[],workerCollectionTransfers:0,workerJobsCompleted:0,workerActive:false});
+ assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1,generationTimeMs:0,lastGenerationMs:0,removedVertices:0,cachedTolerances:[],workerCollectionTransfers:0,workerJobsCompleted:0,workerCreationAttempts:0,workerCreationFailures:0,workerRuntimeFailures:0,workerSyncFallbackJobs:0,workerActive:false});
 });
 
 
@@ -206,4 +206,17 @@ test("les niveaux LOD successifs réutilisent le même worker et ne retransfère
  assert.equal(stats.workerJobsCompleted,2);
  assert.notEqual(lod.getForZoom(4),base,"le troisième niveau est préchauffé par le second appel adjacent");
  lod.dispose();
+});
+
+
+test("les statistiques distinguent un worker indisponible du fallback synchrone", async () => {
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ const lod=createGeoJsonLodSet(base,[{maxZoom:2,tolerance:0.01}],0.0001,{createWorker:()=>null});
+ assert.equal(await lod.prepareZoomAsync(1),true);
+ const stats=lod.getStats();
+ assert.equal(stats.workerCreationAttempts,1);
+ assert.equal(stats.workerCreationFailures,1);
+ assert.equal(stats.workerSyncFallbackJobs,1);
+ assert.equal(stats.workerRuntimeFailures,0);
 });
