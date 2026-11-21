@@ -17,7 +17,7 @@ function createMockGl() {
     createShader: () => ({ id: ++nextId }),
     shaderSource() {}, compileShader() {}, getShaderParameter: () => true, deleteShader() {},
     createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
-    getProgramParameter: () => true, getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    getProgramParameter: () => true, getAttribLocation: (_program, name) => ({ a_coordinate: 0, a_longitude_anchor: 1 }[name] ?? 0), getUniformLocation: () => ({}),
     deleteProgram() {},
     createBuffer: () => ({ id: ++nextId }),
     deleteBuffer(buffer) { deleted.add(buffer); },
@@ -50,7 +50,7 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
 
   const first = renderer.renderLayers([{ key: "land", type: "polygons", features }], 800, 400, viewport);
   assert.equal(first.cacheHit, false);
-  assert.equal(first.bufferUploads, 16, "les huit compartiments stables produisent chacun un buffer vertex et index");
+  assert.equal(first.bufferUploads, 24, "les huit compartiments stables produisent chacun trois buffers : positions, ancrages et indices");
   assert.equal(first.drawCalls, 8);
   const initialUploadBytes = first.uploadedBytes;
   assert.ok(initialUploadBytes > 0);
@@ -59,7 +59,7 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
   changed.push(polygonFeature(65));
   const second = renderer.renderLayers([{ key: "land", type: "polygons", features: changed }], 800, 400, viewport);
   assert.equal(second.cacheHit, false);
-  assert.equal(second.bufferUploads, 2, "seul le compartiment contenant la feature modifiée doit être réuploadé");
+  assert.equal(second.bufferUploads, 3, "seul le compartiment contenant la feature modifiée doit être réuploadé");
   assert.equal(second.drawCalls, 8);
   assert.ok(second.uploadedBytes < initialUploadBytes);
 
@@ -67,7 +67,7 @@ test("le cache WebGL polygonal ne reconstruit que le bloc de features modifié",
   assert.equal(third.cacheHit, true, "une nouvelle liste avec les mêmes références doit réutiliser les deux blocs");
   assert.equal(third.bufferUploads, 0);
   assert.equal(third.uploadedBytes, 0);
-  assert.equal(uploaded.length, 18);
+  assert.equal(uploaded.length, 27);
   renderer.dispose();
 });
 
@@ -185,6 +185,8 @@ test("le maillage polygonal ne produit pas de triangles dégénérés après con
     }
   });
   assert.equal(mesh.supported, true);
+  assert.equal(mesh.anchors.length, mesh.vertexCount);
+  assert.ok(mesh.anchors.every(anchor => anchor === 10), "chaque sommet du polygone partage le même ancrage longitudinal");
   for (let index = 0; index < mesh.indices.length; index += 3) {
     const a = mesh.indices[index] * 2;
     const b = mesh.indices[index + 1] * 2;
