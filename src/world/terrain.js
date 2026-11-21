@@ -283,7 +283,8 @@ const TERRAIN_SURFACES_PER_GRID = 6;
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false, hillshadeOnly = false) {
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
-  if (typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
+  if (globalThis.__TERRA_DISABLE_TERRAIN_RASTER_TILES !== true
+    && typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
     return drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly);
   }
   // Raster compact : l'ombrage multidirectionnel donne le détail, pas une haute résolution brute.
