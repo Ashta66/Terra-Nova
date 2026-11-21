@@ -27,3 +27,28 @@ test("ignore les collections absentes et les tolérances invalides",()=>{
  const source={type:"FeatureCollection",features:[]};
  assert.equal(simplifyGeoJsonCollection(source,0),source);
 });
+
+
+test("les niveaux LOD sont calculés une fois puis réutilisés pendant les déplacements",()=>{
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const source={type:"FeatureCollection",features:[polygon([ring])]};
+ const base=simplifyGeoJsonCollection(source,0.0001);
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:2,tolerance:0.01},
+  {maxZoom:5,tolerance:0.002}
+ ],0.0001);
+ const coarse=lod.getForZoom(1.5);
+ assert.equal(lod.getStats().generatedLevels,1);
+ assert.equal(lod.getForZoom(1.2),coarse,"un même niveau de zoom doit réutiliser la collection déjà préparée");
+ const medium=lod.getForZoom(3);
+ assert.notEqual(medium,coarse);
+ assert.equal(lod.getForZoom(4.5),medium,"les pans et zooms dans le même palier réutilisent la géométrie");
+ assert.equal(lod.getForZoom(8),base,"le niveau de base détaillé sert au zoom rapproché");
+ assert.equal(lod.getStats().generatedLevels,2);
+});
+
+test("les collections LOD absentes restent sans effet et les seuils sont ordonnés",()=>{
+ const lod=createGeoJsonLodSet(null,[{maxZoom:3,tolerance:0.1}],0);
+ assert.equal(lod.getForZoom(1),null);
+ assert.deepEqual(lod.getStats(),{generatedLevels:0,cachedLevels:0,configuredLevels:1});
+});
