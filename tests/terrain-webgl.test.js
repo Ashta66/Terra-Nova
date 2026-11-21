@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileAtlasBatchVertices, createTerrainWebGLTileAtlas, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileAtlasBatchVertices, createTerrainWebGLTileAtlas, expandTerrainTileRect, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+
+test("les rectangles de tuiles se recouvrent d'un pixel pour supprimer les fissures de rasterisation", () => {
+  const left = expandTerrainTileRect({ x: 0, y: 4, width: 10, height: 8 }, 20, 20);
+  const right = expandTerrainTileRect({ x: 10, y: 4, width: 10, height: 8 }, 20, 20);
+  assert.ok(left && right);
+  assert.equal(left.right, 10.5);
+  assert.equal(right.left, 9.5);
+  assert.equal(left.right - right.left, 1);
+  assert.ok(left.tx1 > 1, "le bord droit échantillonne le halo de la tuile");
+  assert.ok(right.tx0 < 0, "le bord gauche échantillonne le halo de la tuile");
+  assert.equal(expandTerrainTileRect({ x: 30, y: 0, width: 4, height: 4 }, 20, 20), null);
+});
 
 test("le shader des tuiles décode chaque altitude avant le filtrage bilinéaire", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
