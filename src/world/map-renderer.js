@@ -1554,7 +1554,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     lakeCount: staticStats?.lakeCount ?? 0, riverCount: staticStats?.riverCount ?? 0,
     elevationPointCount: staticStats?.elevationPointCount ?? 0, politicalBoundaryCount,
     administrativeBoundaryCount, labelHits, terrainEnabled, terrainRenderer: staticStats?.terrainRenderer ?? "canvas2d",
-    webglStats: staticStats?.webglStats ?? null, projectedPathCacheStats: getProjectedPathCacheStats(),
+    webglStats: staticStats?.webglStats ?? null,
+    terrainTileStats: getTerrainWebGLTileStats(options.terrainTileStore),
+    projectedPathCacheStats: getProjectedPathCacheStats(),
     staticCacheHit, width, height
   };
 }
