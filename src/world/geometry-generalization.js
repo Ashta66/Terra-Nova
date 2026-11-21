@@ -97,3 +97,41 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   });
   return {...collection,features,geometryStats:{originalVertices,simplifiedVertices,removedVertices:originalVertices-simplifiedVertices,changedFeatures,tolerance}};
 }
+
+
+/**
+ * Cache paresseusement plusieurs versions généralisées d'une même collection.
+ * Les géométries sont calculées une seule fois par niveau de zoom puis réutilisées
+ * pendant les pans et les rendus suivants. Le niveau de base est déjà généralisé
+ * au chargement et sert de repli lorsque le zoom dépasse les seuils configurés.
+ */
+export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0) {
+  const normalizedLevels = levels
+    .filter(level => Number.isFinite(level?.maxZoom) && Number.isFinite(level?.tolerance) && level.tolerance > 0)
+    .map(level => ({ maxZoom: level.maxZoom, tolerance: level.tolerance }))
+    .sort((a, b) => a.maxZoom - b.maxZoom);
+  const cache = new Map();
+  let generatedLevels = 0;
+
+  function getForZoom(zoom = 1) {
+    if (!baseCollection?.features) return baseCollection;
+    const level = normalizedLevels.find(item => Number(zoom) <= item.maxZoom);
+    if (!level || level.tolerance <= baseTolerance) return baseCollection;
+    if (cache.has(level.tolerance)) return cache.get(level.tolerance);
+    const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
+    cache.set(level.tolerance, generalized);
+    generatedLevels += 1;
+    return generalized;
+  }
+
+  return {
+    getForZoom,
+    getStats() {
+      return {
+        generatedLevels,
+        cachedLevels: cache.size,
+        configuredLevels: normalizedLevels.length
+      };
+    }
+  };
+}
