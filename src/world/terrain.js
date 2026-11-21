@@ -11,14 +11,29 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   for (let i = 0; i < values.length; i++) values[i] = view.getInt16(i * 2, true);
   let min = Infinity, max = -Infinity;
   for (const value of values) { if (value < min) min = value; if (value > max) max = value; }
-  return { width, height, values, min, max };
+  return {
+    width, height, values, min, max,
+    // ETOPO 2022 décimé : coordonnées exactes des centres de pixels
+    // déclarées dans data/terrain/etopo_global_10m.json.
+    longitudeFirst: -179.99166666666667,
+    latitudeFirst: 89.84166666666667,
+    spacingDegrees: 1 / 6
+  };
+}
+
+function terrainGridCoordinates(grid, longitude, latitude) {
+  const spacing = Number(grid.spacingDegrees) || (180 / grid.height);
+  const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + spacing / 2;
+  const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - spacing / 2;
+  const wrappedLongitude = longitudeFirst + (((longitude - longitudeFirst) % 360) + 360) % 360;
+  const x = (wrappedLongitude - longitudeFirst) / spacing;
+  const y = clamp((latitudeFirst - latitude) / spacing, 0, grid.height - 1);
+  return { x, y };
 }
 
 export function sampleElevation(grid, longitude, latitude) {
   if (!grid?.values || !Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
-  const lon = ((longitude + 180) % 360 + 360) % 360;
-  const x = lon / 360 * grid.width - 0.5;
-  const y = clamp((90 - latitude) / 180 * grid.height - 0.5, 0, grid.height - 1);
+  const { x, y } = terrainGridCoordinates(grid, longitude, latitude);
   const rawX = Math.floor(x), x0 = ((rawX % grid.width) + grid.width) % grid.width, x1 = (x0 + 1) % grid.width;
   const y0 = Math.floor(y), y1 = Math.min(grid.height - 1, y0 + 1), fx = x - rawX, fy = y - y0;
   const at = (column, row) => grid.values[row * grid.width + column];
@@ -188,7 +203,7 @@ export function prepareTerrainHillshade(grid) {
 }
 function samplePreparedHillshade(grid,longitude,latitude){
  const shades=hillshadeGridCache.get(grid);if(!(shades instanceof Uint8Array))return null;
- const x=(((longitude+180)%360+360)%360)/360*grid.width-.5,y=clamp((90-latitude)/180*grid.height-.5,0,grid.height-1);
+ const {x,y}=terrainGridCoordinates(grid,longitude,latitude);
  const rawX=Math.floor(x),x0=((rawX%grid.width)+grid.width)%grid.width,x1=(x0+1)%grid.width,y0=Math.floor(y),y1=Math.min(grid.height-1,y0+1),fx=x-rawX,fy=y-y0;
  const at=(ix,iy)=>shades[iy*grid.width+ix]/255,a=at(x0,y0)*(1-fx)+at(x1,y0)*fx,b=at(x0,y1)*(1-fx)+at(x1,y1)*fx;
  return .48+(a*(1-fy)+b*fy)*1.04;
@@ -202,7 +217,7 @@ function physicalLookup(world) {
 }
 export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
- const x=(((lon+180)%360+360)%360)/360*grid.width,y=clamp((90-lat)/180*grid.height,0,grid.height-1);
+ const {x,y}=terrainGridCoordinates(grid,lon,lat);
  if(!(lookup.levels instanceof Map)){const c=lookup.get(Math.floor(y/12)+":"+Math.floor(x/12));if(!c)return base;if(c.inundated)return -Math.max(.1,Number(c.waterDepthM)||.1);return base+(Number(c.elevationDeltaM)||0);}
  for(const step of lookup.steps??[...lookup.levels.keys()].sort((a,b)=>a-b)){
   const level=lookup.levels.get(step);if(!level)continue;
