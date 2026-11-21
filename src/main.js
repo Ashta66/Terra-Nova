@@ -24,7 +24,7 @@ import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
 window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
@@ -35,6 +35,7 @@ let state = createGameState();
 let interval = null;
 let worldFeatures = null;
 let worldLandLod = null;
+const landLodSelector = createMapLayerLodSelector(0.18);
 let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
@@ -719,7 +720,7 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const selectedLandDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const selectedLandDetail = landLodSelector.select(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
   const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
   const landDetail = {
     ...selectedLandDetail,
@@ -777,6 +778,7 @@ async function installFullMapPack() {
     });
     regionalLandFeatures = null;
     regionalLandLod = null;
+    landLodSelector.reset();
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
