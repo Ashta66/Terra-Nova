@@ -214,9 +214,14 @@ test("le masque terrestre réutilise les Path2D projetés du remplissage", () =>
     assert.ok(first instanceof MockPath2D);
     assert.ok(second instanceof MockPath2D);
     assert.equal(first.paths.length, 1);
-    assert.equal(second.paths.length, 1);
+    assert.equal(second, first, "le masque composé doit être réutilisé pour la même cellule de vue");
     assert.equal(first.paths[0], second.paths[0]);
-    assert.equal(MockPath2D.created, 3, "un seul chemin de feature doit être préparé puis réutilisé");
+    assert.equal(MockPath2D.created, 2, "un masque composé et un chemin de feature suffisent");
+    const moved = buildLandClipPath(collection, 800, 400, {
+      type: "equirectangular",
+      viewport: { zoom: 2, centerLongitude: 2, centerLatitude: 0 }
+    }, { tolerance: 1, minRingArea: 0 });
+    assert.notEqual(moved, first, "un déplacement vers une autre cellule doit produire un masque distinct");
   } finally {
     if (previousPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previousPath2D;
