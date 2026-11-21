@@ -124,9 +124,9 @@ Les changements réduisent les reconstructions de buffers prévues par l'archite
 
 ## Optimisations incrémentales et budgets mémoire
 
-Les couches polygonales WebGL sont découpées en blocs stables de 64 features. Lorsqu'une collection change, le renderer compare les références des features bloc par bloc et ne reconstruit que les blocs dont le contenu a changé. Les blocs inchangés conservent leurs buffers GPU. Cette stratégie évite de réuploader une couche polygonale entière pour une modification localisée ; une insertion ou une réorganisation peut toutefois décaler plusieurs blocs et provoquer davantage de reconstructions.
+Les couches polygonales WebGL sont réparties en huit compartiments stables par identité de feature. Lorsqu'une collection change, le renderer compare les références des features bloc par bloc et ne reconstruit que les blocs dont le contenu a changé. Les blocs inchangés conservent leurs buffers GPU. Cette stratégie évite de réuploader une couche polygonale entière pour une modification localisée ; une insertion ou une réorganisation peut toutefois décaler plusieurs blocs et provoquer davantage de reconstructions.
 
-Le cache de chemins projetés est borné à 1 024 chemins et 500 000 sommets estimés (environ 16 Mo selon l'estimation logicielle de 32 octets par sommet), avec au plus six variantes par feature. Le cache des masques terrestres composés conserve jusqu'à 12 vues quantifiées. Ces limites bornent la rétention, mais les objets Path2D ne fournissent pas leur taille mémoire native.
+Le cache de chemins projetés est borné à 2 048 chemins et 500 000 sommets estimés (environ 16 Mo selon l'estimation logicielle de 32 octets par sommet), avec au plus six variantes par feature. Le cache des masques terrestres composés conserve jusqu'à 12 vues quantifiées. Ces limites bornent la rétention, mais les objets Path2D ne fournissent pas leur taille mémoire native.
 
 Le cache de buffers géographiques conserve au plus 12 couches et applique également un budget cible de 128 Mio aux tableaux associés aux buffers. Les couches utilisées dans le passage courant ne sont pas évincées avant le dessin ; si les seules couches actives dépassent le budget, elles restent disponibles pour ce passage et seront réévaluées au suivant. Les octets sont calculés à partir des tableaux CPU associés et ne constituent pas une mesure exacte de la mémoire GPU du pilote.
 
@@ -154,3 +154,10 @@ Avant chaque série PC :
 5. Exporter le JSON complet. Vérifier `mobileUserAgent: false`, `maxTouchPoints` cohérent avec le poste, ainsi que `screenWidth/screenHeight` et `viewportWidth/viewportHeight`.
 
 Ne pas comparer directement les résultats Pixel 10/mobile aux nouvelles références PC. Conserver deux séries distinctes : `desktop-pc` et `mobile-device`.
+
+
+### Diagnostic des Workers LOD
+
+Le collecteur distingue désormais les tentatives de création du Worker, les échecs de création, les erreurs d'exécution et les générations effectuées en repli synchrone : `lod:workerCreationAttempts`, `lod:workerCreationFailures`, `lod:workerRuntimeFailures` et `lod:workerSyncFallbackJobs`. Ces compteurs sont indispensables pour interpréter une génération LOD sans transfert ni tâche Worker : un navigateur sans Worker utilisable peut emprunter le repli local, qui peut consommer du temps sur le thread principal. Un `workerActive` à zéro seul ne permet pas de distinguer « aucun travail demandé » de « Worker indisponible ».
+
+Pour la prochaine collecte, lancer un scénario distinct au zoom mondial 3–5, attendre le préchauffage, puis contrôler les quatre nouveaux compteurs ainsi que `lod:workerCollectionTransfers`, `lod:workerJobsCompleted` et `lod:workerActive`. Le temps `lod:generationTimeMs` reste un temps écoulé jusqu'à disponibilité du résultat, pas un temps CPU pur. Ne pas augmenter les tolérances ou déplacer davantage de travail avant d'avoir identifié le chemin réellement emprunté.
