@@ -131,3 +131,23 @@ test("exporte des métriques distinctes pour les familles physique, politique et
   assert.equal(metrics["family:politicalMs"].median, 2.25);
   assert.equal(metrics["family:dynamicMs"].median, 1.5);
 });
+
+test("exporte les métriques de couverture et d'attente des tuiles de relief", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 10;
+  collector.record({ totalRenderMs: 10, terrainTileStats: {
+    tileCount: 8, pendingCount: 2, visibleTiles: 6, preloadedTiles: 3, lod: 1,
+    transitionProgress: 0.5, atlasCapacity: 32, atlasMemoryBytes: 1048576,
+    readyChildTiles: 4, pendingChildTiles: 2, waitingForTiles: true, capacityLimited: false
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["terrainTiles:tileCount"].median, 8);
+  assert.equal(metrics["terrainTiles:pendingCount"].median, 2);
+  assert.equal(metrics["terrainTiles:visibleTiles"].median, 6);
+  assert.equal(metrics["terrainTiles:transitionProgress"].median, 0.5);
+  assert.equal(metrics["terrainTiles:waitingForTiles"].median, 1);
+  assert.equal(metrics["terrainTiles:capacityLimited"].median, 0);
+});
