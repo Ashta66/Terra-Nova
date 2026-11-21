@@ -79,3 +79,15 @@ test("le renderer expose le budget mémoire GPU et libère les buffers à dispos
   renderer.dispose();
   assert.ok(deleted.size >= 2);
 });
+
+
+test("le renderer refuse un buffer polygonal WebGL invalide avant drawElements", () => {
+  const { gl } = createMockGl();
+  gl.isBuffer = () => false;
+  const renderer = createGeographicWebGLRenderer(gl);
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }),
+  /Cache WebGL géographique invalide/);
+  renderer.dispose();
+});
