@@ -5,7 +5,7 @@ import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
-import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
@@ -34,6 +34,7 @@ window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
 let state = createGameState();
 let interval = null;
 let worldFeatures = null;
+let worldLandLod = null;
 let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
@@ -56,6 +57,8 @@ let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
 let regionalLandFeatures = null;
+    regionalLandLod = null;
+let regionalLandLod = null;
 let regionalLandLoadPromise = null;
 let regionalLandLoadAttempted = false;
 let regionalRiverFeatures = null;
@@ -613,6 +616,9 @@ function renderMapFrame() {
     regionalLandLoadAttempted = true;
     regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
       regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
+      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, [
+        { maxZoom: 9, tolerance: 0.004 }
+      ], 0.0018);
       if (features) {
         lastRenderedMapSignature = null;
         renderMap();
@@ -714,7 +720,12 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const selectedLandDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
+  const landDetail = {
+    ...selectedLandDetail,
+    features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
+  };
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, null, Infinity);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
@@ -801,6 +812,11 @@ async function loadWorldMap() {
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
     worldFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(worldFeatures,100,false),0.008);
+    worldLandLod = createGeoJsonLodSet(worldFeatures, [
+      { maxZoom: 1.8, tolerance: 0.04 },
+      { maxZoom: 3.5, tolerance: 0.02 },
+      { maxZoom: 6, tolerance: 0.008 }
+    ], 0.008);
     lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
     riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
     glacierFeatures = simplifyGeoJsonCollection(glacierFeatures,0.008);
