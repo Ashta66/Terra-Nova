@@ -325,3 +325,42 @@ test("le renderer WebGL libère les buffers des couches retirées puis ceux rest
   renderer.renderLayers([], 100, 80);
   assert.equal(deletedBuffers.has(activeBuffer), true, "dispose est idempotent");
 });
+
+
+test("le renderer WebGL expose le coût de géométrie, upload, cache et mémoire GPU", async () => {
+  const { createGeographicWebGLRenderer } = await import("../src/world/geographic-webgl-renderer.js");
+  let nextId = 0;
+  const gl = {
+    canvas: { width: 0, height: 0 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, STATIC_DRAW: 7, DYNAMIC_DRAW: 8,
+    COLOR_BUFFER_BIT: 9, BLEND: 10, SRC_ALPHA: 11, ONE_MINUS_SRC_ALPHA: 12,
+    FLOAT: 13, TRIANGLES: 14,
+    createShader: () => ({ id: ++nextId }), shaderSource() {}, compileShader() {},
+    getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    deleteProgram() {}, createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
+    bindBuffer() {}, bufferData() {}, viewport() {}, clearColor() {}, clear() {},
+    enable() {}, blendFunc() {}, useProgram() {}, uniform2f() {}, uniform1f() {},
+    uniform4fv() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    drawArrays() {}, drawElements() {}
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const polygon = { geometry: { type: "Polygon", coordinates: [[
+    [-10, -5], [10, -5], [10, 5], [-10, 5], [-10, -5]
+  ]] } };
+  const layers = [{ key: "land-fill", type: "polygons", features: [polygon] }];
+  const first = renderer.renderLayers(layers, 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(first.cacheHit, false);
+  assert.ok(first.geometryBuildMs >= 0);
+  assert.ok(first.bufferUploadMs >= 0);
+  assert.ok(first.cachedGpuBytes > 0);
+  assert.ok(first.uploadedBytes > 0);
+  const second = renderer.renderLayers(layers, 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.cachedGpuBytes, first.cachedGpuBytes);
+  renderer.dispose();
+});
