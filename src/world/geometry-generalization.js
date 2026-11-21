@@ -136,8 +136,11 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     const current = Number(zoom);
     if (!Number.isFinite(current)) return null;
     if (direction >= 0) {
-      const next = normalizedLevels.find(level => level.maxZoom > current && level.tolerance > baseTolerance);
-      return next ? Math.max(0, next.maxZoom - 0.001) : null;
+      const activeIndex = normalizedLevels.findIndex(level => current <= level.maxZoom);
+      if (activeIndex < 0) return null;
+      const active = normalizedLevels[activeIndex];
+      if (active.tolerance <= baseTolerance) return null;
+      return active.maxZoom + 0.001;
     }
     const previous = [...normalizedLevels].reverse().find(level => level.maxZoom < current && level.tolerance > baseTolerance);
     return previous ? previous.maxZoom : null;
