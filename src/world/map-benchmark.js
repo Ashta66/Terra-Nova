@@ -51,6 +51,10 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     add("lod:removedVertices", lod.removedVertices);
     add("lod:workerCollectionTransfers", lod.workerCollectionTransfers);
     add("lod:workerJobsCompleted", lod.workerJobsCompleted);
+    add("lod:workerCreationAttempts", lod.workerCreationAttempts);
+    add("lod:workerCreationFailures", lod.workerCreationFailures);
+    add("lod:workerRuntimeFailures", lod.workerRuntimeFailures);
+    add("lod:workerSyncFallbackJobs", lod.workerSyncFallbackJobs);
     add("lod:workerActive", typeof lod.workerActive === "boolean" ? (lod.workerActive ? 1 : 0) : null);
     add("lod:transitionMs", result.lodTransitionMs);
     add("lod:crossfadeBytes", result.lodCrossfadeBytes);
