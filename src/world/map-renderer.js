@@ -339,13 +339,36 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
   return path;
 }
 
-/** Construit le masque terrestre en réutilisant les Path2D déjà préparés pour le remplissage. */
+const combinedLandMaskCache = new Map();
+const COMBINED_LAND_MASK_CACHE_LIMIT = 6;
+
+/** Construit et met en cache le masque terrestre composé à partir des Path2D des features. */
 export function buildLandClipPath(collection, width, height, projection, coastProfile) {
   if (typeof Path2D === "undefined") return null;
+  const features = collection?.features ?? [];
+  const viewport = projection.viewport ?? {};
+  const zoom = Math.max(1, Number(viewport.zoom ?? 1));
+  const centerStep = 1 / zoom;
+  const centerLongitude = ((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360 - 180;
+  const snappedLongitude = Math.round(centerLongitude / centerStep) * centerStep;
+  const snappedLatitude = Math.round(Number(viewport.centerLatitude ?? 0) / centerStep) * centerStep;
+  const key = [
+    width, height, projection.type, zoom.toFixed(4),
+    snappedLongitude.toFixed(4), snappedLatitude.toFixed(4),
+    coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
+    coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all",
+    ...features.map(renderObjectId)
+  ].join(":");
+  const cached = combinedLandMaskCache.get(key);
+  if (cached) {
+    combinedLandMaskCache.delete(key);
+    combinedLandMaskCache.set(key, cached);
+    return cached;
+  }
   const combined = new Path2D();
   if (typeof combined.addPath !== "function") return null;
   let appended = 0;
-  for (const feature of collection?.features ?? []) {
+  for (const feature of features) {
     if (!feature?.geometry) continue;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
@@ -355,7 +378,12 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
       appended++;
     }
   }
-  return appended ? combined : null;
+  if (!appended) return null;
+  combinedLandMaskCache.set(key, combined);
+  while (combinedLandMaskCache.size > COMBINED_LAND_MASK_CACHE_LIMIT) {
+    combinedLandMaskCache.delete(combinedLandMaskCache.keys().next().value);
+  }
+  return combined;
 }
 
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
