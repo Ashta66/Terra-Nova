@@ -72,6 +72,27 @@ function hasSupportedLineCoordinates(mesh) {
   return true;
 }
 
+function getBoundaryPaths(feature) {
+  const geometry = feature?.geometry;
+  if (geometry?.type === "LineString") return [geometry.coordinates];
+  if (geometry?.type === "MultiLineString") return geometry.coordinates;
+  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
+    : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
+  if (!polygons?.length) return null;
+  const paths = [];
+  for (const polygon of polygons) {
+    if (!Array.isArray(polygon) || !polygon.length) return null;
+    for (const ring of polygon) {
+      if (!Array.isArray(ring) || ring.length < 3) return null;
+      const first = ring[0], last = ring[ring.length - 1];
+      const isClosed = Array.isArray(first) && Array.isArray(last)
+        && Number(first[0]) === Number(last[0]) && Number(first[1]) === Number(last[1]);
+      paths.push(isClosed ? ring : [...ring, first]);
+    }
+  }
+  return paths;
+}
+
 function buildRibbonBuffer(segmentGroups, gl, message) {
   const groups = segmentGroups.filter(group => group?.length >= 4);
   if (!groups.length) return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
@@ -158,15 +179,10 @@ function buildBoundaryLineBatch(features, gl) {
   const segmentGroups = [];
   let drawnFeatures = 0, skippedFeatures = 0;
   for (const feature of features) {
-    const geometry = feature?.geometry;
-    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
-      : geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-    const lines = geometry?.type === "LineString" ? [geometry.coordinates]
-      : geometry?.type === "MultiLineString" ? geometry.coordinates : null;
-    if (!polygons?.length && !lines?.length) { skippedFeatures++; continue; }
+    const paths = getBoundaryPaths(feature);
+    if (!paths?.length) { skippedFeatures++; continue; }
     const featureGroups = [];
     let valid = true;
-    const paths = lines ?? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring));
     for (const coordinates of paths) {
       const mesh = buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } });
       if (!hasSupportedLineCoordinates(mesh)) { valid = false; break; }
@@ -180,14 +196,8 @@ function buildBoundaryLineBatch(features, gl) {
 }
 
 export function isSupportedGeographicBoundary(feature) {
-  const geometry = feature?.geometry;
-  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
-    geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-  const lines = geometry?.type === "LineString" ? [geometry.coordinates] :
-    geometry?.type === "MultiLineString" ? geometry.coordinates : null;
-  if (!polygons?.length && !lines?.length) return false;
-  const paths = lines ?? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring));
-  return paths.length > 0 && paths.every(coordinates =>
+  const paths = getBoundaryPaths(feature);
+  return Boolean(paths?.length) && paths.every(coordinates =>
     hasSupportedLineCoordinates(buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } }))
   );
 }
