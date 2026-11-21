@@ -26,7 +26,8 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const webgl = result.webglStats ?? {};
     for (const key of ["geometryBuildMs", "bufferUploadMs", "cacheBuildMs", "drawSubmitMs",
       "totalMs", "uploadedBytes", "cachedGpuBytes", "cacheBudgetBytes", "cacheEvictedLayers",
-      "bufferUploads", "drawCalls", "triangles"]) {
+      "bufferUploads", "drawCalls", "triangles", "vertexBufferCapacityBytes",
+      "vertexBufferUploadBytes", "vertexBufferAllocations"]) {
       add("webgl:" + key, webgl[key]);
     }
     add("webgl:cacheHit", typeof webgl.cacheHit === "boolean" ? (webgl.cacheHit ? 1 : 0) : null);
