@@ -1261,6 +1261,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       features: (visibleGlaciers?.features ?? []).filter(feature => Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0) <= 4)
     } : { type: "FeatureCollection", features: [] };
     const majorLakes = { type: "FeatureCollection", features: selectMajorLakeFeatures(visibleLakes, detailProfile.lakesRank, MAX_VISIBLE_LAKES) };
+    const majorRivers = { type: "FeatureCollection", features: selectMajorRiverFeatures(visibleRivers, detailProfile.riversRank, detailProfile.riversMax) };
     const geographicRenderer = options.geographicWebGLRenderer;
     let geographicDetailGpu = false;
     let glacierCount = 0, lakeCount = 0, riverCount = 0;
@@ -1270,8 +1271,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       try {
         const supportedGlaciers = glaciersVisible.features.filter(feature => geographicRenderer.supports(feature));
         const supportedLakes = majorLakes.features.filter(feature => geographicRenderer.supports(feature));
-        const supportedRivers = (visibleRivers?.features ?? []).filter(feature =>
-          riverFeatureRank(feature) <= detailProfile.riversRank && geographicRenderer.supportsLine(feature));
+        const supportedRivers = majorRivers.features.filter(feature => geographicRenderer.supportsLine(feature));
         const ratio = backingWidth / width;
         const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
         const lakeColor = parseWebGLColor(theme.colors.ocean);
@@ -1287,16 +1287,20 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         target.restore();
         const unsupportedGlaciers = glaciersVisible.features.filter(feature => !geographicRenderer.supports(feature));
         const unsupportedLakes = majorLakes.features.filter(feature => !geographicRenderer.supports(feature));
-        const unsupportedRivers = (visibleRivers?.features ?? []).filter(feature =>
-          riverFeatureRank(feature) <= detailProfile.riversRank && !geographicRenderer.supportsLine(feature));
-        glacierCount = measureLayer("glaciers", () =>
-          drawPolygonLayer(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, "#dce8e5", null, 0, 0.88, false, 4)
-          + drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.7, 0.88, false, 4));
-        lakeCount = measureLayer("lacs", () =>
-          drawPolygonLayer(target, { ...majorLakes, features: unsupportedLakes }, width, height, projection, theme.colors.ocean, null, 0, 1, true, detailProfile.lakesRank, lakeProfile)
-          + drawPolygonLayer(target, majorLakes, width, height, projection, "rgba(0,0,0,0)", theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, lakeProfile));
+        const unsupportedRivers = majorRivers.features.filter(feature => !geographicRenderer.supportsLine(feature));
+        glacierCount = measureLayer("glaciers", () => {
+          drawPolygonLayer(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, "#dce8e5", null, 0, 0.88, false, 4);
+          drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.7, 0.88, false, 4);
+          return glaciersVisible.features.length;
+        });
+        lakeCount = measureLayer("lacs", () => {
+          drawPolygonLayer(target, { ...majorLakes, features: unsupportedLakes }, width, height, projection, theme.colors.ocean, null, 0, 1, true, detailProfile.lakesRank, lakeProfile);
+          drawPolygonLayer(target, majorLakes, width, height, projection, "rgba(0,0,0,0)", theme.colors.accent, 0.55, 1, true, detailProfile.lakesRank, lakeProfile);
+          return majorLakes.features.length;
+        });
         riverCount = measureLayer("rivières", () =>
-          drawLineLayer(target, { ...visibleRivers, features: unsupportedRivers }, width, height, projection, theme.colors.accent, 0.7, riverProfile, detailProfile.riversRank, detailProfile.riversMax));
+          drawLineLayer(target, { ...majorRivers, features: unsupportedRivers }, width, height, projection, theme.colors.accent, 0.7, riverProfile, detailProfile.riversRank, detailProfile.riversMax)
+          + supportedRivers.length);
         geographicDetailGpu = true;
       } catch {
         geographicDetailGpu = false;
