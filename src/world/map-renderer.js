@@ -1282,6 +1282,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         renderTimings["relief-base"] = 0;
       }
       target.restore();
+      if (typeof window !== "undefined" && target?.canvas) {
+        window.__TERRA_TERRAIN_DIAGNOSTIC_CANVAS = target.canvas;
+      }
     }
     // Le fond terrestre sert uniquement de masque géographique sous les pays.
     // Les polygones simples passent au GPU ; les trous, anneaux invalides et
