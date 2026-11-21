@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileAtlasBatchVertices, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileAtlasBatchVertices, createTerrainWebGLTileAtlas, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
 
 test("le shader des tuiles décode chaque altitude avant le filtrage bilinéaire", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
@@ -30,4 +30,25 @@ test("le buffer de sommets WebGL grandit par paliers et réutilise sa capacité"
   assert.equal(getTerrainVertexBufferCapacity(4096, 4096), 4096);
   assert.equal(getTerrainVertexBufferCapacity(4096, 4097), 8192);
   assert.equal(getTerrainVertexBufferCapacity(0, 0), 0);
+});
+
+test("l'atlas des altitudes utilise NEAREST pour éviter le mélange des octets encodés", () => {
+  const calls = [];
+  const gl = {
+    MAX_TEXTURE_SIZE: 1, TEXTURE_2D: 2, TEXTURE_MIN_FILTER: 3, TEXTURE_MAG_FILTER: 4,
+    TEXTURE_WRAP_S: 5, TEXTURE_WRAP_T: 6, NEAREST: 7, LINEAR: 8, CLAMP_TO_EDGE: 9,
+    UNPACK_ALIGNMENT: 10, LUMINANCE_ALPHA: 11, UNSIGNED_BYTE: 12,
+    getParameter: () => 1024,
+    createTexture: () => ({}),
+    bindTexture() {},
+    texParameteri: (...args) => calls.push(args),
+    pixelStorei() {},
+    texImage2D() {}
+  };
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { slotsPerSide: 2, maxBytes: 4096 });
+  assert.ok(atlas);
+  assert.ok(calls.some(args => args[0] === gl.TEXTURE_MIN_FILTER && args[1] === gl.NEAREST));
+  assert.ok(calls.some(args => args[0] === gl.TEXTURE_MAG_FILTER && args[1] === gl.NEAREST));
+  assert.ok(calls.every(args => args[1] !== gl.LINEAR));
+  atlas.dispose();
 });
