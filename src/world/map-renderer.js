@@ -1534,5 +1534,15 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
 }
 
 export function getProjectedPathCacheStats() {
-  return { cachedPaths: projectedPathCacheLru.size, maxCachedPaths: MAX_PROJECTED_PATHS, cachedVertices: projectedPathVertexCount, maxCachedVertices: MAX_PROJECTED_PATH_VERTICES };
+  // Path2D n'expose pas sa taille mémoire réelle ; 32 octets par sommet est
+  // une estimation de budget (coordonnées + structures de chemin), pas une
+  // mesure native du heap ni de la mémoire GPU.
+  return {
+    cachedPaths: projectedPathCacheLru.size,
+    maxCachedPaths: MAX_PROJECTED_PATHS,
+    cachedVertices: projectedPathVertexCount,
+    maxCachedVertices: MAX_PROJECTED_PATH_VERTICES,
+    estimatedBytes: projectedPathVertexCount * 32,
+    maxEstimatedBytes: MAX_PROJECTED_PATH_VERTICES * 32
+  };
 }
