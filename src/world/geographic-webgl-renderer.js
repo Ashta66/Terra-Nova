@@ -179,6 +179,19 @@ function buildBoundaryLineBatch(features, gl) {
   return { ...buildRibbonBuffer(segmentGroups, gl, "Impossible de créer le buffer des contours géographiques."), drawnFeatures, skippedFeatures };
 }
 
+export function isSupportedGeographicBoundary(feature) {
+  const geometry = feature?.geometry;
+  const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
+    geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
+  const lines = geometry?.type === "LineString" ? [geometry.coordinates] :
+    geometry?.type === "MultiLineString" ? geometry.coordinates : null;
+  if (!polygons?.length && !lines?.length) return false;
+  const paths = lines ?? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring));
+  return paths.length > 0 && paths.every(coordinates =>
+    hasSupportedLineCoordinates(buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } }))
+  );
+}
+
 function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
   if (offset + mesh.vertexCount > 65535) return false;
@@ -432,19 +445,7 @@ export function createGeographicWebGLRenderer(gl) {
       if (!feature || typeof feature !== "object") return false;
       const cached = boundarySupportCache.get(feature);
       if (cached !== undefined) return cached;
-      const geometry = feature.geometry;
-      const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] :
-        geometry?.type === "MultiPolygon" ? geometry.coordinates : null;
-      const lines = geometry?.type === "LineString" ? [geometry.coordinates] :
-        geometry?.type === "MultiLineString" ? geometry.coordinates : null;
-      let supported = Boolean(polygons?.length || lines?.length);
-      const paths = lines ?? (polygons ? polygons.flatMap(polygon => (polygon ?? []).map(ring => ring)) : []);
-      for (const coordinates of paths) {
-        if (!hasSupportedLineCoordinates(buildGeographicLineMesh({ geometry: { type: "LineString", coordinates } }))) {
-          supported = false;
-          break;
-        }
-      }
+      const supported = isSupportedGeographicBoundary(feature);
       boundarySupportCache.set(feature, supported);
       return supported;
     },
