@@ -291,7 +291,7 @@ test("le renderer WebGL libère les buffers des couches retirées puis ceux rest
     VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
     ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, STATIC_DRAW: 7, DYNAMIC_DRAW: 8,
     COLOR_BUFFER_BIT: 9, BLEND: 10, SRC_ALPHA: 11, ONE_MINUS_SRC_ALPHA: 12,
-    FLOAT: 13, TRIANGLES: 14,
+    FLOAT: 13, TRIANGLES: 14, MAX_VERTEX_ATTRIBS: 0x8869,
     createShader: () => ({ id: ++nextId }),
     shaderSource() {}, compileShader() {}, getShaderParameter: () => true, deleteShader() {},
     createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
@@ -300,9 +300,10 @@ test("le renderer WebGL libère les buffers des couches retirées puis ceux rest
     createBuffer() { const buffer = { id: ++nextId }; buffers.add(buffer); return buffer; },
     deleteBuffer(buffer) { deletedBuffers.add(buffer); },
     bindBuffer() {}, bufferData() {},
+    getParameter(parameter) { return parameter === this.MAX_VERTEX_ATTRIBS ? 16 : null; },
     viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
     useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
-    enableVertexAttribArray() {}, vertexAttribPointer() {}, drawArrays() {}, drawElements() {}
+    enableVertexAttribArray() {}, disableVertexAttribArray() {}, vertexAttribPointer() {}, drawArrays() {}, drawElements() {}
   };
   const renderer = createGeographicWebGLRenderer(gl);
   const coast = { geometry: { type: "LineString", coordinates: [[-5, 0], [5, 1]] } };
@@ -352,7 +353,7 @@ test("le renderer WebGL expose le coût de géométrie, upload, cache et mémoir
     deleteProgram() {}, createBuffer: () => ({ id: ++nextId }), deleteBuffer() {},
     bindBuffer() {}, bufferData() {}, viewport() {}, clearColor() {}, clear() {},
     enable() {}, blendFunc() {}, useProgram() {}, uniform2f() {}, uniform1f() {},
-    uniform4fv() {}, enableVertexAttribArray() {}, vertexAttribPointer() {},
+    uniform4fv() {}, enableVertexAttribArray() {}, disableVertexAttribArray() {}, vertexAttribPointer() {},
     drawArrays() {}, drawElements() {}
   };
   const renderer = createGeographicWebGLRenderer(gl);
