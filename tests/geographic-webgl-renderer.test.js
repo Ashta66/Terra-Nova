@@ -135,3 +135,28 @@ test("des groupes de lignes distincts ne fusionnent pas leurs extrémités", () 
   assert.equal(result.vertexCount, 156, "chaque groupe conserve ses deux extrémités");
   gl.deleteBuffer(result.lineBuffer);
 });
+
+
+test("les raccords circulaires transmettent au shader des offsets écran unitaires", () => {
+  const { gl } = createMockGl();
+  const result = buildRibbonBuffer([new Float32Array([10, 20, 30, 40])], gl);
+  const stride = 8;
+  assert.equal(result.vertexCount, 78);
+  const joins = result.positions.slice(6 * stride);
+  assert.equal(joins.length / stride, 72, "deux extrémités reçoivent chacune un disque de 12 triangles");
+  for (let index = 0; index < joins.length; index += stride) {
+    const x = joins[index], y = joins[index + 1];
+    const otherX = joins[index + 2], otherY = joins[index + 3];
+    const offsetX = joins[index + 5], offsetY = joins[index + 6];
+    assert.equal(joins[index + 7], 1, "les sommets du disque doivent activer le chemin de raccord du shader");
+    assert.ok(Number.isFinite(x) && Number.isFinite(y));
+    assert.ok(Number.isFinite(otherX) && Number.isFinite(otherY));
+    if (offsetX !== 0 || offsetY !== 0) {
+      assert.ok(Math.abs(Math.hypot(offsetX, offsetY) - 1) < 1e-6,
+        "le contour du disque doit fournir un offset radial de longueur unitaire");
+    }
+  }
+  assert.deepEqual(Array.from(joins.slice(0, 4)), [10, 20, 10, 20]);
+  assert.deepEqual(Array.from(joins.slice(36 * stride, 36 * stride + 4)), [30, 40, 30, 40]);
+  gl.deleteBuffer(result.lineBuffer);
+});
