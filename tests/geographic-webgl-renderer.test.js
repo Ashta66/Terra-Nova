@@ -304,3 +304,45 @@ test("la triangulation reste valide sur un anneau concave de 128 sommets", () =>
   const quantizedRing = ring.slice(0, -1).map(([x, y]) => [Math.fround(x), Math.fround(y)]);
   assert.ok(Math.abs(polygonMeshTriangleArea(mesh) - polygonAreaFromCoordinates(quantizedRing)) < 1e-3);
 });
+
+
+test("les géométries réelles Natural Earth produisent des maillages polygonaux valides", () => {
+  const { readFileSync } = await import("node:fs");
+  const collection = JSON.parse(readFileSync(new URL("../data/ne_110m_land.geojson", import.meta.url), "utf8"));
+  assert.equal(collection.type, "FeatureCollection");
+  assert.equal(collection.features.length, 127);
+
+  const reasons = new Map();
+  let supportedFeatures = 0;
+  let triangleCount = 0;
+  for (const feature of collection.features) {
+    const mesh = buildGeographicPolygonMesh(feature);
+    if (!mesh.supported) {
+      reasons.set(mesh.reason, (reasons.get(mesh.reason) ?? 0) + 1);
+      continue;
+    }
+    supportedFeatures++;
+    triangleCount += mesh.triangleCount;
+    assert.equal(mesh.indices.length % 3, 0);
+    assert.equal(mesh.positions.length, mesh.vertexCount * 2);
+    for (const index of mesh.indices) {
+      assert.ok(index < mesh.vertexCount, "chaque indice doit rester dans les limites du maillage");
+    }
+    for (let index = 0; index < mesh.indices.length; index += 3) {
+      const a = mesh.indices[index] * 2;
+      const b = mesh.indices[index + 1] * 2;
+      const c = mesh.indices[index + 2] * 2;
+      const area2 = (mesh.positions[b] - mesh.positions[a]) * (mesh.positions[c + 1] - mesh.positions[a + 1])
+        - (mesh.positions[b + 1] - mesh.positions[a + 1]) * (mesh.positions[c] - mesh.positions[a]);
+      assert.ok(Number.isFinite(area2) && area2 > 0,
+        "les triangles des données réelles doivent être finis, non dégénérés et orientés");
+    }
+  }
+
+  assert.equal(supportedFeatures, 125);
+  assert.equal(triangleCount, 2849);
+  assert.deepEqual(Object.fromEntries(reasons), {
+    "antimeridian-requires-canvas": 1,
+    "polygon-holes-require-canvas": 1
+  });
+});
