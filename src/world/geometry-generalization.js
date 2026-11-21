@@ -188,6 +188,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       recordResult(job.tolerance, result, now() - job.startedAt);
       job.resolve(true);
     } else {
+      if (failed && job.fallback) workerSyncFallbackJobs += 1;
       job.resolve(failed ? (job.fallback?.() ?? false) : false);
     }
   }
