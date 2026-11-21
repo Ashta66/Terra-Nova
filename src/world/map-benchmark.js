@@ -25,12 +25,16 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
     const webgl = result.webglStats ?? {};
     for (const key of ["geometryBuildMs", "bufferUploadMs", "cacheBuildMs", "drawSubmitMs",
-      "totalMs", "uploadedBytes", "cachedGpuBytes", "bufferUploads", "drawCalls", "triangles"]) {
+      "totalMs", "uploadedBytes", "cachedGpuBytes", "cacheBudgetBytes", "cacheEvictedLayers",
+      "bufferUploads", "drawCalls", "triangles"]) {
       add("webgl:" + key, webgl[key]);
     }
     add("webgl:cacheHit", typeof webgl.cacheHit === "boolean" ? (webgl.cacheHit ? 1 : 0) : null);
     const pathCache = result.projectedPathCacheStats ?? {};
     add("geometryCache:cachedPaths", pathCache.cachedPaths);
+    add("geometryCache:maxCachedPaths", pathCache.maxCachedPaths);
+    add("geometryCache:maxCachedVertices", pathCache.maxCachedVertices);
+    add("geometryCache:maxCombinedMaskEntries", pathCache.maxCombinedLandMaskCacheEntries);
     add("geometryCache:cachedVertices", pathCache.cachedVertices);
     add("geometryCache:estimatedBytes", pathCache.estimatedBytes);
     add("geometryCache:maxEstimatedBytes", pathCache.maxEstimatedBytes);
@@ -45,6 +49,9 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     add("lod:generationTimeMs", lod.generationTimeMs);
     add("lod:lastGenerationMs", lod.lastGenerationMs);
     add("lod:removedVertices", lod.removedVertices);
+    add("lod:workerCollectionTransfers", lod.workerCollectionTransfers);
+    add("lod:workerJobsCompleted", lod.workerJobsCompleted);
+    add("lod:workerActive", typeof lod.workerActive === "boolean" ? (lod.workerActive ? 1 : 0) : null);
     add("lod:transitionMs", result.lodTransitionMs);
     add("lod:crossfadeBytes", result.lodCrossfadeBytes);
     add("lod:warmupScheduled", result.lodWarmupScheduled ? 1 : 0);
