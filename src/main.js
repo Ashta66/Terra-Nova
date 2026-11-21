@@ -669,7 +669,7 @@ function scheduleLandLodWarmup(lodSet, zoom) {
   const direction = previousZoom === null || zoom >= previousZoom ? 1 : -1;
   lastLandLodWarmupZoom = zoom;
   const targetZoom = lodSet.getAdjacentZoom?.(zoom, direction);
-  if (targetZoom === null || targetZoom === undefined) return;
+  if ((targetZoom === null || targetZoom === undefined) && !lodSet.prepareZoomAsync) return;
   const token = landLodWarmupToken;
   const run = deadline => {
     landLodWarmupHandle = null;
@@ -684,10 +684,20 @@ function scheduleLandLodWarmup(lodSet, zoom) {
       return;
     }
     const startedAt = globalThis.performance?.now?.() ?? Date.now();
-    const prepare = lodSet.prepareAdjacentAsync
-      ? lodSet.prepareAdjacentAsync(zoom, direction)
-      : Promise.resolve(lodSet.prepareAdjacent(zoom, direction));
-    Promise.resolve(prepare).then(generated => {
+    const prepareCurrent = lodSet.prepareZoomAsync
+      ? lodSet.prepareZoomAsync(zoom)
+      : Promise.resolve(false);
+    Promise.resolve(prepareCurrent).then(currentGenerated => {
+      if (token !== landLodWarmupToken) return false;
+      if (currentGenerated && !mapInteractionActive) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      }
+      if (lodSet.prepareAdjacentAsync && targetZoom !== null && targetZoom !== undefined) {
+        return lodSet.prepareAdjacentAsync(zoom, direction);
+      }
+      return currentGenerated;
+    }).then(generated => {
       if (token !== landLodWarmupToken) return;
       landLodWarmupCompleted += generated ? 1 : 0;
       landLodWarmupScheduled = false;
