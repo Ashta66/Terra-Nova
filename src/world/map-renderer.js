@@ -276,9 +276,9 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
 
 const projectedPathCache = new WeakMap();
 const projectedPathCacheLru = new Map();
-const PROJECTED_PATHS_PER_FEATURE = 3;
-const MAX_PROJECTED_PATHS = 512;
-const MAX_PROJECTED_PATH_VERTICES = 250_000;
+const PROJECTED_PATHS_PER_FEATURE = 6;
+const MAX_PROJECTED_PATHS = 1024;
+const MAX_PROJECTED_PATH_VERTICES = 500_000;
 let projectedPathVertexCount = 0;
 let projectedPathCacheHits = 0;
 let projectedPathCacheMisses = 0;
@@ -347,7 +347,7 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
 }
 
 const combinedLandMaskCache = new Map();
-const COMBINED_LAND_MASK_CACHE_LIMIT = 6;
+const COMBINED_LAND_MASK_CACHE_LIMIT = 12;
 
 /** Construit et met en cache le masque terrestre composé à partir des Path2D des features. */
 export function buildLandClipPath(collection, width, height, projection, coastProfile) {
@@ -1559,6 +1559,7 @@ export function getProjectedPathCacheStats() {
     projectedPathCacheMisses,
     combinedLandMaskCacheHits,
     combinedLandMaskCacheMisses,
-    combinedLandMaskCacheEntries: combinedLandMaskCache.size
+    combinedLandMaskCacheEntries: combinedLandMaskCache.size,
+    maxCombinedLandMaskCacheEntries: COMBINED_LAND_MASK_CACHE_LIMIT
   };
 }
