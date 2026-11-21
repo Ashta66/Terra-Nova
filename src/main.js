@@ -78,6 +78,15 @@ let interactionRenderAllowed = false;
 let lastDragMoved = false;
 let mapInteractionActive = false;
 const sceneCanvas = document.createElement("canvas");
+const previousSceneCanvas = document.createElement("canvas");
+let previousSceneViewport = null;
+let previousSceneSize = null;
+let previousSceneOcean = "#10232c";
+let sceneLandDetailLevel = null;
+let pendingLandLodTransition = false;
+let landLodTransitionStartedAt = 0;
+let landLodTransitionFrame = null;
+const LAND_LOD_CROSSFADE_MS = 220;
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
@@ -582,14 +591,58 @@ function renderMapOffThread(land, options, onDone, onFallback) {
   else dispatchMapWorkerRender(job);
   return true;
 }
+function prepareLandLodTransition(nextLevel) {
+  pendingLandLodTransition = Boolean(sceneReady && sceneLandDetailLevel && nextLevel !== sceneLandDetailLevel);
+  if (!pendingLandLodTransition || !sceneCanvas.width || !sceneCanvas.height) return false;
+  previousSceneCanvas.width = sceneCanvas.width;
+  previousSceneCanvas.height = sceneCanvas.height;
+  const previousContext = previousSceneCanvas.getContext("2d");
+  if (!previousContext) {
+    pendingLandLodTransition = false;
+    return false;
+  }
+  previousContext.clearRect(0, 0, previousSceneCanvas.width, previousSceneCanvas.height);
+  previousContext.drawImage(sceneCanvas, 0, 0);
+  previousSceneViewport = { ...sceneViewport };
+  previousSceneSize = { ...sceneSize };
+  previousSceneOcean = sceneOcean;
+  return true;
+}
+
+function animateLandLodTransition() {
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  const tick = now => {
+    landLodTransitionFrame = null;
+    if (!previousSceneCanvas.width || !previousSceneCanvas.height) return;
+    if (now - landLodTransitionStartedAt < LAND_LOD_CROSSFADE_MS) {
+      requestCompose();
+      landLodTransitionFrame = requestAnimationFrame(tick);
+      return;
+    }
+    previousSceneCanvas.width = 1;
+    previousSceneCanvas.height = 1;
+    previousSceneViewport = null;
+    previousSceneSize = null;
+    requestCompose();
+  };
+  landLodTransitionFrame = requestAnimationFrame(tick);
+}
+
 function completeMapRender(result, context) {
   if (!result) return;
+  const shouldCrossfadeLandLod = Boolean(context.landLodTransition && pendingLandLodTransition && previousSceneCanvas.width > 1);
+  pendingLandLodTransition = false;
   sceneViewport = context.sceneViewport;
   sceneSize = context.sceneSize;
   sceneOcean = result.theme.colors.ocean;
   sceneLabelHits = result.labelHits ?? [];
   sceneReady = true;
+  sceneLandDetailLevel = context.landDetail?.level ?? sceneLandDetailLevel;
   sceneRecenterPending = false;
+  if (shouldCrossfadeLandLod) {
+    landLodTransitionStartedAt = globalThis.performance?.now?.() ?? Date.now();
+    animateLandLodTransition();
+  }
   requestCompose();
   updateMapDiagnostics(result);
   mapBenchmarkCollector.record(result, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom });
@@ -757,9 +810,10 @@ function renderMapFrame() {
     interactive: false,
     physicalOverlayContext: null,
   };
+  const landLodTransition = prepareLandLodTransition(landDetail.level);
   const completionContext = {
     sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
-    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail
+    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition
   };
   const fallback = () => {
     try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
@@ -1162,9 +1216,21 @@ function composeScene() {
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = mapInteractionActive ? "low" : "high";
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
+  const transitionProgress = previousSceneViewport && landLodTransitionStartedAt
+    ? Math.min(1, Math.max(0, ((globalThis.performance?.now?.() ?? Date.now()) - landLodTransitionStartedAt) / LAND_LOD_CROSSFADE_MS))
+    : 1;
+  if (transitionProgress < 1 && previousSceneCanvas.width > 1 && previousSceneViewport && previousSceneSize) {
+    const previousComposition = composeRects(mapViewport, previousSceneViewport, previousSceneSize, width, height);
+    context.globalAlpha = 1 - transitionProgress;
+    for (const rect of previousComposition.rects) {
+      context.drawImage(previousSceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
+  }
+  context.globalAlpha = transitionProgress;
   for (const rect of composition.rects) {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
   }
+  context.globalAlpha = 1;
   drawMapTileFallbacks(context, width, height, composition);
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
