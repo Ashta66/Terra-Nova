@@ -117,7 +117,7 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
  assert.notEqual(lod.getForZoom(2),base,"le niveau calculé devient disponible après la réponse worker");
  assert.equal(lod.getStats().generatedLevels,2);
  assert.equal(lod.getStats().workerCollectionTransfers,1);
- assert.equal(lod.getStats().workerJobsCompleted,1);
+ assert.equal(lod.getStats().workerJobsCompleted,2);
  assert.equal(lod.getStats().workerActive,true);
  lod.dispose();
  assert.equal(terminated,true);
@@ -204,8 +204,6 @@ test("les niveaux LOD successifs réutilisent le même worker et ne retransfère
  assert.equal(jobs,2);
  assert.equal(stats.workerCollectionTransfers,1);
  assert.equal(stats.workerJobsCompleted,2);
- assert.equal(lod.getForZoom(4),base,"un niveau non préparé reste sur la géométrie de base");
- assert.equal(await lod.prepareZoomAsync(4),true);
- assert.notEqual(lod.getForZoom(4),base);
+ assert.notEqual(lod.getForZoom(4),base,"le troisième niveau est préchauffé par le second appel adjacent");
  lod.dispose();
 });
