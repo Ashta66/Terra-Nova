@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sceneRenderParams, composeRects, snapSceneViewportCenter } from "../src/world/scene-compose.js";
+import { fitMapFrame, sceneRenderParams, composeRects, snapSceneViewportCenter } from "../src/world/scene-compose.js";
 
 const close = (actual, expected, epsilon = 1e-6) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `attendu ${expected}, reçu ${actual}`);
@@ -126,4 +126,22 @@ test("le centre de scène est quantifié pour réutiliser le même rendu pendant
   assert.notDeepEqual(first, nextCell);
   assert.ok(Math.abs(first.centerLongitude - 12.10) <= 0.25);
   assert.ok(Math.abs(first.centerLatitude - 48.10) <= 0.25);
+});
+
+
+test("le cadre cartographique contient toujours le monde entier au ratio 2:1", () => {
+  for (const [availableWidth, availableHeight] of [
+    [1680, 700], [1083, 1042], [900, 900], [420, 900], [1920, 1080], [640, 320]
+  ]) {
+    const fitted = fitMapFrame(availableWidth, availableHeight, 2);
+    assert.ok(fitted.width <= availableWidth, "la largeur ne dépasse pas le cadre");
+    assert.ok(fitted.height <= availableHeight, "la hauteur ne dépasse pas le cadre");
+    assert.equal(fitted.width / fitted.height, 2, "le ratio géographique reste 2:1");
+    assert.ok(fitted.width > 0 && fitted.height > 0);
+  }
+});
+
+test("le cadre étroit en hauteur réduit la largeur plutôt que de couper les pôles", () => {
+  assert.deepEqual(fitMapFrame(1500, 500, 2), { width: 1000, height: 500 });
+  assert.deepEqual(fitMapFrame(700, 900, 2), { width: 700, height: 350 });
 });
