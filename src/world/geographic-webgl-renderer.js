@@ -62,6 +62,8 @@ function compile(gl, type, source) {
 function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
 const MAX_CACHED_LAYERS = 12;
+const MAX_CACHED_GPU_BYTES = 128 * 1024 * 1024;
+const MAX_FEATURES_PER_GPU_CHUNK = 64;
 
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 
@@ -353,6 +355,80 @@ export function createGeographicWebGLRenderer(gl) {
       bufferUploadMs: Math.max(0, now() - uploadStartedAt) };
   }
 
+  function sameFeatureRefs(a = [], b = []) {
+    return a.length === b.length && a.every((feature, index) => feature === b[index]);
+  }
+
+  function buildIncrementalPolygonLayer(features, previous) {
+    const chunks = [];
+    const reusedChunks = new Set();
+    let drawnFeatures = 0, skippedFeatures = 0;
+    let geometryBuildMs = 0, bufferUploadMs = 0, uploadedBytes = 0, bufferUploads = 0;
+    let cacheBuildMs = 0;
+    for (let offset = 0, chunkIndex = 0; offset < features.length; offset += MAX_FEATURES_PER_GPU_CHUNK, chunkIndex++) {
+      const featureRefs = features.slice(offset, offset + MAX_FEATURES_PER_GPU_CHUNK);
+      const oldChunk = previous?.chunks?.[chunkIndex];
+      let chunk;
+      if (oldChunk && sameFeatureRefs(oldChunk.featureRefs, featureRefs)) {
+        chunk = oldChunk;
+        reusedChunks.add(oldChunk);
+      } else {
+        const startedAt = now();
+        const built = buildBatches(featureRefs);
+        cacheBuildMs += Math.max(0, now() - startedAt);
+        geometryBuildMs += built.geometryBuildMs;
+        bufferUploadMs += built.bufferUploadMs;
+        const bytes = built.batches.reduce((sum, batch) =>
+          sum + batch.positions.byteLength + batch.indices.byteLength, 0);
+        const uploads = built.batches.length * 2;
+        uploadedBytes += bytes;
+        bufferUploads += uploads;
+        chunk = { featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
+      }
+      drawnFeatures += chunk.drawnFeatures;
+      skippedFeatures += chunk.skippedFeatures;
+      chunks.push(chunk);
+    }
+    for (const oldChunk of previous?.chunks ?? []) {
+      if (!reusedChunks.has(oldChunk)) releaseBatches(oldChunk.batches);
+    }
+    const batches = chunks.flatMap(chunk => chunk.batches);
+    return {
+      type: "polygons", featuresRef: features, featureRefs: [...features], chunks, batches,
+      drawnFeatures, skippedFeatures, geometryBuildMs, bufferUploadMs, cacheBuildMs,
+      uploadedBytes, bufferUploads,
+      cacheHit: chunks.length === (previous?.chunks?.length ?? 0) && reusedChunks.size === chunks.length
+    };
+  }
+
+  function getRetainedGpuBytes() {
+    let total = 0;
+    for (const cached of layerCaches.values()) {
+      if (cached.type === "polygons") {
+        for (const batch of cached.batches ?? []) total += batch.positions.byteLength + batch.indices.byteLength;
+      } else {
+        total += cached.positions?.byteLength ?? 0;
+      }
+    }
+    return total;
+  }
+
+  function evictGpuCache(activeKeys) {
+    let retainedBytes = getRetainedGpuBytes();
+    let evictedLayers = 0;
+    while (retainedBytes > MAX_CACHED_GPU_BYTES) {
+      const oldestKey = [...layerCaches.keys()].find(key => !activeKeys.has(key));
+      if (oldestKey === undefined) break;
+      const oldest = layerCaches.get(oldestKey);
+      releaseBatches(oldest?.batches);
+      if (oldest?.lineBuffer) gl.deleteBuffer(oldest.lineBuffer);
+      layerCaches.delete(oldestKey);
+      evictedLayers++;
+      retainedBytes = getRetainedGpuBytes();
+    }
+    return { retainedBytes, evictedLayers };
+  }
+
   function renderLayers(layers, width, height, viewport = {}) {
     const renderStartedAt = now();
     const empty = { drawnFeatures: 0, skippedFeatures: 0, drawCalls: 0, triangles: 0,
@@ -378,30 +454,40 @@ export function createGeographicWebGLRenderer(gl) {
       const features = layer.features ?? [];
       const type = layer.type === "lines" || layer.type === "boundaries" ? layer.type : "polygons";
       let cached = layerCaches.get(key);
-      const sameFeatures = Boolean(cached && cached.type === type && (
-        cached.featuresRef === features
-        || (cached.featureRefs.length === features.length
-          && cached.featureRefs.every((feature, featureIndex) => feature === features[featureIndex]))
-      ));
-      const cacheHit = sameFeatures;
+      let cacheHit = false;
       let cacheBuildMs = 0;
-      if (!cacheHit) {
-        const buildStartedAt = now();
-        const next = type === "lines" ? buildLineBatch(features, gl) : type === "boundaries" ? buildBoundaryLineBatch(features, gl) : buildBatches(features);
-        cacheBuildMs = Math.max(0, now() - buildStartedAt);
-        releaseBatches(cached?.batches);
-        if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
-        cached = { type, featuresRef: features, featureRefs: [...features], ...next };
+      if (type === "polygons") {
+        const next = buildIncrementalPolygonLayer(features, cached?.type === type ? cached : null);
+        cacheHit = next.cacheHit;
+        cacheBuildMs = next.cacheBuildMs;
+        cached = next;
         layerCaches.set(key, cached);
+      } else {
+        const sameFeatures = Boolean(cached && cached.type === type && (
+          cached.featuresRef === features
+          || (cached.featureRefs.length === features.length
+            && cached.featureRefs.every((feature, featureIndex) => feature === features[featureIndex]))
+        ));
+        cacheHit = sameFeatures;
+        if (!cacheHit) {
+          const buildStartedAt = now();
+          const next = type === "lines" ? buildLineBatch(features, gl) : buildBoundaryLineBatch(features, gl);
+          cacheBuildMs = Math.max(0, now() - buildStartedAt);
+          releaseBatches(cached?.batches);
+          if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+          cached = { type, featuresRef: features, featureRefs: [...features], ...next };
+          layerCaches.set(key, cached);
+        }
       }
       allCacheHits = allCacheHits && cacheHit;
       const layerDrawCalls = type !== "polygons" ? (cached.vertexCount ? 1 : 0) : cached.batches.length;
       const layerTriangles = type !== "polygons"
         ? Math.floor((cached.vertexCount ?? 0) / 3)
         : cached.batches.reduce((sum, batch) => sum + batch.triangles, 0);
-      const layerBytes = cacheHit ? 0 : type !== "polygons" ? (cached.positions?.byteLength ?? 0) :
-        cached.batches.reduce((sum, batch) => sum + batch.positions.byteLength + batch.indices.byteLength, 0);
-      const layerUploads = cacheHit ? 0 : type !== "polygons" ? (cached.lineBuffer ? 1 : 0) : cached.batches.length * 2;
+      const layerBytes = type === "polygons" ? (cached.uploadedBytes ?? 0)
+        : cacheHit ? 0 : (cached.positions?.byteLength ?? 0);
+      const layerUploads = type === "polygons" ? (cached.bufferUploads ?? 0)
+        : cacheHit ? 0 : (cached.lineBuffer ? 1 : 0);
       prepared.push({ key, type, color: layer.color ?? [0.32, 0.39, 0.31, 1], lineWidth: Number(layer.lineWidth ?? (key === "rivers" ? 0.7 : 0.55)), cached });
       drawnFeatures += cached.drawnFeatures;
       skippedFeatures += cached.skippedFeatures;
@@ -434,7 +520,8 @@ export function createGeographicWebGLRenderer(gl) {
       layerCaches.set(layer.key, layer.cached);
     }
     while (layerCaches.size > MAX_CACHED_LAYERS) {
-      const oldestKey = layerCaches.keys().next().value;
+      const oldestKey = [...layerCaches.keys()].find(key => !seenKeys.has(key));
+      if (oldestKey === undefined) break;
       const oldest = layerCaches.get(oldestKey);
       releaseBatches(oldest?.batches);
       if (oldest?.lineBuffer) gl.deleteBuffer(oldest.lineBuffer);
@@ -493,10 +580,13 @@ export function createGeographicWebGLRenderer(gl) {
     }
     empty.drawSubmitMs = Math.max(0, now() - drawStartedAt);
     empty.totalMs = Math.max(0, now() - renderStartedAt);
+    const memory = evictGpuCache(new Set(prepared.map(layer => layer.key)));
+    empty.cachedGpuBytes = memory.retainedBytes;
     return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
       bufferUploads, uploadedBytes, cacheBuildMs: empty.cacheBuildMs,
       geometryBuildMs: empty.geometryBuildMs, bufferUploadMs: empty.bufferUploadMs,
-      cachedGpuBytes: empty.cachedGpuBytes, drawSubmitMs: empty.drawSubmitMs,
+      cachedGpuBytes: empty.cachedGpuBytes, cacheBudgetBytes: MAX_CACHED_GPU_BYTES,
+      cacheEvictedLayers: memory.evictedLayers, drawSubmitMs: empty.drawSubmitMs,
       totalMs: empty.totalMs, layers: empty.layers };
   }
 
