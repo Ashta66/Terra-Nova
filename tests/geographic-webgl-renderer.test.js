@@ -248,3 +248,59 @@ test("la triangulation conserve la surface lorsque l'anneau est inversé", () =>
   assert.equal(mesh.supported, true);
   assert.equal(polygonMeshTriangleArea(mesh), polygonAreaFromCoordinates(reversedRing.slice(0, -1)));
 });
+
+
+test("la triangulation concave complexe conserve la surface et des indices valides", () => {
+  const ring = [
+    [-8, -5], [-3, -5], [-3, -2], [-1, -2], [-1, -4],
+    [2, -4], [2, -1], [6, -1], [6, 2], [3, 2],
+    [3, 5], [0, 5], [0, 2], [-2, 2], [-2, 4],
+    [-5, 4], [-5, 1], [-8, 1], [-8, -5]
+  ];
+  const mesh = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [ring] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.indices.length / 3, ring.length - 3,
+    "un anneau simple de n sommets doit produire n-2 triangles");
+  for (const index of mesh.indices) {
+    assert.ok(index >= 0 && index < mesh.vertexCount, "chaque indice doit référencer un sommet existant");
+  }
+  for (let index = 0; index < mesh.indices.length; index += 3) {
+    const a = mesh.indices[index] * 2;
+    const b = mesh.indices[index + 1] * 2;
+    const c = mesh.indices[index + 2] * 2;
+    const area2 = (mesh.positions[b] - mesh.positions[a]) * (mesh.positions[c + 1] - mesh.positions[a + 1])
+      - (mesh.positions[b + 1] - mesh.positions[a + 1]) * (mesh.positions[c] - mesh.positions[a]);
+    assert.ok(area2 > 0, "chaque triangle doit avoir une aire strictement positive et une orientation cohérente");
+  }
+  const quantizedRing = ring.slice(0, -1).map(([x, y]) => [Math.fround(x), Math.fround(y)]);
+  assert.ok(Math.abs(polygonMeshTriangleArea(mesh) - polygonAreaFromCoordinates(quantizedRing)) < 1e-5);
+});
+
+test("la triangulation reste valide sur un anneau concave de 128 sommets", () => {
+  const ring = [];
+  const count = 128;
+  for (let index = 0; index < count; index++) {
+    const angle = index * Math.PI * 2 / count;
+    const radius = index % 2 === 0 ? 20 : 13;
+    ring.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+  }
+  ring.push(ring[0]);
+  const mesh = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [ring] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.vertexCount, count);
+  assert.equal(mesh.indices.length / 3, count - 2);
+  for (let index = 0; index < mesh.indices.length; index += 3) {
+    const a = mesh.indices[index] * 2;
+    const b = mesh.indices[index + 1] * 2;
+    const c = mesh.indices[index + 2] * 2;
+    const area2 = (mesh.positions[b] - mesh.positions[a]) * (mesh.positions[c + 1] - mesh.positions[a + 1])
+      - (mesh.positions[b + 1] - mesh.positions[a + 1]) * (mesh.positions[c] - mesh.positions[a]);
+    assert.ok(Number.isFinite(area2) && area2 > 0, "aucun triangle ne doit être dégénéré ou inversé");
+  }
+  const quantizedRing = ring.slice(0, -1).map(([x, y]) => [Math.fround(x), Math.fround(y)]);
+  assert.ok(Math.abs(polygonMeshTriangleArea(mesh) - polygonAreaFromCoordinates(quantizedRing)) < 1e-3);
+});
