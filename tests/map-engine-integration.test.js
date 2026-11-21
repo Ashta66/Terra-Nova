@@ -256,3 +256,49 @@ test("un groupe de segments vide ne crée aucun buffer GPU", () => {
   assert.equal(result.vertexCount, 0);
   assert.equal(result.lineBuffer, null);
 });
+
+
+test("le renderer WebGL libère les buffers des couches retirées puis ceux restants à dispose", async () => {
+  const { createGeographicWebGLRenderer } = await import("../src/world/geographic-webgl-renderer.js");
+  let nextId = 0;
+  const buffers = new Set();
+  const deletedBuffers = new Set();
+  const gl = {
+    canvas: { width: 0, height: 0 },
+    VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4,
+    ARRAY_BUFFER: 5, ELEMENT_ARRAY_BUFFER: 6, STATIC_DRAW: 7, DYNAMIC_DRAW: 8,
+    COLOR_BUFFER_BIT: 9, BLEND: 10, SRC_ALPHA: 11, ONE_MINUS_SRC_ALPHA: 12,
+    FLOAT: 13, TRIANGLES: 14,
+    createShader: () => ({ id: ++nextId }),
+    shaderSource() {}, compileShader() {}, getShaderParameter: () => true, deleteShader() {},
+    createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
+    getProgramParameter: () => true, getAttribLocation: () => 0, getUniformLocation: () => ({}),
+    deleteProgram() {},
+    createBuffer() { const buffer = { id: ++nextId }; buffers.add(buffer); return buffer; },
+    deleteBuffer(buffer) { deletedBuffers.add(buffer); },
+    bindBuffer() {}, bufferData() {},
+    viewport() {}, clearColor() {}, clear() {}, enable() {}, blendFunc() {},
+    useProgram() {}, uniform2f() {}, uniform1f() {}, uniform4fv() {},
+    enableVertexAttribArray() {}, vertexAttribPointer() {}, drawArrays() {}, drawElements() {}
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const coast = { geometry: { type: "LineString", coordinates: [[-5, 0], [5, 1]] } };
+  renderer.renderLayers([{ key: "coast", type: "boundaries", features: [coast] }],
+    100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(buffers.size, 1, "un buffer de contour doit être créé");
+  const staleBuffer = [...buffers][0];
+
+  renderer.renderLayers([], 100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(deletedBuffers.has(staleBuffer), true,
+    "le buffer doit être libéré dès que sa couche disparaît");
+
+  renderer.renderLayers([{ key: "coast", type: "boundaries", features: [coast] }],
+    100, 80, { zoom: 1, centerLongitude: 0, centerLatitude: 0 });
+  const activeBuffer = [...buffers].find(buffer => !deletedBuffers.has(buffer));
+  assert.ok(activeBuffer, "la couche réintroduite doit recréer son buffer");
+  renderer.dispose();
+  assert.equal(deletedBuffers.has(activeBuffer), true,
+    "dispose doit libérer les buffers encore actifs");
+  renderer.renderLayers([], 100, 80);
+  assert.equal(deletedBuffers.has(activeBuffer), true, "dispose est idempotent");
+});
