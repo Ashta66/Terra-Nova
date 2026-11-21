@@ -1,3 +1,22 @@
+## 21 novembre 2026 — intégration du moteur cartographique (PR #46)
+
+Cette tranche d'intégration est développée sur `integration/unified-map-engine-main` et proposée à `main` via PR #46, maintenue en brouillon.
+
+- [x] Porter le relief WebGL tuilé et le renderer géographique WebGL sans écraser les systèmes de simulation de `main`.
+- [x] Ajouter la persistance IndexedDB, le préchargement des tuiles et les fallbacks Canvas.
+- [x] Ajouter le cache WebGL polygonal incrémental par huit compartiments stables, le budget de buffers et l'observabilité des reconstructions/uploads.
+- [x] Porter le cache de chemins projetés à 2 048 entrées / 500 000 sommets estimés (16 Mo max estimés) et conserver 12 masques composés.
+- [x] Maintenir le Worker LOD persistant pour les niveaux mondiaux/régionaux.
+- [x] Ajouter aux exports de benchmark les métadonnées écran/viewport/DPR/tactiles pour détecter les essais involontairement réalisés en émulation mobile.
+- [x] CI vérifiée sur le commit `f4f104b1357809e820c0cf6844f393190f2500d6` : 252 tests réussis, 0 échec.
+- [ ] Valider visuellement dans un navigateur PC réel : continuité des tuiles, transitions parent/enfant, frontières, relief, labels, couches physiques et fallbacks.
+- [ ] Refaire le benchmark de référence sur navigateur PC en mode bureau (cache chaud, zoom 20, même viewport et durée), sans comparer avec les mesures Pixel 10.
+- [ ] Réaliser un test séparé du préchauffage LOD aux zooms 3–5 et vérifier les compteurs du Worker.
+- [ ] Comparer la fluidité, les uploads WebGL et la mémoire sur une session prolongée avant toute fusion.
+
+Les tests automatisés ne remplacent pas les essais visuels et matériels. PR #46 reste en brouillon jusqu'à validation et accord explicite.
+
+
 ## 20 novembre 2026 — remplacement progressif des tuiles parentes
 - La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
 - Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.
