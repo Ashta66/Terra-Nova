@@ -470,13 +470,32 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
 
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
  if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
- const out=[],push=(x,y,u,v,e,t)=>out.push(x/width*2-1,1-y/height*2,
-  (e.slotX*atlas.cellSize+1+u*t.width)/atlas.atlasWidth,(e.slotY*atlas.cellSize+1+v*t.height)/atlas.atlasHeight,
-  1/atlas.atlasWidth,1/atlas.atlasHeight,1/(t.width+2),1/(t.height+2),
-  (e.slotX*atlas.cellSize)/atlas.atlasWidth,(e.slotY*atlas.cellSize)/atlas.atlasHeight,
-  (e.slotX*atlas.cellSize+t.width+1)/atlas.atlasWidth,(e.slotY*atlas.cellSize+t.height+1)/atlas.atlasHeight);
+ // Compter d'abord les triangles valides pour allouer le buffer final une seule fois.
+ // La table entries est indexée par coordonnées de tuile (sans revision) par drawLevel.
+ let vertexCount=0;
  for(const {tile,rects} of items){
-  const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}@${tile.revision??0}`)??Array.from(entries.values()).find(e=>e.level===tile.level&&e.x===tile.x&&e.y===tile.y);
+  if(!entries.has(`${tile.level}/${tile.x}/${tile.y}`))continue;
+  for(const r of rects??[]){
+   if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
+   const left=Math.max(0,r.x),top=Math.max(0,r.y),right=Math.min(width,r.x+r.width),bottom=Math.min(height,r.y+r.height);
+   if(right>left&&bottom>top)vertexCount+=6;
+  }
+ }
+ if(!vertexCount)return new Float32Array();
+ const out=new Float32Array(vertexCount*12);let offset=0;
+ const push=(x,y,u,v,e,t)=>{
+  out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
+  out[offset++]=(e.slotX*atlas.cellSize+1+u*t.width)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+1+v*t.height)/atlas.atlasHeight;
+  out[offset++]=1/atlas.atlasWidth;out[offset++]=1/atlas.atlasHeight;
+  out[offset++]=1/(t.width+2);out[offset++]=1/(t.height+2);
+  out[offset++]=(e.slotX*atlas.cellSize)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize)/atlas.atlasHeight;
+  out[offset++]=(e.slotX*atlas.cellSize+t.width+1)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+t.height+1)/atlas.atlasHeight;
+ };
+ for(const {tile,rects} of items){
+  const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}`);
   if(!entry)continue;
   for(const r of rects??[]){
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
@@ -488,7 +507,7 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
    push(right,t,u1,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,bottom,u1,v1,entry,tile);
   }
  }
- return new Float32Array(out);
+ return offset===out.length?out:out.subarray(0,offset);
 }
 
 export function prepareTerrainTextureGrid(grid, maxTextureSize) {
@@ -891,7 +910,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     const deferMissing=(transitionFrom!==null||previousVisible.length>0)&&items===visible;
     for(const item of items){
       const entry=deferMissing?cache.peek(item.tile):cache.get(item.tile,protectedKeys);
-      if(entry){entries.set(entry.key,entry);readyItems.push(item);}
+      if(entry){entries.set(`${entry.level}/${entry.x}/${entry.y}`,entry);readyItems.push(item);}
       else if(deferMissing)cache.enqueue(item.tile,protectedKeys,0);
     }
     const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache);
