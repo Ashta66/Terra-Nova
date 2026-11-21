@@ -1198,6 +1198,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   let staticStats = null;
   let terrainEnabled = false;
   let terrainRenderer = "canvas2d";
+  let landWebGLStats = null;
   let staticCacheHit = false;
 
   const drawStaticLayers = target => {
@@ -1279,32 +1280,51 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
       try {
-        const supportedLand = [];
-        const unsupportedLand = [];
-        const supportedCoasts = [];
-        const unsupportedCoasts = [];
-        for (const feature of visibleLand.features) {
-          (geographicRenderer.supports(feature) ? supportedLand : unsupportedLand).push(feature);
-          (geographicRenderer.supportsBoundary(feature) ? supportedCoasts : unsupportedCoasts).push(feature);
-        }
+        const classification = measureLayer("land-feature-classification", () => {
+          const supportedLand = [];
+          const unsupportedLand = [];
+          const supportedCoasts = [];
+          const unsupportedCoasts = [];
+          for (const feature of visibleLand.features) {
+            (geographicRenderer.supports(feature) ? supportedLand : unsupportedLand).push(feature);
+            (geographicRenderer.supportsBoundary(feature) ? supportedCoasts : unsupportedCoasts).push(feature);
+          }
+          return { supportedLand, unsupportedLand, supportedCoasts, unsupportedCoasts };
+        });
+        const { supportedLand, unsupportedLand, supportedCoasts, unsupportedCoasts } = classification;
         let drawn = 0;
         if (unsupportedLand.length) {
-          drawn += drawPolygonLayer(target, { ...visibleLand, features: unsupportedLand }, width, height,
-            projection, landFill, null, 0, 1, true, Infinity, coastProfile);
+          drawn += measureLayer("land-canvas-fallback", () => drawPolygonLayer(target,
+            { ...visibleLand, features: unsupportedLand }, width, height, projection,
+            landFill, null, 0, 1, true, Infinity, coastProfile));
+        } else {
+          renderTimings["land-canvas-fallback"] = 0;
         }
         const ratio = backingWidth / width;
-        geographicRenderer.renderLayers([
+        landWebGLStats = measureLayer("land-webgl-pipeline", () => geographicRenderer.renderLayers([
           { key: "land-fill", type: "polygons", features: supportedLand, color: parseWebGLColor(landFill) },
           { key: "land-coast", type: "boundaries", features: supportedCoasts,
             color: parseWebGLColor(theme.colors.coast), lineWidth: 0.85 * ratio }
-        ], backingWidth, backingHeight, projection.viewport);
-        target.save();
-        target.setTransform(1, 0, 0, 1, 0, 0);
-        target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
-        target.restore();
+        ], backingWidth, backingHeight, projection.viewport));
+        renderTimings["land-webgl-geometry-build"] = landWebGLStats.geometryBuildMs ?? 0;
+        renderTimings["land-webgl-buffer-upload"] = landWebGLStats.bufferUploadMs ?? 0;
+        renderTimings["land-webgl-cache-build"] = landWebGLStats.cacheBuildMs ?? 0;
+        renderTimings["land-webgl-draw-submit"] = landWebGLStats.drawSubmitMs ?? 0;
+        renderTimings["land-webgl-cache-hit"] = landWebGLStats.cacheHit ? 1 : 0;
+        renderTimings["land-webgl-uploaded-bytes"] = landWebGLStats.uploadedBytes ?? 0;
+        renderTimings["land-webgl-cached-bytes"] = landWebGLStats.cachedGpuBytes ?? 0;
+        measureLayer("land-webgl-compose", () => {
+          target.save();
+          target.setTransform(1, 0, 0, 1, 0, 0);
+          target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
+          target.restore();
+        });
         if (unsupportedCoasts.length) {
-          drawPolygonLayer(target, { ...visibleLand, features: unsupportedCoasts }, width, height,
-            projection, "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
+          measureLayer("land-coast-canvas-fallback", () => drawPolygonLayer(target,
+            { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
+            "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
+        } else {
+          renderTimings["land-coast-canvas-fallback"] = 0;
         }
         return drawn + supportedLand.length;
       } catch {
@@ -1390,7 +1410,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       riverCount = measureLayer("rivières", () => drawLineLayer(target, visibleRivers, width, height, projection, theme.colors.accent, 0.7, riverProfile, detailProfile.riversRank, detailProfile.riversMax));
     }
     const elevationPointCount = measureLayer("repères-altitude", () => options.interactive ? 0 : drawElevationPoints(target, visibleElevationPoints, width, height, projection, theme));
-    return { terrainEnabled, terrainRenderer, landCount, territoryCount, glacierCount, lakeCount, riverCount, elevationPointCount };
+    return { terrainEnabled, terrainRenderer, landCount, territoryCount, glacierCount, lakeCount,
+      riverCount, elevationPointCount, webglStats: landWebGLStats };
   };
 
   if (canCacheStatic) {
@@ -1509,7 +1530,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     territoryOutlineCount, physicalChangeCount, glacierCount: staticStats?.glacierCount ?? 0,
     lakeCount: staticStats?.lakeCount ?? 0, riverCount: staticStats?.riverCount ?? 0,
     elevationPointCount: staticStats?.elevationPointCount ?? 0, politicalBoundaryCount,
-    administrativeBoundaryCount, labelHits, terrainEnabled, terrainRenderer: staticStats?.terrainRenderer ?? "canvas2d", staticCacheHit, width, height
+    administrativeBoundaryCount, labelHits, terrainEnabled, terrainRenderer: staticStats?.terrainRenderer ?? "canvas2d",
+    webglStats: staticStats?.webglStats ?? null, projectedPathCacheStats: getProjectedPathCacheStats(),
+    staticCacheHit, width, height
   };
 }
 
