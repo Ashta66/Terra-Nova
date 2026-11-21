@@ -17,6 +17,26 @@ test("le store de terrain échantillonne bilinéairement et modifie la tuile sou
   assert.equal(store.revision, 1);
 });
 
+test("les modifications de terrain émettent un snapshot persistant et protègent les révisions récentes", () => {
+  const snapshots = [];
+  const store = createTerrainTileStore(makeGrid(), {
+    tileSize: 2, maxTiles: 8, maxBytes: 1024,
+    onTileChange: snapshot => snapshots.push(snapshot)
+  });
+  assert.equal(store.setElevation(0, 0, 123), true);
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].id, "0/0/0");
+  assert.equal(snapshots[0].revision, 1);
+  assert.ok(snapshots[0].values instanceof Int16Array);
+  assert.equal(store.cacheStats.dirtyTiles, 1);
+  assert.equal(store.markPersisted(snapshots[0].id, 0), false);
+  assert.equal(store.markPersisted(snapshots[0].id, 1), true);
+  assert.equal(store.cacheStats.dirtyTiles, 0);
+  assert.equal(store.setElevation(0, 0, 124), true);
+  assert.equal(store.markPersisted(snapshots[0].id, 1), false);
+  assert.equal(store.cacheStats.dirtyTiles, 1);
+});
+
 test("le store restaure une tuile modifiée avec sa révision", () => {
   const store = createTerrainTileStore(makeGrid(), { tileSize: 2, maxTiles: 8, maxBytes: 1024 });
   const restored = store.restoreTile({
