@@ -202,6 +202,8 @@ test("les niveaux LOD successifs réutilisent le même worker et ne retransfère
  assert.equal(jobs,2);
  assert.equal(stats.workerCollectionTransfers,1);
  assert.equal(stats.workerJobsCompleted,2);
+ assert.equal(lod.getForZoom(4),base,"un niveau non préparé reste sur la géométrie de base");
+ assert.equal(await lod.prepareZoomAsync(4),true);
  assert.notEqual(lod.getForZoom(4),base);
  lod.dispose();
 });
