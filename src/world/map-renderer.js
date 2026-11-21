@@ -1088,7 +1088,10 @@ const staticLayerCache = new WeakMap();
 const STATIC_LAYER_CACHE_LIMIT = 3;
 const STATIC_LAYER_CACHE_MAX_BYTES = 48 * 1024 * 1024;
 const STATIC_LAYER_TIMING_KEYS = [
-  "relief-base", "land-mask-path", "terres-et-cotes", "territoires-couleurs",
+  "relief-base", "land-mask-path", "terres-et-cotes", "land-feature-classification",
+  "land-canvas-fallback", "land-webgl-pipeline", "land-webgl-geometry-build",
+  "land-webgl-buffer-upload", "land-webgl-cache-build", "land-webgl-draw-submit",
+  "land-webgl-compose", "land-coast-canvas-fallback", "territoires-couleurs",
   "ombrage-multidirectionnel", "hachures", "glaciers", "lacs", "rivières", "repères-altitude"
 ];
 
@@ -1417,7 +1420,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     if (record) {
       cache.delete(cacheSignature);
       cache.set(cacheSignature, record);
-      staticStats = record.stats;
+      staticStats = { ...record.stats, webglStats: null };
       staticCacheHit = true;
       for (const key of STATIC_LAYER_TIMING_KEYS) renderTimings[key] = 0;
       const startedAt = globalThis.performance?.now?.() ?? Date.now();
