@@ -48,7 +48,7 @@
         <div class="clock-subline"><span>ANNÉE SIMULÉE</span><strong id="clock-year">1444</strong></div>
         <div class="timeline-control sandbox-only">
           <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2100</span></div>
-          <input id="year-scrubber" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Choisir l'année de simulation">
+          <input id="year-scrubber" type="range" min="1444" max="9999" step="1" value="1444" aria-label="Choisir l'année de simulation">
           <div class="timeline-ends"><span>1444</span><span>Ère future · 2100</span></div>
           <div class="era-milestones" role="group" aria-label="Repères historiques">
             <button type="button" data-year="1444" class="is-active">1444<small>Départ</small></button>
@@ -63,6 +63,7 @@
         <div class="time-controls">
           <button id="toggle-clock" class="button button-primary clock-play"><span class="play-symbol">▶</span><span id="toggle-clock-label">Lancer</span></button>
           <button id="advance-day" class="button clock-step">+ 1 jour</button>
+          <button id="advance-month" class="button clock-step">+ 1 mois</button>
           <button id="advance-year" class="button clock-step clock-step-year">+ 1 an</button>
         </div>
         <div class="speed-control">
