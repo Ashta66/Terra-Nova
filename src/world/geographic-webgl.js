@@ -176,5 +176,21 @@ export function buildGeographicLineMesh(feature) {
   if (!positions.length) {
     return { supported: false, reason: "empty-line", positions: new Float32Array(), vertexCount: 0 };
   }
-  return { supported: true, positions: new Float32Array(positions), vertexCount: positions.length / 2 };
+
+  // La géométrie réellement envoyée au GPU est en Float32. Deux points
+  // distincts en Number peuvent donc devenir identiques après conversion.
+  // Filtrer les segments effondrés à ce stade évite les rubans de longueur nulle.
+  const floatPositions = new Float32Array(positions);
+  const validPositions = [];
+  for (let index = 0; index < floatPositions.length; index += 4) {
+    const ax = floatPositions[index], ay = floatPositions[index + 1];
+    const bx = floatPositions[index + 2], by = floatPositions[index + 3];
+    if (ax === bx && ay === by) continue;
+    validPositions.push(ax, ay, bx, by);
+  }
+  if (!validPositions.length) {
+    return { supported: false, reason: "empty-line", positions: new Float32Array(), vertexCount: 0 };
+  }
+  const resultPositions = new Float32Array(validPositions);
+  return { supported: true, positions: resultPositions, vertexCount: resultPositions.length / 2 };
 }
