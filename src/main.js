@@ -17,6 +17,7 @@ import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { getTerrainWebGLTileStats } from "./world/terrain-webgl.js";
 import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
@@ -34,6 +35,7 @@ const createLandLodWorker = () => typeof Worker === "function"
 window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
 window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
 window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
+window.getTerrainTileDebugStats = () => getTerrainWebGLTileStats(terrainTileStore);
 
 let state = createGameState();
 let interval = null;
