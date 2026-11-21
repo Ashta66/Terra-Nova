@@ -94,6 +94,15 @@ test("les maillages géographiques gèrent l'antiméridien et les polygones simp
   assert.equal(polygon.triangleCount, 2);
 });
 
+test("les polygones traversant l’antiméridien restent au rendu Canvas", () => {
+  const polygon = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [[
+      [179, -2], [-179, -2], [-179, 2], [179, 2], [179, -2]
+    ]] }
+  });
+  assert.equal(polygon.supported, false);
+  assert.equal(polygon.reason, "antimeridian-requires-canvas");
+});
 test("les polygones avec trous restent explicitement au rendu Canvas", () => {
   const polygon = buildGeographicPolygonMesh({
     geometry: { type: "Polygon", coordinates: [
