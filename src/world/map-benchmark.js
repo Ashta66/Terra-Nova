@@ -60,7 +60,24 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     previousFrameAt = timestamp;
     const memory = environment.performance?.memory;
     if (memory && Number.isFinite(memory.usedJSHeapSize)) add("jsHeapUsedBytes", memory.usedJSHeapSize);
-    samples.push({ metrics, metadata: { ...context, terrainRenderer: result.terrainRenderer ?? "unknown", viewportWidth: environment.innerWidth ?? null, viewportHeight: environment.innerHeight ?? null, devicePixelRatio: environment.devicePixelRatio ?? 1 } });
+    const userAgent = environment.navigator?.userAgent ?? "unknown";
+    const screen = environment.screen ?? {};
+    const visualViewport = environment.visualViewport ?? {};
+    const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+    samples.push({ metrics, metadata: {
+      ...context,
+      terrainRenderer: result.terrainRenderer ?? "unknown",
+      viewportWidth: environment.innerWidth ?? null,
+      viewportHeight: environment.innerHeight ?? null,
+      devicePixelRatio: environment.devicePixelRatio ?? 1,
+      screenWidth: screen.width ?? null,
+      screenHeight: screen.height ?? null,
+      screenAvailWidth: screen.availWidth ?? null,
+      screenAvailHeight: screen.availHeight ?? null,
+      visualViewportScale: visualViewport.scale ?? null,
+      maxTouchPoints: environment.navigator?.maxTouchPoints ?? null,
+      mobileUserAgent
+    } });
     return true;
   }
   function exportResults({ stop = true } = {}) {
