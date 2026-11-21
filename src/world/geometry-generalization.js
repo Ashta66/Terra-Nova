@@ -105,7 +105,7 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
  * pendant les pans et les rendus suivants. Le niveau de base est déjà généralisé
  * au chargement et sert de repli lorsque le zoom dépasse les seuils configurés.
  */
-export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0) {
+export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0, options = {}) {
   const normalizedLevels = [...new Map(levels
     .filter(level => Number.isFinite(level?.maxZoom) && Number.isFinite(level?.tolerance) && level.tolerance > 0)
     .map(level => ({ maxZoom: level.maxZoom, tolerance: level.tolerance }))
@@ -113,6 +113,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     .map(level => [level.maxZoom, level])).values()];
   const cache = new Map();
   const generationSamples = [];
+  const pending = new Map();
   let generatedLevels = 0;
   let removedVertices = 0;
 
@@ -121,6 +122,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     const level = normalizedLevels.find(item => Number(zoom) <= item.maxZoom);
     if (!level || level.tolerance <= baseTolerance) return baseCollection;
     if (cache.has(level.tolerance)) return cache.get(level.tolerance);
+    if (pending.has(level.tolerance)) return baseCollection;
     const startedAt = globalThis.performance?.now?.() ?? Date.now();
     const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
     const durationMs = Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt);
@@ -154,9 +156,52 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     return generatedLevels > before;
   }
 
+  function prepareAdjacentAsync(zoom = 1, direction = 1) {
+    const targetZoom = getAdjacentZoom(zoom, direction);
+    if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
+    const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
+    if (!level || level.tolerance <= baseTolerance || cache.has(level.tolerance)) return Promise.resolve(false);
+    if (pending.has(level.tolerance)) return pending.get(level.tolerance);
+    if (typeof options.createWorker !== "function") return Promise.resolve(prepareAdjacent(zoom, direction));
+    let worker;
+    try { worker = options.createWorker(); } catch { worker = null; }
+    if (!worker) return Promise.resolve(prepareAdjacent(zoom, direction));
+    const promise = new Promise(resolve => {
+      const startedAt = globalThis.performance?.now?.() ?? Date.now();
+      let settled = false;
+      const finish = (result, fallback = false) => {
+        if (settled) return;
+        settled = true;
+        worker.terminate?.();
+        pending.delete(level.tolerance);
+        if (result) {
+          cache.set(level.tolerance, result);
+          generationSamples.push(Math.max(0, (globalThis.performance?.now?.() ?? Date.now()) - startedAt));
+          generatedLevels += 1;
+          removedVertices += result?.geometryStats?.removedVertices ?? 0;
+          resolve(true);
+        } else if (fallback) {
+          resolve(prepareAdjacent(zoom, direction));
+        } else {
+          resolve(false);
+        }
+      };
+      worker.onmessage = event => finish(event?.data?.result ?? null, false);
+      worker.onerror = () => finish(null, true);
+      try {
+        worker.postMessage({ collection: baseCollection, tolerance: level.tolerance });
+      } catch {
+        finish(null, true);
+      }
+    });
+    pending.set(level.tolerance, promise);
+    return promise;
+  }
+
   return {
     getForZoom,
     prepareAdjacent,
+    prepareAdjacentAsync,
     getAdjacentZoom,
     getStats() {
       return {
