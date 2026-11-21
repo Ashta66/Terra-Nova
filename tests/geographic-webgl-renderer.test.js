@@ -307,6 +307,32 @@ test("la triangulation reste valide sur un anneau concave de 128 sommets", () =>
 });
 
 
+
+test("les maillages Natural Earth conservent l'aire de chaque polygone pris en charge", () => {
+  const collection = JSON.parse(readFileSync(new URL("../data/ne_110m_land.geojson", import.meta.url), "utf8"));
+  let checkedFeatures = 0;
+  let checkedPolygons = 0;
+  for (const feature of collection.features) {
+    const mesh = buildGeographicPolygonMesh(feature);
+    if (!mesh.supported) continue;
+    const polygons = feature.geometry.type === "Polygon"
+      ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+    let expectedArea = 0;
+    for (const polygon of polygons) {
+      const ring = polygon[0].slice(0, -1).map(([x, y]) => [Math.fround(x), Math.fround(y)]);
+      expectedArea += polygonAreaFromCoordinates(ring);
+      checkedPolygons++;
+    }
+    const actualArea = polygonMeshTriangleArea(mesh);
+    const tolerance = Math.max(1e-5, expectedArea * 1e-6);
+    assert.ok(Math.abs(actualArea - expectedArea) <= tolerance,
+      `la surface triangulée doit correspondre à la surface du contour (écart ${Math.abs(actualArea - expectedArea)}, attendu ${expectedArea}, obtenu ${actualArea})`);
+    checkedFeatures++;
+  }
+  assert.equal(checkedFeatures, 125);
+  assert.ok(checkedPolygons >= checkedFeatures);
+});
+
 test("les géométries réelles Natural Earth produisent des maillages polygonaux valides", () => {
   const collection = JSON.parse(readFileSync(new URL("../data/ne_110m_land.geojson", import.meta.url), "utf8"));
   assert.equal(collection.type, "FeatureCollection");
