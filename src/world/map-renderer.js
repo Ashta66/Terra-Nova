@@ -1352,7 +1352,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
-    if (terrainEnabled && (projection.lodZoom ?? 1) >= 2.5 && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
+    // Diagnostic A/B : permet d'isoler l'ombrage Canvas tuilé du relief WebGL.
+    // Désactivé uniquement si le développeur active explicitement le drapeau global.
+    if (terrainEnabled && globalThis.__TERRA_DISABLE_HILLSHADE_OVERLAY !== true
+      && (projection.lodZoom ?? 1) >= 2.5 && options.terrainEnabled !== false
+      && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
       if (landClipPath) {
         target.clip(landClipPath, "evenodd");
