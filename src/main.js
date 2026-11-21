@@ -14,7 +14,7 @@ import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
-import { fitMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
+import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
 import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
@@ -144,7 +144,12 @@ function viewSize() {
   const frame = mapCanvas?.parentElement;
   const availableWidth = frame?.clientWidth || mapCanvas?.clientWidth || 960;
   const availableHeight = frame?.clientHeight || availableWidth * 0.5;
-  return fitMapFrame(availableWidth, availableHeight, 2);
+  // À l'échelle monde, conserver le planisphère entier. Dès le zoom,
+  // couvrir le cadre en débordant sur son axe long : aucune bande résiduelle
+  // et aucune déformation de la projection (le cadre masque le débordement).
+  return mapViewport.zoom > 1.001
+    ? coverMapFrame(availableWidth, availableHeight, 2)
+    : fitMapFrame(availableWidth, availableHeight, 2);
 }
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
