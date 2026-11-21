@@ -1384,7 +1384,10 @@ function composeScene() {
     context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
   }
   context.globalAlpha = 1;
-  drawMapTileFallbacks(context, width, height, composition);
+  // Diagnostic A/B : isole les bitmaps de tuiles physiques superposés à la scène.
+  if (globalThis.__TERRA_DISABLE_MAP_TILE_FALLBACKS !== true) {
+    drawMapTileFallbacks(context, width, height, composition);
+  }
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
   mapLabelHits = [];
