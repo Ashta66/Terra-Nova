@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileAtlasBatchVertices, createTerrainWebGLTileAtlas, expandTerrainTileRect, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileAtlasBatchVertices, buildTerrainTileTexture, createTerrainWebGLTileAtlas, expandTerrainTileRect, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+
+test("le diagnostic identifie une tuile voisine absente lors de la construction du halo", () => {
+  const tile = { level: 0, x: 0, y: 0, originX: 0, originY: 0, width: 2, height: 2 };
+  const store = { width: 4, height: 2, tileSize: 2, getTileAtLevel(level, x, y) {
+    if (x === 0 && y === 0) return tile;
+    return null;
+  }};
+  const diagnostics = {};
+  assert.equal(buildTerrainTileTexture(tile, store, diagnostics), null);
+  assert.match(diagnostics.reason, /^missing-neighbor:/);
+});
 
 test("les rectangles de tuiles se recouvrent d'un pixel pour supprimer les fissures de rasterisation", () => {
   const left = expandTerrainTileRect({ x: 0, y: 4, width: 10, height: 8 }, 20, 20);
