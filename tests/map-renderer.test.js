@@ -866,9 +866,10 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
 });
 
 
-test("les bascules WebGL des côtes et rivières invalident le cache statique", () => {
+test("les bascules WebGL des côtes, frontières et rivières invalident le cache statique", () => {
   const previous = globalThis.OffscreenCanvas;
   const previousCoast = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  const previousBoundaries = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
   const previousRivers = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
   class MockOffscreenCanvas {
     constructor(width, height) { this.width = width; this.height = height; this.context = createCanvas().canvas.getContext("2d"); }
@@ -876,26 +877,32 @@ test("les bascules WebGL des côtes et rivières invalident le cache statique", 
   }
   globalThis.OffscreenCanvas = MockOffscreenCanvas;
   delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
   delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
   try {
     const { canvas } = createCanvas();
     const first = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
     const coastToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = true,
       renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    const boundaryToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
     const riverToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = true,
       renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
     assert.equal(first.staticCacheHit, false);
     assert.equal(coastToggle.staticCacheHit, false);
+    assert.equal(boundaryToggle.staticCacheHit, false);
     assert.equal(riverToggle.staticCacheHit, false);
   } finally {
     if (previous === undefined) delete globalThis.OffscreenCanvas;
     else globalThis.OffscreenCanvas = previous;
     if (previousCoast === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = previousCoast;
+    if (previousBoundaries === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES = previousBoundaries;
     if (previousRivers === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = previousRivers;
   }
-});
+});;
 
 test("le nombre de villes affichées ne dépasse jamais cinq, quel que soit le zoom", () => {
   for (const zoom of [1, 2, 4, 8, 14, 35]) assert.equal(getCityLabelLimit(zoom), 5);
