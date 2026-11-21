@@ -23,7 +23,13 @@ import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
+import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+
+const mapBenchmarkCollector = createMapBenchmarkCollector();
+window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
+window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
+window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
 
 let state = createGameState();
 let interval = null;
@@ -583,6 +589,7 @@ function completeMapRender(result, context) {
   sceneRecenterPending = false;
   requestCompose();
   updateMapDiagnostics(result);
+  mapBenchmarkCollector.record(result, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom, cache: "runtime" });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
