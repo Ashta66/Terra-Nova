@@ -41,6 +41,28 @@ window.getTerrainRasterDiagnostics = () => {
   const grid = terrainGrid;
   if (!grid?.values) return { ready: false, message: "Grille ETOPO non chargée." };
   const { width, height, values } = grid;
+  const rowStats = y => {
+    const offset = y * width;
+    let sum = 0, sumSquares = 0, min = Infinity, max = -Infinity;
+    const samples = [];
+    const stride = Math.max(1, Math.floor(width / 24));
+    for (let x = 0; x < width; x++) {
+      const v = values[offset + x];
+      sum += v; sumSquares += v * v;
+      if (v < min) min = v;
+      if (v > max) max = v;
+      if (x % stride === 0) samples.push(v);
+    }
+    const mean = sum / width;
+    return {
+      y, latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)),
+      min, max, mean: Number(mean.toFixed(2)),
+      stdDev: Number(Math.sqrt(Math.max(0, sumSquares / width - mean * mean)).toFixed(2)),
+      samples
+    };
+  };
+  const edgeRows = [...Array(16)].map((_, i) => rowStats(i))
+    .concat([...Array(16)].map((_, i) => rowStats(height - 16 + i)));
   const rowMeans = new Float64Array(height), colMeans = new Float64Array(width);
   const rowMin = new Int16Array(height), rowMax = new Int16Array(height);
   rowMin.fill(32767); rowMax.fill(-32768);
@@ -70,6 +92,7 @@ window.getTerrainRasterDiagnostics = () => {
     mean: Number((sum / values.length).toFixed(2)),
     rowMeanJumps: strongestJumps(rowMeans),
     columnMeanJumps: strongestJumps(colMeans),
+    edgeRows,
     sampleRows: [0, Math.floor(height * .25), Math.floor(height * .5), Math.floor(height * .75), height - 1]
       .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
   };
