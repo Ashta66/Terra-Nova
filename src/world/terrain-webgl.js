@@ -468,6 +468,16 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
  return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,maxBytes,get,peek,enqueue,retainPending,setProtectedKeys,setOnReady,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,atlasWidth,atlasHeight,capacity:side*side};}};
 }
 
+export function expandTerrainTileRect(rect,width,height,overlap=0.5){
+ if(!rect||![rect.x,rect.y,rect.width,rect.height,width,height,overlap].every(Number.isFinite)
+  ||rect.width<=0||rect.height<=0||width<=0||height<=0||overlap<0)return null;
+ const left=Math.max(0,rect.x-overlap),top=Math.max(0,rect.y-overlap);
+ const right=Math.min(width,rect.x+rect.width+overlap),bottom=Math.min(height,rect.y+rect.height+overlap);
+ if(right<=left||bottom<=top)return null;
+ return {left,top,right,bottom,tx0:(left-rect.x)/rect.width,tx1:(right-rect.x)/rect.width,
+  ty0:(top-rect.y)/rect.height,ty1:(bottom-rect.y)/rect.height};
+}
+
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
  if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
  // Compter d'abord les triangles valides pour allouer le buffer final une seule fois.
@@ -477,8 +487,7 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
   if(!entries.has(`${tile.level}/${tile.x}/${tile.y}`))continue;
   for(const r of rects??[]){
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
-   const left=Math.max(0,r.x),top=Math.max(0,r.y),right=Math.min(width,r.x+r.width),bottom=Math.min(height,r.y+r.height);
-   if(right>left&&bottom>top)vertexCount+=6;
+   if(expandTerrainTileRect(r,width,height,0.5))vertexCount+=6;
   }
  }
  if(!vertexCount)return new Float32Array();
@@ -501,9 +510,9 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
   if(!entry)continue;
   for(const r of rects??[]){
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
-   const l=Math.max(0,r.x),t=Math.max(0,r.y),right=Math.min(width,r.x+r.width),bottom=Math.min(height,r.y+r.height);
-   if(right<=l||bottom<=t)continue;
-   const ax=(l-r.x)/r.width,bx=(right-r.x)/r.width,ay=(t-r.y)/r.height,by=(bottom-r.y)/r.height;
+   const expanded=expandTerrainTileRect(r,width,height,0.5);
+   if(!expanded)continue;
+   const {left:l,top:t,right,bottom,tx0:ax,tx1:bx,ty0:ay,ty1:by}=expanded;
    const u0=r.u0+(r.u1-r.u0)*ax,u1=r.u0+(r.u1-r.u0)*bx,v0=r.v0+(r.v1-r.v0)*ay,v1=r.v0+(r.v1-r.v0)*by;
    push(l,t,u0,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,t,u1,v0,entry,tile);
    push(right,t,u1,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,bottom,u1,v1,entry,tile);
