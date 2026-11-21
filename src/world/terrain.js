@@ -314,10 +314,61 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
  return drawn;
 }
 
+// Diagnostic ponctuel : analyse les pixels du canvas de relief réellement rendu.
+let lastTerrainDiagnosticCanvas = null;
+if (typeof window !== "undefined") {
+  window.getTerrainCanvasDiagnostics = () => {
+    const canvas = lastTerrainDiagnosticCanvas;
+    if (!canvas) return { error: "Canvas de relief non capturé : attendre un rendu de la carte." };
+    const context = canvas.getContext?.("2d", { willReadFrequently: true });
+    if (!context) return { error: "Contexte 2D du canvas indisponible." };
+    const { width, height } = canvas;
+    let image;
+    try { image = context.getImageData(0, 0, width, height).data; }
+    catch (error) { return { error: "Lecture des pixels impossible : " + error.message }; }
+    const rowMeans = [], rowStdDevs = [], rowAlpha = [];
+    const columnMeans = [];
+    for (let y = 0; y < height; y++) {
+      let sum = 0, sum2 = 0, alpha = 0, count = 0;
+      const step = Math.max(1, Math.floor(width / 512));
+      for (let x = 0; x < width; x += step) {
+        const i = (y * width + x) * 4;
+        const a = image[i + 3] / 255;
+        const v = (image[i] * .2126 + image[i + 1] * .7152 + image[i + 2] * .0722) * a;
+        sum += v; sum2 += v * v; alpha += a; count++;
+      }
+      const mean = count ? sum / count : 0;
+      rowMeans.push(Number(mean.toFixed(2)));
+      rowStdDevs.push(Number(Math.sqrt(Math.max(0, sum2 / Math.max(1,count) - mean * mean)).toFixed(2)));
+      rowAlpha.push(Number((alpha / Math.max(1,count)).toFixed(3)));
+    }
+    const colStep = Math.max(1, Math.floor(height / 256));
+    for (let x = 0; x < width; x += Math.max(1, Math.floor(width / 512))) {
+      let sum = 0, count = 0;
+      for (let y = 0; y < height; y += colStep) {
+        const i = (y * width + x) * 4;
+        sum += (image[i] * .2126 + image[i + 1] * .7152 + image[i + 2] * .0722) * image[i + 3] / 255;
+        count++;
+      }
+      columnMeans.push(Number((sum / Math.max(1,count)).toFixed(2)));
+    }
+    const jumps = values => values.slice(1).map((v,i)=>({index:i+1,delta:Number((v-values[i]).toFixed(2))}))
+      .sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,20);
+    return {
+      width, height, rowMeans, rowStdDevs, rowAlpha,
+      largestRowJumps: jumps(rowMeans),
+      columnMeans,
+      largestColumnJumps: jumps(columnMeans),
+      sampledAt: new Date().toISOString()
+    };
+  };
+}
+
 const terrainSurfaceCache = new WeakMap();
 const TERRAIN_SURFACES_PER_GRID = 6;
 
 export function drawTerrainRaster(context, width, height, grid, viewport = {}, quality = 1, landOnly = false, physicalWorld = null, changedOnly = false, hillshadeOnly = false) {
+  if (typeof window !== "undefined" && context?.canvas) lastTerrainDiagnosticCanvas = context.canvas;
   if (!context?.createImageData || !context?.putImageData || !grid?.values) return false;
   if (globalThis.__TERRA_DISABLE_TERRAIN_RASTER_TILES !== true
     && typeof context.drawImage === "function" && (typeof OffscreenCanvas !== "undefined" || typeof document !== "undefined")) {
