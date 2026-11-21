@@ -2,11 +2,13 @@ import { createGeographicMeshCache, buildGeographicLineMesh } from "./geographic
 
 const VERTEX_SHADER = `
 attribute vec2 a_coordinate;
+attribute float a_longitude_anchor;
 uniform vec2 u_center;
 uniform float u_zoom;
 void main() {
-  float longitude = a_coordinate.x;
-  longitude += 360.0 * floor((u_center.x - longitude) / 360.0 + 0.5);
+  float anchor = a_longitude_anchor;
+  anchor += 360.0 * floor((u_center.x - anchor) / 360.0 + 0.5);
+  float longitude = a_coordinate.x + (anchor - a_longitude_anchor);
   float x = (longitude - u_center.x) * u_zoom / 180.0;
   float y = (a_coordinate.y - u_center.y) * u_zoom / 90.0;
   gl_Position = vec4(x, y, 0.0, 1.0);
@@ -59,7 +61,7 @@ function compile(gl, type, source) {
   return shader;
 }
 
-function makeBatch() { return { positions: [], indices: [], features: 0 }; }
+function makeBatch() { return { positions: [], anchors: [], indices: [], features: 0 }; }
 
 const MAX_CACHED_LAYERS = 12;
 const MAX_CACHED_GPU_BYTES = 128 * 1024 * 1024;
@@ -229,6 +231,7 @@ function appendMesh(batch, mesh) {
   const offset = batch.positions.length / 2;
   if (offset + mesh.vertexCount > 65535) return false;
   for (const value of mesh.positions) batch.positions.push(value);
+  for (const anchor of mesh.anchors) batch.anchors.push(anchor);
   for (const index of mesh.indices) batch.indices.push(offset + index);
   batch.features++;
   return true;
@@ -255,6 +258,7 @@ export function createGeographicWebGLRenderer(gl) {
     gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null;
   }
   const positionLocation = gl.getAttribLocation(program, "a_coordinate");
+  const longitudeAnchorLocation = gl.getAttribLocation(program, "a_longitude_anchor");
   const centerLocation = gl.getUniformLocation(program, "u_center");
   const zoomLocation = gl.getUniformLocation(program, "u_zoom");
   const colorLocation = gl.getUniformLocation(program, "u_color");
@@ -308,6 +312,7 @@ export function createGeographicWebGLRenderer(gl) {
   function releaseBatches(batches) {
     for (const batch of batches ?? []) {
       if (batch.vertexBuffer) gl.deleteBuffer(batch.vertexBuffer);
+      if (batch.anchorBuffer) gl.deleteBuffer(batch.anchorBuffer);
       if (batch.elementBuffer) gl.deleteBuffer(batch.elementBuffer);
       if (batch.lineBuffer) gl.deleteBuffer(batch.lineBuffer);
     }
@@ -336,19 +341,24 @@ export function createGeographicWebGLRenderer(gl) {
       for (const batch of batches) {
         if (!batch.indices.length) continue;
         const positions = new Float32Array(batch.positions);
+        const anchors = new Float32Array(batch.anchors);
         const indices = new Uint16Array(batch.indices);
         const vertexBuffer = gl.createBuffer();
+        const anchorBuffer = gl.createBuffer();
         const elementBuffer = gl.createBuffer();
-        if (!vertexBuffer || !elementBuffer) {
+        if (!vertexBuffer || !anchorBuffer || !elementBuffer) {
           if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
+          if (anchorBuffer) gl.deleteBuffer(anchorBuffer);
           if (elementBuffer) gl.deleteBuffer(elementBuffer);
           throw new Error("Impossible de créer les buffers géographiques.");
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, anchorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, anchors, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
-        gpuBatches.push({ positions, indices, vertexBuffer, elementBuffer, triangles: indices.length / 3 });
+        gpuBatches.push({ positions, anchors, indices, vertexBuffer, anchorBuffer, elementBuffer, triangles: indices.length / 3 });
       }
     } catch (error) {
       releaseBatches(gpuBatches);
@@ -389,8 +399,8 @@ export function createGeographicWebGLRenderer(gl) {
         geometryBuildMs += built.geometryBuildMs;
         bufferUploadMs += built.bufferUploadMs;
         const bytes = built.batches.reduce((sum, batch) =>
-          sum + batch.positions.byteLength + batch.indices.byteLength, 0);
-        const uploads = built.batches.length * 2;
+          sum + batch.positions.byteLength + batch.anchors.byteLength + batch.indices.byteLength, 0);
+        const uploads = built.batches.length * 3;
         uploadedBytes += bytes;
         bufferUploads += uploads;
         chunk = { bucket, featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
@@ -416,7 +426,7 @@ export function createGeographicWebGLRenderer(gl) {
     let total = 0;
     for (const cached of layerCaches.values()) {
       if (cached.type === "polygons") {
-        for (const batch of cached.batches ?? []) total += batch.positions.byteLength + batch.indices.byteLength;
+        for (const batch of cached.batches ?? []) total += batch.positions.byteLength + batch.anchors.byteLength + batch.indices.byteLength;
       } else {
         total += cached.positions?.byteLength ?? 0;
       }
@@ -513,7 +523,7 @@ export function createGeographicWebGLRenderer(gl) {
       }
       empty.cachedGpuBytes += type === "polygons"
         ? (cached.batches ?? []).reduce((sum, batch) => sum + (batch.positions?.byteLength ?? 0)
-          + (batch.indices?.byteLength ?? 0), 0)
+          + (batch.anchors?.byteLength ?? 0) + (batch.indices?.byteLength ?? 0), 0)
         : (cached.positions?.byteLength ?? 0);
       empty.layers[key] = { type, drawnFeatures: cached.drawnFeatures, skippedFeatures: cached.skippedFeatures,
         drawCalls: layerDrawCalls, triangles: layerTriangles, vertices: cached.vertexCount ?? 0,
@@ -595,18 +605,22 @@ export function createGeographicWebGLRenderer(gl) {
         gl.uniform4fv(colorLocation, layer.color);
         // Les attributs activés par le programme des lignes peuvent référencer
         // des buffers déjà libérés. Ne conserver que l'attribut polygonal requis.
-        resetVertexAttribArrays([positionLocation]);
+        resetVertexAttribArrays([positionLocation, longitudeAnchorLocation]);
         for (const batch of layer.cached.batches) {
           // Un buffer supprimé (par éviction ou perte de contexte) laisse l'attribut
           // actif sans source valide et provoque INVALID_OPERATION à drawElements.
           // Le renderer appelant peut alors basculer proprement sur Canvas.
           if (typeof gl.isBuffer === "function"
-            && (!gl.isBuffer(batch.vertexBuffer) || !gl.isBuffer(batch.elementBuffer))) {
+            && (!gl.isBuffer(batch.vertexBuffer) || !gl.isBuffer(batch.anchorBuffer)
+              || !gl.isBuffer(batch.elementBuffer))) {
             throw new Error("Cache WebGL géographique invalide : buffer polygonal indisponible.");
           }
           gl.bindBuffer(gl.ARRAY_BUFFER, batch.vertexBuffer);
           gl.enableVertexAttribArray(positionLocation);
           gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ARRAY_BUFFER, batch.anchorBuffer);
+          gl.enableVertexAttribArray(longitudeAnchorLocation);
+          gl.vertexAttribPointer(longitudeAnchorLocation, 1, gl.FLOAT, false, 0, 0);
           gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, batch.elementBuffer);
           gl.drawElements(gl.TRIANGLES, batch.indices.length, gl.UNSIGNED_SHORT, 0);
         }
