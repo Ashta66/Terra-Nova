@@ -423,3 +423,31 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Interpolation continue des tailles de labels et réduction des ruptures typographiques.
 - Côtes terrestres un peu moins simplifiées aux faibles zooms pour limiter les espaces visuellement trop vides.
 - À valider dans le navigateur : fluidité à ×20, mémoire consommée et rendu des petits archipels.
+
+
+## 21 novembre 2026 — bilan des principes inspirés des moteurs cartographiques grand public
+
+Cette synthèse formalise les principes déjà traduits dans le moteur. Elle ne remplace pas le compte rendu source de l'analyse comparative initiale, qui n'a pas été retrouvé dans les ressources accessibles.
+
+| Principe | Implémentation présente | État réel |
+|---|---|---|
+| Pyramide multi-échelle | Planificateur de tuiles et niveaux LOD mondiaux/régionaux | Intégré, validation visuelle à poursuivre |
+| Raffinement progressif | Affichage des parents puis fondu des enfants | Intégré, raccords visuels à valider |
+| Préchargement spatial prédictif | Secteurs voisins, direction du pan, zooms anticipés | Intégré, réglage matériel à poursuivre |
+| Cache et persistance | LRU mémoire, IndexedDB pour les tuiles physiques modifiées | Intégré, mémoire réelle longue durée à mesurer |
+| Séparation des familles | Physique, politique/historique, dynamique | Architecture intégrée, indépendance complète des pipelines non achevée |
+| Rendu GPU | Relief tuilé WebGL et renderer géographique WebGL avec fallbacks Canvas | Partiel, bandes visuelles à diagnostiquer |
+| Généralisation par échelle | Simplification GeoJSON et filtres par rang/zoom | Intégrée, contrôle visuel nécessaire |
+| Calculs asynchrones | Worker de préchargement et Worker LOD persistant | Partiel ; les métriques LOD nulles au zoom 3–5 restent à expliquer |
+| Labels adaptatifs | Plafonds par zoom et priorités de catégories | Partiel ; collision/placement global à approfondir |
+| Adaptation aux appareils | Pixel ratio plafonné et budgets de caches | Partiel ; profils adaptatifs CPU/GPU non généralisés |
+
+### Écarts prioritaires
+- [ ] Corriger et tester les lignes persistantes observées pendant et après le panoramique ; vérifier halos, coordonnées UV, limites de l'atlas et raccords entre rangées de tuiles.
+- [ ] Instrumenter le cycle de vie du préchauffage LOD (planifié, annulé, démarré, terminé) pour expliquer les compteurs nuls aux zooms 3–5.
+- [ ] Terminer la séparation des pipelines physiques, politiques et dynamiques sans transférer d'objets vivants (store de tuiles, contexte WebGL) par structured clone.
+- [ ] Compléter le placement des labels : priorité, collision, stabilité pendant le pan et transitions entre niveaux.
+- [ ] Définir des profils de qualité selon résolution, DPR, mémoire et capacités WebGL, puis les valider sur PC et mobile.
+- [ ] Réaliser la validation visuelle et les mesures longues avant de sortir la PR #46 du brouillon.
+
+Les tests automatisés prouvent les invariants du code, pas l'absence d'artefacts visuels sur le matériel réel. Les lignes signalées par le joueur restent donc un défaut ouvert jusqu'à reproduction et correction confirmée.
