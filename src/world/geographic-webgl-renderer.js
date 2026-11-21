@@ -107,8 +107,11 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
       segmentCount++;
       const ax = group[index], ay = group[index + 1];
       const bx = group[index + 2], by = group[index + 3];
-      endpoints.set(`${ax.toFixed(5)},${ay.toFixed(5)}`, [ax, ay]);
-      endpoints.set(`${bx.toFixed(5)},${by.toFixed(5)}`, [bx, by]);
+      // Les coordonnées proviennent déjà du maillage Float32 : deux sommets
+      // raccordés partagent la même valeur. Ne pas arrondir ici, car deux
+      // extrémités distinctes très proches doivent garder chacune leur cap.
+      endpoints.set(`${ax},${ay}`, [ax, ay]);
+      endpoints.set(`${bx},${by}`, [bx, by]);
     }
     endpointGroups.push(endpoints);
   }
