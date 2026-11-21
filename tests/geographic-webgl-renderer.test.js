@@ -195,3 +195,56 @@ test("le maillage polygonal ne produit pas de triangles dégénérés après con
     assert.notEqual(area2, 0, "un triangle ne doit pas s'effondrer en Float32");
   }
 });
+
+
+function polygonAreaFromCoordinates(ring) {
+  let area = 0;
+  for (let index = 0; index < ring.length; index++) {
+    const next = (index + 1) % ring.length;
+    area += ring[index][0] * ring[next][1] - ring[next][0] * ring[index][1];
+  }
+  return Math.abs(area) * 0.5;
+}
+
+function polygonMeshTriangleArea(mesh) {
+  let area = 0;
+  for (let index = 0; index < mesh.indices.length; index += 3) {
+    const a = mesh.indices[index] * 2;
+    const b = mesh.indices[index + 1] * 2;
+    const c = mesh.indices[index + 2] * 2;
+    const ax = mesh.positions[a], ay = mesh.positions[a + 1];
+    const bx = mesh.positions[b], by = mesh.positions[b + 1];
+    const cx = mesh.positions[c], cy = mesh.positions[c + 1];
+    area += Math.abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) * 0.5;
+  }
+  return area;
+}
+
+test("la triangulation concave couvre exactement la surface du polygone", () => {
+  const ring = [[0, 0], [3, 0], [3, 1], [1, 1], [1, 3], [0, 3], [0, 0]];
+  const mesh = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [ring] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(polygonMeshTriangleArea(mesh), polygonAreaFromCoordinates(ring.slice(0, -1)));
+});
+
+test("la triangulation conserve la surface avec plusieurs sommets colinéaires", () => {
+  const ring = [[0, 0], [1, 0], [2, 0], [3, 0], [3, 2], [0, 2], [0, 0]];
+  const mesh = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [ring] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(polygonMeshTriangleArea(mesh), polygonAreaFromCoordinates(ring.slice(0, -1)));
+});
+
+test("la triangulation conserve la surface lorsque l'anneau est inversé", () => {
+  const ring = [[0, 0], [3, 0], [3, 1], [1, 1], [1, 3], [0, 3], [0, 0]];
+  const reversedRing = [...ring.slice(0, -1)].reverse();
+  reversedRing.push(reversedRing[0]);
+  const mesh = buildGeographicPolygonMesh({
+    geometry: { type: "Polygon", coordinates: [reversedRing] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(polygonMeshTriangleArea(mesh), polygonAreaFromCoordinates(reversedRing.slice(0, -1)));
+});
