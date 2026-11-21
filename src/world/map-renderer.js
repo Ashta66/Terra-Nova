@@ -1197,9 +1197,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     target.restore();
 
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    let landClipPath = null;
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
-      const landClipPath = measureLayer("land-mask-path", () =>
+      landClipPath = measureLayer("land-mask-path", () =>
         buildLandClipPath(visibleLand, width, height, projection, coastProfile));
       if (landClipPath) {
         target.clip(landClipPath, "evenodd");
@@ -1268,9 +1269,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
     if (terrainEnabled && (projection.lodZoom ?? 1) >= 2.5 && options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
-      target.beginPath();
-      for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
-      target.clip("evenodd");
+      if (landClipPath) {
+        target.clip(landClipPath, "evenodd");
+      } else {
+        target.beginPath();
+        for (const feature of visibleLand.features) if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+        target.clip("evenodd");
+      }
       target.globalCompositeOperation = "overlay";
       target.globalAlpha = reliefMode ? 0.66 : 0.52;
       const hillshadeQuality = Math.min(Number(options.terrainQuality ?? 1), 0.62);
