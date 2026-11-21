@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { simplifyGeoJsonCollection } from "../src/world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "../src/world/geometry-generalization.js";
 
 const polygon=(coordinates)=>({type:"Feature",properties:{},geometry:{type:"Polygon",coordinates}});
 test("simplifie les anneaux et lignes avant projection sans modifier les sources",()=>{
