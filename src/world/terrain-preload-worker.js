@@ -58,7 +58,15 @@ export function calculateZoomTilePlan(input = {}) {
 
   const ordered = new Set();
   zooms.sort((a, b) => Math.abs(Math.log2(b / zoom)) - Math.abs(Math.log2(a / zoom)));
-  for (const targetZoom of zooms) for (const id of collect(targetZoom)) ordered.add(id);
+  for (const targetZoom of zooms) {
+    for (const id of collect(targetZoom)) ordered.add(id);
+  }
+  // Le viewport courant passe en dernier : avec un cache LRU, ses tuiles
+  // sont ainsi matérialisées après les zones prédictives et restent prioritaires.
+  for (const id of collect(zoom)) {
+    ordered.delete(id);
+    ordered.add(id);
+  }
   return [...ordered];
 }
 
