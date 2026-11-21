@@ -33,8 +33,13 @@ function terrainGridCoordinates(grid, longitude, latitude) {
   const latitudeSpacing = Number(grid.latitudeSpacingDegrees) || fallbackSpacing;
   const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + longitudeSpacing / 2;
   const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - latitudeSpacing / 2;
-  const wrappedLongitude = longitudeFirst + (((longitude - longitudeFirst) % 360) + 360) % 360;
-  let x = (wrappedLongitude - longitudeFirst) / longitudeSpacing;
+  const longitudeDelta = longitude - longitudeFirst;
+  // Éviter le modulo (et ses additions à 360°) dans le cas courant :
+  // ces opérations ajoutent une erreur flottante inutile aux demi-cellules.
+  const wrappedDelta = longitudeDelta >= 0 && longitudeDelta < 360
+    ? longitudeDelta
+    : ((longitudeDelta % 360) + 360) % 360;
+  let x = wrappedDelta / longitudeSpacing;
   let y = clamp((latitudeFirst - latitude) / latitudeSpacing, 0, grid.height - 1);
   // Les centres de pixels calculés depuis des coordonnées décimales peuvent
   // tomber à quelques ulp d'un entier. Les recaler évite une interpolation
