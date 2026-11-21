@@ -274,3 +274,37 @@ export const REGIONAL_LAKES_DATA_PATH = "./data/ne_10m_lakes.geojson";
 export const REGIONAL_RIVERS_DATA_PATH = "./data/ne_10m_rivers.geojson";
 export const REGIONAL_LABELS_DATA_PATH = "./data/ne_10m_map_labels.geojson";
 export const REGIONAL_ZOOM_THRESHOLD_VALUE = REGIONAL_ZOOM_THRESHOLD;
+
+
+/**
+ * Stabilise les changements de source LOD autour d'un seuil.
+ * Le niveau régional est activé légèrement après le seuil nominal et conservé
+ * jusqu'au passage sous le seuil inverse, ce qui évite les bascules répétées
+ * lorsque le zoom oscille de quelques centièmes autour de la limite.
+ */
+export function createMapLayerLodSelector(hysteresis = 0.18) {
+  const margin = Number.isFinite(hysteresis) ? Math.max(0, hysteresis) / 2 : 0.09;
+  const levels = new Map();
+
+  function select(zoom, worldFeatures, regionalFeatures = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
+    const hasRegional = regionalFeatures?.type === "FeatureCollection" && Array.isArray(regionalFeatures.features);
+    const current = levels.get(threshold);
+    let useRegional = current === "regional-10m"
+      ? Number.isFinite(zoom) && zoom >= threshold - margin
+      : Number.isFinite(zoom) && zoom >= threshold + margin;
+    if (!hasRegional) useRegional = false;
+    const level = useRegional ? "regional-10m" : "world-110m";
+    levels.set(threshold, level);
+    return {
+      level,
+      features: useRegional ? regionalFeatures : worldFeatures,
+      isFallback: !useRegional && Number.isFinite(zoom) && zoom >= threshold
+    };
+  }
+
+  function reset() {
+    levels.clear();
+  }
+
+  return { select, reset };
+}
