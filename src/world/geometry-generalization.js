@@ -121,6 +121,10 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   let workerInitializationSent = false;
   let workerCollectionTransfers = 0;
   let workerJobsCompleted = 0;
+  let workerCreationAttempts = 0;
+  let workerCreationFailures = 0;
+  let workerRuntimeFailures = 0;
+  let workerSyncFallbackJobs = 0;
   let workerFailed = false;
   let nextWorkerRequestId = 1;
 
@@ -190,6 +194,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
 
   function failWorker() {
     if (workerFailed) return;
+    workerRuntimeFailures += 1;
     workerFailed = true;
     worker?.terminate?.();
     worker = null;
@@ -198,8 +203,12 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
 
   function getWorker() {
     if (worker || workerFailed || typeof options.createWorker !== "function") return worker;
+    workerCreationAttempts += 1;
     try { worker = options.createWorker(); } catch { worker = null; }
-    if (!worker) return null;
+    if (!worker) {
+      workerCreationFailures += 1;
+      return null;
+    }
     worker.onmessage = event => {
       const data = event?.data ?? {};
       if (data.type === "ready") return;
@@ -218,7 +227,10 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     if (!level || cache.has(level.tolerance)) return Promise.resolve(false);
     if (pending.has(level.tolerance)) return pending.get(level.tolerance);
     const activeWorker = getWorker();
-    if (!activeWorker) return Promise.resolve(fallback());
+    if (!activeWorker) {
+      workerSyncFallbackJobs += 1;
+      return Promise.resolve(fallback());
+    }
     const requestId = nextWorkerRequestId++;
     let resolveJob;
     const promise = new Promise(resolve => { resolveJob = resolve; });
@@ -282,6 +294,10 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
         cachedTolerances: [...cache.keys()],
         workerCollectionTransfers,
         workerJobsCompleted,
+        workerCreationAttempts,
+        workerCreationFailures,
+        workerRuntimeFailures,
+        workerSyncFallbackJobs,
         workerActive: Boolean(worker && !workerFailed)
       };
     }
