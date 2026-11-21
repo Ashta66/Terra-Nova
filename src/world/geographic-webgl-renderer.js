@@ -504,6 +504,14 @@ export function createGeographicWebGLRenderer(gl) {
     return renderLayers([{ key: "default", features, color }], width, height, viewport);
   }
 
+  function clearLayerCache() {
+    for (const cached of layerCaches.values()) {
+      releaseBatches(cached.batches);
+      if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+    }
+    layerCaches.clear();
+  }
+
   return {
     canvas: gl.canvas ?? null,
     supports(feature) { return Boolean(meshCache.get(feature)?.supported); },
@@ -525,17 +533,11 @@ export function createGeographicWebGLRenderer(gl) {
     },
     render,
     renderLayers,
-    clearLayerCache() {
-      for (const cached of layerCaches.values()) {
-        releaseBatches(cached.batches);
-        if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
-      }
-      layerCaches.clear();
-    },
+    clearLayerCache,
     dispose() {
       if (disposed) return;
       disposed = true;
-      this.clearLayerCache();
+      clearLayerCache();
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
