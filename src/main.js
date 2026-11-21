@@ -651,6 +651,7 @@ function animateLandLodTransition() {
 
 function cancelLandLodWarmup() {
   landLodWarmupToken += 1;
+  landLodWarmupScheduled = false;
   if (landLodWarmupHandle === null) return;
   if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
   else clearTimeout(landLodWarmupHandle);
@@ -669,7 +670,11 @@ function scheduleLandLodWarmup(lodSet, zoom) {
   const token = landLodWarmupToken;
   const run = deadline => {
     landLodWarmupHandle = null;
-    if (token !== landLodWarmupToken || mapInteractionActive) return;
+    if (token !== landLodWarmupToken) return;
+    if (mapInteractionActive) {
+      landLodWarmupScheduled = false;
+      return;
+    }
     if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 8) {
       landLodWarmupUsesIdleCallback = true;
       landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
