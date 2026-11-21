@@ -1306,27 +1306,51 @@ $("advance-day").addEventListener("click", () => {
   state.clock = advanceClock(state.clock);
   render();
 });
-function moveClockToYear(year) {
-  const month = Number(state.clock.date.slice(5, 7));
-  const day = Number(state.clock.date.slice(8, 10));
-  const monthIndex = month - 1;
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const nextDate = new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay)));
+const MIN_SIMULATION_YEAR = 1444;
+const MAX_SIMULATION_YEAR = 9999;
+function moveClockToDate(nextDate) {
   const oldDate = new Date(state.clock.date + "T00:00:00Z");
   const delta = Math.round((nextDate - oldDate) / 86400000);
   state.clock.date = nextDate.toISOString().slice(0, 10);
   state.clock.day = Math.max(1, state.clock.day + delta);
   render();
 }
+function moveClockToYear(year) {
+  const month = Number(state.clock.date.slice(5, 7));
+  const day = Number(state.clock.date.slice(8, 10));
+  const nextDate = new Date(0);
+  nextDate.setUTCHours(0, 0, 0, 0);
+  nextDate.setUTCFullYear(year, month - 1, 1);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  nextDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(nextDate);
+}
+function moveClockByMonths(amount) {
+  const [year, month, day] = state.clock.date.split("-").map(Number);
+  const monthDate = new Date(0);
+  monthDate.setUTCHours(0, 0, 0, 0);
+  monthDate.setUTCFullYear(year, month - 1 + amount, 1);
+  const targetYear = monthDate.getUTCFullYear();
+  const targetMonth = monthDate.getUTCMonth();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  monthDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(monthDate);
+}
 $("advance-year").addEventListener("click", () => {
-  moveClockToYear(Math.min(2100, Number(state.clock.date.slice(0, 4)) + 1));
+  const year = Number(state.clock.date.slice(0, 4));
+  if (year < MAX_SIMULATION_YEAR) moveClockToYear(year + 1);
+});
+$("advance-month").addEventListener("click", () => {
+  const year = Number(state.clock.date.slice(0, 4));
+  const month = Number(state.clock.date.slice(5, 7));
+  if (year < MAX_SIMULATION_YEAR || month < 12) moveClockByMonths(1);
 });
 document.querySelectorAll("[data-year]").forEach(button => button.addEventListener("click", () => {
   const year = Number(button.dataset.year);
-  if (Number.isFinite(year)) moveClockToYear(Math.max(1444, Math.min(2100, year)));
+  if (Number.isFinite(year)) moveClockToYear(Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, year)));
 }));
 $("year-scrubber").addEventListener("input", event => {
-  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
+  const year = Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, Number(event.target.value)));
   moveClockToYear(year);
 });
 document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
