@@ -97,6 +97,12 @@ export function buildGeographicPolygonMesh(feature) {
       return { supported: false, reason: "polygon-holes-require-canvas", positions: new Float32Array(), indices: new Uint16Array() };
     }
     const ring = unwrapRing(polygon[0]);
+    // Le shader normalise chaque sommet indépendamment autour du centre de vue.
+    // Un anneau déroulé au-delà de +/-180° serait donc coupé visuellement à
+    // l'antiméridien : on le laisse au pipeline Canvas, qui projette en continu.
+    if (ring?.some(([longitude]) => longitude < -180 || longitude > 180)) {
+      return { supported: false, reason: "antimeridian-requires-canvas", positions: new Float32Array(), indices: new Uint16Array() };
+    }
     const triangles = triangulateRing(ring);
     if (!ring || !triangles) {
       return { supported: false, reason: "invalid-or-self-intersecting-ring", positions: new Float32Array(), indices: new Uint16Array() };
