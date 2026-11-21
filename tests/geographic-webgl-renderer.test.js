@@ -17,7 +17,7 @@ function createMockGl() {
     createShader: () => ({ id: ++nextId }),
     shaderSource() {}, compileShader() {}, getShaderParameter: () => true, deleteShader() {},
     createProgram: () => ({ id: ++nextId }), attachShader() {}, linkProgram() {},
-    getProgramParameter: () => true, getAttribLocation: (_program, name) => ({ a_coordinate: 0, a_longitude_anchor: 1 }[name] ?? 0), getUniformLocation: () => ({}),
+    getProgramParameter: () => true, getAttribLocation: (_program, name) => ({ a_coordinate: 0, a_longitude_anchor: 1, a_other: 2, a_side: 3, a_join_offset: 4, a_is_join: 5 }[name] ?? 0), getUniformLocation: () => ({}),
     deleteProgram() {},
     createBuffer: () => ({ id: ++nextId }),
     deleteBuffer(buffer) { deleted.add(buffer); },
