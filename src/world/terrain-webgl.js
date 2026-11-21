@@ -478,7 +478,7 @@ export function expandTerrainTileRect(rect,width,height,overlap=0.5){
   ty0:(top-rect.y)/rect.height,ty1:(bottom-rect.y)/rect.height};
 }
 
-export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas){
+export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas,seamOverlap=0.5){
  if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
  // Compter d'abord les triangles valides pour allouer le buffer final une seule fois.
  // La table entries est indexée par coordonnées de tuile (sans revision) par drawLevel.
@@ -487,7 +487,7 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
   if(!entries.has(`${tile.level}/${tile.x}/${tile.y}`))continue;
   for(const r of rects??[]){
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
-   if(expandTerrainTileRect(r,width,height,0.5))vertexCount+=6;
+   if(expandTerrainTileRect(r,width,height,seamOverlap))vertexCount+=6;
   }
  }
  if(!vertexCount)return new Float32Array();
@@ -510,7 +510,7 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
   if(!entry)continue;
   for(const r of rects??[]){
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
-   const expanded=expandTerrainTileRect(r,width,height,0.5);
+   const expanded=expandTerrainTileRect(r,width,height,seamOverlap);
    if(!expanded)continue;
    const {left:l,top:t,right,bottom,tx0:ax,tx1:bx,ty0:ay,ty1:by}=expanded;
    const u0=r.u0+(r.u1-r.u0)*ax,u1=r.u0+(r.u1-r.u0)*bx,v0=r.v0+(r.v1-r.v0)*ay,v1=r.v0+(r.v1-r.v0)*by;
@@ -953,7 +953,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
       if(entry){entries.set(`${entry.level}/${entry.x}/${entry.y}`,entry);readyItems.push(item);}
       else if(deferMissing)cache.enqueue(item.tile,protectedKeys,0);
     }
-    const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache);
+    const vertices=buildTerrainTileAtlasBatchVertices(readyItems,entries,width,height,cache,opacity>=1?0.5:0);
     if(!vertices.length)return;
     const nextCapacity=getTerrainVertexBufferCapacity(renderer.vertexBufferCapacityBytes,vertices.byteLength);
     if(nextCapacity!==renderer.vertexBufferCapacityBytes){
