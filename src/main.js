@@ -572,14 +572,15 @@ function dispatchMapWorkerRender(job) {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
     politicalBoundaries, administrativeBoundaries, terrain, ...options
   } = job.options;
-  // Le store de tuiles expose des méthodes (getTile/getTileAt, etc.) et ne peut
-  // pas être cloné par structured clone. Le transférer ferait échouer postMessage
-  // et désactiverait définitivement le Worker ; le rendu local conserve toutes
-  // les capacités du store physique.
-  const terrainStore = familyUpdates.physical?.terrain;
-  if (terrainStore && Object.values(terrainStore).some(value => typeof value === "function")) {
+  // Ces services sont des objets vivants du thread principal : le store de
+  // tuiles expose des méthodes (getTile/getTileAt) et le renderer WebGL détient
+  // un contexte GPU. Ni l'un ni l'autre ne doit entrer dans structured clone.
+  // Le rendu local les conserve intégralement ; surtout, ne désactivons pas le
+  // Worker pour une limite de transfert attendue.
+  const requiresMainThreadServices = Boolean(job.options.terrainTileStore || job.options.geographicWebGLRenderer);
+  if (requiresMainThreadServices) {
     if (!mapRenderWorkerTerrainFallbackLogged) {
-      console.info("Rendu cartographique local conservé : le store de terrain contient des méthodes non transférables.");
+      console.info("Rendu cartographique local conservé : les services de terrain/WebGL restent attachés au thread principal.");
       mapRenderWorkerTerrainFallbackLogged = true;
     }
     job.onFallback();
