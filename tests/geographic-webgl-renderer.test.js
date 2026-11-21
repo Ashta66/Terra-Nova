@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildRibbonBuffer, createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
+import { buildGeographicLineMesh } from "../src/world/geographic-webgl.js";
 
 function createMockGl() {
   let nextId = 0;
@@ -159,4 +160,14 @@ test("les raccords circulaires transmettent au shader des offsets écran unitair
   assert.deepEqual(Array.from(joins.slice(0, 4)), [10, 20, 10, 20]);
   assert.deepEqual(Array.from(joins.slice(36 * stride, 36 * stride + 4)), [30, 40, 30, 40]);
   gl.deleteBuffer(result.lineBuffer);
+});
+
+
+test("le maillage élimine les sommets distincts en double précision mais identiques en Float32", () => {
+  const mesh = buildGeographicLineMesh({
+    geometry: { type: "LineString", coordinates: [[10, 20], [10 + 1e-7, 20], [11, 20]] }
+  });
+  assert.equal(mesh.supported, true);
+  assert.equal(mesh.positions.length, 4, "le sommet arrondi au même Float32 que le premier ne doit pas créer de segment nul");
+  assert.deepEqual(Array.from(mesh.positions), [10, 20, 11, 20]);
 });
