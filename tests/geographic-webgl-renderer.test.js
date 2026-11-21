@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildRibbonBuffer, createGeographicWebGLRenderer } from "../src/world/geographic-webgl-renderer.js";
-import { buildGeographicLineMesh } from "../src/world/geographic-webgl.js";
+import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
 
 function createMockGl() {
   let nextId = 0;
@@ -170,4 +170,28 @@ test("le maillage élimine les sommets distincts en double précision mais ident
   assert.equal(mesh.supported, true);
   assert.equal(mesh.positions.length, 4, "le sommet arrondi au même Float32 que le premier ne doit pas créer de segment nul");
   assert.deepEqual(Array.from(mesh.positions), [10, 20, 11, 20]);
+});
+
+
+test("le maillage polygonal ne produit pas de triangles dégénérés après conversion Float32", () => {
+  const mesh = buildGeographicPolygonMesh({
+    geometry: {
+      type: "Polygon",
+      coordinates: [[
+        [10, 20], [10 + 1e-7, 20], [11, 20],
+        [11, 21], [10, 21], [10, 20]
+      ]]
+    }
+  });
+  assert.equal(mesh.supported, true);
+  for (let index = 0; index < mesh.indices.length; index += 3) {
+    const a = mesh.indices[index] * 2;
+    const b = mesh.indices[index + 1] * 2;
+    const c = mesh.indices[index + 2] * 2;
+    const ax = mesh.positions[a], ay = mesh.positions[a + 1];
+    const bx = mesh.positions[b], by = mesh.positions[b + 1];
+    const cx = mesh.positions[c], cy = mesh.positions[c + 1];
+    const area2 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    assert.notEqual(area2, 0, "un triangle ne doit pas s'effondrer en Float32");
+  }
 });
