@@ -27,6 +27,9 @@ import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
+const createLandLodWorker = () => typeof Worker === "function"
+  ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
+  : null;
 window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
 window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
 window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
@@ -661,7 +664,7 @@ function cancelLandLodWarmup() {
 function scheduleLandLodWarmup(lodSet, zoom) {
   cancelLandLodWarmup();
   landLodWarmupScheduled = false;
-  if (!lodSet?.prepareAdjacent || mapInteractionActive) return;
+  if (!lodSet?.getAdjacentZoom || (!lodSet.prepareAdjacentAsync && !lodSet.prepareAdjacent) || mapInteractionActive) return;
   const previousZoom = lastLandLodWarmupZoom;
   const direction = previousZoom === null || zoom >= previousZoom ? 1 : -1;
   lastLandLodWarmupZoom = zoom;
@@ -681,11 +684,24 @@ function scheduleLandLodWarmup(lodSet, zoom) {
       return;
     }
     const startedAt = globalThis.performance?.now?.() ?? Date.now();
-    const generated = lodSet.prepareAdjacent(zoom, direction);
-    landLodWarmupCompleted += generated ? 1 : 0;
-    landLodWarmupScheduled = false;
-    const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
-    if (elapsed > 24) console.info("Préparation LOD différée :", elapsed.toFixed(1), "ms");
+    const prepare = lodSet.prepareAdjacentAsync
+      ? lodSet.prepareAdjacentAsync(zoom, direction)
+      : Promise.resolve(lodSet.prepareAdjacent(zoom, direction));
+    Promise.resolve(prepare).then(generated => {
+      if (token !== landLodWarmupToken) return;
+      landLodWarmupCompleted += generated ? 1 : 0;
+      landLodWarmupScheduled = false;
+      const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
+      if (elapsed > 24) console.info("Préparation LOD asynchrone :", elapsed.toFixed(1), "ms");
+      if (generated && !mapInteractionActive) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      }
+    }).catch(error => {
+      if (token !== landLodWarmupToken) return;
+      landLodWarmupScheduled = false;
+      console.warn("Préparation LOD impossible :", error);
+    });
   };
   landLodWarmupScheduled = true;
   if (typeof requestIdleCallback === "function") {
@@ -747,7 +763,7 @@ function renderMapFrame() {
       regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
       regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, [
         { maxZoom: 9, tolerance: 0.004 }
-      ], 0.0018);
+      ], 0.0018, { createWorker: createLandLodWorker });
       lastLandLodWarmupZoom = null;
       if (features) {
         lastRenderedMapSignature = null;
@@ -950,7 +966,7 @@ async function loadWorldMap() {
       { maxZoom: 1.8, tolerance: 0.04 },
       { maxZoom: 3.5, tolerance: 0.02 },
       { maxZoom: 6, tolerance: 0.008 }
-    ], 0.008);
+    ], 0.008, { createWorker: createLandLodWorker });
     lastLandLodWarmupZoom = null;
     lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
     riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
