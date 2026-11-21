@@ -34,6 +34,11 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     add("geometryCache:cachedVertices", pathCache.cachedVertices);
     add("geometryCache:estimatedBytes", pathCache.estimatedBytes);
     add("geometryCache:maxEstimatedBytes", pathCache.maxEstimatedBytes);
+    add("geometryCache:projectedPathHits", pathCache.projectedPathCacheHits);
+    add("geometryCache:projectedPathMisses", pathCache.projectedPathCacheMisses);
+    add("geometryCache:combinedMaskHits", pathCache.combinedLandMaskCacheHits);
+    add("geometryCache:combinedMaskMisses", pathCache.combinedLandMaskCacheMisses);
+    add("geometryCache:combinedMaskEntries", pathCache.combinedLandMaskCacheEntries);
     const lod = result.lodStats ?? {};
     add("lod:generatedLevels", lod.generatedLevels);
     add("lod:cachedLevels", lod.cachedLevels);
