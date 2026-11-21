@@ -27,24 +27,25 @@ function createContinuousProjector(width, height, projection) {
   };
 }
 
-// Profil volontairement plus léger : le coût des contours augmente fortement
-// avec les données 1:10m ; les micro-îlots restent masqués même au zoom rapproché.
+// La tolérance et l'aire minimale sont exprimées en pixels projetés.
+// En zoom arrière, on simplifie fortement ; en zoom rapproché, on restaure
+// progressivement les détails côtiers et les petites îles.
 export function getCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 1.3, minRingArea: 2.2 };
-  if (level <= 4) return { tolerance: 1.65, minRingArea: 3.1 };
-  if (level <= 10) return { tolerance: 2.05, minRingArea: 4.4 };
-  return { tolerance: 2.5, minRingArea: 6 };
+  if (level <= 1.5) return { tolerance: 2.5, minRingArea: 6 };
+  if (level <= 4) return { tolerance: 2.05, minRingArea: 4.4 };
+  if (level <= 10) return { tolerance: 1.65, minRingArea: 3.1 };
+  return { tolerance: 1.3, minRingArea: 2.2 };
 }
 
-// Le littoral physique et le masque du relief sont moins détaillés que les
-// frontières territoriales : les micro-îles ne justifient pas leur coût.
+// Le masque physique reste plus léger que les contours d'habillage, mais son
+// niveau de détail augmente lui aussi avec le zoom pour préserver les îles.
 export function getLandCoastSimplificationProfile(zoom = 1) {
   const level = Math.max(1, Number(zoom) || 1);
-  if (level <= 1.5) return { tolerance: 2.8, minRingArea: 14 };
-  if (level <= 4) return { tolerance: 3.4, minRingArea: 24 };
-  if (level <= 10) return { tolerance: 3.9, minRingArea: 40 };
-  return { tolerance: 4.4, minRingArea: 60 };
+  if (level <= 1.5) return { tolerance: 4.4, minRingArea: 60 };
+  if (level <= 4) return { tolerance: 3.9, minRingArea: 40 };
+  if (level <= 10) return { tolerance: 3.4, minRingArea: 24 };
+  return { tolerance: 2.8, minRingArea: 14 };
 }
 
 // Les rives des lacs et mers intérieures suivent le même niveau de
