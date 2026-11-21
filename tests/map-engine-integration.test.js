@@ -5,6 +5,7 @@ import { calculateZoomTilePlan } from "../src/world/terrain-preload-worker.js";
 import { createTerrainPreloadCoordinator } from "../src/world/terrain-preload-client.js";
 import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
 import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
+import { isSupportedGeographicBoundary } from "../src/world/geographic-webgl-renderer.js";
 
 function makeGrid() {
   return { width: 4, height: 2, values: new Int16Array([0, 10, 20, 30, 40, 50, 60, 70]) };
@@ -144,4 +145,27 @@ test("le préchargement de terrain retombe sur le calcul local si Worker est ind
   assert.deepEqual(plans, [{ ids: ["fallback", "4"], id: requestId }]);
   assert.equal(coordinator.workerActive, false);
   coordinator.dispose();
+});
+
+
+test("les frontières politiques et administratives en LineString et MultiLineString sont compatibles WebGL", () => {
+  const line = { geometry: { type: "LineString", coordinates: [[-5, 40], [2, 45], [8, 43]] } };
+  const multiline = { geometry: { type: "MultiLineString", coordinates: [
+    [[-5, 40], [2, 45]], [[8, 43], [12, 48]]
+  ] } };
+  const polygonBoundary = { geometry: { type: "MultiPolygon", coordinates: [
+    [[[-5, 40], [2, 40], [2, 45], [-5, 45], [-5, 40]]]
+  ] } };
+  const unsupported = { geometry: { type: "GeometryCollection", geometries: [] } };
+  assert.equal(isSupportedGeographicBoundary(line), true);
+  assert.equal(isSupportedGeographicBoundary(multiline), true);
+  assert.equal(isSupportedGeographicBoundary(polygonBoundary), true);
+  assert.equal(isSupportedGeographicBoundary(unsupported), false);
+});
+
+test("les frontières traversant l'antiméridien restent au fallback Canvas", () => {
+  const boundary = { geometry: { type: "MultiLineString", coordinates: [
+    [[179, 10], [-179, 11]]
+  ] } };
+  assert.equal(isSupportedGeographicBoundary(boundary), false);
 });
