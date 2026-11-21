@@ -16,6 +16,20 @@ export function fitMapFrame(width, height, aspectRatio = 2) {
   return { width: fittedWidth, height: fittedHeight };
 }
 
+/**
+ * En zoom, couvre le cadre sans déformer la projection : le côté long
+ * déborde sous overflow:hidden. Le cadrage initial reste en mode contain.
+ */
+export function coverMapFrame(width, height, aspectRatio = 2) {
+  const availableWidth = clampPositive(width);
+  const availableHeight = clampPositive(height);
+  const ratio = clampPositive(aspectRatio, 2);
+  if (availableWidth / availableHeight < ratio) {
+    return { width: Math.max(1, Math.ceil(availableHeight * ratio)), height: Math.ceil(availableHeight) };
+  }
+  return { width: Math.ceil(availableWidth), height: Math.max(1, Math.ceil(availableWidth / ratio)) };
+}
+
 export function sceneRenderParams(view = {}, width, height, overscan = 1.4) {
   const W = Math.max(1, Math.round(clampPositive(width)));
   const H = Math.max(1, Math.round(clampPositive(height)));
