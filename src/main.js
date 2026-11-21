@@ -81,7 +81,6 @@ const sceneCanvas = document.createElement("canvas");
 const previousSceneCanvas = document.createElement("canvas");
 let previousSceneViewport = null;
 let previousSceneSize = null;
-let previousSceneOcean = "#10232c";
 let sceneLandDetailLevel = null;
 let pendingLandLodTransition = false;
 let landLodTransitionStartedAt = 0;
@@ -594,6 +593,12 @@ function renderMapOffThread(land, options, onDone, onFallback) {
 function prepareLandLodTransition(nextLevel) {
   pendingLandLodTransition = Boolean(sceneReady && sceneLandDetailLevel && nextLevel !== sceneLandDetailLevel);
   if (!pendingLandLodTransition || !sceneCanvas.width || !sceneCanvas.height) return false;
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  landLodTransitionFrame = null;
+  previousSceneCanvas.width = 1;
+  previousSceneCanvas.height = 1;
+  previousSceneViewport = null;
+  previousSceneSize = null;
   previousSceneCanvas.width = sceneCanvas.width;
   previousSceneCanvas.height = sceneCanvas.height;
   const previousContext = previousSceneCanvas.getContext("2d");
@@ -605,7 +610,6 @@ function prepareLandLodTransition(nextLevel) {
   previousContext.drawImage(sceneCanvas, 0, 0);
   previousSceneViewport = { ...sceneViewport };
   previousSceneSize = { ...sceneSize };
-  previousSceneOcean = sceneOcean;
   return true;
 }
 
