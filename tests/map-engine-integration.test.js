@@ -5,6 +5,7 @@ import { calculateZoomTilePlan } from "../src/world/terrain-preload-worker.js";
 import { createTerrainPreloadCoordinator } from "../src/world/terrain-preload-client.js";
 import { getGeographicRendererPreference, resolveGeographicRendererMode } from "../src/world/geographic-renderer-mode.js";
 import { buildGeographicLineMesh, buildGeographicPolygonMesh } from "../src/world/geographic-webgl.js";
+import { buildLandClipPath } from "../src/world/map-renderer.js";
 import { isSupportedGeographicBoundary } from "../src/world/geographic-webgl-renderer.js";
 
 function makeGrid() {
@@ -188,4 +189,36 @@ test("les frontières polygonales avec trous restent compatibles WebGL en rendu 
 test("les frontières aux coordonnées invalides restent au fallback Canvas", () => {
   const boundary = { geometry: { type: "LineString", coordinates: [[0, 0], [10, 95]] } };
   assert.equal(isSupportedGeographicBoundary(boundary), false);
+});
+
+
+test("le masque terrestre réutilise les Path2D projetés du remplissage", () => {
+  const previousPath2D = globalThis.Path2D;
+  class MockPath2D {
+    static created = 0;
+    constructor() { this.paths = []; this.commands = []; MockPath2D.created++; }
+    addPath(path) { this.paths.push(path); }
+    moveTo(x, y) { this.commands.push(["M", x, y]); }
+    lineTo(x, y) { this.commands.push(["L", x, y]); }
+    closePath() { this.commands.push(["Z"]); }
+  }
+  globalThis.Path2D = MockPath2D;
+  try {
+    const feature = { type: "Feature", geometry: { type: "Polygon", coordinates: [[
+      [-10, -5], [10, -5], [10, 5], [-10, 5], [-10, -5]
+    ]] } };
+    const collection = { type: "FeatureCollection", features: [feature] };
+    const projection = { type: "equirectangular", viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 } };
+    const first = buildLandClipPath(collection, 800, 400, projection, { tolerance: 1, minRingArea: 0 });
+    const second = buildLandClipPath(collection, 800, 400, projection, { tolerance: 1, minRingArea: 0 });
+    assert.ok(first instanceof MockPath2D);
+    assert.ok(second instanceof MockPath2D);
+    assert.equal(first.paths.length, 1);
+    assert.equal(second.paths.length, 1);
+    assert.equal(first.paths[0], second.paths[0]);
+    assert.equal(MockPath2D.created, 3, "un seul chemin de feature doit être préparé puis réutilisé");
+  } finally {
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
+  }
 });
