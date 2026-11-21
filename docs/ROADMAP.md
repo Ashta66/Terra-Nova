@@ -466,3 +466,38 @@ Les tests automatisés prouvent les invariants du code, pas l'absence d'artefact
 - [ ] Continuer le découplage des couches et les optimisations GPU après validation du cadrage et diagnostic des artefacts.
 
 **Attention :** le cadrage 2:1 garantit que la carte complète tient dans le rectangle calculé par le moteur. La validation visuelle dans le navigateur reste nécessaire, notamment après redimensionnement de la fenêtre.
+
+
+## 21 novembre 2026 — lot d'optimisations moteur (PR #46)
+
+### Rendu du relief et continuité des tuiles
+- [x] Correction du filtrage des altitudes encodées sur 16 bits dans l'atlas WebGL : le sampler utilise désormais `NEAREST`, chaque échantillon est décodé avant interpolation bilinéaire.
+- [x] Aligner les UV sur les centres des texels et borner les lectures aux centres du halo périphérique.
+- [x] Ajouter des tests sur le décodage avant interpolation, les centres UV, le halo et le mode de filtrage.
+- [ ] Valider visuellement sur Live Preview que les lignes horizontales persistantes ont disparu ; le correctif cible une cause technique avérée dans le chemin d'échantillonnage, mais l'absence d'artefact reste à confirmer sur navigateur.
+
+### Cycle de vie LOD
+- [x] Ne plus déclencher un nouveau rendu au milieu de la chaîne de préchauffage : les niveaux courant et adjacent sont d'abord traités, puis le rendu est invalidé une seule fois.
+- [x] Distinguer les tâches planifiées, démarrées, terminées, générées, annulées et échouées.
+- [ ] Refaire une mesure dédiée entre les zooms 3 et 5 et confirmer les transferts de collection et jobs Worker.
+
+### Séparation des familles de rendu
+- [x] Exposer des durées agrégées distinctes pour les familles physique, politique et dynamique.
+- [x] Inclure les passes WebGL de frontières et de détails dans les durées mesurées, pas seulement les fallbacks Canvas.
+- [ ] Poursuivre l'extraction des surfaces indépendantes sans cloner les services vivants (store et contexte WebGL).
+
+### Mémoire et transferts GPU
+- [x] Réutiliser un VBO terrain à capacité croissante plutôt que réallouer son stockage à chaque passe ; transférer les sommets avec `bufferSubData`.
+- [x] Exporter capacité, volume transféré et nombre d'allocations dans les benchmarks.
+- [ ] Comparer les nouvelles mesures sur PC et Pixel 10 avant de modifier les budgets d'atlas ou de caches.
+
+### Labels et qualité adaptative
+- [x] Départager les labels de même priorité de façon déterministe, y compris les villes de population équivalente.
+- [x] Adapter le ratio de pixels, la qualité du relief et la densité des labels aux capacités déclarées du navigateur/appareil.
+- [x] Ajouter des tests aux profils bas, équilibré et élevé.
+- [ ] Vérifier visuellement la stabilité des labels et calibrer les profils sur les mesures réelles, sans déduire la mémoire GPU native à partir des seuls tableaux CPU.
+
+### Validation technique
+- [x] CI GitHub Actions verte sur le lot initial d'optimisations.
+- [ ] Confirmer la CI du dernier commit après les tests complémentaires.
+- [ ] Validation visuelle utilisateur obligatoire avant de sortir la PR #46 du brouillon.
