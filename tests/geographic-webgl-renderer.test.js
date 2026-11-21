@@ -51,8 +51,9 @@ test("les segments d'un même tracé partagent un ancrage longitudinal", () => {
   const secondPath = new Float32Array([-179, 0, -178, 1]);
   const result = buildRibbonBuffer([firstPath, secondPath], gl);
   const stride = 9;
-  assert.equal(result.positions.length % stride, 0);
+  assert.equal(result.positions.length % stride, 0, "chaque sommet transporte huit attributs de ligne et son ancrage");
   const vertexCount = result.positions.length / stride;
+  assert.equal(vertexCount, 198, "le premier chemin produit 120 sommets et le second 78");
   for (let index = 0; index < vertexCount; index++) {
     const anchor = result.positions[index * stride + 8];
     if (index < 120) assert.equal(anchor, 179, "tous les sommets du premier tracé doivent garder son ancrage");
