@@ -61,6 +61,8 @@ function compile(gl, type, source) {
 
 function makeBatch() { return { positions: [], indices: [], features: 0 }; }
 
+const MAX_CACHED_LAYERS = 12;
+
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 
 function hasSupportedLineCoordinates(mesh) {
@@ -422,11 +424,21 @@ export function createGeographicWebGLRenderer(gl) {
         bufferUploadMs: cacheHit ? 0 : (cached.bufferUploadMs ?? 0),
         bufferUploads: layerUploads, uploadedBytes: layerBytes };
     }
-    for (const [key, cached] of layerCaches) {
-      if (seenKeys.has(key)) continue;
-      releaseBatches(cached.batches);
-      if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
-      layerCaches.delete(key);
+    // Plusieurs appels renderLayers composent des familles différentes dans le
+    // même canvas (terres, détails, frontières). Ne pas invalider les familles
+    // absentes de cet appel : elles seront réutilisées au prochain passage.
+    // Le LRU borne explicitement la mémoire GPU et évince les couches les moins
+    // récemment utilisées plutôt que de tout reconstruire à chaque famille.
+    for (const layer of prepared) {
+      layerCaches.delete(layer.key);
+      layerCaches.set(layer.key, layer.cached);
+    }
+    while (layerCaches.size > MAX_CACHED_LAYERS) {
+      const oldestKey = layerCaches.keys().next().value;
+      const oldest = layerCaches.get(oldestKey);
+      releaseBatches(oldest?.batches);
+      if (oldest?.lineBuffer) gl.deleteBuffer(oldest.lineBuffer);
+      layerCaches.delete(oldestKey);
     }
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
       gl.canvas.width = Math.round(width);
@@ -513,14 +525,17 @@ export function createGeographicWebGLRenderer(gl) {
     },
     render,
     renderLayers,
-    dispose() {
-      if (disposed) return;
-      disposed = true;
+    clearLayerCache() {
       for (const cached of layerCaches.values()) {
         releaseBatches(cached.batches);
         if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
       }
       layerCaches.clear();
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      this.clearLayerCache();
       gl.deleteProgram(program);
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
