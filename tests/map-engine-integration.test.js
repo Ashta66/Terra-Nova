@@ -217,6 +217,9 @@ test("le masque terrestre réutilise les Path2D projetés du remplissage", () =>
     assert.equal(second, first, "le masque composé doit être réutilisé pour la même cellule de vue");
     assert.equal(first.paths[0], second.paths[0]);
     assert.equal(MockPath2D.created, 2, "un masque composé et un chemin de feature suffisent");
+    const alternateCollection = { ...collection, features: [feature] };
+    const alternate = buildLandClipPath(alternateCollection, 800, 400, projection, { tolerance: 1, minRingArea: 0 });
+    assert.notEqual(alternate, first, "des tableaux de features distincts ne doivent pas partager une entrée composée par erreur");
     const moved = buildLandClipPath(collection, 800, 400, {
       type: "equirectangular",
       viewport: { zoom: 2, centerLongitude: 2, centerLatitude: 0 }
