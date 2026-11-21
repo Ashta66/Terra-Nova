@@ -7,6 +7,15 @@ const clampPositive = (value, fallback = 1) => {
  * Calcule la taille et le viewport de rendu d'une scène avec une marge d'overscan.
  * Le zoom de rendu ne descend jamais sous 1, limite imposée par projectEquirectangular.
  */
+export function fitMapFrame(width, height, aspectRatio = 2) {
+  const availableWidth = clampPositive(width);
+  const availableHeight = clampPositive(height);
+  const ratio = clampPositive(aspectRatio, 2);
+  const fittedWidth = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * ratio)));
+  const fittedHeight = Math.max(1, Math.floor(fittedWidth / ratio));
+  return { width: fittedWidth, height: fittedHeight };
+}
+
 export function sceneRenderParams(view = {}, width, height, overscan = 1.4) {
   const W = Math.max(1, Math.round(clampPositive(width)));
   const H = Math.max(1, Math.round(clampPositive(height)));
