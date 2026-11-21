@@ -87,6 +87,37 @@ window.getTerrainRasterDiagnostics = () => {
     for (let i = 1; i < series.length; i++) jumps.push({ index: i, delta: Number((series[i] - series[i - 1]).toFixed(2)) });
     return jumps.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12);
   };
+  const transitionCoherence = axis => {
+    const count = axis === "row" ? height - 1 : width - 1;
+    const span = axis === "row" ? width : height;
+    const results = [];
+    for (let i = 0; i < count; i++) {
+      let signed = 0, absolute = 0, squares = 0, positive = 0, negative = 0;
+      for (let j = 0; j < span; j++) {
+        const a = axis === "row" ? values[i * width + j] : values[j * width + i];
+        const b = axis === "row" ? values[(i + 1) * width + j] : values[j * width + i + 1];
+        const delta = b - a;
+        signed += delta;
+        absolute += Math.abs(delta);
+        squares += delta * delta;
+        if (delta > 0) positive++;
+        else if (delta < 0) negative++;
+      }
+      const meanSigned = signed / span;
+      const meanAbsolute = absolute / span;
+      const dominantSignRatio = Math.max(positive, negative) / span;
+      const deltaStdDev = Math.sqrt(Math.max(0, squares / span - meanSigned * meanSigned));
+      results.push({
+        index: i + 1,
+        meanSignedDelta: Number(meanSigned.toFixed(2)),
+        meanAbsoluteDelta: Number(meanAbsolute.toFixed(2)),
+        dominantSignRatio: Number(dominantSignRatio.toFixed(3)),
+        deltaStdDev: Number(deltaStdDev.toFixed(2)),
+        coherenceScore: Number((meanAbsolute * dominantSignRatio).toFixed(2))
+      });
+    }
+    return results.sort((a, b) => b.coherenceScore - a.coherenceScore).slice(0, 15);
+  };
   const inspect = (x, y, radius = 6) => {
     x = Math.max(0, Math.min(width - 1, Math.round(x)));
     y = Math.max(0, Math.min(height - 1, Math.round(y)));
@@ -105,6 +136,8 @@ window.getTerrainRasterDiagnostics = () => {
     mean: Number((sum / values.length).toFixed(2)),
     rowMeanJumps: strongestJumps(rowMeans),
     columnMeanJumps: strongestJumps(colMeans),
+    rowTransitionCoherence: transitionCoherence("row"),
+    columnTransitionCoherence: transitionCoherence("column"),
     edgeRows,
     sampleRows: [0, Math.floor(height * .25), Math.floor(height * .5), Math.floor(height * .75), height - 1]
       .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
