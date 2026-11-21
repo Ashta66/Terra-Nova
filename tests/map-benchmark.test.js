@@ -115,3 +115,19 @@ test("enregistre le cycle de vie du préchauffage LOD sans confondre planificati
   assert.equal(metrics["lod:warmup:cancelled"].median, 1);
   assert.equal(metrics["lod:warmup:failed"].median, 0);
 });
+
+
+test("exporte des métriques distinctes pour les familles physique, politique et dynamique", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 12;
+  collector.record({ totalRenderMs: 12, renderFamilies: {
+    physicalMs: 4.5, politicalMs: 2.25, dynamicMs: 1.5
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["family:physicalMs"].median, 4.5);
+  assert.equal(metrics["family:politicalMs"].median, 2.25);
+  assert.equal(metrics["family:dynamicMs"].median, 1.5);
+});
