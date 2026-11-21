@@ -23,6 +23,15 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
     add("renderTotalMs", result.totalRenderMs);
     for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
+    const lod = result.lodStats ?? {};
+    add("lod:generatedLevels", lod.generatedLevels);
+    add("lod:cachedLevels", lod.cachedLevels);
+    add("lod:generationTimeMs", lod.generationTimeMs);
+    add("lod:lastGenerationMs", lod.lastGenerationMs);
+    add("lod:removedVertices", lod.removedVertices);
+    add("lod:transitionMs", result.lodTransitionMs);
+    add("lod:crossfadeBytes", result.lodCrossfadeBytes);
+    add("lod:warmupScheduled", result.lodWarmupScheduled ? 1 : 0);
     for (const key of ["landCount", "territoryCount", "glacierCount", "lakeCount", "riverCount", "elevationPointCount", "physicalChangeCount", "politicalBoundaryCount", "administrativeBoundaryCount", "labelHits"]) add(key, typeof result[key] === "number" ? result[key] : null);
     if (previousFrameAt !== null) { const interval = timestamp - previousFrameAt; if (interval > 0) add("renderCadenceFps", 1000 / interval); }
     previousFrameAt = timestamp;
