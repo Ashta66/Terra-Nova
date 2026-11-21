@@ -494,6 +494,7 @@ function updateMapDiagnostics(result) {
 }
 
 const MAP_WORKER_LAYER_FAMILIES = ["physical", "political", "dynamic"];
+let mapRenderWorkerTerrainFallbackLogged = false;
 function getMapRenderWorker() {
   if (mapRenderWorkerDisabled || typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
   if (mapRenderWorker) return mapRenderWorker;
@@ -571,6 +572,19 @@ function dispatchMapWorkerRender(job) {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
     politicalBoundaries, administrativeBoundaries, terrain, ...options
   } = job.options;
+  // Le store de tuiles expose des méthodes (getTile/getTileAt, etc.) et ne peut
+  // pas être cloné par structured clone. Le transférer ferait échouer postMessage
+  // et désactiverait définitivement le Worker ; le rendu local conserve toutes
+  // les capacités du store physique.
+  const terrainStore = familyUpdates.physical?.terrain;
+  if (terrainStore && Object.values(terrainStore).some(value => typeof value === "function")) {
+    if (!mapRenderWorkerTerrainFallbackLogged) {
+      console.info("Rendu cartographique local conservé : le store de terrain contient des méthodes non transférables.");
+      mapRenderWorkerTerrainFallbackLogged = true;
+    }
+    job.onFallback();
+    return;
+  }
   try {
     mapRenderWorker.postMessage({ id: job.id, familyUpdates, options });
     for (const family of Object.keys(familyUpdates)) mapRenderWorkerLayerRefs[family] = job.families[family];
