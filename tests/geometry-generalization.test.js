@@ -91,30 +91,37 @@ test("le préchauffage LOD utilise un worker et ne bloque pas la sélection du n
  const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
  const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
  let posted=null, terminated=false;
- const lod=createGeoJsonLodSet(base,[{maxZoom:1.8,tolerance:0.04}],0.0001,{
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:1.8,tolerance:0.04},{maxZoom:3.5,tolerance:0.02}
+ ],0.0001,{
   createWorker:()=>({
    postMessage(message){posted=message;queueMicrotask(()=>this.onmessage({data:{result:simplifyGeoJsonCollection(message.collection,message.tolerance)}}));},
    terminate(){terminated=true;}
   })
  });
+ const currentLevel=lod.getForZoom(1);
+ assert.notEqual(currentLevel,base);
  const promise=lod.prepareAdjacentAsync(1,1);
- assert.equal(lod.getForZoom(1),base,"le rendu ne doit pas lancer une simplification synchrone pendant le calcul worker");
+ assert.equal(lod.getForZoom(2),base,"le niveau adjacent en attente ne doit pas être généré sur le thread principal");
  assert.ok(posted);
  assert.equal(await promise,true);
  assert.equal(terminated,true);
- assert.notEqual(lod.getForZoom(1),base,"le niveau calculé devient disponible après la réponse worker");
+ assert.notEqual(lod.getForZoom(2),base,"le niveau calculé devient disponible après la réponse worker");
  assert.equal(lod.getStats().generatedLevels,1);
 });
 
 test("un worker LOD en erreur retombe sur la génération locale", async () => {
  const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
  const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
- const lod=createGeoJsonLodSet(base,[{maxZoom:1.8,tolerance:0.04}],0.0001,{
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:1.8,tolerance:0.04},{maxZoom:3.5,tolerance:0.02}
+ ],0.0001,{
   createWorker:()=>({
    postMessage(){queueMicrotask(()=>this.onmessage({data:{error:"worker failure"}}));},
    terminate(){}
   })
  });
+ lod.getForZoom(1);
  assert.equal(await lod.prepareAdjacentAsync(1,1),true);
- assert.notEqual(lod.getForZoom(1),base);
+ assert.notEqual(lod.getForZoom(2),base);
 });
