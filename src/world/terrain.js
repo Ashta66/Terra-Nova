@@ -75,6 +75,15 @@ function applyLandformTint(color, landform) {
   return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
 }
 
+
+function terrainDebugElevationColor(elevation) {
+  const value = elevation < 0
+    ? 128 + clamp(elevation / 11000, -1, 0) * 128
+    : 128 + clamp(elevation / 6734, 0, 1) * 127;
+  const channel = Math.round(value);
+  return [channel, channel, channel];
+}
+
 export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands") {
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
@@ -233,7 +242,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
    const west=-180+tx*10,center=west+5,shift=360*Math.round((cx-center)/360),screenX=width/2+(west+shift-cx)*width*zoom/360,destW=10*width*zoom/360;
    if(screenX+destW<0||screenX>width)continue;
    const tileKey=tx+":"+ty,revision=hasLocalRevisions?Number(revisions[tileKey]??0):Number(physicalWorld?.revision??0);
-   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync",globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true?"no-precomputed":"prepared",globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth"].join("|");
+   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync",globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true?"no-precomputed":"prepared",globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth",globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true?"elevation-debug":"styled"].join("|");
    let surface=cache.get(key);
    if(!surface){
     surface=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(tileSize,tileSize):document.createElement("canvas");
@@ -267,6 +276,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
        }
       }else color=terrainColorForElevation(e,1,"ocean");
+      if(globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true) color=terrainDebugElevationColor(e);
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
     }
@@ -306,7 +316,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const zoomKey = Number(viewport.zoom ?? 1).toFixed(4);
   const centerXKey = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180).toFixed(4);
   const centerYKey = Number(viewport.centerLatitude ?? 0).toFixed(4);
-  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", (hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true) ? "precomputed" : "on-demand", globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true ? "no-precomputed" : "prepared", globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth", visibleTileRevisionSignature(viewport, physicalWorld?.tileRevisions ?? {})].join(":");
+  const cacheKey = [renderWidth, renderHeight, zoomKey, centerXKey, centerYKey, qualityScale, landOnly ? "land" : "full", String(changedOnly), hillshadeOnly ? "hillshade" : "color", (hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true) ? "precomputed" : "on-demand", globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true ? "no-precomputed" : "prepared", globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth",globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true?"elevation-debug":"styled", visibleTileRevisionSignature(viewport, physicalWorld?.tileRevisions ?? {})].join(":");
   let cachedSurfaces = terrainSurfaceCache.get(grid);
   if (!cachedSurfaces) {
     cachedSurfaces = new Map();
@@ -355,12 +365,12 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
         const gray = Math.round(28 + relief * 214);
         const baseShade = 1 + (shade - 1) * 0.35;
-        const color = hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform);
+        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform));
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
       }
-      const color = terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
+      const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : terrainColorForElevation(e, shade, "ocean"), i = (py * renderWidth + px) * 4;
       pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = (landOnly && !changedOnly) ? 0 : 255;
     }
   }
