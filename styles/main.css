@@ -1131,3 +1131,118 @@ body[data-cartographic-era="future"] .map-frame::after {
 @media (prefers-reduced-motion:reduce) {
   .country-result,.map-tools .map-tool,.map-data-button { transition:none!important; }
 }
+
+
+/* Écran de campagne : atlas plein cadre et sélection directe sur la carte */
+body:not(.campaign-started) .game-layout{
+  position:fixed;inset:58px 0 0;height:auto;display:block;overflow:hidden;
+}
+body:not(.campaign-started) .time-sidebar,
+body:not(.campaign-started) .ai-sidebar{display:none}
+body:not(.campaign-started) .map-stage{
+  position:absolute;inset:0;min-height:0;padding:136px 24px 18px;
+  background:radial-gradient(ellipse at 48% 48%,#314a4b55,transparent 66%),var(--theme-surface);
+}
+body:not(.campaign-started) .map-stage-heading{
+  position:relative;z-index:1;min-height:43px;margin:0 0 10px;padding:0 2px 9px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+}
+body:not(.campaign-started) .map-stage-heading h2{font-size:clamp(20px,2vw,28px)}
+body:not(.campaign-started) .map-frame{
+  min-height:0;border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+  box-shadow:0 22px 70px #0009,inset 0 0 45px #0003;
+}
+body:not(.campaign-started) .map-bottom-bar{padding-top:8px}
+body:not(.campaign-started) .map-data-tools,
+body:not(.campaign-started) .map-footnote,
+body:not(.campaign-started) .map-diagnostics{display:none}
+body:not(.campaign-started) .campaign-datebar{
+  position:fixed;z-index:32;top:70px;left:24px;width:calc(100% - 468px);min-height:57px;
+  display:grid;grid-template-columns:auto minmax(150px,1fr) auto;align-items:center;gap:20px;
+  padding:9px 16px;border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+  background:linear-gradient(110deg,color-mix(in srgb,var(--theme-panel-raised) 92%,transparent),color-mix(in srgb,var(--theme-panel) 88%,transparent));
+  box-shadow:0 12px 34px #0007,inset 0 1px #ffffff12;backdrop-filter:blur(14px);
+}
+.campaign-datebar[hidden]{display:none}
+.campaign-datebar-heading{display:flex;flex-direction:column;gap:1px;min-width:116px}
+.campaign-datebar-heading span{font-size:8px;font-weight:700;letter-spacing:.18em;color:var(--theme-muted)}
+.campaign-datebar-heading strong{font:600 25px/1.05 var(--theme-display-font);color:var(--theme-accent);font-variant-numeric:tabular-nums}
+.campaign-datebar-heading em{font:normal 7px var(--theme-body-font);letter-spacing:.12em;color:var(--theme-muted);opacity:.72}
+.campaign-date-slider{display:flex;min-width:0;flex-direction:column;gap:0;margin:0}
+.campaign-date-slider input{margin:3px 0 5px}
+.campaign-datebar-mark{padding-left:14px;border-left:1px solid var(--theme-border);font:600 9px var(--theme-body-font);letter-spacing:.12em;color:var(--theme-muted);white-space:nowrap}
+body:not(.campaign-started) .campaign-setup{
+  inset:58px 0 0;justify-content:flex-end;align-items:stretch;padding:98px 22px 16px;
+  background:linear-gradient(90deg,transparent 52%,rgba(3,9,13,.22) 72%,rgba(3,9,13,.48));
+}
+body:not(.campaign-started) .setup-card{
+  width:min(392px,36vw);max-height:100%;padding:22px 21px 18px;
+  border-color:color-mix(in srgb,var(--theme-accent) 54%,var(--theme-border));
+  background:linear-gradient(155deg,color-mix(in srgb,var(--theme-panel-raised) 97%,transparent),color-mix(in srgb,var(--theme-panel) 97%,transparent));
+  box-shadow:0 28px 90px #000b,inset 0 1px #ffffff18,0 0 0 1px #0005;
+  backdrop-filter:blur(16px);
+}
+body:not(.campaign-started) .setup-card:after{
+  content:"ATLAS · SÉLECTION DES NATIONS";display:block;margin-top:14px;padding-top:10px;
+  border-top:1px solid color-mix(in srgb,var(--theme-accent) 26%,transparent);
+  color:var(--theme-muted);font:8px var(--theme-body-font);letter-spacing:.16em;opacity:.75;
+}
+body:not(.campaign-started) .setup-card h1{font-size:clamp(30px,3vw,40px);line-height:1.04}
+body:not(.campaign-started) .setup-lead{font-size:12px;line-height:1.55;color:var(--theme-muted)}
+body:not(.campaign-started) .setup-map-hint{padding:8px 0;border-top:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent);border-bottom:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent)}
+body:not(.campaign-started) .setup-grid{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+body:not(.campaign-started) .setup-country{display:flex;min-height:0;flex-direction:column;flex:1}
+body:not(.campaign-started) .country-results{max-height:none;min-height:130px;flex:1;border-color:var(--theme-border);background:color-mix(in srgb,var(--theme-surface) 78%,transparent)}
+body:not(.campaign-started) .country-region-heading{background:var(--theme-panel-raised);color:var(--theme-accent)}
+body:not(.campaign-started) .country-result{padding:8px 10px;border-bottom-color:color-mix(in srgb,var(--theme-border) 40%,transparent)}
+body:not(.campaign-started) .country-result:hover{background:color-mix(in srgb,var(--theme-accent) 13%,var(--theme-panel))}
+body:not(.campaign-started) .country-result.is-selected{background:color-mix(in srgb,var(--theme-accent) 16%,var(--theme-panel));box-shadow:inset 3px 0 var(--theme-accent),inset 0 0 22px color-mix(in srgb,var(--theme-accent) 7%,transparent)}
+body:not(.campaign-started) .country-result-name{font-family:var(--theme-display-font);font-size:14px}
+body:not(.campaign-started) .country-selected{max-height:31vh;flex:0 0 auto;border-color:color-mix(in srgb,var(--theme-accent) 45%,var(--theme-border));background:color-mix(in srgb,var(--theme-panel-raised) 94%,transparent)}
+body:not(.campaign-started) .country-dossier{max-height:20vh;overflow:auto}
+body:not(.campaign-started) .setup-note{flex:0 0 auto;margin-top:2px}
+body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:12px}
+body:not(.campaign-started) .country-search,
+body:not(.campaign-started) .country-filter-row select,
+body:not(.campaign-started) .setup-grid select{background:var(--theme-control);color:var(--theme-control-text);border-color:var(--theme-border)}
+body:not(.campaign-started) .map-frame canvas{cursor:crosshair}
+body:not(.campaign-started) .map-frame canvas.is-dragging{cursor:grabbing}
+body:not(.campaign-started) .map-bottom-bar{font-size:9px}
+body:not(.campaign-started) .map-legend{font-size:8px}
+@media(max-width:1050px){
+  body:not(.campaign-started) .campaign-datebar{width:calc(100% - 420px);left:14px;gap:12px}
+  body:not(.campaign-started) .campaign-setup{padding-right:14px}
+  body:not(.campaign-started) .setup-card{width:390px;max-width:42vw}
+  body:not(.campaign-started) .map-stage{padding-left:14px;padding-right:14px}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .game-layout{inset:54px 0 0}
+  body:not(.campaign-started) .map-stage{padding:128px 9px 9px}
+  body:not(.campaign-started) .campaign-datebar{top:60px;left:9px;width:calc(100% - 18px);min-height:58px;grid-template-columns:auto minmax(90px,1fr);gap:10px;padding:7px 10px}
+  body:not(.campaign-started) .campaign-datebar-mark{display:none}
+  body:not(.campaign-started) .campaign-datebar-heading{min-width:92px}
+  body:not(.campaign-started) .campaign-datebar-heading strong{font-size:21px}
+  body:not(.campaign-started) .campaign-datebar-heading em{font-size:6px}
+  body:not(.campaign-started) .campaign-setup{inset:54px 0 0;align-items:flex-end;justify-content:center;padding:0 8px 8px;background:linear-gradient(180deg,transparent 38%,#03090dbb 70%)}
+  body:not(.campaign-started) .setup-card{width:100%;max-width:none;max-height:49dvh;padding:12px 13px}
+  body:not(.campaign-started) .setup-card h1{font-size:26px;margin:4px 0}
+  body:not(.campaign-started) .setup-lead{font-size:10px;margin:0 0 4px}
+  body:not(.campaign-started) .setup-map-hint{font-size:8px;margin:3px 0}
+  body:not(.campaign-started) .setup-grid{gap:6px;margin:6px 0}
+  body:not(.campaign-started) .setup-country{min-height:0}
+  body:not(.campaign-started) .country-results{min-height:76px;max-height:110px;flex:1}
+  body:not(.campaign-started) .country-selected{max-height:18vh;padding:6px}
+  body:not(.campaign-started) .country-dossier{max-height:8vh}
+  body:not(.campaign-started) .country-dossier .dossier-objectives,
+  body:not(.campaign-started) .country-dossier .dossier-diplomacy,
+  body:not(.campaign-started) .country-dossier .dossier-data-note{display:none}
+  body:not(.campaign-started) .setup-note{display:none}
+  body:not(.campaign-started) .setup-start{margin-top:6px;padding:9px 12px}
+  body:not(.campaign-started) .map-stage-heading{margin-bottom:5px}
+  body:not(.campaign-started) .map-stage-heading h2{font-size:17px}
+  body:not(.campaign-started) .map-bottom-bar{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  body:not(.campaign-started) .campaign-datebar,
+  body:not(.campaign-started) .setup-card{scroll-behavior:auto;transition:none}
+}
