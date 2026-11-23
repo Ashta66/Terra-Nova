@@ -788,3 +788,84 @@ body[data-cartographic-era="future"] .era-banner {
     transition: none !important;
   }
 }
+
+
+/* Matières réalistes : textures organiques SVG, sans trames géométriques répétitives */
+body[data-cartographic-era="exploration"] { --material-texture-exploration: url("../assets/textures/parchment.svg"); }
+body[data-cartographic-era="exploration"] .side-panel {
+  background-image: var(--material-texture-exploration), linear-gradient(135deg, #4b3b27, #302519 72%);
+  background-size: 100% 100%, auto;
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="exploration"] .topbar,
+body[data-cartographic-era="exploration"] .setup-card,
+body[data-cartographic-era="exploration"] .chronicle-console,
+body[data-cartographic-era="exploration"] .chat-message {
+  background-image: var(--material-texture-exploration), linear-gradient(135deg, #493822, #261e15);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="westphalia"] { --material-texture-westphalia: url("../assets/textures/vellum.svg"); }
+body[data-cartographic-era="westphalia"] .side-panel {
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #30343a, #22272d);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="westphalia"] .topbar,
+body[data-cartographic-era="westphalia"] .setup-card,
+body[data-cartographic-era="westphalia"] .chronicle-console,
+body[data-cartographic-era="westphalia"] .chat-message {
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #303238, #22252b);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="revolution"] { --material-texture-revolution: url("../assets/textures/newsprint.svg"); }
+body[data-cartographic-era="revolution"] .side-panel {
+  background-image: var(--material-texture-revolution), linear-gradient(180deg, #343331, #242424);
+  background-blend-mode: multiply, normal;
+}
+body[data-cartographic-era="revolution"] .topbar,
+body[data-cartographic-era="revolution"] .setup-card,
+body[data-cartographic-era="revolution"] .chronicle-console,
+body[data-cartographic-era="revolution"] .chat-message {
+  background-image: var(--material-texture-revolution), linear-gradient(90deg, #30302f, #202020);
+  background-blend-mode: multiply, normal;
+}
+
+body[data-cartographic-era="modern"] { --material-texture-modern: url("../assets/textures/military.svg"); }
+body[data-cartographic-era="modern"] .side-panel {
+  background-image: var(--material-texture-modern), linear-gradient(160deg, #26343a, #18252b);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="modern"] .topbar,
+body[data-cartographic-era="modern"] .setup-card,
+body[data-cartographic-era="modern"] .chronicle-console,
+body[data-cartographic-era="modern"] .chat-message {
+  background-image: var(--material-texture-modern), linear-gradient(145deg, #202d32, #141f24);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="present"] { --material-texture-present: url("../assets/textures/glass.svg"); }
+body[data-cartographic-era="present"] .side-panel {
+  background-image: var(--material-texture-present), linear-gradient(145deg, #1c2d37, #111e27);
+  background-blend-mode: screen, normal;
+}
+body[data-cartographic-era="present"] .topbar,
+body[data-cartographic-era="present"] .setup-card,
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="present"] .chat-message {
+  background-image: var(--material-texture-present), linear-gradient(145deg, #192b35, #101d26);
+  background-blend-mode: screen, normal;
+}
+
+body[data-cartographic-era="future"] { --material-texture-future: url("../assets/textures/obsidian.svg"); }
+body[data-cartographic-era="future"] .side-panel {
+  background-image: var(--material-texture-future), linear-gradient(160deg, #09131b, #050b11 78%);
+  background-blend-mode: screen, normal;
+}
+body[data-cartographic-era="future"] .topbar,
+body[data-cartographic-era="future"] .setup-card,
+body[data-cartographic-era="future"] .chronicle-console,
+body[data-cartographic-era="future"] .chat-message {
+  background-image: var(--material-texture-future), linear-gradient(145deg, #0b1a22, #050c12);
+  background-blend-mode: screen, normal;
+}
