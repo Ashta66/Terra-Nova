@@ -52,3 +52,27 @@ test("le cache spatial LRU conserve davantage de zones récemment consultées",(
   assert.ok(stats.cachedTiles<=256);
   assert.ok(stats.cachedQueries<=64);
 });
+
+
+test("la sélection multi-tuile déduplique sans altérer l'ordre des entités",()=>{
+  const data=collection();
+  const first=selectGeoSpatialFeatures(data,{zoom:4,centerLongitude:0,centerLatitude:0});
+  const ids=first.features.map(feature=>feature.properties.id);
+  assert.equal(new Set(ids).size,ids.length);
+  assert.deepEqual(ids,[...ids].sort((a,b)=>{
+    const [alat,alon]=a.split(":").map(Number);
+    const [blat,blon]=b.split(":").map(Number);
+    return data.features.findIndex(feature=>feature.properties.id===a)
+      - data.features.findIndex(feature=>feature.properties.id===b);
+  }));
+  assert.equal(selectGeoSpatialFeatures(data,{zoom:4,centerLongitude:0,centerLatitude:0}),first,
+    "une requête identique réutilise le résultat LRU");
+});
+
+test("le préchargement conserve son budget avec une grille personnalisée étroite",()=>{
+  const data=collection();
+  buildGeoSpatialIndex(data,90);
+  const count=prefetchGeoSpatialFeatures(data,{zoom:8,centerLongitude:179,centerLatitude:0},1);
+  assert.ok(count>0 && count<=24);
+  assert.ok(getGeoSpatialIndexStats(data).cachedTiles<=24);
+});
