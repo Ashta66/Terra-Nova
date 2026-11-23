@@ -218,3 +218,21 @@ test("le cadre de la carte adopte une matière distincte sans intercepter le can
     assert.match(css.slice(start, start + 850), treatment, `traitement du cadre absent pour ${era}`);
   }
 });
+
+
+test("les ornements de carte restent discrets pendant l'ère des Révolutions", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay \\{ opacity:\\.?14/);
+  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay::before[\\s\\S]*?background:none/);
+  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-compass[\\s\\S]*?opacity:\\.?38/);
+  assert.match(css, /body\\.debug-mode \\.map-diagnostics \\{ display:block/);
+  assert.match(css, /\\.map-diagnostics \\{ display:none/);
+});
+
+test("les variables de thème ne sont réécrites que lors d'un changement d'année et les diagnostics exigent debug=1", () => {
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(js, /new URLSearchParams\\(window\\.location\\.search\\)\\.get\\("debug"\\) === "1"/);
+  assert.match(js, /let lastThemeYear = null/);
+  assert.match(js, /if \\(lastThemeYear !== year\\) \\{/);
+  assert.match(js, /lastThemeYear = year/);
+});
