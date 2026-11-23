@@ -114,7 +114,9 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
  const fineCells = [];
  const origin = { longitude, latitude };
  const ocean = buildOceanConnectivityMask(grid, 12);
- const seen = new Set();
+ const cellColumns = Math.ceil(grid.width / pixelStep);
+ const cellRows = Math.ceil(grid.height / pixelStep);
+ const seen = new Uint8Array(cellColumns * cellRows);
  for (let row = Math.max(0, Math.floor(centerY - ySpan)); row <= Math.min(grid.height - 1, Math.ceil(centerY + ySpan)); row += pixelStep) {
   for (let offset = -xSpan; offset <= xSpan; offset += pixelStep) {
    const column = ((Math.floor(centerX) + offset) % grid.width + grid.width) % grid.width;
