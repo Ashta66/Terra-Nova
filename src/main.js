@@ -34,10 +34,10 @@ const debugMode = new URLSearchParams(window.location.search).get("debug") === "
 document.body.classList.toggle("debug-mode", debugMode);
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
-if (debugMode) {
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
   : null;
+if (debugMode) {
 window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
 window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
 window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
