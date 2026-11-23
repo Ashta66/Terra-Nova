@@ -426,6 +426,44 @@ function isAntarcticLandFeature(feature) {
     && maxLongitude - minLongitude >= 300;
 }
 
+function drawAntarcticLandBase(context, features, width, height, projection) {
+  const viewport = projection.viewport ?? {};
+  const zoom = Math.max(1, Number(viewport.zoom ?? 1));
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const west = centerLongitude - 180 / zoom;
+  const east = centerLongitude + 180 / zoom;
+  const southWest = projectCoordinate([west, -90], width, height,
+    { ...projection, viewport: { ...viewport, wrapLongitude: false } });
+  const southEast = projectCoordinate([east, -90], width, height,
+    { ...projection, viewport: { ...viewport, wrapLongitude: false } });
+  let drawn = 0;
+  for (const feature of features) {
+    const geometry = feature?.geometry;
+    const polygons = geometry?.type === "Polygon" ? [geometry.coordinates]
+      : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
+    for (const polygon of polygons) {
+      const ring = polygon?.[0];
+      if (!Array.isArray(ring) || ring.length < 4) continue;
+      const coast = ring.filter(point => Array.isArray(point) && Number.isFinite(point[0])
+        && Number.isFinite(point[1]) && point[1] > -88.5);
+      if (coast.length < 3) continue;
+      const project = createContinuousProjector(width, height, projection);
+      const points = coast.map(project).filter(Boolean);
+      if (points.length < 3) continue;
+      context.beginPath();
+      context.moveTo(points[0].x, points[0].y);
+      for (let index = 1; index < points.length; index++) context.lineTo(points[index].x, points[index].y);
+      context.lineTo(southEast.x, southEast.y);
+      context.lineTo(southWest.x, southWest.y);
+      context.closePath();
+      context.fillStyle = "rgba(248,251,252,0.98)";
+      context.fill("evenodd");
+      drawn++;
+    }
+  }
+  return drawn;
+}
+
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
   let drawn = 0;  const renderScale = projection.renderScale ?? 1;
@@ -1382,9 +1420,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       if (projection.type === "equirectangular" && visibleLand?.features?.length) {
         const antarcticFeatures = visibleLand.features.filter(isAntarcticLandFeature);
         if (antarcticFeatures.length) {
-          measureLayer("antarctic-land-base", () => drawPolygonLayer(target,
-            { ...visibleLand, features: antarcticFeatures }, width, height, projection,
-            "rgba(248,251,252,0.98)", null, 0, 1, false));
+          measureLayer("antarctic-land-base", () => drawAntarcticLandBase(target,
+            antarcticFeatures, width, height, projection));
         }
       }
       captureTerrainLayerStage(target, "01-after-relief");
