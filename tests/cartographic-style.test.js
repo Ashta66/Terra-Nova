@@ -296,3 +296,9 @@ test("les nations peuvent être choisies directement depuis les repères de la c
   assert.match(js, /selectCampaignCountry\(country\.raw\)/);
   assert.match(js, /item\.label\.toLocaleLowerCase\("fr"\) === hitName/);
 });
+
+test("le bandeau chronologique disparaît après le lancement de la campagne", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /\.campaign-datebar\s*\{display:none\}/);
+  assert.match(css, /body:not\(\.campaign-started\) \.campaign-datebar\s*\{[^}]*display:grid/s);
+});
