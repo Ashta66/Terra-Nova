@@ -7,22 +7,23 @@ const MAX_PREFETCH_RADIUS = 1;
 
 function getBounds(feature) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  const visit = value => {
-    if (!Array.isArray(value)) return;
-    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+  const pending = [feature?.geometry];
+  while (pending.length) {
+    const value = pending.pop();
+    if (!value) continue;
+    if (value.type === "GeometryCollection") {
+      const geometries = value.geometries ?? [];
+      for (let i = 0; i < geometries.length; i++) pending.push(geometries[i]);
+      continue;
+    }
+    if (value.coordinates) pending.push(value.coordinates);
+    if (Array.isArray(value) && value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
       minX = Math.min(minX, value[0]); maxX = Math.max(maxX, value[0]);
       minY = Math.min(minY, value[1]); maxY = Math.max(maxY, value[1]);
-      return;
+      continue;
     }
-    for (const child of value) visit(child);
-  };
-  const walk = geometry => {
-    if (!geometry) return;
-    if (geometry.type === "GeometryCollection") {
-      for (const child of geometry.geometries ?? []) walk(child);
-    } else visit(geometry.coordinates);
-  };
-  walk(feature?.geometry);
+    if (Array.isArray(value)) for (let i = 0; i < value.length; i++) pending.push(value[i]);
+  }
   return minX === Infinity ? null : { minX, minY, maxX, maxY };
 }
 
@@ -61,8 +62,9 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
     for (let y = north; y <= south; y++) {
       for (let x = west; x <= east; x++) {
         const key = y * columns + x;
-        if (!cells.has(key)) cells.set(key, []);
-        cells.get(key).push(index);
+        let bucket = cells.get(key);
+        if (!bucket) cells.set(key, bucket = []);
+        bucket.push(index);
       }
     }
   });
@@ -72,8 +74,10 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   };
 }
 
-function getTileFeatureIndices(index, x, y) {
-  const key = `${x}:${y}`;
+function getTileFeatureIndices(index, tileId) {
+  const key = tileId;
+  const x = tileId % index.columns;
+  const y = Math.floor(tileId / index.columns);
   const cached = index.tileCache.get(key);
   if (cached) {
     index.tileCache.delete(key);
@@ -120,7 +124,7 @@ function getVisibleTileKeys(index, viewport) {
   const keys = [];
   for (let y = minY; y <= maxY; y++) {
     for (const [minX, maxX] of xRanges) {
-      for (let x = minX; x <= maxX; x++) keys.push([x, y]);
+      for (let x = minX; x <= maxX; x++) keys.push(y * index.columns + x);
     }
   }
   return keys;
@@ -135,7 +139,7 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
   // Les coordonnées sources ne sont jamais découpées : une entité est référencée
   // dans les tuiles qu'elle intersecte, puis dédupliquée au niveau du viewport.
   const tileKeys = getVisibleTileKeys(index, viewport);
-  const cacheKey = tileKeys.map(([x, y]) => `${x}:${y}`).join("|");
+  const cacheKey = tileKeys.join(",");
   const cached = index.queryCache.get(cacheKey);
   if (cached) {
     index.queryCache.delete(cacheKey);
@@ -144,8 +148,8 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
   }
 
   const selected = new Set();
-  for (const [x, y] of tileKeys) {
-    for (const featureIndex of getTileFeatureIndices(index, x, y)) selected.add(featureIndex);
+  for (const tileId of tileKeys) {
+    for (const featureIndex of getTileFeatureIndices(index, tileId)) selected.add(featureIndex);
   }
   const ordered = [...selected].sort((a, b) => a - b);
   const result = ordered.length === index.collection.features.length
@@ -225,7 +229,7 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   const budget = Math.min(24, Math.max(8, (MAX_TILE_CACHE_ENTRIES / 4)));
   let prepared = 0;
   for (const tile of candidates.slice(0, budget)) {
-    getTileFeatureIndices(index, tile.tileX, tile.tileY);
+    getTileFeatureIndices(index, tile.tileY * index.columns + tile.tileX);
     prepared++;
   }
   return prepared;
@@ -240,7 +244,7 @@ export function getGeoSpatialTilePlan(collection, viewport = {}) {
     index = buildGeoSpatialIndex(collection);
     indexCache.set(collection, index);
   }
-  const tileKeys = getVisibleTileKeys(index, viewport).map(([x, y]) => `${x}:${y}`);
+  const tileKeys = getVisibleTileKeys(index, viewport).map(tileId => `${tileId % index.columns}:${Math.floor(tileId / index.columns)}`);
   const selected = queryGeoSpatialIndex(index, viewport);
   return { tileKeys, visibleTileCount: tileKeys.length, featureCount: selected.features.length };
 }
