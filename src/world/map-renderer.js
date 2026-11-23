@@ -1202,12 +1202,11 @@ export function territoryColor(feature) {
  const p=feature?.properties??{},name=territoryName(p)||"terra",owner=String(p.SUBJECTO??p.SOVEREIGNT??"").trim()||name;
  const identity=String(p.ADM0_A3??p.SOV_A3??p.ISO_A3??owner).toUpperCase(),n=owner.normalize("NFD").replace(/\p{M}/gu,"").toLowerCase(),region=name.normalize("NFD").replace(/\p{M}/gu,"").toLowerCase();
  if(identity==="FRA"||/^(france|french republic|french empire)$/.test(n)||/french|new france/.test(region))return "#3159A6";
- if(["england","english territory","kingdom of england","great britain","britain","british empire","united kingdom","united kingdom of great britain and ireland"].includes(n)||/british/.test(region))return "#B83A43";
- if(["castile","aragon","granada","spain","crown of castile","spanish empire"].includes(n)||/spanish|spain|new spain|peru \(spain\)/.test(region))return "#D9A52B";
- if(["portugal","kingdom of portugal"].includes(n))return "#3D805B";
+ if(BRITISH_TERRITORY_NAMES.has(n)||/british/.test(region))return "#B83A43";
+ if(SPANISH_TERRITORY_NAMES.has(n)||/spanish|spain|new spain|peru \(spain\)/.test(region))return "#D9A52B";
+ if(PORTUGUESE_TERRITORY_NAMES.has(n))return "#3D805B";
  if(/ottoman/.test(n))return "#A63C42";if(/holy roman empire|germany|german/.test(n))return "#A98A42";
- const palette=["#B66F62","#668D78","#B18A4F","#718BAF","#9A769F","#B47E91","#6D9B9C","#A28A62","#7E86A8","#A27B5D","#78936B","#B07862","#64899B","#A18A9A","#9A9A61","#8B765E","#6F9A88","#A77C75","#7885A0","#B08B69"];
- let hash=2166136261;for(let i=0;i<identity.length;i++)hash=Math.imul(hash^identity.charCodeAt(i),16777619);return palette[(hash>>>0)%palette.length];
+ let hash=2166136261;for(let i=0;i<identity.length;i++)hash=Math.imul(hash^identity.charCodeAt(i),16777619);return TERRITORY_PALETTE[(hash>>>0)%TERRITORY_PALETTE.length];
 }
 const selectedTerritoryCollator = new Intl.Collator(undefined, { sensitivity: "accent" });
 function territoryMatchesSelectedCountry(feature, selectedCountry) {
