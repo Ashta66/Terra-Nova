@@ -1152,7 +1152,50 @@ function renderCountryDossier(item){
  const note=document.createElement("p");note.className="dossier-data-note";note.textContent=dossier.dataNote;root.append(note);
 }
 function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
-function populateCampaignCountries(){const select=$("player-country");if(!select||!territoryFeatures?.features)return;const names=territoryFeatures.features.map(feature=>{const p=feature.properties??{},raw=p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||p.NAME_LONG,status=String(p.historicalStatus??p.status??p.STATUS??"").toLowerCase();if(typeof raw!=="string"||!raw.trim()||["influence","unclaimed","influence-zone"].includes(status)||isNonStateHistoricalRegion(feature))return null;const name=raw.trim(),label=frenchTerritoryName(name,p),region=countryRegion(feature),difficulty=countryDifficulty(name,region,feature),tier=COUNTRY_MAJOR.has(name)?0:COUNTRY_REGIONAL.has(name)?1:2;return{raw:name,label,region,difficulty,tier,rank:countryRank(name,difficulty,feature),feature}}).filter(Boolean);campaignCountries=[...new Map(names.map(x=>[x.raw,x])).values()];const previous=playerCountry||previewCountry||select.value,options='<option value="">Choisir une nation…</option>'+campaignCountries.map(x=>{const safe=x.raw.replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));return'<option value="'+safe+'">'+x.label+'</option>'}).join("");select.innerHTML=options;const sandbox=$("sandbox-country");if(sandbox)sandbox.innerHTML=options;const preferred=campaignCountries.find(x=>/france/i.test(x.raw)||x.label==="France"),restored=campaignCountries.find(x=>x.raw===previous)||preferred||campaignCountries[0]||null;select.value=restored?.raw??"";if(!playerCountry)previewCountry=restored?.raw??"";if(sandbox)sandbox.value=playerCountry||restored?.raw||"";if(restored)selectCampaignCountry(restored.raw);else renderCountryPicker();}
+function populateCampaignCountries() {
+  const select = $("player-country");
+  if (!select || !territoryFeatures?.features) return;
+  // Déduplique au fil du parcours, sans tableaux intermédiaires.
+  const uniqueCountries = new Map();
+  for (const feature of territoryFeatures.features) {
+    const p = feature.properties ?? {};
+    const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
+    const status = String(p.historicalStatus ?? p.status ?? p.STATUS ?? "").toLowerCase();
+    if (typeof raw !== "string" || !raw.trim()
+      || ["influence", "unclaimed", "influence-zone"].includes(status)
+      || isNonStateHistoricalRegion(feature)) continue;
+    const name = raw.trim();
+    if (uniqueCountries.has(name)) continue;
+    const label = frenchTerritoryName(name, p);
+    const region = countryRegion(feature);
+    const difficulty = countryDifficulty(name, region, feature);
+    uniqueCountries.set(name, {
+      raw: name, label, searchLabel: label.toLocaleLowerCase("fr"),
+      searchRaw: name.toLocaleLowerCase("fr"), region, difficulty,
+      tier: COUNTRY_MAJOR.has(name) ? 0 : COUNTRY_REGIONAL.has(name) ? 1 : 2,
+      rank: countryRank(name, difficulty, feature), feature
+    });
+  }
+  campaignCountries = [...uniqueCountries.values()];
+  const previous = playerCountry || previewCountry || select.value;
+  const options = '<option value="">Choisir une nation…</option>' + campaignCountries.map(x => {
+    const safe = x.raw.replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[ch]));
+    return '<option value="' + safe + '">' + x.label + '</option>';
+  }).join("");
+  select.innerHTML = options;
+  const sandbox = $("sandbox-country");
+  if (sandbox) sandbox.innerHTML = options;
+  const preferred = campaignCountries.find(x => /france/i.test(x.raw) || x.label === "France");
+  const restored = campaignCountries.find(x => x.raw === previous)
+    || preferred || campaignCountries[0] || null;
+  select.value = restored?.raw ?? "";
+  if (!playerCountry) previewCountry = restored?.raw ?? "";
+  if (sandbox) sandbox.value = playerCountry || restored?.raw || "";
+  if (restored) selectCampaignCountry(restored.raw);
+  else renderCountryPicker();
+}
 $("country-search").addEventListener("input",e=>{selectedCountryFilter.query=e.target.value;renderCountryPicker()});$("country-region-filter").addEventListener("change",e=>{selectedCountryFilter.region=e.target.value;renderCountryPicker()});$("country-difficulty-filter").addEventListener("change",e=>{selectedCountryFilter.difficulty=e.target.value;renderCountryPicker()});
 $("player-country").addEventListener("change", event => {
   selectCampaignCountry(event.target.value);
