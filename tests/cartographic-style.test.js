@@ -348,10 +348,12 @@ test("la préparation propose deux boutons de mode synchronisés avec le mode r�
   assert.match(css, /\.campaign-mode-button:focus-visible/);
 });
 
-test("la sélection des nations et le dossier occupent deux panneaux équilibrés sur grand écran", () => {
+test("la préparation place les deux dossiers sur les bords et laisse la carte visible au centre", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /body:not\(\.campaign-started\) \.setup-card\{width:min\(1080px,calc\(100vw - 48px\)\)/);
-  assert.match(css, /body:not\(\.campaign-started\) \.setup-country\{grid-column:1;grid-row:1\}/);
-  assert.match(css, /body:not\(\.campaign-started\) \.country-selected\.country-dossier-panel\{grid-column:2;grid-row:1\}/);
+  assert.match(css, /@media\(min-width:1000px\)[\s\S]*?\.setup-card\{[\s\S]*?position:fixed;left:18px/);
+  assert.match(css, /\.country-selected\.country-dossier-panel\{[\s\S]*?position:fixed;z-index:31;right:18px/);
+  assert.match(css, /\.setup-grid\{display:contents\}/);
+  assert.match(css, /\.campaign-setup\{inset:58px 0 0;display:block;padding:0;background:none;pointer-events:none\}/);
+  assert.match(css, /@media\(max-width:999px\)[\s\S]*?\.country-selected\.country-dossier-panel\{position:static/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.campaign-mode-button\{transition:none\}/);
 });
