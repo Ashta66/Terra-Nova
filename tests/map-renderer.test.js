@@ -1270,3 +1270,26 @@ test("les métriques typographiques des labels sont réutilisées entre les rend
     "la seconde passe ne doit plus mesurer une largeur déjà mise en cache");
   assert.equal(second.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length, 1);
 });
+
+
+test("le classement des grands lacs est mis en cache par collection et rang", () => {
+  let rankReads = 0;
+  const features = Array.from({ length: 20 }, (_, index) => ({
+    type: "Feature",
+    properties: {
+      get scalerank() { rankReads++; return index < 15 ? 0 : 2; },
+      name: "Lac " + index
+    },
+    bbox: [0, 0, 20 - index, 15 - index * 0.3],
+    geometry: { type: "Polygon", coordinates: [] }
+  }));
+  const collection = { type: "FeatureCollection", features };
+  const first = selectMajorLakeFeatures(collection, 1, 12);
+  const readsAfterFirstSelection = rankReads;
+  const second = selectMajorLakeFeatures(collection, 1, 5);
+  assert.equal(first.length, 12);
+  assert.equal(second.length, 5);
+  assert.equal(rankReads, readsAfterFirstSelection,
+    "une seconde sélection avec le même rang réutilise le classement calculé");
+  assert.deepEqual(second, first.slice(0, 5));
+});
