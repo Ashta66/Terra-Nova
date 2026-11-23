@@ -1224,3 +1224,29 @@ test("les repères d'altitude sont triés une seule fois par collection et conse
   assert.deepEqual(collection.features, [hill, polygon, depression, mountain],
     "le tri en cache ne doit jamais réordonner la collection source");
 });
+
+test("les frontières administratives Canvas sont regroupées par style de tirets", () => {
+  const makeBoundaries = count => ({
+    type: "FeatureCollection",
+    features: Array.from({ length: count }, (_, index) => ({
+      type: "Feature",
+      properties: { BORDERPRECISION: index % 2 === 0 ? 2 : 3, scalerank: 0 },
+      geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.4, 1]] }
+    }))
+  });
+  const render = administrativeBoundaries => {
+    const { canvas, calls } = createCanvas();
+    const result = renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 9 },
+      administrativeBoundaries
+    });
+    return { result, strokeCount: calls.filter(call => call[0] === "stroke").length };
+  };
+  const baseline = render(makeBoundaries(0));
+  const batched = render(makeBoundaries(10));
+  assert.equal(batched.result.administrativeBoundaryCount, 10);
+  assert.equal(batched.strokeCount - baseline.strokeCount, 2,
+    "dix frontières de deux styles doivent produire seulement deux strokes Canvas");
+});
+
