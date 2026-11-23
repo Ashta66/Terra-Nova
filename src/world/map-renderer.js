@@ -1185,6 +1185,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   const candidates = getSortedLabelCandidates(collection);
   const cityLabelLimit = Math.max(2, Math.round(getCityLabelLimit(zoom) * density));
   let cityLabelsDrawn = 0;
+  context.save();
   for (let candidateIndex = 0; candidateIndex < Math.min(candidates.length, candidateLimit); candidateIndex++) {
     const feature = candidates[candidateIndex];
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
@@ -1199,13 +1200,13 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = getMapLabelFontSize(kind, zoom, renderScale);
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
-    context.save();
-    context.font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
-    const textWidth = context.measureText(displayName).width;
+    const font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
+    context.font = font;
+    const textWidth = getCachedLabelTextWidth(context, font, displayName);
     const x = point.x - textWidth / 2;
     const y = point.y + (kind === "city" ? 5 * renderScale : 0);
     const box = { left: x - (kind === "country" ? 7 : 4) * renderScale, right: x + textWidth + (kind === "country" ? 7 : 4) * renderScale, top: y - fontSize - (kind === "country" ? 6 : 3) * renderScale, bottom: y + (kind === "city" ? 7 : 4) * renderScale };
-    if (labelBoxCollides(box, occupiedCells, collisionCellSize)) { context.restore(); continue; }
+    if (labelBoxCollides(box, occupiedCells, collisionCellSize)) continue;
     addLabelBox(box, occupiedCells, collisionCellSize);
     if (kind === "city") cityLabelsDrawn++;
     context.textAlign = "left";
@@ -1230,10 +1231,29 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
       context.lineWidth = 1.2 * renderScale;
       context.stroke();
     }
-    context.restore();
     hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5 * renderScale, right: x + textWidth + 5 * renderScale, top: y - fontSize - 5 * renderScale, bottom: y + 6 * renderScale }, coordinates: feature.geometry.coordinates });
   }
+  context.restore();
   return hits;
+}
+
+const labelTextWidthCache = new Map();
+const LABEL_TEXT_WIDTH_CACHE_LIMIT = 4096;
+
+function getCachedLabelTextWidth(context, font, text) {
+  const key = `${font}\\u0000${text}`;
+  if (labelTextWidthCache.has(key)) {
+    const width = labelTextWidthCache.get(key);
+    labelTextWidthCache.delete(key);
+    labelTextWidthCache.set(key, width);
+    return width;
+  }
+  const width = context.measureText(text).width;
+  labelTextWidthCache.set(key, width);
+  while (labelTextWidthCache.size > LABEL_TEXT_WIDTH_CACHE_LIMIT) {
+    labelTextWidthCache.delete(labelTextWidthCache.keys().next().value);
+  }
+  return width;
 }
 
 const physicalTerrainChangeCache = new WeakMap();
