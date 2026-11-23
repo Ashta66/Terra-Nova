@@ -117,7 +117,10 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     if (stop) active = false;
     const metricValues = new Map();
     for (const sample of samples) {
-      for (const [key, value] of Object.entries(sample.metrics)) {
+      const sampleMetrics = sample.metrics;
+      for (const key in sampleMetrics) {
+        if (!Object.hasOwn(sampleMetrics, key)) continue;
+        const value = sampleMetrics[key];
         if (!Number.isFinite(value)) continue;
         let values = metricValues.get(key);
         if (!values) metricValues.set(key, values = []);
