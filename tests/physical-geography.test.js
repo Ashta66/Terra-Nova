@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,buildOceanConnectivityMask,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects} from "../src/world/physical-geography.js";
+import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,buildOceanConnectivityMask,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects,getNextPhysicalSurfaceExpiryDate} from "../src/world/physical-geography.js";
 import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResponses} from "../src/world/society-engine.js";
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"},{id:"ocean",longitude:.02,latitude:0,elevationM:-80,coastalDistanceKm:0,regionId:"sea"}];
@@ -151,4 +151,24 @@ test("l'expiration clone le monde uniquement lorsqu'une échéance est atteinte"
  const expired=expirePhysicalSurfaceEffects(withWave,"1900-02-02");
  assert.notEqual(expired,withWave);
  assert.equal(expired.currentCells[0].tsunamiWaterDepthM,0);
+});
+
+test("l'échéancier physique identifie la prochaine expiration sans parcourir le monde à chaque tick",()=>{
+ const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-impact",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ assert.equal(getNextPhysicalSurfaceExpiryDate(impact),"1900-01-04");
+ const first=expirePhysicalSurfaceEffects(impact,"1900-01-02");
+ assert.equal(first,impact);
+ const stillBeforeSurfaceExpiry=expirePhysicalSurfaceEffects(first,"1900-02-01");
+ assert.equal(stillBeforeSurfaceExpiry,impact);
+ const expired=expirePhysicalSurfaceEffects(impact,"1900-04-02");
+ assert.notEqual(expired,impact);
+ assert.equal(getNextPhysicalSurfaceExpiryDate(expired),null);
+});
+
+test("l'échéancier prend en compte l'expiration mensuelle des effets de surface",()=>{
+ const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-surface",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ assert.equal(getNextPhysicalSurfaceExpiryDate(impact),"1900-01-04");
+ const afterVisual=expirePhysicalSurfaceEffects(impact,"1900-01-05");
+ assert.notEqual(afterVisual,impact);
+ assert.equal(getNextPhysicalSurfaceExpiryDate(afterVisual),"1900-04-01");
 });
