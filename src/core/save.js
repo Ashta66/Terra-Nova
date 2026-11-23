@@ -9,7 +9,9 @@ function compactPhysicalWorld(world) {
   for (let index = 0; index < world.currentCells.length; index++) {
     const current = world.currentCells[index];
     const base = world.baseCells[index];
-    if (!base || JSON.stringify(current) !== JSON.stringify(base)) changedCells.push([index, current]);
+    if (current !== base && (!base || JSON.stringify(current) !== JSON.stringify(base))) {
+      changedCells.push([index, current]);
+    }
   }
   return {
     ...world,
