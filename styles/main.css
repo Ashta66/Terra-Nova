@@ -137,7 +137,13 @@ button,select,textarea{font:inherit}
 .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:20px 0 15px}
 .setup-date{grid-column:1/-1}
 .setup-date strong{font:600 22px Georgia,serif;color:#f0d49a;letter-spacing:0}
-.setup-date input{width:100%;margin:4px 0;accent-color:#d9b878;cursor:ew-resize}
+.setup-date input{width:100%;height:28px;margin:7px 0 5px;padding:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:ew-resize;touch-action:pan-y;outline:none}
+.setup-date input::-webkit-slider-runnable-track{height:8px;border:1px solid #8d7954;border-radius:3px;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),#e3d0a044 calc(5% - 1px) 5%),linear-gradient(90deg,#d9b878 0 var(--start-year-progress,0%),#263b42 var(--start-year-progress,0%) 100%);box-shadow:inset 0 2px 4px #0009,0 1px 0 #ffffff16}
+.setup-date input::-moz-range-track{height:8px;border:1px solid #8d7954;border-radius:3px;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),#e3d0a044 calc(5% - 1px) 5%),linear-gradient(90deg,#d9b878 0 var(--start-year-progress,0%),#263b42 var(--start-year-progress,0%) 100%)}
+.setup-date input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border:2px solid #f0d49a;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 5%,#e9cf91 18%,#9a7540 56%,#293b40 78%);box-shadow:0 0 0 4px #d9b87835,0 3px 9px #000c,inset 0 1px 2px #fff9;transition:transform .15s ease,box-shadow .15s ease}
+.setup-date input::-moz-range-thumb{width:18px;height:18px;border:2px solid #f0d49a;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 5%,#e9cf91 18%,#9a7540 56%,#293b40 78%);box-shadow:0 0 0 4px #d9b87835,0 3px 9px #000c}
+.setup-date input:hover::-webkit-slider-thumb,.setup-date input:focus-visible::-webkit-slider-thumb{transform:scale(1.13);box-shadow:0 0 0 6px #d9b87845,0 0 17px #d9b87899,0 3px 9px #000c}
+.setup-date input:focus-visible{outline:1px solid #d9b878;outline-offset:5px;border-radius:5px}
 .setup-range-ends{display:flex;justify-content:space-between;color:#82979a;font-size:8px;letter-spacing:0}
 .setup-map-hint{display:flex;align-items:center;gap:8px;color:#b7c5bd;font-size:10px;line-height:1.4}
 .setup-live-dot{width:6px;height:6px;border-radius:50%;background:#d7b976;box-shadow:0 0 9px #d7b976}
