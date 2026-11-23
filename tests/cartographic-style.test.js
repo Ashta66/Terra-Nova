@@ -242,3 +242,14 @@ test("le thème reste mis à jour par année et la progression de la frise suit 
   assert.match(css, /#year-scrubber:focus-visible/);
   assert.doesNotMatch(js, /debugMode|debug-mode|URLSearchParams\(window\.location\.search\)/);
 });
+
+test("le curseur de date de création de campagne possède son propre style tactile et sa progression", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(css, /\.setup-date input::-webkit-slider-runnable-track/);
+  assert.match(css, /\.setup-date input::-webkit-slider-thumb/);
+  assert.match(css, /--start-year-progress/);
+  assert.match(js, /function updateStartYearSliderProgress\(\)/);
+  assert.match(js, /startYearSlider\.addEventListener\("input"/);
+  assert.match(js, /updateStartYearSliderProgress\(\);/);
+});
