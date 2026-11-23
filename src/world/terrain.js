@@ -291,7 +291,9 @@ function samplePreparedHillshade(grid,longitude,latitude){
  const shades=hillshadeGridCache.get(grid);if(!(shades instanceof Uint8Array))return null;
  const {x,y}=terrainGridCoordinates(grid,longitude,latitude);
  const rawX=Math.floor(x),x0=((rawX%grid.width)+grid.width)%grid.width,x1=(x0+1)%grid.width,y0=Math.floor(y),y1=Math.min(grid.height-1,y0+1),fx=x-rawX,fy=y-y0;
- const at=(ix,iy)=>shades[iy*grid.width+ix]/255,a=at(x0,y0)*(1-fx)+at(x1,y0)*fx,b=at(x0,y1)*(1-fx)+at(x1,y1)*fx;
+ const row0=y0*grid.width,row1=y1*grid.width;
+ const a=(shades[row0+x0]/255)*(1-fx)+(shades[row0+x1]/255)*fx;
+ const b=(shades[row1+x0]/255)*(1-fx)+(shades[row1+x1]/255)*fx;
  return .48+(a*(1-fy)+b*fy)*1.04;
 }
 const physicalLookupCache = new WeakMap();
