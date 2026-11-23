@@ -344,7 +344,13 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   function prepareAdjacentAsync(zoom = 1, direction = 1) {
     const targetZoom = getAdjacentZoom(zoom, direction);
     if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
-    const level = normalizedLevels.find(item => targetZoom <= item.maxZoom);
+    let level = null;
+    for (let index = 0; index < normalizedLevels.length; index++) {
+      if (targetZoom <= normalizedLevels[index].maxZoom) {
+        level = normalizedLevels[index];
+        break;
+      }
+    }
     return prepareLevelAsync(level, () => prepareAdjacent(zoom, direction));
   }
 
