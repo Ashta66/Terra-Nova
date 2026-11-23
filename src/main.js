@@ -806,12 +806,12 @@ function completeMapRender(result, context) {
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  let regionalLayerCount = 0;
-  let fallbackLayerCount = 0;
-  for (const layer of [context.landDetail, context.riverDetail, context.labelDetail]) {
-    if (layer.level === "regional-10m") regionalLayerCount++;
-    if (layer.isFallback) fallbackLayerCount++;
-  }
+  const regionalLayerCount = Number(context.landDetail.level === "regional-10m")
+    + Number(context.riverDetail.level === "regional-10m")
+    + Number(context.labelDetail.level === "regional-10m");
+  const fallbackLayerCount = Number(Boolean(context.landDetail.isFallback))
+    + Number(Boolean(context.riverDetail.isFallback))
+    + Number(Boolean(context.labelDetail.isFallback));
   const detailStatus = regionalLayerCount
     ? ` · ${regionalLayerCount}/3 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
