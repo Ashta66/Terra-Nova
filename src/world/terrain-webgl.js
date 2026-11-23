@@ -768,7 +768,7 @@ void main(){
  bool antarcticIceSheet=latitude<=-70.0;
  bool iceSheet=(greenlandIceSheet||antarcticIceSheet);
  float e=elevationAt(v_atlasUv);
- bool polarSnow=(greenlandIceSheet&&e>=1500.0)||(antarcticIceSheet&&e>=0.0);
+ bool polarSnow=(greenlandIceSheet&&e>=1500.0)||antarcticIceSheet;
  float snowLine=mix(5200.0,3600.0,smoothstep(25.0,75.0,abs(latitude)));
  bool summitSnow=e>=snowLine;
  float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
