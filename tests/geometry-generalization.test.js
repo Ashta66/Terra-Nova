@@ -250,3 +250,29 @@ test("les seuils LOD dupliqués conservent le dernier niveau déclaré",()=>{
  const result=lod.getForZoom(1);
  assert.equal(result.geometryStats.tolerance,0.02);
 });
+
+
+test("un worker LOD détruit ne peut pas être recréé et ignore ses réponses tardives", async () => {
+ const ring=[[0,0],[1,0.001],[2,0],[3,0.001],[4,0],[4,2],[3,2.001],[2,2],[1,2.001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ let creations=0, terminated=0, listener=null;
+ const lod=createGeoJsonLodSet(base,[{maxZoom:2,tolerance:0.01}],0.0001,{
+  createWorker:()=>{
+   creations++;
+   return {
+    postMessage(message){ if(message.type==="simplify") listener=this.onmessage; },
+    terminate(){terminated++;}
+   };
+  }
+ });
+ const pending=lod.prepareZoomAsync(1);
+ assert.equal(creations,1);
+ lod.dispose();
+ assert.equal(await pending,false);
+ assert.equal(terminated,1);
+ assert.equal(await lod.prepareZoomAsync(1),false);
+ assert.equal(await lod.prepareAdjacentAsync(1,1),false);
+ assert.equal(creations,1,"aucun worker ne doit être recréé après dispose");
+ listener?.({data:{requestId:1,result:base}});
+ assert.equal(lod.getStats().workerActive,false);
+});
