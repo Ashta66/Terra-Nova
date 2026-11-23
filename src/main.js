@@ -1149,7 +1149,7 @@ function countryRegion(feature) {
 }
 function countryDifficulty(raw,region,feature){if(COUNTRY_EASY.has(raw))return 1;if(COUNTRY_HARD.has(raw))return 5;if(COUNTRY_MAJOR.has(raw))return 2;if(COUNTRY_REGIONAL.has(raw))return 3;const p=feature.properties??{},pop=Number(p.POP_EST??p.pop_est??0),area=Number(p.AREA??p.area??0);if(pop>30000000||area>1800000)return 2;if(pop>8000000||area>450000)return 3;return region==="Océanie"||region==="Amérique du Sud"?4:3;}
 function countryRank(raw,difficulty,feature){if(COUNTRY_MAJOR.has(raw))return"Puissance majeure";if(COUNTRY_REGIONAL.has(raw))return"Puissance régionale";const p=feature.properties??{};if(Number(p.POP_EST??p.pop_est??0)>30000000||Number(p.AREA??p.area??0)>1800000)return"Grande nation";return difficulty>=4?"Défi historique":"Nation émergente";}
-function renderCountryPicker(){const list=$("country-results"),count=$("country-result-count");if(!list)return;const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr"),items=campaignCountries.filter(x=>(!q||x.searchLabel.includes(q)||x.searchRaw.includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));count.textContent=items.length+" nation"+(items.length>1?"s":"")+" disponible"+(items.length>1?"s":"");list.replaceChildren();const groups=new Map();for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x)}for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){const group=groups.get(region);if(!group?.length)continue;const head=document.createElement("div");head.className="country-region-heading";head.textContent=region+" · "+group.length;list.append(head);group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));for(const x of group){const btn=document.createElement("button");btn.type="button";btn.className="country-result"+(x.raw===$("player-country").value?" is-selected":"");btn.setAttribute("aria-pressed",String(x.raw===$("player-country").value));const name=document.createElement("span");name.className="country-result-name";name.textContent=x.label;const meta=document.createElement("span");meta.className="country-result-meta";const rank=document.createElement("span");rank.className="country-rank";rank.textContent=x.rank;const diff=document.createElement("span");diff.className="country-difficulty";diff.textContent="Difficulté "+x.difficulty+"/5";meta.append(rank,diff);btn.append(name,meta);btn.addEventListener("click",()=>selectCampaignCountry(x.raw));list.append(btn)}}}
+function renderCountryPicker(){const list=$("country-results"),count=$("country-result-count");if(!list)return;const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr"),items=campaignCountries.filter(x=>(!q||x.searchLabel.includes(q)||x.searchRaw.includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));count.textContent=items.length+" nation"+(items.length>1?"s":"")+" disponible"+(items.length>1?"s":"");list.replaceChildren();const groups=new Map();for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x)}for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){const group=groups.get(region);if(!group?.length)continue;const head=document.createElement("div");head.className="country-region-heading";head.textContent=region+" · "+group.length;list.append(head);group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));for(const x of group){const isSelected=x.raw===$("player-country").value;const btn=document.createElement("button");btn.type="button";btn.className="country-result"+(isSelected?" is-selected":"");btn.setAttribute("role","option");btn.setAttribute("aria-selected",String(isSelected));btn.setAttribute("aria-pressed",String(isSelected));btn.dataset.country=x.raw;btn.dataset.region=x.region;btn.dataset.difficulty=String(x.difficulty);btn.title=x.label+" · "+x.region+" · Difficulté "+x.difficulty+"/5";const name=document.createElement("span");name.className="country-result-name";name.textContent=x.label;const meta=document.createElement("span");meta.className="country-result-meta";const rank=document.createElement("span");rank.className="country-rank";rank.textContent=x.rank;const diff=document.createElement("span");diff.className="country-difficulty";diff.textContent="Difficulté "+x.difficulty+"/5";meta.append(rank,diff);btn.append(name,meta);btn.addEventListener("click",()=>selectCampaignCountry(x.raw));btn.addEventListener("keydown",event=>{const buttons=[...list.querySelectorAll(".country-result")];const index=buttons.indexOf(btn);let target=null;if(event.key==="ArrowDown")target=buttons[Math.min(buttons.length-1,index+1)];else if(event.key==="ArrowUp")target=buttons[Math.max(0,index-1)];else if(event.key==="Home")target=buttons[0];else if(event.key==="End")target=buttons.at(-1);if(target){event.preventDefault();target.focus();}});list.append(btn)}}}
 function renderCountryDossier(item){
  const root=$("country-dossier");if(!root)return;root.replaceChildren();if(!item){root.hidden=true;return;}root.hidden=false;
  const dossier=buildCountryDossier(item.feature,Number(state.clock.date.slice(0,4)),{rank:item.rank,difficulty:item.difficulty,region:item.region});
@@ -1527,19 +1527,47 @@ function findMapLabelHit(x, y) {
   }
   return null;
 }
+function normalizeCampaignCountryName(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function findCampaignCountryForMapHit(hit) {
+  const name = normalizeCampaignCountryName(hit?.name);
+  if (!name) return null;
+  return campaignCountries.find(item => {
+    const candidates = [item.raw, item.label, frenchTerritoryName(item.raw)];
+    return candidates.some(candidate => {
+      const normalized = normalizeCampaignCountryName(candidate);
+      return normalized === name || (normalized.length > 5 && name.length > 5
+        && (normalized.startsWith(name) || name.startsWith(normalized)));
+    });
+  }) ?? null;
+}
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
   tooltip.replaceChildren();
   const title = document.createElement("strong");
   title.textContent = label.name;
   const subtitle = document.createElement("span");
-  subtitle.textContent = selected
-    ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
-    : `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
-  tooltip.append(title, subtitle);
+  const campaignPreview = !document.body.classList.contains("campaign-started")
+    && label.kind === "country" ? findCampaignCountryForMapHit(label) : null;
+  if (campaignPreview) {
+    const detail = document.createElement("span");
+    detail.className = "map-tooltip-country-detail";
+    detail.textContent = campaignPreview.rank + " · " + campaignPreview.region
+      + " · Difficulté " + campaignPreview.difficulty + "/5";
+    subtitle.textContent = selected ? "Nation sélectionnée" : "Nation jouable · Cliquez pour choisir";
+    tooltip.append(title, subtitle, detail);
+  } else {
+    subtitle.textContent = selected
+      ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
+      : `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
+    tooltip.append(title, subtitle);
+  }
   tooltip.hidden = false;
   tooltip.classList.toggle("is-selected", selected);
-  tooltip.style.left = `${Math.min(Math.max(8, x + 14), mapCanvas.parentElement.clientWidth - 190)}px`;
+  tooltip.classList.toggle("is-campaign-country", Boolean(campaignPreview));
+  tooltip.style.left = `${Math.min(Math.max(8, x + 14), mapCanvas.parentElement.clientWidth - 220)}px`;
   tooltip.style.top = `${Math.max(8, y + 14)}px`;
 }
 function hideMapTooltip() {
@@ -1691,12 +1719,7 @@ mapCanvas.addEventListener("click", (event) => {
   }
   const hit = findMapLabelHit(x, y);
   if (hit && !document.body.classList.contains("campaign-started") && hit.kind === "country") {
-    const hitName = String(hit.name ?? "").trim().toLocaleLowerCase("fr");
-    const country = campaignCountries.find(item =>
-      item.raw.toLocaleLowerCase("fr") === hitName
-      || item.label.toLocaleLowerCase("fr") === hitName
-      || frenchTerritoryName(item.raw).toLocaleLowerCase("fr") === hitName
-    );
+    const country = findCampaignCountryForMapHit(hit);
     if (country) {
       selectCampaignCountry(country.raw);
       return;
