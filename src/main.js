@@ -1174,7 +1174,7 @@ function populateCampaignCountries() {
   const uniqueCountries = new Map();
   for (const feature of territoryFeatures.features) {
     const p = feature.properties ?? {};
-    const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
+    const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG || territoryName(p);
     const status = String(p.historicalStatus ?? p.status ?? p.STATUS ?? "").toLowerCase();
     if (typeof raw !== "string" || !raw.trim()
       || CAMPAIGN_EXCLUDED_STATUSES.has(status)
