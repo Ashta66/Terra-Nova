@@ -129,7 +129,7 @@ test("le shader reçoit le centre et le zoom géographiques à chaque rendu", ()
 
 test("les terres des calottes groenlandaise et antarctique reçoivent une neige explicite", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
-  assert.match(shader, /bool polarSnow=\(greenlandIceSheet&&e>=1500\.0\)\|\|\(antarcticIceSheet&&e>=0\.0\)/);
+  assert.match(shader, /bool polarSnow=\(greenlandIceSheet&&e>=1500\.0\)\|\|antarcticIceSheet/);\n  assert.match(shader, /bool antarcticIceSheet=latitude<=-70\.0/);
   assert.match(shader, /bool summitSnow=e>=snowLine/);
   assert.match(shader, /if\(polarSnow\|\|summitSnow\)color=mix\(color,vec3\(0\.96,0\.97,0\.98\),0\.92\)/);
   assert.doesNotMatch(shader, /iceSheet&&e>=1500\.0\)e=max\(e,5000\.0\)/);
