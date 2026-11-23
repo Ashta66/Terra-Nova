@@ -1532,11 +1532,13 @@ function normalizeCampaignCountryName(value) {
     .toLocaleLowerCase("fr").replace(/[^a-z0-9]+/g, " ").trim();
 }
 function findCampaignCountryForMapHit(hit) {
-  const name = normalizeCampaignCountryName(hit?.name);
+  const hitName = String(hit?.name ?? "").toLocaleLowerCase("fr").trim();
+  const name = normalizeCampaignCountryName(hitName);
   if (!name) return null;
   return campaignCountries.find(item => {
+    const labelMatches = item.label.toLocaleLowerCase("fr") === hitName;
     const candidates = [item.raw, item.label, frenchTerritoryName(item.raw)];
-    return candidates.some(candidate => {
+    return labelMatches || candidates.some(candidate => {
       const normalized = normalizeCampaignCountryName(candidate);
       return normalized === name || (normalized.length > 5 && name.length > 5
         && (normalized.startsWith(name) || name.startsWith(normalized)));
@@ -1555,7 +1557,7 @@ function showMapTooltip(label, x, y, selected) {
     const detail = document.createElement("span");
     detail.className = "map-tooltip-country-detail";
     detail.textContent = campaignPreview.rank + " · " + campaignPreview.region
-      + " · Difficulté " + campaignPreview.difficulty + "/5";
+      + " · " + "Difficulté " + campaignPreview.difficulty + "/5";
     subtitle.textContent = selected ? "Nation sélectionnée" : "Nation jouable · Cliquez pour choisir";
     tooltip.append(title, subtitle, detail);
   } else {
