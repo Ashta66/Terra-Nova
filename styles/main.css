@@ -686,9 +686,7 @@ body[data-cartographic-era="exploration"] .map-compass,
 body[data-cartographic-era="westphalia"] .map-compass { border-radius:50%; }
 body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
   inset:10px;
-  background:
-    repeating-linear-gradient(0deg,transparent 0 47px,#b5c0b31c 48px,transparent 49px),
-    repeating-linear-gradient(90deg,transparent 0 47px,#b5c0b31c 48px,transparent 49px);
+  background:none;
 }
 body[data-cartographic-era="present"] .map-cartographic-overlay,
 body[data-cartographic-era="future"] .map-cartographic-overlay { opacity:.48; }
@@ -979,35 +977,3 @@ body[data-cartographic-era="future"] .map-frame::after {
   body[data-cartographic-era="westphalia"] .map-frame { border-width:3px; }
   .map-frame::after { opacity:.28; }
 }
-
-
-/* Lisibilité de l'atlas : la période 1789–1913 privilégie les frontières et les territoires.
-   Les ornements restent périphériques et ne traversent plus visuellement la carte. */
-body[data-cartographic-era="revolution"] .map-cartographic-overlay { opacity:.14; }
-body[data-cartographic-era="revolution"] .map-cartographic-overlay::before {
-  inset:14px;
-  border:1px solid color-mix(in srgb,var(--theme-accent) 18%,transparent);
-  background:none;
-  opacity:.18;
-}
-body[data-cartographic-era="revolution"] .map-overlay-coordinate {
-  opacity:.48;
-  text-shadow:0 1px 2px #000b;
-}
-body[data-cartographic-era="revolution"] .map-compass {
-  opacity:.38;
-  box-shadow:none;
-  background:#11182055;
-}
-body[data-cartographic-era="revolution"] .map-reticle { opacity:.12; }
-body[data-cartographic-era="modern"] .map-cartographic-overlay { opacity:.2; }
-body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
-  background:
-    repeating-linear-gradient(0deg,transparent 0 95px,#b5c0b30b 96px,transparent 97px),
-    repeating-linear-gradient(90deg,transparent 0 95px,#b5c0b30b 96px,transparent 97px);
-  opacity:.12;
-}
-
-/* Les métriques détaillées ne consomment aucun espace hors mode diagnostic explicite. */
-.map-diagnostics { display:none; }
-body.debug-mode .map-diagnostics { display:block; }
