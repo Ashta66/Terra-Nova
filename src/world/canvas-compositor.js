@@ -23,7 +23,7 @@ export function getSceneTransform(sceneViewport = {}, viewport = {}, width = 1, 
   };
 }
 export function composeSceneCanvas(target, scene, transform, pixelRatio = 1) {
-  const context = target?.getContext?.("2d");
+  const context = getSceneContext(target);
   if (!context || !scene) return false;
   if (target.width !== scene.width) target.width = scene.width;
   if (target.height !== scene.height) target.height = scene.height;
