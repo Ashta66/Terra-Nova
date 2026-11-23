@@ -858,7 +858,8 @@ function getSortedElevationPointFeatures(collection) {
       ranked.push({ feature, elevation, index });
     }
     ranked.sort((a, b) => b.elevation - a.elevation || a.index - b.index);
-    sorted = ranked.map(entry => entry.feature);
+    sorted = new Array(ranked.length);
+    for (let index = 0; index < ranked.length; index++) sorted[index] = ranked[index].feature;
     sortedElevationPointCollections.set(collection, sorted);
   }
   return sorted;
