@@ -241,6 +241,26 @@ test("le moteur ignore les géométries nulles sans interrompre le rendu", () =>
   assert.equal(result.landCount, 0);
 });
 
+test("les noms des pays restent visibles au dézoom même avec de nombreux labels secondaires", () => {
+  const { canvas } = createCanvas();
+  const secondary = Array.from({ length: 60 }, (_, index) => ({
+    type: "Feature",
+    properties: { name: "Repère " + index, kind: "continent", minZoom: 1 },
+    geometry: { type: "Point", coordinates: [index * 4 + 180, 85] }
+  }));
+  const country = {
+    type: "Feature",
+    properties: { name: "France", kind: "country", minZoom: 1.25, priority: 90 },
+    geometry: { type: "Point", coordinates: [2, 46] }
+  };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    labels: { type: "FeatureCollection", features: [...secondary, country] },
+    viewport: { zoom: 1.25, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.ok(result.labelHits.some(label => label.name === "FRANCE"));
+});
+
 test("les labels géographiques apparaissent selon le niveau de zoom", () => {
   const { canvas, calls } = createCanvas();
   const labels = { type: "FeatureCollection", features: [
