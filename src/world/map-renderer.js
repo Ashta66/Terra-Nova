@@ -1196,6 +1196,9 @@ export function classifyPhysicalCellVisual(c){
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;ctx.save();
+ const renderScale = projection.renderScale ?? 1;
+ const standardDash = [2 * renderScale, 3 * renderScale];
+ const earthquakeDash = [5 * renderScale, 4 * renderScale];
  // Repère les événements physiques sans créer de tableau ni de callback temporaire.
  const events = world.events ?? [];
  let hasTerrainEvent = false;
@@ -1217,7 +1220,7 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
    if(center&&radius>1&&!event.visualExpired){
    ctx.save();ctx.globalAlpha=.68;ctx.lineWidth=Math.max(1,Math.min(3,1.25*Math.sqrt(zoom)))*(projection.renderScale??1);
    ctx.strokeStyle=event.type==="tsunami"?"rgba(105,210,225,.9)":event.type==="earthquake"?"rgba(235,190,125,.92)":"rgba(255,154,83,.95)";
-   ctx.setLineDash?.((event.type==="earthquake"?[5,4]:[2,3]).map(value=>value*(projection.renderScale??1)));
+   ctx.setLineDash?.(event.type === "earthquake" ? earthquakeDash : standardDash);
    for(const scale of [.62,1]){ctx.beginPath();ctx.arc(center.x,center.y,radius*scale,0,Math.PI*2);ctx.stroke();}
    if(event.type==="earthquake"){
     ctx.setLineDash?.([]);ctx.strokeStyle="rgba(255,226,177,1)";ctx.lineWidth=Math.max(3,2.4*Math.sqrt(zoom))*(projection.renderScale??1);
