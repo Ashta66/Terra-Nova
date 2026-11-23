@@ -71,13 +71,13 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
   const magnitude = Math.hypot(dx, dy) || 1;
   const nx = dx / magnitude, ny = dy / magnitude;
   const candidates = [];
-  const seen = new Set();
+  const seen = new Uint8Array(count * count);
   for (let rawX = xStart; rawX <= xEnd; rawX++) {
     const x = ((rawX % count) + count) % count;
     for (let y = yStart; y <= yEnd; y++) {
       const tileIndex = y * count + x;
-      if (seen.has(tileIndex)) continue;
-      seen.add(tileIndex);
+      if (seen[tileIndex]) continue;
+      seen[tileIndex] = 1;
       const key = getMapTileKey(z, x, y);
       const ox = rawX + 0.5 - centerX;
       const oy = y + 0.5 - centerY;
