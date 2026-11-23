@@ -121,6 +121,8 @@ let mapTileWorkerPending = new Map();
 let mapTileWorkerSequence = 0;
 const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
+const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
+const MAP_TILE_HORIZONTAL_OFFSETS = [-1, 0, 1];
 const mapTileCache = createMapTileCache({ maxBytes: 64 * 1024 * 1024, maxEntries: 192 });
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
@@ -440,12 +442,20 @@ function requestMapPhysicalTiles(plan, layers) {
       elevationPoints: layers.elevationPoints,
       terrain: layers.terrain
     };
-    const changed = !mapTileWorkerLayers || Object.keys(nextLayers).some(key => mapTileWorkerLayers[key] !== nextLayers[key]);
+    let changed = !mapTileWorkerLayers;
+    if (!changed) {
+      for (const key of MAP_TILE_LAYER_KEYS) {
+        if (mapTileWorkerLayers[key] !== nextLayers[key]) { changed = true; break; }
+      }
+    }
     if (changed) {
       mapTileWorkerLayers = nextLayers;
       mapTileWorker.postMessage({ type: "init", layers: nextLayers });
     }
-    mapTileWorkerQueue = (plan?.tiles ?? []).filter(tile => !mapTileCache.get(tile.key) && !mapTileWorkerPending.has(tile.key));
+    mapTileWorkerQueue.length = 0;
+    for (const tile of plan?.tiles ?? []) {
+      if (!mapTileCache.get(tile.key) && !mapTileWorkerPending.has(tile.key)) mapTileWorkerQueue.push(tile);
+    }
     pumpMapTileWorkerQueue();
   } catch (error) {
     console.warn("Initialisation du moteur de tuiles impossible :", error);
@@ -471,12 +481,15 @@ function drawMapTileFallbacks(context, width, height, composition) {
     const rect = getMapTileScreenRect(tile, mapViewport, width, height);
     const period = width * mapViewport.zoom;
     const startedAt = mapTileFadeStarts.get(tile.key);
-    const hasParent = tile.ancestors?.some(parent => mapTileCache.has(parent.key)) ?? false;
+    let hasParent = false;
+    for (const parent of tile.ancestors ?? []) {
+      if (mapTileCache.has(parent.key)) { hasParent = true; break; }
+    }
     const alpha = startedAt !== undefined && hasParent
       ? Math.max(0, Math.min(1, (now - startedAt) / 180))
       : 1;
-    for (const offset of [-period, 0, period]) {
-      const x = rect.x + offset;
+    for (const multiplier of MAP_TILE_HORIZONTAL_OFFSETS) {
+      const x = rect.x + multiplier * period;
       if (x + rect.width < 0 || x > width) continue;
       context.globalAlpha = alpha;
       context.drawImage(bitmap, x, rect.y, rect.width, rect.height);
