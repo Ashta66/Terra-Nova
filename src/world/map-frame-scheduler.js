@@ -15,10 +15,7 @@ export function createMapFrameScheduler(render, requestFrame = globalThis.reques
   };
   const schedule = () => {
     if (disposed || frame !== null) return false;
-    frame = requestFrame(() => {
-      frame = null;
-      if (!disposed) render();
-    });
+    frame = requestFrame(renderFrame);
     return true;
   };
   schedule.cancel = () => {
