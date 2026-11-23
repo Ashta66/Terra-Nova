@@ -188,7 +188,12 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function getLevelForZoom(zoom = 1) {
-    return normalizedLevels.find(item => Number(zoom) <= item.maxZoom && item.tolerance > baseTolerance) ?? null;
+    const value = Number(zoom);
+    for (let index = 0; index < normalizedLevels.length; index++) {
+      const item = normalizedLevels[index];
+      if (value <= item.maxZoom && item.tolerance > baseTolerance) return item;
+    }
+    return null;
   }
 
   function getForZoom(zoom = 1) {
@@ -210,9 +215,14 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     const current = Number(zoom);
     if (!Number.isFinite(current)) return null;
     if (direction >= 0) {
-      const activeIndex = normalizedLevels.findIndex(level => current <= level.maxZoom);
-      if (activeIndex < 0) return null;
-      const active = normalizedLevels[activeIndex];
+      let active = null;
+      for (let index = 0; index < normalizedLevels.length; index++) {
+        if (current <= normalizedLevels[index].maxZoom) {
+          active = normalizedLevels[index];
+          break;
+        }
+      }
+      if (!active) return null;
       if (active.tolerance <= baseTolerance) return null;
       return active.maxZoom + 0.001;
     }
