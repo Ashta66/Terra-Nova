@@ -846,7 +846,9 @@ function getSortedElevationPointFeatures(collection) {
 }
 
 export function selectMajorElevationFeatures(collection, maxFeatures = 64) {
-  return getSortedElevationPointFeatures(collection).slice(0, Math.max(0, maxFeatures));
+  const sorted = getSortedElevationPointFeatures(collection);
+  const limit = Math.max(0, maxFeatures);
+  return sorted.length <= limit ? sorted : sorted.slice(0, limit);
 }
 
 function drawElevationPoints(context, collection, width, height, projection, theme) {
