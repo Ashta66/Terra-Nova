@@ -67,6 +67,26 @@ test("l'Antarctique n'est pas recoloré par la couche des territoires politiques
     "aucun aplat ni contour politique ne doit être appliqué au continent antarctique");
 });
 
+test("la couche d'aplat antarctique peut être isolée sans désactiver le relief", () => {
+  const { canvas, calls } = createCanvas();
+  globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = true;
+  try {
+    renderWorldMap(canvas, { type: "FeatureCollection", features: [{
+      type: "Feature",
+      bbox: [-180, -90, 180, -63],
+      geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+    }] }, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: true
+    });
+  } finally {
+    delete globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+  }
+  assert.ok(!calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "le diagnostic doit pouvoir désactiver uniquement l'aplat blanc antarctique");
+});
+
 test("le continent antarctique conserve un aplat visible même lorsque le relief est activé", () => {
   const { canvas, calls } = createCanvas();
   const antarctica = { type: "FeatureCollection", features: [{
