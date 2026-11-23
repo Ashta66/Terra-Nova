@@ -112,16 +112,23 @@ export function selectMajorLakeFeatures(collection, maxRank = 1, maxFeatures = M
   const rankKey = String(maxRank);
   let sorted = profiles.get(rankKey);
   if (!sorted) {
-    sorted = collection.features.flatMap((feature, index) => {
-      if (!["Polygon", "MultiPolygon"].includes(feature?.geometry?.type)) return [];
-      const rawRank = feature.properties?.scalerank ?? feature.properties?.SCALERANK
-        ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM;
+    const candidates = [];
+    for (let index = 0; index < collection.features.length; index++) {
+      const feature = collection.features[index];
+      const geometryType = feature?.geometry?.type;
+      if (geometryType !== "Polygon" && geometryType !== "MultiPolygon") continue;
+      const properties = feature.properties;
+      const rawRank = properties?.scalerank ?? properties?.SCALERANK
+        ?? properties?.min_zoom ?? properties?.MIN_ZOOM;
       const rank = Number(rawRank);
       const normalizedRank = Number.isFinite(rank) ? rank : 1;
-      return normalizedRank <= maxRank ? [{ feature, rank: normalizedRank, index }] : [];
-    }).sort((a, b) => a.rank - b.rank
+      if (normalizedRank <= maxRank) candidates.push({ feature, rank: normalizedRank, index });
+    }
+    candidates.sort((a, b) => a.rank - b.rank
       || lakeGeographicArea(b.feature) - lakeGeographicArea(a.feature)
-      || a.index - b.index).map(entry => entry.feature);
+      || a.index - b.index);
+    sorted = new Array(candidates.length);
+    for (let index = 0; index < candidates.length; index++) sorted[index] = candidates[index].feature;
     profiles.set(rankKey, sorted);
   }
   return sorted.slice(0, Math.max(0, maxFeatures));
