@@ -1503,6 +1503,7 @@ const FRENCH_HISTORICAL_NAMES = {
   "cambodia": "Cambodge",
   "vietnam": "Viêt Nam",
   "annam": "Annam",
+  "republic of annam": "République de l’Annam",
   "tonkin": "Tonkin",
   "cochin china": "Cochinchine",
   "manchuria": "Mandchourie",
