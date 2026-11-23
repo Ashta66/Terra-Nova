@@ -71,8 +71,18 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   }
   return {
     collection, cellSize: size, columns, rows, cells, global, bounds,
-    queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0
+    queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0,
+    featureMarks: new Uint32Array(collection.features.length), featureMark: 0
   };
+}
+
+function nextFeatureMark(index) {
+  index.featureMark = (index.featureMark + 1) >>> 0;
+  if (index.featureMark === 0) {
+    index.featureMarks.fill(0);
+    index.featureMark = 1;
+  }
+  return index.featureMark;
 }
 
 function getTileFeatureIndices(index, tileId) {
@@ -87,9 +97,20 @@ function getTileFeatureIndices(index, tileId) {
     return cached;
   }
   index.tileMisses++;
-  const ids = new Set(index.global);
-  for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) ids.add(featureIndex);
-  const ordered = [...ids].sort((a, b) => a - b);
+  const mark = nextFeatureMark(index);
+  const marks = index.featureMarks;
+  const ordered = [];
+  for (const featureIndex of index.global) {
+    if (marks[featureIndex] === mark) continue;
+    marks[featureIndex] = mark;
+    ordered.push(featureIndex);
+  }
+  for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) {
+    if (marks[featureIndex] === mark) continue;
+    marks[featureIndex] = mark;
+    ordered.push(featureIndex);
+  }
+  ordered.sort((a, b) => a - b);
   index.tileCache.set(key, ordered);
   if (index.tileCache.size > MAX_TILE_CACHE_ENTRIES) {
     index.tileCache.delete(index.tileCache.keys().next().value);
@@ -140,14 +161,23 @@ function queryGeoSpatialIndexForTiles(index, tileKeys) {
     return cached;
   }
 
-  const selected = new Set();
+  const mark = nextFeatureMark(index);
+  const marks = index.featureMarks;
+  const ordered = [];
   for (const tileId of tileKeys) {
-    for (const featureIndex of getTileFeatureIndices(index, tileId)) selected.add(featureIndex);
+    for (const featureIndex of getTileFeatureIndices(index, tileId)) {
+      if (marks[featureIndex] === mark) continue;
+      marks[featureIndex] = mark;
+      ordered.push(featureIndex);
+    }
   }
-  const ordered = [...selected].sort((a, b) => a - b);
-  const result = ordered.length === index.collection.features.length
-    ? index.collection
-    : { ...index.collection, features: ordered.map(featureIndex => index.collection.features[featureIndex]) };
+  ordered.sort((a, b) => a - b);
+  let result = index.collection;
+  if (ordered.length !== index.collection.features.length) {
+    const features = new Array(ordered.length);
+    for (let i = 0; i < ordered.length; i++) features[i] = index.collection.features[ordered[i]];
+    result = { ...index.collection, features };
+  }
   index.queryCache.set(cacheKey, result);
   if (index.queryCache.size > MAX_QUERY_CACHE_ENTRIES) {
     index.queryCache.delete(index.queryCache.keys().next().value);
@@ -214,15 +244,17 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   const centerX = longitudeCell(centerLongitude, index.columns, index.cellSize);
   const centerY = latitudeCell(centerLatitude, index.rows, index.cellSize);
   const candidates = [];
-  const seen = new Set();
+  // Avec la grille par défaut (36 colonnes), la fenêtre de préchargement
+  // ne peut pas reboucler sur elle-même : éviter un Set sur ce chemin courant.
+  const seen = index.columns < spanX * 2 + 1 ? new Set() : null;
   for (let oy = -spanY; oy <= spanY; oy++) {
     const tileY = centerY + oy;
     if (tileY < 0 || tileY >= index.rows) continue;
     for (let ox = -spanX; ox <= spanX; ox++) {
       const tileX = (centerX + ox + index.columns) % index.columns;
       const key = tileY * index.columns + tileX;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      if (seen?.has(key)) continue;
+      seen?.add(key);
       const distance = Math.hypot(ox / Math.max(1, spanX), oy / Math.max(1, spanY));
       const forward = ox * nx + oy * ny;
       candidates.push({ tileX, tileY, score: distance - forward * 0.35 });
