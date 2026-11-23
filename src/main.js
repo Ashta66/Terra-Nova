@@ -24,132 +24,14 @@ import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
-const debugMode = new URLSearchParams(window.location.search).get("debug") === "1";
-document.body.classList.toggle("debug-mode", debugMode);
-
-const mapBenchmarkCollector = createMapBenchmarkCollector();
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
   : null;
-if (debugMode) {
-window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
-window.exportMapBenchmark = () => mapBenchmarkCollector.exportResults();
-window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
-window.getTerrainTileDebugStats = () => getTerrainWebGLTileStats(terrainTileStore);
-
-window.getTerrainRasterDiagnostics = () => {
-  const grid = terrainGrid;
-  if (!grid?.values) return { ready: false, message: "Grille ETOPO non chargée." };
-  const { width, height, values } = grid;
-  const rowStats = y => {
-    const offset = y * width;
-    let sum = 0, sumSquares = 0, min = Infinity, max = -Infinity;
-    const samples = [];
-    const stride = Math.max(1, Math.floor(width / 24));
-    for (let x = 0; x < width; x++) {
-      const v = values[offset + x];
-      sum += v; sumSquares += v * v;
-      if (v < min) min = v;
-      if (v > max) max = v;
-      if (x % stride === 0) samples.push(v);
-    }
-    const mean = sum / width;
-    return {
-      y, latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)),
-      min, max, mean: Number(mean.toFixed(2)),
-      stdDev: Number(Math.sqrt(Math.max(0, sumSquares / width - mean * mean)).toFixed(2)),
-      samples
-    };
-  };
-  const edgeRows = [...Array(16)].map((_, i) => rowStats(i))
-    .concat([...Array(16)].map((_, i) => rowStats(height - 16 + i)));
-  const rowMeans = new Float64Array(height), colMeans = new Float64Array(width);
-  const rowMin = new Int16Array(height), rowMax = new Int16Array(height);
-  rowMin.fill(32767); rowMax.fill(-32768);
-  let globalMin = Infinity, globalMax = -Infinity, sum = 0;
-  for (let y = 0; y < height; y++) {
-    let rowSum = 0;
-    const offset = y * width;
-    for (let x = 0; x < width; x++) {
-      const v = values[offset + x];
-      rowSum += v; colMeans[x] += v;
-      if (v < rowMin[y]) rowMin[y] = v;
-      if (v > rowMax[y]) rowMax[y] = v;
-      if (v < globalMin) globalMin = v;
-      if (v > globalMax) globalMax = v;
-    }
-    rowMeans[y] = rowSum / width;
-    sum += rowSum;
-  }
-  for (let x = 0; x < width; x++) colMeans[x] /= height;
-  const strongestJumps = series => {
-    const jumps = [];
-    for (let i = 1; i < series.length; i++) jumps.push({ index: i, delta: Number((series[i] - series[i - 1]).toFixed(2)) });
-    return jumps.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12);
-  };
-  const transitionCoherence = axis => {
-    const count = axis === "row" ? height - 1 : width - 1;
-    const span = axis === "row" ? width : height;
-    const results = [];
-    for (let i = 0; i < count; i++) {
-      let signed = 0, absolute = 0, squares = 0, positive = 0, negative = 0;
-      for (let j = 0; j < span; j++) {
-        const a = axis === "row" ? values[i * width + j] : values[j * width + i];
-        const b = axis === "row" ? values[(i + 1) * width + j] : values[j * width + i + 1];
-        const delta = b - a;
-        signed += delta;
-        absolute += Math.abs(delta);
-        squares += delta * delta;
-        if (delta > 0) positive++;
-        else if (delta < 0) negative++;
-      }
-      const meanSigned = signed / span;
-      const meanAbsolute = absolute / span;
-      const dominantSignRatio = Math.max(positive, negative) / span;
-      const deltaStdDev = Math.sqrt(Math.max(0, squares / span - meanSigned * meanSigned));
-      results.push({
-        index: i + 1,
-        meanSignedDelta: Number(meanSigned.toFixed(2)),
-        meanAbsoluteDelta: Number(meanAbsolute.toFixed(2)),
-        dominantSignRatio: Number(dominantSignRatio.toFixed(3)),
-        deltaStdDev: Number(deltaStdDev.toFixed(2)),
-        coherenceScore: Number((meanAbsolute * dominantSignRatio).toFixed(2))
-      });
-    }
-    return results.sort((a, b) => b.coherenceScore - a.coherenceScore).slice(0, 15);
-  };
-  const inspect = (x, y, radius = 6) => {
-    x = Math.max(0, Math.min(width - 1, Math.round(x)));
-    y = Math.max(0, Math.min(height - 1, Math.round(y)));
-    radius = Math.max(1, Math.min(12, Math.round(radius)));
-    const rows = [];
-    for (let yy = Math.max(0, y - radius); yy <= Math.min(height - 1, y + radius); yy++) {
-      const row = { y: yy, latitude: Number((90 - (yy + 0.5) / height * 180).toFixed(4)) };
-      for (let xx = Math.max(0, x - radius); xx <= Math.min(width - 1, x + radius); xx++) row["x" + xx] = values[yy * width + xx];
-      rows.push(row);
-    }
-    return { center: { x, y, longitude: Number((-180 + (x + 0.5) / width * 360).toFixed(4)), latitude: Number((90 - (y + 0.5) / height * 180).toFixed(4)) }, rows };
-  };
-  return {
-    ready: true, width, height, min: globalMin, max: globalMax,
-    inspect,
-    mean: Number((sum / values.length).toFixed(2)),
-    rowMeanJumps: strongestJumps(rowMeans),
-    columnMeanJumps: strongestJumps(colMeans),
-    rowTransitionCoherence: transitionCoherence("row"),
-    columnTransitionCoherence: transitionCoherence("column"),
-    edgeRows,
-    sampleRows: [0, Math.floor(height * .25), Math.floor(height * .5), Math.floor(height * .75), height - 1]
-      .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
-  };
-};
-}
 
 let state = createGameState();
 let interval = null;
