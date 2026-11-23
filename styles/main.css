@@ -1290,3 +1290,69 @@ body:not(.campaign-started) .country-result-meta{display:flex;align-items:center
 .dossier-historical-lens p{margin-top:4px;color:var(--theme-text)}
 .dossier-metric:nth-child(5){grid-column:1/-1}
 @media(max-width:760px){.dossier-status,.dossier-situation,.dossier-historical-lens{padding:6px}.dossier-situation p,.dossier-historical-lens p{font-size:9px}}
+
+/* Préparation de campagne : panneau compact, CTA toujours visible sans défilement global. */
+body:not(.campaign-started) .campaign-setup{align-items:stretch}
+body:not(.campaign-started) .setup-card{
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  max-height:calc(100dvh - 114px);padding:15px 17px 13px;
+}
+body:not(.campaign-started) .setup-card h1{font-size:clamp(27px,2.35vw,34px);margin:5px 0 6px}
+body:not(.campaign-started) .setup-lead{font-size:10px;line-height:1.4;margin:0 0 6px}
+body:not(.campaign-started) .setup-map-hint{padding:5px 0;font-size:9px;line-height:1.35}
+body:not(.campaign-started) .setup-grid{flex:1 1 auto;min-height:0;gap:6px;margin:7px 0}
+body:not(.campaign-started) .setup-country{flex:1 1 auto;min-height:0}
+body:not(.campaign-started) .country-picker>label{margin-bottom:4px;font-size:9px}
+body:not(.campaign-started) .country-search{padding:7px 9px;font-size:11px}
+body:not(.campaign-started) .country-filter-row{margin-top:5px;gap:5px}
+body:not(.campaign-started) .country-filter-row select{padding:6px 5px;font-size:9px}
+body:not(.campaign-started) .country-result-count{padding:5px 2px 3px;font-size:8px}
+body:not(.campaign-started) .map-cache-status{font-size:8px;line-height:1.25}
+body:not(.campaign-started) .country-results{flex:1 1 110px;min-height:72px;max-height:clamp(76px,15vh,150px)}
+body:not(.campaign-started) .country-result{padding:5px 8px;gap:2px}
+body:not(.campaign-started) .country-result-name{font-size:12px}
+body:not(.campaign-started) .country-result-meta{font-size:8px}
+body:not(.campaign-started) .country-selected{flex:0 0 auto;max-height:none;overflow:visible;padding:7px 9px;margin-top:5px}
+body:not(.campaign-started) .country-selected strong{font-size:13px}
+body:not(.campaign-started) .country-selected span{font-size:8px}
+body:not(.campaign-started) .country-dossier{max-height:none;overflow:visible;margin-top:5px;padding-top:5px}
+body:not(.campaign-started) .dossier-hero{gap:6px;margin-bottom:5px}
+body:not(.campaign-started) .dossier-emblem{width:27px;height:27px;flex-basis:27px;font-size:14px}
+body:not(.campaign-started) .dossier-identity strong{font-size:13px}
+body:not(.campaign-started) .dossier-identity span{font-size:8px}
+body:not(.campaign-started) .dossier-metrics{gap:3px}
+body:not(.campaign-started) .dossier-metric{gap:1px;padding:4px 6px}
+body:not(.campaign-started) .dossier-metric>span{font-size:7px}
+body:not(.campaign-started) .dossier-metric strong{font-size:11px}
+body:not(.campaign-started) .dossier-metric small{font-size:7px;line-height:1.15}
+body:not(.campaign-started) .dossier-status{margin-top:4px;padding:4px 6px}
+body:not(.campaign-started) .dossier-situation,
+body:not(.campaign-started) .dossier-historical-lens{margin-top:4px;padding:5px 7px}
+body:not(.campaign-started) .dossier-situation h4{font-size:10px;margin-bottom:2px}
+body:not(.campaign-started) .dossier-situation p,
+body:not(.campaign-started) .dossier-historical-lens p{font-size:8px;line-height:1.25}
+body:not(.campaign-started) .dossier-historical-lens>span,
+body:not(.campaign-started) .dossier-status span{font-size:7px}
+body:not(.campaign-started) .dossier-objectives{margin-top:5px}
+body:not(.campaign-started) .dossier-objectives h4{font-size:10px;margin:0 0 2px}
+body:not(.campaign-started) .dossier-objective{gap:5px;padding:2px 0}
+body:not(.campaign-started) .dossier-objective p{font-size:8px;line-height:1.2}
+body:not(.campaign-started) .dossier-data-note{display:none}
+body:not(.campaign-started) .setup-note{flex:0 0 auto;margin:3px 0 0;font-size:8px;line-height:1.25}
+body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10px 13px}
+@media(max-height:850px) and (min-width:761px){
+  body:not(.campaign-started) .campaign-setup{padding-top:86px;padding-bottom:10px}
+  body:not(.campaign-started) .setup-card{max-height:calc(100dvh - 96px);padding:11px 14px 10px}
+  body:not(.campaign-started) .setup-grid{gap:4px;margin:5px 0}
+  body:not(.campaign-started) .country-results{max-height:12vh;min-height:60px}
+  body:not(.campaign-started) .dossier-situation p,
+  body:not(.campaign-started) .dossier-historical-lens p{font-size:7px}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .setup-card{max-height:49dvh;overflow:hidden}
+  body:not(.campaign-started) .country-results{max-height:12vh;min-height:54px}
+  body:not(.campaign-started) .country-dossier .dossier-objectives,
+  body:not(.campaign-started) .country-dossier .dossier-diplomacy,
+  body:not(.campaign-started) .country-dossier .dossier-data-note{display:none}
+}
+
