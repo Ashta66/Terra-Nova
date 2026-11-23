@@ -394,6 +394,29 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
   return combined;
 }
 
+function isAntarcticLandFeature(feature) {
+  const bbox = feature?.bbox ?? feature?.geometry?.bbox;
+  if (Array.isArray(bbox) && bbox.length >= 4) {
+    return Number(bbox[1]) <= -70 && Number(bbox[3]) <= -60
+      && Number(bbox[2]) - Number(bbox[0]) >= 300;
+  }
+  const coordinates = [];
+  const visit = value => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      coordinates.push(value);
+      return;
+    }
+    for (const child of value) visit(child);
+  };
+  visit(feature?.geometry?.coordinates);
+  if (!coordinates.length) return false;
+  const latitudes = coordinates.map(point => point[1]);
+  const longitudes = coordinates.map(point => point[0]);
+  return Math.min(...latitudes) <= -70 && Math.max(...latitudes) <= -60
+    && Math.max(...longitudes) - Math.min(...longitudes) >= 300;
+}
+
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
   let drawn = 0;  const renderScale = projection.renderScale ?? 1;
@@ -1345,6 +1368,16 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         renderTimings["relief-base"] = 0;
       }
       target.restore();
+      // L'Antarctique reçoit un aplat neige autonome après le relief : les tuiles
+      // ETOPO ne peuvent donc ni le masquer ni le rendre transparent au zoom mondial.
+      if (projection.type === "equirectangular" && visibleLand?.features?.length) {
+        const antarcticFeatures = visibleLand.features.filter(isAntarcticLandFeature);
+        if (antarcticFeatures.length) {
+          measureLayer("antarctic-land-base", () => drawPolygonLayer(target,
+            { ...visibleLand, features: antarcticFeatures }, width, height, projection,
+            "rgba(248,251,252,0.98)", null, 0, 1, false));
+        }
+      }
       captureTerrainLayerStage(target, "01-after-relief");
       if (typeof window !== "undefined" && target?.canvas) {
         window.__TERRA_TERRAIN_DIAGNOSTIC_CANVAS = target.canvas;
