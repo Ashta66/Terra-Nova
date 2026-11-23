@@ -1164,7 +1164,7 @@ function renderCountryDossier(item){
  dossier.objectives.forEach((objective,index)=>{const row=document.createElement("div");row.className="dossier-objective";const number=document.createElement("span");number.textContent=String(index+1).padStart(2,"0");const text=document.createElement("p");text.textContent=objective;row.append(number,text);objectives.append(row);});root.append(objectives);
  const note=document.createElement("p");note.className="dossier-data-note";note.textContent=dossier.dataNote;root.append(note);
 }
-function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
+function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";if(x&&!document.body.classList.contains("campaign-started"))$("map-title").textContent=x.label+" · "+state.clock.date.slice(0,4);renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
 function populateCampaignCountries() {
   const select = $("player-country");
   if (!select || !territoryFeatures?.features) return;
@@ -1690,6 +1690,18 @@ mapCanvas.addEventListener("click", (event) => {
     return;
   }
   const hit = findMapLabelHit(x, y);
+  if (hit && !document.body.classList.contains("campaign-started") && hit.kind === "country") {
+    const hitName = String(hit.name ?? "").trim().toLocaleLowerCase("fr");
+    const country = campaignCountries.find(item =>
+      item.raw.toLocaleLowerCase("fr") === hitName
+      || item.label.toLocaleLowerCase("fr") === hitName
+      || frenchTerritoryName(item.raw).toLocaleLowerCase("fr") === hitName
+    );
+    if (country) {
+      selectCampaignCountry(country.raw);
+      return;
+    }
+  }
   if (hit) showMapTooltip(hit, x, y, true);
 });
 mapCanvas.addEventListener("pointerup", stopMapDrag);
