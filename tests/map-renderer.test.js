@@ -50,6 +50,22 @@ test("la banquise antarctique est dessinée indépendamment du LOD des tuiles", 
     "la transition de banquise doit être rendue sur le canevas avant le masque du relief");
 });
 
+test("le continent antarctique conserve un aplat visible même lorsque le relief est activé", () => {
+  const { canvas, calls } = createCanvas();
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    bbox: [-180, -90, 180, -63],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  }] };
+  renderWorldMap(canvas, antarctica, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    terrainEnabled: true
+  });
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "l'Antarctique doit garder un aplat neige opaque au zoom mondial");
+});
+
 test("le moteur dessine une FeatureCollection et retourne son thème", () => {
   const { canvas, calls } = createCanvas();
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1 });
