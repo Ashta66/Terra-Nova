@@ -651,7 +651,9 @@ function getSortedMajorRiverFeatures(collection, maxRank) {
 }
 
 export function selectMajorRiverFeatures(collection, maxRank = 1, maxFeatures = 18) {
-  return getSortedMajorRiverFeatures(collection, maxRank).slice(0, Math.max(0, maxFeatures));
+  const sorted = getSortedMajorRiverFeatures(collection, maxRank);
+  const limit = Math.max(0, maxFeatures);
+  return sorted.length <= limit ? sorted : sorted.slice(0, limit);
 }
 
 function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null, maxRank = Infinity, maxFeatures = Infinity) {
