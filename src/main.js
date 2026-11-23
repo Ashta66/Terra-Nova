@@ -1173,7 +1173,7 @@ function populateCampaignCountries() {
     const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG;
     const status = String(p.historicalStatus ?? p.status ?? p.STATUS ?? "").toLowerCase();
     if (typeof raw !== "string" || !raw.trim()
-      || ["influence", "unclaimed", "influence-zone"].includes(status)
+      || CAMPAIGN_EXCLUDED_STATUSES.has(status)
       || isNonStateHistoricalRegion(feature)) continue;
     const name = raw.trim();
     if (uniqueCountries.has(name)) continue;
