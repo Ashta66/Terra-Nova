@@ -86,7 +86,7 @@ test("les calottes glaciaires polaires restent blanches à faible zoom", () => {
   const greenlandGrid = createDegreeGrid(2200);
   const antarcticaGrid = createDegreeGrid(2600);
 
-  assert.ok(terrainSnowElevationForPixel(greenlandGrid, 0, 75, 2) >= 4000);
+  assert.ok(terrainSnowElevationForPixel(greenlandGrid, -42.5, 75, 2) >= 4000);
   assert.ok(terrainSnowElevationForPixel(antarcticaGrid, 0, -80, 2) >= 4000);
 });
 
