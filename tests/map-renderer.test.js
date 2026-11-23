@@ -1116,7 +1116,7 @@ test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
     renderWorldMap(canvas, collection, {
       width: 640, height: 320, pixelRatio: 1,
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
-      terrainEnabled: false,
+      terrainEnabled: true,
       geographicWebGLRenderer
     });
   } finally {
