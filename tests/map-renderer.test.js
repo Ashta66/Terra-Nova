@@ -1330,6 +1330,6 @@ test("le plan de tuiles expose toujours des clés lisibles après indexation num
   ] };
   const plan = getGeoSpatialTilePlan(collection, { zoom: 4, centerLongitude: 0, centerLatitude: 45 });
   assert.ok(plan.tileKeys.length > 0);
-  assert.ok(plan.tileKeys.every(key => /^\\d+:\\d+$/.test(key)));
+  assert.ok(plan.tileKeys.every(key => /^[0-9]+:[0-9]+$/.test(key)));
   assert.equal(plan.visibleTileCount, plan.tileKeys.length);
 });
