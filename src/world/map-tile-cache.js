@@ -45,7 +45,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
     },
     set(key, value) {
       const id = String(key);
-      const size = byteLength(value);
+      const size = getTileByteLength(value);
       if (!id || !value || size > budget) return false;
       const previous = entries.get(id);
       if (previous) { bytes -= previous.bytes; entries.delete(id); if (previous.value !== value) previous.value?.close?.(); }
