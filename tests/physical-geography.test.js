@@ -139,3 +139,16 @@ test("le masque de connexion réelle à l'océan exclut les lacs intérieurs iso
  assert.equal(ocean.mask[0],1);
  assert.equal(ocean.mask[12],0);
 });
+
+test("l'expiration conserve la référence du monde tant qu'aucune échéance n'est atteinte",()=>{
+ const world=createPhysicalWorld(cells);
+ const withImpact=applyPhysicalEvent(world,{id:"future-expiry-fast-path",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ assert.equal(expirePhysicalSurfaceEffects(withImpact,"1900-01-02"),withImpact);
+});
+test("l'expiration clone le monde uniquement lorsqu'une échéance est atteinte",()=>{
+ const world=createPhysicalWorld(cells);
+ const withWave=applyPhysicalEvent(world,{id:"due-expiry-fast-path",type:"tsunami",date:"1900-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100}).world;
+ const expired=expirePhysicalSurfaceEffects(withWave,"1900-02-02");
+ assert.notEqual(expired,withWave);
+ assert.equal(expired.currentCells[0].tsunamiWaterDepthM,0);
+});
