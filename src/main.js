@@ -30,7 +30,11 @@ import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
+const debugMode = new URLSearchParams(window.location.search).get("debug") === "1";
+document.body.classList.toggle("debug-mode", debugMode);
+
 const mapBenchmarkCollector = createMapBenchmarkCollector();
+if (debugMode) {
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
   : null;
@@ -145,6 +149,7 @@ window.getTerrainRasterDiagnostics = () => {
       .map(y => ({ y, mean: Number(rowMeans[y].toFixed(2)), min: rowMin[y], max: rowMax[y] })),
   };
 };
+}
 
 let state = createGameState();
 let interval = null;
