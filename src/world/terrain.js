@@ -56,6 +56,16 @@ export function terrainSnowElevationForPixel(grid, longitude, latitude, pixelWid
     || !Number.isFinite(pixelWidthDegrees) || pixelWidthDegrees <= 0
     || !Number.isFinite(pixelHeightDegrees) || pixelHeightDegrees <= 0) return centerElevation;
 
+  // Les calottes permanentes ont une signature géographique distincte des pics :
+  // elles couvrent de grandes surfaces et leur altitude est souvent inférieure
+  // au seuil hypsométrique de la neige alpine.
+  const normalizedLongitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+  const onGreenlandIceSheet = latitude >= 60 && latitude <= 84
+    && normalizedLongitude >= -75 && normalizedLongitude <= -10
+    && centerElevation >= 1500;
+  const onAntarcticIceSheet = latitude <= -70 && centerElevation >= 1500;
+  if (onGreenlandIceSheet || onAntarcticIceSheet) return Math.max(centerElevation, 5000);
+
   // La neige des sommets est renforcée uniquement lorsqu'un pic élevé
   // est présent dans l'emprise du pixel et dépasse nettement son altitude centrale.
   const peakThreshold = 4000;
