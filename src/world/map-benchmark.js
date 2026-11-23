@@ -1,3 +1,5 @@
+const MOBILE_USER_AGENT = /Android|iPhone|iPad|iPod|Mobile/i;
+
 function percentile(sorted, ratio) {
   if (!sorted.length) return null;
   const position = (sorted.length - 1) * ratio;
