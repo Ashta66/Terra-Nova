@@ -112,9 +112,11 @@ export function sampleElevation(grid, longitude, latitude) {
   // Les coordonnées ETOPO décimales peuvent sinon décaler une demi-cellule
   // de quelques ULP et produire une altitude artificiellement imprécise.
   const sampleX = snapTerrainFraction(fx), sampleY = snapTerrainFraction(fy);
-  const at = (column, row) => grid.values[row * grid.width + column];
-  const a = at(x0, y0) + (at(x1, y0) - at(x0, y0)) * sampleX;
-  const b = at(x0, y1) + (at(x1, y1) - at(x0, y1)) * sampleX;
+  const row0 = y0 * grid.width, row1 = y1 * grid.width;
+  const v00 = grid.values[row0 + x0], v10 = grid.values[row0 + x1];
+  const v01 = grid.values[row1 + x0], v11 = grid.values[row1 + x1];
+  const a = v00 + (v10 - v00) * sampleX;
+  const b = v01 + (v11 - v01) * sampleX;
   return a + (b - a) * sampleY;
 }
 
