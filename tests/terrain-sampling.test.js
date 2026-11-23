@@ -1,6 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { sampleElevation } from "../src/world/terrain.js";
+import { terrainSnowElevationForPixel } from "../src/world/terrain.js";
+
+function createDegreeGrid(fill = 1000) {
+  const values = new Int16Array(360 * 180);
+  values.fill(fill);
+  return {
+    width: 360,
+    height: 180,
+    longitudeFirst: -179.5,
+    latitudeFirst: 89.5,
+    longitudeSpacingDegrees: 1,
+    latitudeSpacingDegrees: 1,
+    values
+  };
+}
+
+test("un pic montagneux étroit est détecté dans l'emprise d'un pixel éloigné", () => {
+  const mountainGrid = createDegreeGrid(1000);
+  mountainGrid.values[90 * mountainGrid.width + 180] = 5000;
+
+  assert.ok(sampleElevation(mountainGrid, 0, 0) < 4000);
+  assert.equal(terrainSnowElevationForPixel(mountainGrid, 0, 0, 1), 5000);
+});
+
+test("un haut plateau uniforme n'est pas blanchi comme un pic isolé", () => {
+  const plateauGrid = createDegreeGrid(4200);
+
+  assert.equal(sampleElevation(plateauGrid, 0, 0), 4200);
+  assert.equal(terrainSnowElevationForPixel(plateauGrid, 0, 0, 1), 4200);
+});
+
+test("une zone polaire déjà enneigée conserve son altitude de couleur", () => {
+  const polarGrid = createDegreeGrid(5000);
+
+  assert.equal(terrainSnowElevationForPixel(polarGrid, 0, 0, 1), 5000);
+});
+
 
 const spacing = 1 / 6;
 const grid = {
