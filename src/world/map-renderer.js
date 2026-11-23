@@ -125,12 +125,13 @@ function ringAreaKm2(ring) {
   let sum = 0;
   for (let i = 0; i < ring.length - 1; i++) {
     const a = ring[i], b = ring[i + 1];
-    if (!Array.isArray(a) || !Array.isArray(b)) continue;
+    if (!Array.isArray(a) || !Array.isArray(b)
+      || !Number.isFinite(Number(a[0])) || !Number.isFinite(Number(a[1]))
+      || !Number.isFinite(Number(b[0])) || !Number.isFinite(Number(b[1]))) return 0;
     const longitudeA = Number(a[0]) * Math.PI / 180;
     const longitudeB = Number(b[0]) * Math.PI / 180;
     const latitudeA = Number(a[1]) * Math.PI / 180;
     const latitudeB = Number(b[1]) * Math.PI / 180;
-    if (![longitudeA, longitudeB, latitudeA, latitudeB].every(Number.isFinite)) continue;
     sum += (longitudeB - longitudeA) * (2 + Math.sin(latitudeA) + Math.sin(latitudeB));
   }
   return Math.abs(sum) * EARTH_RADIUS_KM * EARTH_RADIUS_KM / 2;
