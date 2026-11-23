@@ -1512,3 +1512,12 @@ test("le partitionnement des entités WebGL évalue chaque capacité une seule f
   assert.equal(result.unsupported.length, 26);
   assert.deepEqual([...result.supported, ...result.unsupported].sort((a, b) => a.index - b.index), features);
 });
+
+test("les sélections cartographiques réutilisent les classements complets sans copie", () => {
+  const lakeCollection = { features: [{ type: "Feature", properties: { scalerank: 1 }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,0]]] } }] };
+  const riverCollection = { features: [{ type: "Feature", properties: { scalerank: 1 }, geometry: { type: "LineString", coordinates: [[0,0],[1,1]] } }] };
+  const elevationCollection = { features: [{ type: "Feature", properties: { elevation_m: 100 }, geometry: { type: "Point", coordinates: [0,0] } }] };
+  assert.strictEqual(selectMajorLakeFeatures(lakeCollection, 1, 10), selectMajorLakeFeatures(lakeCollection, 1, 10));
+  assert.strictEqual(selectMajorRiverFeatures(riverCollection, 1, 10), selectMajorRiverFeatures(riverCollection, 1, 10));
+  assert.strictEqual(selectMajorElevationFeatures(elevationCollection, 10), selectMajorElevationFeatures(elevationCollection, 10));
+});
