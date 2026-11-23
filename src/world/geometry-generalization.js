@@ -138,9 +138,15 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   let originalVertices=0,simplifiedVertices=0,changedFeatures=0;
   const features=collection.features.map(feature=>{
     if(!feature?.geometry)return feature;
-    const before=collectPaths(feature.geometry,[]).reduce((n,path)=>n+path.length,0);originalVertices+=before;
+    const beforePaths=collectPaths(feature.geometry,[]);
+    let before=0;
+    for(const path of beforePaths)before+=path.length;
+    originalVertices+=before;
     const geometry=simplifyGeometry(feature.geometry,tolerance,sharedAnchors);
-    const after=collectPaths(geometry,[]).reduce((n,path)=>n+path.length,0);simplifiedVertices+=after;
+    const afterPaths=collectPaths(geometry,[]);
+    let after=0;
+    for(const path of afterPaths)after+=path.length;
+    simplifiedVertices+=after;
     if(after<before)changedFeatures++;
     if(after===before)return feature;
     const {bbox,...rest}=feature;return {...rest,geometry};
