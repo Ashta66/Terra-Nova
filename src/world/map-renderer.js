@@ -1397,6 +1397,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
     // ne pas retracer son anneau GeoJSON comme une côte visible.
     const landCoastFeatures = visibleLand?.features?.filter(feature => !isAntarcticLandFeature(feature)) ?? [];
+    const landCoastFeatureSet = new Set(landCoastFeatures);
+    const hasLandCoastFeature = feature => landCoastFeatureSet.has(feature);
     const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     let landClipPath = null;
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
@@ -1486,7 +1488,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
                 ? unsupportedLand : supportedLand).push(feature);
             }
             (
-              !landCoastFeatures.includes(feature)
+              !hasLandCoastFeature(feature)
                 || globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
                 || !geographicRenderer.supportsBoundary(feature)
                 ? unsupportedCoasts
@@ -1499,7 +1501,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         let drawn = 0;
         if (unsupportedLand.length) {
           drawn += measureLayer("land-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedLand.filter(feature => landCoastFeatures.includes(feature)) }, width, height, projection,
+            { ...visibleLand, features: unsupportedLand.filter(feature => hasLandCoastFeature(feature)) }, width, height, projection,
             landFill, null, 0, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-canvas-fallback"] = 0;
@@ -1522,7 +1524,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         });
         if (unsupportedCoasts.length) {
           measureLayer("land-coast-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedCoasts.filter(feature => landCoastFeatures.includes(feature)) }, width, height, projection,
+            { ...visibleLand, features: unsupportedCoasts.filter(feature => hasLandCoastFeature(feature)) }, width, height, projection,
             "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-coast-canvas-fallback"] = 0;
