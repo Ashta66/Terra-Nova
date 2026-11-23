@@ -1102,7 +1102,38 @@ const COUNTRY_MAJOR=new Set(["France","England","Castile","Portugal","Ottoman Em
 const COUNTRY_REGIONAL=new Set(["Scotland","Denmark","Sweden","Norway","Hungary","Bohemia","Novgorod","Golden Horde","Aq Qoyunlu","Qara Qoyunlu","Songhai","Benin","Kongo","Ayutthaya","Majapahit","Korea","Joseon","Chagatai Khanate","Morocco","Tunis","Granada"]);
 const COUNTRY_HARD=new Set(["Byzantine Empire","Trebizond","Granada","Irish clans","Novgorod","Mali Empire","Ethiopia","Kongo","Ternate","Theodoro"]),COUNTRY_EASY=new Set(["France","Ming","Ottoman Empire","Castile","Portugal","Muscovy"]);
 let campaignCountries=[],selectedCountryFilter={query:"",region:"all",difficulty:"all"};
-function countryRegion(feature){const p=feature.properties??{},raw=String(p.CONTINENT||p.continent||p.REGION_UN||p.region||p.SUBREGION||"").toLowerCase();if(/europe/.test(raw))return"Europe";if(/asia/.test(raw))return"Asie";if(/africa/.test(raw))return"Afrique";if(/north america/.test(raw))return"Amérique du Nord";if(/south america/.test(raw))return"Amérique du Sud";if(/oceania|australia/.test(raw))return"Océanie";const pts=[];const walk=v=>{if(!Array.isArray(v))return;if(v.length>=2&&Number.isFinite(v[0])&&Number.isFinite(v[1]))pts.push(v);else v.forEach(walk)};walk(feature.geometry?.coordinates);const lon=pts.length?pts.reduce((n,p)=>n+p[0],0)/pts.length:0,lat=pts.length?pts.reduce((n,p)=>n+p[1],0)/pts.length:0;if(lon< -30&&lat>8)return"Amérique du Nord";if(lon< -30)return"Amérique du Sud";if(lon>110&&lat< -5)return"Océanie";if(lon> -20&&lon<55&&lat<38)return"Afrique";if(lon>55||(lon>25&&lat>35))return"Asie";return"Europe";}
+function countryRegion(feature) {
+  const p = feature.properties ?? {};
+  const raw = String(p.CONTINENT || p.continent || p.REGION_UN || p.region || p.SUBREGION || "").toLowerCase();
+  if (/europe/.test(raw)) return "Europe";
+  if (/asia/.test(raw)) return "Asie";
+  if (/africa/.test(raw)) return "Afrique";
+  if (/north america/.test(raw)) return "Amérique du Nord";
+  if (/south america/.test(raw)) return "Amérique du Sud";
+  if (/oceania|australia/.test(raw)) return "Océanie";
+  // Accumulation directe : aucun tableau de coordonnées ni réduction intermédiaire.
+  const pending = [feature.geometry?.coordinates];
+  let longitudeSum = 0, latitudeSum = 0, coordinateCount = 0;
+  while (pending.length) {
+    const value = pending.pop();
+    if (!Array.isArray(value)) continue;
+    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      longitudeSum += value[0];
+      latitudeSum += value[1];
+      coordinateCount++;
+      continue;
+    }
+    for (let i = value.length - 1; i >= 0; i--) pending.push(value[i]);
+  }
+  const lon = coordinateCount ? longitudeSum / coordinateCount : 0;
+  const lat = coordinateCount ? latitudeSum / coordinateCount : 0;
+  if (lon < -30 && lat > 8) return "Amérique du Nord";
+  if (lon < -30) return "Amérique du Sud";
+  if (lon > 110 && lat < -5) return "Océanie";
+  if (lon > -20 && lon < 55 && lat < 38) return "Afrique";
+  if (lon > 55 || (lon > 25 && lat > 35)) return "Asie";
+  return "Europe";
+}
 function countryDifficulty(raw,region,feature){if(COUNTRY_EASY.has(raw))return 1;if(COUNTRY_HARD.has(raw))return 5;if(COUNTRY_MAJOR.has(raw))return 2;if(COUNTRY_REGIONAL.has(raw))return 3;const p=feature.properties??{},pop=Number(p.POP_EST??p.pop_est??0),area=Number(p.AREA??p.area??0);if(pop>30000000||area>1800000)return 2;if(pop>8000000||area>450000)return 3;return region==="Océanie"||region==="Amérique du Sud"?4:3;}
 function countryRank(raw,difficulty,feature){if(COUNTRY_MAJOR.has(raw))return"Puissance majeure";if(COUNTRY_REGIONAL.has(raw))return"Puissance régionale";const p=feature.properties??{};if(Number(p.POP_EST??p.pop_est??0)>30000000||Number(p.AREA??p.area??0)>1800000)return"Grande nation";return difficulty>=4?"Défi historique":"Nation émergente";}
 function renderCountryPicker(){const list=$("country-results"),count=$("country-result-count");if(!list)return;const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr"),items=campaignCountries.filter(x=>(!q||x.label.toLocaleLowerCase("fr").includes(q)||x.raw.toLocaleLowerCase("fr").includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));count.textContent=items.length+" nation"+(items.length>1?"s":"")+" disponible"+(items.length>1?"s":"");list.replaceChildren();const groups=new Map();for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x)}for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){const group=groups.get(region);if(!group?.length)continue;const head=document.createElement("div");head.className="country-region-heading";head.textContent=region+" · "+group.length;list.append(head);group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));for(const x of group){const btn=document.createElement("button");btn.type="button";btn.className="country-result"+(x.raw===$("player-country").value?" is-selected":"");btn.setAttribute("aria-pressed",String(x.raw===$("player-country").value));const name=document.createElement("span");name.className="country-result-name";name.textContent=x.label;const meta=document.createElement("span");meta.className="country-result-meta";const rank=document.createElement("span");rank.className="country-rank";rank.textContent=x.rank;const diff=document.createElement("span");diff.className="country-difficulty";diff.textContent="Difficulté "+x.difficulty+"/5";meta.append(rank,diff);btn.append(name,meta);btn.addEventListener("click",()=>selectCampaignCountry(x.raw));list.append(btn)}}}
