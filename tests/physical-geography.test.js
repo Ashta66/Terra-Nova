@@ -166,7 +166,7 @@ test("l'échéancier physique identifie la prochaine expiration sans parcourir l
 });
 
 test("l'échéancier prend en compte l'expiration mensuelle des effets de surface",()=>{
- const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-surface",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-surface",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:1}).world;
  assert.equal(getNextPhysicalSurfaceExpiryDate(impact),"1900-02-01");
  const afterVisual=expirePhysicalSurfaceEffects(impact,"1900-02-02");
  assert.notEqual(afterVisual,impact);
