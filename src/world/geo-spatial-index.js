@@ -243,6 +243,7 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
   const spanY = Math.min(4, minY + Math.min(2, Math.floor(Number(radius) || 0)));
   const centerX = longitudeCell(centerLongitude, index.columns, index.cellSize);
   const centerY = latitudeCell(centerLatitude, index.rows, index.cellSize);
+  const budget = Math.min(24, Math.max(8, (MAX_TILE_CACHE_ENTRIES / 4)));
   const candidates = [];
   // Avec la grille par défaut (36 colonnes), la fenêtre de préchargement
   // ne peut pas reboucler sur elle-même : éviter un Set sur ce chemin courant.
@@ -257,14 +258,23 @@ export function prefetchGeoSpatialFeatures(collection, viewport = {}, radius = 1
       seen?.add(key);
       const distance = Math.hypot(ox / Math.max(1, spanX), oy / Math.max(1, spanY));
       const forward = ox * nx + oy * ny;
-      candidates.push({ tileX, tileY, score: distance - forward * 0.35 });
+      const candidate = { tileX, tileY, score: distance - forward * 0.35 };
+      // Maintient uniquement les meilleurs secteurs : pas de tri complet
+      // ni de tableau temporaire slice() à chaque préchargement.
+      let low = 0, high = candidates.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (candidates[middle].score <= candidate.score) low = middle + 1;
+        else high = middle;
+      }
+      if (low < budget) {
+        candidates.splice(low, 0, candidate);
+        if (candidates.length > budget) candidates.pop();
+      } else if (candidates.length < budget) candidates.push(candidate);
     }
   }
-  // Le plafond empêche le préchargement d'évincer tout le cache utile.
-  candidates.sort((a, b) => a.score - b.score);
-  const budget = Math.min(24, Math.max(8, (MAX_TILE_CACHE_ENTRIES / 4)));
   let prepared = 0;
-  for (const tile of candidates.slice(0, budget)) {
+  for (const tile of candidates) {
     getTileFeatureIndices(index, tile.tileY * index.columns + tile.tileX);
     prepared++;
   }
