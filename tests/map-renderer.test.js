@@ -171,6 +171,7 @@ test("la couche des glaciers exclut le polygone glaciaire continental antarctiqu
   const result = renderWorldMap(canvas, land, {
     width: 640, height: 320, pixelRatio: 1, glaciers,
     viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
+    lodZoom: 3,
     terrainEnabled: false
   });
   assert.equal(result.glacierCount, 1,
