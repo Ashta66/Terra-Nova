@@ -765,10 +765,11 @@ void main(){
  float latitude=u_viewCenter.y+(v_screenUv.y-0.5)*180.0/zoom;
  longitude=mod(longitude+180.0,360.0)-180.0;
  bool greenlandIceSheet=latitude>=60.0&&latitude<=84.0&&longitude>=-75.0&&longitude<=-10.0;
- bool antarcticIceSheet=latitude<=-70.0;
- bool iceSheet=(greenlandIceSheet||antarcticIceSheet);
+ float antarcticSnowCoverage=1.0-smoothstep(-72.0,-68.0,latitude);
+ float iceSheet=(greenlandIceSheet||antarcticSnowCoverage>0.0);
  float e=elevationAt(v_atlasUv);
- bool polarSnow=(greenlandIceSheet&&e>=1500.0)||antarcticIceSheet;
+ bool polarSnow=greenlandIceSheet&&e>=1500.0;
+ float antarcticSnowAmount=antarcticSnowCoverage*(e<0.0?0.94:0.62);
  float snowLine=mix(5200.0,3600.0,smoothstep(25.0,75.0,abs(latitude)));
  bool summitSnow=e>=snowLine;
  float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
@@ -780,7 +781,9 @@ void main(){
  vec3 low=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
  vec3 high=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
  vec3 color=e<0.0?ocean:(e<1000.0?low:high);
- if(polarSnow||summitSnow)color=mix(color,vec3(0.96,0.97,0.98),0.92);
+ float snowAmount=max(antarcticSnowAmount,polarSnow?0.92:0.0);
+ if(summitSnow)snowAmount=max(snowAmount,0.92);
+ if(snowAmount>0.0)color=mix(color,vec3(0.96,0.97,0.98),snowAmount);
  gl_FragColor=vec4(color*(e<0.0?1.0:shade),u_opacity);
 }`;
 
