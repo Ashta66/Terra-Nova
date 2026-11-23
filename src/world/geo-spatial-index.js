@@ -130,15 +130,7 @@ function getVisibleTileKeys(index, viewport) {
   return keys;
 }
 
-export function queryGeoSpatialIndex(index, viewport = {}) {
-  if (!index?.collection) throw new TypeError("Index spatial invalide.");
-  const zoom = Math.max(1, Number(viewport.zoom) || 1);
-  if (zoom <= 1.001) return index.collection;
-
-  // Une tuile vectorielle correspond à une cellule géographique stable de la grille.
-  // Les coordonnées sources ne sont jamais découpées : une entité est référencée
-  // dans les tuiles qu'elle intersecte, puis dédupliquée au niveau du viewport.
-  const tileKeys = getVisibleTileKeys(index, viewport);
+function queryGeoSpatialIndexForTiles(index, tileKeys) {
   const cacheKey = tileKeys.join(",");
   const cached = index.queryCache.get(cacheKey);
   if (cached) {
@@ -160,6 +152,17 @@ export function queryGeoSpatialIndex(index, viewport = {}) {
     index.queryCache.delete(index.queryCache.keys().next().value);
   }
   return result;
+}
+
+export function queryGeoSpatialIndex(index, viewport = {}) {
+  if (!index?.collection) throw new TypeError("Index spatial invalide.");
+  const zoom = Math.max(1, Number(viewport.zoom) || 1);
+  if (zoom <= 1.001) return index.collection;
+
+  // Une tuile vectorielle correspond à une cellule géographique stable de la grille.
+  // Les coordonnées sources ne sont jamais découpées : une entité est référencée
+  // dans les tuiles qu'elle intersecte, puis dédupliquée au niveau du viewport.
+  return queryGeoSpatialIndexForTiles(index, getVisibleTileKeys(index, viewport));
 }
 
 export function selectGeoSpatialFeatures(collection, viewport = {}) {
@@ -244,8 +247,9 @@ export function getGeoSpatialTilePlan(collection, viewport = {}) {
     index = buildGeoSpatialIndex(collection);
     indexCache.set(collection, index);
   }
-  const tileKeys = getVisibleTileKeys(index, viewport).map(tileId => `${tileId % index.columns}:${Math.floor(tileId / index.columns)}`);
-  const selected = queryGeoSpatialIndex(index, viewport);
+  const tileIds = getVisibleTileKeys(index, viewport);
+  const tileKeys = tileIds.map(tileId => `${tileId % index.columns}:${Math.floor(tileId / index.columns)}`);
+  const selected = queryGeoSpatialIndexForTiles(index, tileIds);
   return { tileKeys, visibleTileCount: tileKeys.length, featureCount: selected.features.length };
 }
 
