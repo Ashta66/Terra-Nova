@@ -1373,7 +1373,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           target.clip("evenodd");
         }
       }
-      if (options.terrainTileStore && globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES !== true
+      const disableReliefBase = globalThis.__TERRA_DISABLE_RELIEF_BASE === true;
+      if (!disableReliefBase && options.terrainTileStore && globalThis.__TERRA_DISABLE_TERRAIN_WEBGL_TILES !== true
         && !hasPhysicalTerrainChanges(options.physicalWorld)
         && typeof target.drawImage === "function") {
         try {
@@ -1396,7 +1397,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           terrainRenderer = "canvas2d-fallback";
         }
       }
-      if (!terrainEnabled) {
+      if (!terrainEnabled && !disableReliefBase) {
         terrainEnabled = measureLayer("relief-base", () => drawTerrainRaster(target, width, height,
           options.terrain, projection.viewport, options.terrainQuality ?? 1, true, options.physicalWorld));
         if (terrainRenderer === "canvas2d") terrainRenderer = "canvas2d";
