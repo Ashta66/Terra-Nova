@@ -675,7 +675,9 @@ function drawLineLayer(context, collection, width, height, projection, color, li
       drawn += singleLine ? 1 : lines.length;
       continue;
     }
-    for (const line of lines) {
+    const lineCount = singleLine ? 1 : lines.length;
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+      const line = singleLine ? lines : lines[lineIndex];
       context.beginPath();
       let segment = [];
       let drewSegment = false;
