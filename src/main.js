@@ -1111,6 +1111,7 @@ async function loadWorldMap() {
 const COUNTRY_MAJOR=new Set(["France","England","Castile","Portugal","Ottoman Empire","Ming","Ming Dynasty","Timurid Empire","Mamluk Sultanate","Mali Empire","Poland","Lithuania","Muscovy","Venice","Burgundy","Aragon","Vijayanagara","Delhi Sultanate","Ethiopia","Japan","Holy Roman Empire"]);
 const COUNTRY_REGIONAL=new Set(["Scotland","Denmark","Sweden","Norway","Hungary","Bohemia","Novgorod","Golden Horde","Aq Qoyunlu","Qara Qoyunlu","Songhai","Benin","Kongo","Ayutthaya","Majapahit","Korea","Joseon","Chagatai Khanate","Morocco","Tunis","Granada"]);
 const COUNTRY_HARD=new Set(["Byzantine Empire","Trebizond","Granada","Irish clans","Novgorod","Mali Empire","Ethiopia","Kongo","Ternate","Theodoro"]),COUNTRY_EASY=new Set(["France","Ming","Ottoman Empire","Castile","Portugal","Muscovy"]);
+const CAMPAIGN_EXCLUDED_STATUSES=new Set(["influence","unclaimed","influence-zone"]);
 let campaignCountries=[],selectedCountryFilter={query:"",region:"all",difficulty:"all"};
 function countryRegion(feature) {
   const p = feature.properties ?? {};
