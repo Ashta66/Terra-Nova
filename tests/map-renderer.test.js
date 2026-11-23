@@ -928,6 +928,7 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("Polish-Lithuanian Commonwealth"),"République des Deux Nations");
  assert.equal(frenchTerritoryName("Viceroyalty of New Spain"),"Vice-royauté de Nouvelle-Espagne");
  assert.equal(frenchTerritoryName("British West Indies"),"Antilles britanniques");
+ assert.equal(frenchTerritoryName(null,{NAME:"Teutonic Knights",NAME_FR:"Chevaliers teutoniques"}),"Chevaliers teutoniques");
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
