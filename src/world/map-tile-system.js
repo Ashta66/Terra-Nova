@@ -83,7 +83,7 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
       const oy = y + 0.5 - centerY;
       const distance = Math.hypot(ox, oy);
       const forward = ox * nx + oy * ny;
-      candidates.push({ z, x, y, key, ancestors: getMapTileAncestors({ z, x, y }), priority: distance - forward * 0.65 });
+      candidates.push({ z, x, y, key, priority: distance - forward * 0.65 });
     }
   }
   candidates.sort((a, b) => a.priority - b.priority);
@@ -97,7 +97,7 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
       x: candidate.x,
       y: candidate.y,
       key: candidate.key,
-      ancestors: candidate.ancestors
+      ancestors: getMapTileAncestors(candidate)
     };
   }
   const zoomLog2 = Math.log2(zoom);
