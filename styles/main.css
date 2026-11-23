@@ -306,3 +306,69 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
   .country-filter-row{grid-template-columns:1fr}
   .country-results{max-height:88px}
 }
+
+/* Identité cartographique vivante : palette, matières et typographie suivent l'époque */
+body {
+  --theme-surface: #0b141b;
+  --theme-panel: #14232c;
+  --theme-border: #2c4149;
+  --theme-accent: #d9b878;
+  --theme-text: #edf2ed;
+  --theme-radius: 6px;
+  --theme-map-filter: none;
+  --theme-display-font: Georgia, serif;
+  --theme-body-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  font-family: var(--theme-body-font);
+  transition: background-color .35s ease, color .35s ease;
+}
+.topbar,
+.side-panel,
+.setup-card,
+.chat-preview,
+.chat-message,
+.ai-sidebar .ai-capabilities,
+.ai-sidebar textarea {
+  border-color: var(--theme-border);
+}
+.topbar { background: var(--theme-panel); }
+.side-panel {
+  background: var(--theme-panel);
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  color: var(--theme-text);
+  transition: background-color .35s ease, border-color .35s ease, border-radius .35s ease, color .35s ease;
+}
+.side-heading h2,
+.setup-card h1,
+.date-display,
+.chat-message,
+.era-banner {
+  font-family: var(--theme-display-font);
+}
+.side-heading h2 { color: var(--theme-text); }
+.side-heading .eyebrow,
+.ai-sidebar .eyebrow { color: var(--theme-accent); }
+.ai-sidebar .chat-preview,
+.ai-sidebar .chat-message {
+  background: color-mix(in srgb, var(--theme-panel) 88%, var(--theme-surface));
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+}
+.ai-sidebar textarea {
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  border-radius: var(--theme-radius);
+}
+.ai-sidebar .ai-send { border-radius: var(--theme-radius); }
+.map-frame #world-map { filter: var(--theme-map-filter); }
+body[data-cartographic-era="exploration"] .side-panel { box-shadow: inset 0 0 0 1px #c18b4320, inset 0 12px 30px #d3a75a0b; }
+body[data-cartographic-era="westphalia"] .side-panel { box-shadow: inset 0 0 0 3px #9b394422; }
+body[data-cartographic-era="revolution"] .side-panel { box-shadow: inset 0 0 0 1px #a8323e22; }
+body[data-cartographic-era="modern"] .side-panel { box-shadow: inset 0 2px #b39a6222; }
+body[data-cartographic-era="present"] .side-panel { box-shadow: 0 8px 24px #18394a12; }
+body[data-cartographic-era="future"] .side-panel { box-shadow: inset 0 0 18px #48d5dc12, 0 0 18px #22a9c322; }
+@media (prefers-reduced-motion: reduce) {
+  body, .side-panel { transition: none !important; }
+}
