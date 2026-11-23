@@ -41,3 +41,17 @@ test("weighted tile cache evicts least recently used entries within byte budget"
   cache.set("a", new Uint8Array(4)); cache.set("b", new Uint8Array(4)); cache.get("a"); cache.set("c", new Uint8Array(4));
   assert.equal(cache.get("b"), null); assert.ok(cache.get("a")); assert.equal(cache.stats().bytes, 8);
 });
+test("tile ancestors are computed once per level and remain ordered from parent to root", () => {
+  const ancestors = getMapTileAncestors({ z: 3, x: 5, y: 2 });
+  assert.deepEqual(ancestors.map(tile => [tile.z, tile.x, tile.y, tile.key]), [
+    [2, 2, 1, "2/2/1"], [1, 1, 0, "1/1/0"], [0, 0, 0, "0/0/0"]
+  ]);
+});
+test("tile plans contain unique, bounded tile records with stable keys", () => {
+  const plan = getMapTilePyramidPlan({ zoom: 16, centerLongitude: -179, centerLatitude: 72 }, { maxTiles: 12 });
+  assert.equal(plan.tiles.length, 12);
+  assert.equal(new Set(plan.tiles.map(tile => tile.key)).size, plan.tiles.length);
+  assert.ok(plan.tiles.every(tile => tile.key === getMapTileKey(tile.z, tile.x, tile.y)));
+  assert.equal(plan.requestedTileCount >= plan.tiles.length, true);
+  assert.equal(plan.truncated, plan.requestedTileCount > plan.tiles.length);
+});
