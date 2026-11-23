@@ -1,3 +1,13 @@
+const sceneContexts = new WeakMap();
+
+function getSceneContext(target) {
+  let context = sceneContexts.get(target);
+  if (context) return context;
+  context = target?.getContext?.("2d") ?? null;
+  if (context) sceneContexts.set(target, context);
+  return context;
+}
+
 export function getSceneTransform(sceneViewport = {}, viewport = {}, width = 1, height = 1) {
   const oldZoom = Math.max(0.0001, Number(sceneViewport.zoom) || 1);
   const newZoom = Math.max(0.0001, Number(viewport.zoom) || 1);
