@@ -303,6 +303,11 @@ function physicalLookup(world) {
  const levels=new Map();for(const c of world.currentCells)if(Number.isInteger(c.gridX)&&Number.isInteger(c.gridY)){const step=Number(c.gridStep)||12;if(!levels.has(step))levels.set(step,new Map());levels.get(step).set(c.gridY+":"+c.gridX,c);}
  const lookup={levels,steps:[...levels.keys()].sort((a,b)=>a-b)};physicalLookupCache.set(world,{revision:world.revision,lookup});return lookup;
 }
+function mixPhysicalField(c00,c10,c01,c11,key,fx,fy){
+ const a=(Number(c00?.[key])||0)*(1-fx)+(Number(c10?.[key])||0)*fx;
+ const b=(Number(c01?.[key])||0)*(1-fx)+(Number(c11?.[key])||0)*fx;
+ return a*(1-fy)+b*fy;
+}
 export function samplePhysicalElevation(grid,lon,lat,lookup){
  const base=sampleElevation(grid,lon,lat);if(!lookup||base===null)return base;
  const {x,y}=terrainGridCoordinates(grid,lon,lat);
