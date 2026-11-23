@@ -239,3 +239,14 @@ test("généralise les MultiLineString et GeometryCollection sans perdre leurs c
  assert.equal(result.geometryStats.simplifiedVertices,4);
  assert.equal(source.features[0].geometry.geometries[0].coordinates[0].length,4);
 });
+
+test("les seuils LOD dupliqués conservent le dernier niveau déclaré",()=>{
+ const ring=[[0,0],[1,0.0001],[2,0],[3,0.0001],[4,0],[4,2],[3,2.0001],[2,2],[1,2.0001],[0,2],[0,0]];
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([ring])]},0.0001);
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:2,tolerance:0.01},
+  {maxZoom:2,tolerance:0.02}
+ ],0.0001);
+ const result=lod.getForZoom(1);
+ assert.equal(result.geometryStats.tolerance,0.02);
+});
