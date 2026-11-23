@@ -212,7 +212,7 @@ export function buildPhysicalCellsFromTerrainGrid(grid,{step=12,maxCoastSearchCe
      const nx=gx*step+Math.floor(step/2)+ox*step,ny=gy*step+Math.floor(step/2)+oy*step;
      if(ny<0||ny>=grid.height||!ocean.mask[Math.max(0,Math.min(rows-1,Math.floor(ny/step)))*cols+(((Math.floor(nx/step)%cols)+cols)%cols)])continue;
      const lon=(nx+.5)/grid.width*360-180,lat=90-(ny+.5)/grid.height*180;
-     coastalDistanceKm=Math.min(coastalDistanceKm,distance({longitude,latitude},{longitude:lon,latitude:lat}));
+     coastalDistanceKm=Math.min(coastalDistanceKm,distanceCoordinates(longitude,latitude,lon,lat));
     }
    }
    if(coastalDistanceKm===Infinity)coastalDistanceKm=maxCoastSearchCells*step/grid.width*360*111.32;
