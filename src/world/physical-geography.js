@@ -103,13 +103,15 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
  for (let row = Math.max(0, Math.floor(centerY - ySpan)); row <= Math.min(grid.height - 1, Math.ceil(centerY + ySpan)); row += pixelStep) {
   for (let offset = -xSpan; offset <= xSpan; offset += pixelStep) {
    const column = ((Math.floor(centerX) + offset) % grid.width + grid.width) % grid.width;
-   const key = Math.floor(row / pixelStep) + ":" + Math.floor(column / pixelStep);
-   if (seen.has(key)) continue;
+   const gridY = Math.floor(row / pixelStep), gridX = Math.floor(column / pixelStep);
+   const seenKey = gridY * grid.width + gridX;
+   if (seen.has(seenKey)) continue;
    const lon = (column + .5) / grid.width * 360 - 180;
    const lat = 90 - (row + .5) / grid.height * 180;
-   const cell = { id: "impact-" + event.id + "-" + key.replace(":", "-"), longitude: lon, latitude: lat };
-   if (distance({ longitude, latitude }, cell) > radiusKm) continue;
-   seen.add(key);
+   const cell = { id: "", longitude: lon, latitude: lat };
+   if (distance(origin, cell) > radiusKm) continue;
+   seen.add(seenKey);
+   cell.id = "impact-" + event.id + "-" + gridY + "-" + gridX;
    const elevationM = Number(grid.values[row * grid.width + column]);
    let coastalDistanceKm = elevationM < 0 ? 0 : Infinity;
    if (elevationM >= 0) {
