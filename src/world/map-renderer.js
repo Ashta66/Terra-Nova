@@ -377,7 +377,9 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
   if (typeof combined.addPath !== "function") return null;
   let appended = 0;
   for (const feature of features) {
-    if (!feature?.geometry) continue;
+    // Le relief raster ne doit pas déborder sur l'océan antarctique :
+    // le continent possède son propre aplat opaque, indépendant du masque terrain.
+    if (!feature?.geometry || isAntarcticLandFeature(feature)) continue;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       combined.addPath(cachedPath);
