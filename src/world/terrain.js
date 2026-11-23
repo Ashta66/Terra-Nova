@@ -349,7 +349,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
    const west=-180+tx*10,center=west+5,shift=360*Math.round((cx-center)/360),screenX=width/2+(west+shift-cx)*width*zoom/360,destW=10*width*zoom/360;
    if(screenX+destW<0||screenX>width)continue;
    const tileKey=tx+":"+ty,revision=hasLocalRevisions?Number(revisions[tileKey]??0):Number(physicalWorld?.revision??0);
-   const key=[tileKey,tileSize,revision,landOnly?"land":"full",changedOnly?"changed":"all",hillshadeOnly?"shade":"color",precomputed?"worker":"sync",globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true?"no-precomputed":"prepared",globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true?"nearest":"smooth",globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true?"elevation-debug":"styled"].join("|");
+    const key=tileKey+"|"+tileSize+"|"+revision+"|"+(landOnly?"land":"full")+"|"+(changedOnly?"changed":"all")+"|"+(hillshadeOnly?"shade":"color")+"|"+(precomputed?"worker":"sync")+"|"+(disablePrecomputed?"no-precomputed":"prepared")+"|"+(disableSmoothing?"nearest":"smooth")+"|"+(debugElevation?"elevation-debug":"styled");
    let surface=cache.get(key);
    if(!surface){
     surface=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(tileSize,tileSize):document.createElement("canvas");
