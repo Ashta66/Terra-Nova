@@ -133,7 +133,8 @@ function interpolateStops(value, stops) {
       ];
     }
   }
-  return [...stops.at(-1)[1]];
+  const last = stops[stops.length - 1][1];
+  return [last[0], last[1], last[2]];
 }
 
 export function classifyLandform(elevation, west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
