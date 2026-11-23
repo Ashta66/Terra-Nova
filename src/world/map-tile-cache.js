@@ -40,7 +40,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       const entry = entries.get(id);
       if (!entry) { misses++; return null; }
       hits++;
-      touch(id, entry);
+      touchLru(entries, id, entry);
       return entry.value;
     },
     set(key, value) {
