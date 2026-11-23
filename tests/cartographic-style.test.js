@@ -70,3 +70,19 @@ test("les ères exposent une matière visuelle distincte et le futur reste peu l
   assert.ok(luminance(future.colors.panel) < 0.025, "les panneaux futurs doivent rester très sombres");
   assert.equal(future.visuals.mapFilter, "none", "le futur ne doit pas éclaircir la carte par un filtre de contraste");
 });
+
+
+test("les ères moderne et contemporaine restent sombres à partir de 2000", () => {
+  const luminance = hex => {
+    const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
+    const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  for (const year of [2000, 2004, 2015, 2025, 2026]) {
+    const theme = getCartographicTheme(year);
+    assert.ok(luminance(theme.colors.surface) < 0.03, `surface trop claire en ${year}: ${theme.colors.surface}`);
+    assert.ok(luminance(theme.colors.panel) < 0.06, `panneau trop clair en ${year}: ${theme.colors.panel}`);
+  }
+  assert.equal(getCartographicTheme(2000).id, "modern");
+  assert.equal(getCartographicTheme(2026).id, "present");
+});
