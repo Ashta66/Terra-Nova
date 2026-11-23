@@ -6,6 +6,15 @@ import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
 
+/** Partitionne une collection en un seul passage, sans rappeler le test de capacité. */
+function partitionFeatures(features, supports) {
+  const supported = [], unsupported = [];
+  for (const feature of features ?? []) {
+    (supports(feature) ? supported : unsupported).push(feature);
+  }
+  return { supported, unsupported };
+}
+
 function createContinuousProjector(width, height, projection) {
   const viewport = projection.viewport ?? {};
   const unwrappedProjection = projection.type === "orthographic"
@@ -1733,12 +1742,19 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const riverProfile = getBoundarySimplificationProfile(projection.lodZoom ?? 1);
     if (geographicRenderer?.renderLayers && geographicRenderer.canvas && projection.type === "equirectangular") {
       try {
-        const supportedGlaciers = glaciersVisible.features.filter(feature => geographicRenderer.supports(feature));
-        const supportedLakes = majorLakes.features.filter(feature => geographicRenderer.supports(feature));
+        const glacierPartition = partitionFeatures(glaciersVisible.features, feature => geographicRenderer.supports(feature));
+        const lakePartition = partitionFeatures(majorLakes.features, feature => geographicRenderer.supports(feature));
+        const supportedGlaciers = glacierPartition.supported;
+        const unsupportedGlaciers = glacierPartition.unsupported;
+        const supportedLakes = lakePartition.supported;
+        const unsupportedLakes = lakePartition.unsupported;
         // Diagnostic A/B : bascule les rivières WebGL vers le rendu Canvas sans toucher aux autres couches.
         const disableGpuRiverLines = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES === true;
-        const supportedRivers = disableGpuRiverLines ? []
-          : majorRivers.features.filter(feature => geographicRenderer.supportsLine(feature));
+        const riverPartition = disableGpuRiverLines
+          ? { supported: [], unsupported: majorRivers.features }
+          : partitionFeatures(majorRivers.features, feature => geographicRenderer.supportsLine(feature));
+        const supportedRivers = riverPartition.supported;
+        const unsupportedRivers = riverPartition.unsupported;
         const ratio = backingWidth / width;
         const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
         const lakeColor = parseWebGLColor(theme.colors.ocean);
@@ -1751,10 +1767,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         target.setTransform(1, 0, 0, 1, 0, 0);
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
         target.restore();
-        const unsupportedGlaciers = glaciersVisible.features.filter(feature => !geographicRenderer.supports(feature));
-        const unsupportedLakes = majorLakes.features.filter(feature => !geographicRenderer.supports(feature));
-        const unsupportedRivers = disableGpuRiverLines ? majorRivers.features
-          : majorRivers.features.filter(feature => !geographicRenderer.supportsLine(feature));
         glacierCount = measureLayer("glaciers", () => {
           drawPolygonLayer(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, "#dce8e5", null, 0, 0.88, false, 4);
           drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.7, 0.88, false, 4);
@@ -1844,14 +1856,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   let administrativeBoundaryCount = 0;
   if (canRenderBoundariesWebGL) {
     try {
-      const supportedPolitical = (visiblePoliticalBoundaries?.features ?? [])
-        .filter(feature => boundaryRenderer.supportsBoundary(feature));
-      const supportedAdministrative = (visibleAdministrativeBoundaries?.features ?? [])
-        .filter(feature => boundaryRenderer.supportsBoundary(feature));
-      const unsupportedPolitical = (visiblePoliticalBoundaries?.features ?? [])
-        .filter(feature => !boundaryRenderer.supportsBoundary(feature));
-      const unsupportedAdministrative = (visibleAdministrativeBoundaries?.features ?? [])
-        .filter(feature => !boundaryRenderer.supportsBoundary(feature));
+      const politicalPartition = partitionFeatures(visiblePoliticalBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
+      const administrativePartition = partitionFeatures(visibleAdministrativeBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
+      const supportedPolitical = politicalPartition.supported;
+      const unsupportedPolitical = politicalPartition.unsupported;
+      const supportedAdministrative = administrativePartition.supported;
+      const unsupportedAdministrative = administrativePartition.unsupported;
       const ratio = backingWidth / width;
       measureLayer("frontieres-webgl", () => boundaryRenderer.renderLayers([
         { key: "political-boundary-halo", type: "boundaries", features: supportedPolitical,
