@@ -499,6 +499,17 @@ body[data-cartographic-era="future"] {
   border-color: var(--theme-accent);
 }
 .button-primary:hover:not(:disabled) { filter: brightness(1.08); }
+body[data-cartographic-era="exploration"] .button-primary {
+  color: #21190f;
+  background: #d0ad70;
+  border-color: #d0ad70;
+  text-shadow: none;
+}
+body[data-cartographic-era="exploration"] .button-primary:hover:not(:disabled) {
+  background: #dfbd83;
+  border-color: #dfbd83;
+  filter: none;
+}
 .button:disabled, .speed-chip:disabled { opacity: .62; }
 .chat-preview textarea::placeholder { color: var(--theme-muted); opacity: .82; }
 .chat-preview textarea:focus-visible,
