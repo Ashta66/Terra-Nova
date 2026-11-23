@@ -21,13 +21,6 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
   let bytes = 0;
   let hits = 0;
   let misses = 0;
-  const byteLength = value => {
-    if (Number.isFinite(value?.byteLength)) return value.byteLength;
-    if (Number.isFinite(value?.size)) return value.size;
-    if (Number.isFinite(value?.width) && Number.isFinite(value?.height)) return value.width * value.height * 4;
-    return 0;
-  };
-  const touch = (key, entry) => { entries.delete(key); entries.set(key, entry); };
   const evict = () => {
     while (entries.size > limit || bytes > budget) {
       const oldest = entries.entries().next().value;
