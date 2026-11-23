@@ -91,9 +91,11 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
 
   if (coversWorld) {
     const period = W * viewZoom;
-    const rects = [-period, 0, period]
-      .map(offset => ({ ...base, x: base.x + offset }))
-      .filter(rect => intersectsScreen(rect, W, H));
+    const rects = [];
+    for (const offset of [-period, 0, period]) {
+      const rect = { ...base, x: base.x + offset };
+      if (intersectsScreen(rect, W, H)) rects.push(rect);
+    }
     return {
       rects,
       covered: dy <= 0 && dy + dh >= H
