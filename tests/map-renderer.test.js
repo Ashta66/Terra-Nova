@@ -1442,5 +1442,5 @@ test("le regroupement des frontières conserve deux styles de tirets sans alloca
     politicalBoundaries: boundaries
   });
   const dashCalls = calls.filter(call => call[0] === "setLineDash");
-  assert.ok(dashCalls.length <= 2, "les motifs sont appliqués une fois par lot, pas une fois par frontière");
+  assert.ok(dashCalls.length <= 4, "les deux passes de couleur réutilisent chacune les deux lots de motifs, indépendamment du nombre de frontières");
 });
