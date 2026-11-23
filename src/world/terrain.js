@@ -50,6 +50,44 @@ function terrainGridCoordinates(grid, longitude, latitude) {
   return { x, y };
 }
 
+export function terrainSnowElevationForPixel(grid, longitude, latitude, pixelWidthDegrees, pixelHeightDegrees = pixelWidthDegrees) {
+  const centerElevation = sampleElevation(grid, longitude, latitude);
+  if (centerElevation === null || centerElevation < 0
+    || !Number.isFinite(pixelWidthDegrees) || pixelWidthDegrees <= 0
+    || !Number.isFinite(pixelHeightDegrees) || pixelHeightDegrees <= 0) return centerElevation;
+
+  // La neige des sommets est renforcée uniquement lorsqu'un pic élevé
+  // est présent dans l'emprise du pixel et dépasse nettement son altitude centrale.
+  const peakThreshold = 4000;
+  const prominenceThreshold = 800;
+  const longitudeSpacing = Number(grid.longitudeSpacingDegrees) || Number(grid.spacingDegrees) || 180 / grid.height;
+  const latitudeSpacing = Number(grid.latitudeSpacingDegrees) || Number(grid.spacingDegrees) || 180 / grid.height;
+  const longitudeFirst = Number.isFinite(grid.longitudeFirst) ? grid.longitudeFirst : -180 + longitudeSpacing / 2;
+  const latitudeFirst = Number.isFinite(grid.latitudeFirst) ? grid.latitudeFirst : 90 - latitudeSpacing / 2;
+  const west = longitude - pixelWidthDegrees / 2;
+  const east = longitude + pixelWidthDegrees / 2;
+  const north = Math.min(90, latitude + pixelHeightDegrees / 2);
+  const south = Math.max(-90, latitude - pixelHeightDegrees / 2);
+  const epsilon = 1e-9;
+  const firstColumn = Math.ceil((west - longitudeFirst) / longitudeSpacing - epsilon);
+  const lastColumn = Math.floor((east - longitudeFirst) / longitudeSpacing + epsilon);
+  const firstRow = Math.max(0, Math.ceil((latitudeFirst - north) / latitudeSpacing - epsilon));
+  const lastRow = Math.min(grid.height - 1, Math.floor((latitudeFirst - south) / latitudeSpacing + epsilon));
+  let peakElevation = centerElevation;
+
+  for (let row = firstRow; row <= lastRow; row++) {
+    for (let column = firstColumn; column <= lastColumn; column++) {
+      const wrappedColumn = ((column % grid.width) + grid.width) % grid.width;
+      const value = grid.values[row * grid.width + wrappedColumn];
+      if (Number.isFinite(value) && value > peakElevation) peakElevation = value;
+    }
+  }
+
+  return peakElevation >= peakThreshold && peakElevation - centerElevation >= prominenceThreshold
+    ? peakElevation
+    : centerElevation;
+}
+
 export function sampleElevation(grid, longitude, latitude) {
   if (!grid?.values || !Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
   const { x, y } = terrainGridCoordinates(grid, longitude, latitude);
@@ -271,6 +309,7 @@ const TERRAIN_TILE_CACHE_LIMIT = 1600;
 const TERRAIN_TILE_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOnly,physicalWorld,changedOnly,hillshadeOnly){
  const zoom=Math.max(1,Number(viewport.zoom??1)),cx=Number(viewport.centerLongitude??0),cy=Number(viewport.centerLatitude??0);
+ const pixelDegrees=10/terrainTileSizeForZoom(zoom,quality);
  const tileSize=terrainTileSizeForZoom(zoom,quality);
  const dx=360/grid.width,dy=180/grid.height,hasPhysicalChanges=Number(physicalWorld?.revision??0)>0,physical=hasPhysicalChanges?physicalLookup(physicalWorld):null;
  let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
@@ -293,7 +332,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
     for(let py=0;py<tileSize;py++){
      const lat=north-(py+.5)/tileSize*10;
      for(let px=0;px<tileSize;px++){
-      const lon=west+(px+.5)/tileSize*10,base=sampleElevation(grid,lon,lat),e=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat,physical):base,index=(py*tileSize+px)*4;
+      const lon=west+(px+.5)/tileSize*10,base=sampleElevation(grid,lon,lat),e=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat,physical):base,snowElevation=zoom<2.5?terrainSnowElevationForPixel(grid,lon,lat,pixelDegrees):e,index=(py*tileSize+px)*4;
       const changedCoast=changedOnly&&base!==null&&((base>=0)!==(e>=0));
       if((changedOnly&&!changedCoast)||(landOnly&&e<0)){pixels[index+3]=0;continue;}
       let color;
@@ -307,7 +346,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=samplePreparedHillshade(grid,lon,lat)??1;
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
+        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
        }else{
         const w=hasPhysicalChanges?samplePhysicalElevation(grid,lon-dx,lat,physical):sampleElevation(grid,lon-dx,lat);
         const east=hasPhysicalChanges?samplePhysicalElevation(grid,lon+dx,lat,physical):sampleElevation(grid,lon+dx,lat);
@@ -315,7 +354,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(e,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
+        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
        }
       }else color=terrainColorForElevation(e,1,"ocean");
       if(globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true) color=terrainDebugElevationColor(e);
@@ -439,6 +478,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
   const image = renderContext.createImageData(renderWidth, renderHeight), pixels = image.data;
   const zoom = Number(viewport.zoom ?? 1), cx = Number(viewport.centerLongitude ?? 0), cy = Number(viewport.centerLatitude ?? 0), physical = physicalLookup(physicalWorld);
   const dx = 360 / grid.width, dy = 180 / grid.height;
+  const pixelWidthDegrees = 360 / (zoom * renderWidth), pixelHeightDegrees = 180 / (zoom * renderHeight);
   for (let py = 0; py < renderHeight; py++) {
     const lat = cy - ((py + 0.5) / renderHeight - 0.5) * 180 / zoom;
     for (let px = 0; px < renderWidth; px++) {
@@ -458,7 +498,8 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const relief = clamp((shade - 0.48) / (1.52 - 0.48), 0, 1);
         const gray = Math.round(28 + relief * 214);
         const baseShade = 1 + (shade - 1) * 0.35;
-        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(e, baseShade, landform));
+        const snowElevation = zoom < 2.5 ? terrainSnowElevationForPixel(grid, lon, lat, pixelWidthDegrees, pixelHeightDegrees) : e;
+        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform));
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
