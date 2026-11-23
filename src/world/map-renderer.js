@@ -1381,12 +1381,16 @@ function hasPhysicalTerrainChanges(world) {
   const revision = Number(world.revision ?? 0);
   const cached = physicalTerrainChangeCache.get(world);
   if (cached?.revision === revision) return cached.changed;
-  const changed = world.currentCells.some(cell =>
-    Boolean(cell?.inundated)
-    || Math.abs(Number(cell?.elevationDeltaM) || 0) > 0.01
-    || Number(cell?.tsunamiWaterDepthM) > 0.01
-    || Number(cell?.waterDepthM) > 0.01
-  );
+  let changed = false;
+  for (const cell of world.currentCells) {
+    if (Boolean(cell?.inundated)
+      || Math.abs(Number(cell?.elevationDeltaM) || 0) > 0.01
+      || Number(cell?.tsunamiWaterDepthM) > 0.01
+      || Number(cell?.waterDepthM) > 0.01) {
+      changed = true;
+      break;
+    }
+  }
   physicalTerrainChangeCache.set(world, { revision, changed });
   return changed;
 }
