@@ -1170,11 +1170,16 @@ export function territoryColor(feature) {
  const palette=["#B66F62","#668D78","#B18A4F","#718BAF","#9A769F","#B47E91","#6D9B9C","#A28A62","#7E86A8","#A27B5D","#78936B","#B07862","#64899B","#A18A9A","#9A9A61","#8B765E","#6F9A88","#A77C75","#7885A0","#B08B69"];
  let hash=2166136261;for(let i=0;i<identity.length;i++)hash=Math.imul(hash^identity.charCodeAt(i),16777619);return palette[(hash>>>0)%palette.length];
 }
+const selectedTerritoryCollator = new Intl.Collator(undefined, { sensitivity: "accent" });
 function territoryMatchesSelectedCountry(feature, selectedCountry) {
   if (!selectedCountry) return false;
   const p = feature?.properties ?? {};
-  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG, p.SUBJECTO].filter(Boolean);
-  return names.some(name => String(name).localeCompare(selectedCountry, undefined, { sensitivity: "accent" }) === 0);
+  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG, p.SUBJECTO];
+  for (let index = 0; index < names.length; index++) {
+    const name = names[index];
+    if (name && selectedTerritoryCollator.compare(String(name), selectedCountry) === 0) return true;
+  }
+  return false;
 }
 export function classifyHistoricalTerritoryStyle(feature){
  const p=feature?.properties??{},s=String(p.historicalStatus??p.status??p.STATUS??p.CONTROL_STATUS??"").toLowerCase();
