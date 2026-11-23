@@ -59,12 +59,8 @@ test("la sélection multi-tuile déduplique sans altérer l'ordre des entités",
   const first=selectGeoSpatialFeatures(data,{zoom:4,centerLongitude:0,centerLatitude:0});
   const ids=first.features.map(feature=>feature.properties.id);
   assert.equal(new Set(ids).size,ids.length);
-  assert.deepEqual(ids,[...ids].sort((a,b)=>{
-    const [alat,alon]=a.split(":").map(Number);
-    const [blat,blon]=b.split(":").map(Number);
-    return data.features.findIndex(feature=>feature.properties.id===a)
-      - data.features.findIndex(feature=>feature.properties.id===b);
-  }));
+  const sourceOrder=new Map(data.features.map((feature,index)=>[feature.properties.id,index]));
+  assert.deepEqual(ids,[...ids].sort((a,b)=>sourceOrder.get(a)-sourceOrder.get(b)));
   assert.equal(selectGeoSpatialFeatures(data,{zoom:4,centerLongitude:0,centerLatitude:0}),first,
     "une requête identique réutilise le résultat LRU");
 });
