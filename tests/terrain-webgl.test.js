@@ -98,7 +98,7 @@ test("l'atlas des altitudes utilise NEAREST pour éviter le mélange des octets 
 
 test("le shader des tuiles reconnaît les calottes polaires à faible zoom", () => {
   const shader = getTerrainWebGLShaders().tileFragment;
-  assert.match(shader, /uniform vec2 u_viewSize;/);
+  assert.match(shader, /varying vec2 v_screenUv;/);
   assert.match(shader, /uniform vec2 u_viewCenter;/);
   assert.match(shader, /uniform float u_zoom;/);
   assert.match(shader, /float longitude=u_viewCenter\.x\s*\+/);
