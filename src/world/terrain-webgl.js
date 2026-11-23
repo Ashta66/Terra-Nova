@@ -768,7 +768,9 @@ void main(){
  bool antarcticIceSheet=latitude<=-70.0;
  bool iceSheet=(greenlandIceSheet||antarcticIceSheet);
  float e=elevationAt(v_atlasUv);
- if(iceSheet&&e>=1500.0)e=max(e,5000.0);
+ bool polarSnow=iceSheet&&e>=1500.0;
+ float snowLine=mix(5200.0,3600.0,smoothstep(25.0,75.0,abs(latitude)));
+ bool summitSnow=e>=snowLine;
  float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
  float n=elevationAt(v_atlasUv-vec2(0.0,v_atlasStep.y)), south=elevationAt(v_atlasUv+vec2(0.0,v_atlasStep.y));
  float sx=(east-w)/max(1.0,222640.0*v_tileStep.x),sy=(n-south)/max(1.0,222640.0*v_tileStep.y);
@@ -778,6 +780,7 @@ void main(){
  vec3 low=ramp(e,0.0,1000.0,vec3(105.0,126.0,88.0)/255.0,vec3(139.0,139.0,91.0)/255.0);
  vec3 high=ramp(e,1000.0,6500.0,vec3(139.0,139.0,91.0)/255.0,vec3(224.0,222.0,210.0)/255.0);
  vec3 color=e<0.0?ocean:(e<1000.0?low:high);
+ if(polarSnow||summitSnow)color=mix(color,vec3(0.96,0.97,0.98),0.92);
  gl_FragColor=vec4(color*(e<0.0?1.0:shade),u_opacity);
 }`;
 
@@ -869,6 +872,17 @@ export function getTerrainVertexBufferCapacity(currentBytes, requiredBytes) {
  return capacity;
 }
 
+export function setTerrainViewportUniforms(gl,renderer,viewport={}) {
+ if(!gl||typeof gl.uniform2f!=="function"||typeof gl.uniform1f!=="function"
+  ||!renderer||renderer.viewCenter==null||renderer.zoomLocation==null)return false;
+ const longitude=Number(viewport?.centerLongitude??0);
+ const latitude=Number(viewport?.centerLatitude??0);
+ const zoom=Number(viewport?.zoom??1);
+ gl.uniform2f(renderer.viewCenter,Number.isFinite(longitude)?longitude:0,Number.isFinite(latitude)?latitude:0);
+ gl.uniform1f(renderer.zoomLocation,Number.isFinite(zoom)&&zoom>0?zoom:1);
+ return true;
+}
+
 export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},options={}) {
   if(!tileStore?.getTileAtLevel||!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1) return null;
   let renderer=tileRenderers.get(tileStore);
@@ -952,6 +966,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
   }
   cache.evict(protectedKeys);
   gl.useProgram(program);
+  setTerrainViewportUniforms(gl,renderer,viewport);
   gl.activeTexture(gl.TEXTURE0);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
