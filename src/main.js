@@ -1229,10 +1229,16 @@ function schedule() {
   stopTimer();
   if (!state.clock.paused) interval = setInterval(() => {
     const previousDate = state.clock.date;
+    const previousDay = state.clock.day;
     const previousPhysicalWorld = state.physicalWorld;
     state.clock = advanceClock(state.clock, state.clock.speed);
-    if (Number(state.clock.date.slice(0, 4)) > MAX_SIMULATION_YEAR) {
+    if (state.clock.date > MAX_SIMULATION_DATE) {
+      const previous = new Date(previousDate + "T00:00:00Z");
+      const limit = new Date(MAX_SIMULATION_DATE + "T00:00:00Z");
       state.clock.date = MAX_SIMULATION_DATE;
+      state.clock.day = previousDay + Math.round((limit - previous) / 86400000);
+    }
+    if (state.clock.date >= MAX_SIMULATION_DATE) {
       state.clock.paused = true;
       stopTimer();
     }
