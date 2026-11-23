@@ -65,18 +65,25 @@ function lakeGeographicArea(feature) {
     const meanLatitude = (Number(bbox[1]) + Number(bbox[3])) / 2;
     area = Math.abs((Number(bbox[2]) - Number(bbox[0])) * 111.32 * Math.cos(meanLatitude * Math.PI / 180) * (Number(bbox[3]) - Number(bbox[1])) * 111.32);
   } else {
-    const coordinates = [];
-    const collect = value => {
-      if (!Array.isArray(value)) return;
-      if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) coordinates.push(value);
-      else for (const child of value) collect(child);
-    };
-    collect(feature?.geometry?.coordinates);
-    if (coordinates.length) {
-      const longitudes = coordinates.map(point => point[0]);
-      const latitudes = coordinates.map(point => point[1]);
-      const meanLatitude = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
-      area = Math.abs((Math.max(...longitudes) - Math.min(...longitudes)) * 111.32 * Math.cos(meanLatitude * Math.PI / 180) * (Math.max(...latitudes) - Math.min(...latitudes)) * 111.32);
+    let minLongitude = Infinity, maxLongitude = -Infinity;
+    let minLatitude = Infinity, maxLatitude = -Infinity;
+    const pending = [feature?.geometry?.coordinates];
+    while (pending.length) {
+      const value = pending.pop();
+      if (!Array.isArray(value)) continue;
+      if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+        minLongitude = Math.min(minLongitude, value[0]);
+        maxLongitude = Math.max(maxLongitude, value[0]);
+        minLatitude = Math.min(minLatitude, value[1]);
+        maxLatitude = Math.max(maxLatitude, value[1]);
+        continue;
+      }
+      for (let i = 0; i < value.length; i++) pending.push(value[i]);
+    }
+    if (minLongitude !== Infinity) {
+      const meanLatitude = (minLatitude + maxLatitude) / 2;
+      area = Math.abs((maxLongitude - minLongitude) * 111.32
+        * Math.cos(meanLatitude * Math.PI / 180) * (maxLatitude - minLatitude) * 111.32);
     }
   }
   lakeAreaScores.set(feature, area);
@@ -113,21 +120,76 @@ export function selectMajorLakeFeatures(collection, maxRank = 1, maxFeatures = M
 
 
 const EARTH_RADIUS_KM=6371,MIN_ISLAND_AREA_KM2=100,MIN_LAKE_AREA_KM2=500;
-function ringAreaKm2(ring){if(!Array.isArray(ring)||ring.length<4)return 0;let sum=0;for(let i=0;i<ring.length-1;i++){const a=ring[i],b=ring[i+1];if(!Array.isArray(a)||!Array.isArray(b))continue;const la=Number(a[0])*Math.PI/180,lb=Number(b[0])*Math.PI/180,pa=Number(a[1])*Math.PI/180,pb=Number(b[1])*Math.PI/180;sum+=(lb-la)*(2+Math.sin(pa)+Math.sin(pb));}return Math.abs(sum)*EARTH_RADIUS_KM*EARTH_RADIUS_KM/2;}
-function polygonAreaKm2(polygon){if(!Array.isArray(polygon)||!polygon.length)return 0;return Math.max(0,ringAreaKm2(polygon[0])-polygon.slice(1).reduce((s,ring)=>s+ringAreaKm2(ring),0));}
-export function filterSmallIslandComponents(collection,minAreaKm2=MIN_ISLAND_AREA_KM2,preserveLargestPerFeature=false){
- if(!collection?.features)return collection;const features=[];
- for(const feature of collection.features){const g=feature?.geometry;
-  if(g?.type==="Polygon"){if(polygonAreaKm2(g.coordinates)>=minAreaKm2||preserveLargestPerFeature)features.push(feature);continue;}
-  if(g?.type!=="MultiPolygon"){features.push(feature);continue;}
-  const ranked=g.coordinates.map((polygon,index)=>({polygon,index,area:polygonAreaKm2(polygon)})).sort((a,b)=>b.area-a.area||a.index-b.index);
-  let kept=ranked.filter(x=>x.area>=minAreaKm2);if(preserveLargestPerFeature&&!kept.length&&ranked.length)kept=[ranked[0]];if(!kept.length)continue;
-  const coordinates=kept.sort((a,b)=>a.index-b.index).map(x=>x.polygon),geometry=coordinates.length===1?{type:"Polygon",coordinates:coordinates[0]}:{type:"MultiPolygon",coordinates};
-  const {bbox,...rest}=feature;features.push({...rest,geometry});
- }return {...collection,features};
+function ringAreaKm2(ring) {
+  if (!Array.isArray(ring) || ring.length < 4) return 0;
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const a = ring[i], b = ring[i + 1];
+    if (!Array.isArray(a) || !Array.isArray(b)) continue;
+    const longitudeA = Number(a[0]) * Math.PI / 180;
+    const longitudeB = Number(b[0]) * Math.PI / 180;
+    const latitudeA = Number(a[1]) * Math.PI / 180;
+    const latitudeB = Number(b[1]) * Math.PI / 180;
+    if (![longitudeA, longitudeB, latitudeA, latitudeB].every(Number.isFinite)) continue;
+    sum += (longitudeB - longitudeA) * (2 + Math.sin(latitudeA) + Math.sin(latitudeB));
+  }
+  return Math.abs(sum) * EARTH_RADIUS_KM * EARTH_RADIUS_KM / 2;
 }
-export function filterMajorLakeFeatures(collection,minAreaKm2=MIN_LAKE_AREA_KM2){
- if(!collection?.features)return collection;return {...collection,features:collection.features.filter(feature=>{if(!["Polygon","MultiPolygon"].includes(feature?.geometry?.type))return false;const raw=feature.properties?.scalerank??feature.properties?.SCALERANK??feature.properties?.min_zoom??feature.properties?.MIN_ZOOM,rank=Number(raw);return (!Number.isFinite(rank)||rank<=1)&&lakeGeographicArea(feature)>=minAreaKm2;})};
+function polygonAreaKm2(polygon) {
+  if (!Array.isArray(polygon) || !polygon.length) return 0;
+  let area = ringAreaKm2(polygon[0]);
+  for (let i = 1; i < polygon.length; i++) area -= ringAreaKm2(polygon[i]);
+  return Math.max(0, area);
+}
+export function filterSmallIslandComponents(collection, minAreaKm2 = MIN_ISLAND_AREA_KM2, preserveLargestPerFeature = false) {
+  if (!collection?.features) return collection;
+  const features = [];
+  for (const feature of collection.features) {
+    const geometry = feature?.geometry;
+    if (geometry?.type === "Polygon") {
+      if (polygonAreaKm2(geometry.coordinates) >= minAreaKm2 || preserveLargestPerFeature) features.push(feature);
+      continue;
+    }
+    if (geometry?.type !== "MultiPolygon") {
+      features.push(feature);
+      continue;
+    }
+    const polygons = geometry.coordinates ?? [];
+    const kept = [];
+    let largestPolygon = null, largestArea = -Infinity;
+    for (let index = 0; index < polygons.length; index++) {
+      const polygon = polygons[index];
+      const area = polygonAreaKm2(polygon);
+      if (area > largestArea) {
+        largestArea = area;
+        largestPolygon = polygon;
+      }
+      if (area >= minAreaKm2) kept.push(polygon);
+    }
+    if (!kept.length && preserveLargestPerFeature && largestPolygon) kept.push(largestPolygon);
+    if (!kept.length) continue;
+    const nextGeometry = kept.length === 1
+      ? { type: "Polygon", coordinates: kept[0] }
+      : { type: "MultiPolygon", coordinates: kept };
+    const { bbox, ...rest } = feature;
+    features.push({ ...rest, geometry: nextGeometry });
+  }
+  return { ...collection, features };
+}
+export function filterMajorLakeFeatures(collection, minAreaKm2 = MIN_LAKE_AREA_KM2) {
+  if (!collection?.features) return collection;
+  const features = [];
+  for (const feature of collection.features) {
+    const geometryType = feature?.geometry?.type;
+    if (geometryType !== "Polygon" && geometryType !== "MultiPolygon") continue;
+    const properties = feature.properties ?? {};
+    const rawRank = properties.scalerank ?? properties.SCALERANK
+      ?? properties.min_zoom ?? properties.MIN_ZOOM;
+    const rank = Number(rawRank);
+    if (Number.isFinite(rank) && rank > 1) continue;
+    if (lakeGeographicArea(feature) >= minAreaKm2) features.push(feature);
+  }
+  return { ...collection, features };
 }
 
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
