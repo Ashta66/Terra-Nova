@@ -64,6 +64,8 @@ test("le continent antarctique conserve un aplat visible même lorsque le relief
   });
   assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
     "l'Antarctique doit garder un aplat neige opaque au zoom mondial");
+  assert.ok(calls.some(call => call[0] === "moveTo" && Math.abs(call[1]) < 0.01 && Math.abs(call[2] - 272) < 0.1),
+    "le contour antarctique doit rester dans les limites horizontales du planisphère au niveau de sa côte");
 });
 
 test("le moteur dessine une FeatureCollection et retourne son thème", () => {
