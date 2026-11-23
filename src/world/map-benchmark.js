@@ -31,7 +31,10 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const timestamp = clockNow(), metrics = {};
     const add = (key, value) => { if (Number.isFinite(value)) metrics[key] = value; };
     add("renderTotalMs", result.totalRenderMs);
-    for (const [key, value] of Object.entries(result.renderTimings ?? {})) add("layer:" + key, value);
+    const renderTimings = result.renderTimings ?? {};
+    for (const key in renderTimings) {
+      if (Object.hasOwn(renderTimings, key)) add("layer:" + key, renderTimings[key]);
+    }
     const families = result.renderFamilies ?? {};
     add("family:physicalMs", families.physicalMs);
     add("family:politicalMs", families.politicalMs);
