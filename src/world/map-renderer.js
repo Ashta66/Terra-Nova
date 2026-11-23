@@ -1335,7 +1335,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     if (projection.type === "equirectangular") {
       const viewport = projection.viewport ?? {};
       const centerLongitude = Number(viewport.centerLongitude ?? 0);
-      const iceProject = createContinuousProjector(width, height, projection);
+      // Le contour est déjà ordonné de centerLongitude - 180 à +180 :
+      // ne pas dérouler les longitudes, car le premier point à -180° est
+      // ambigu et peut être projeté à +180°, hors du planisphère.
+      const iceProjection = {
+        ...projection,
+        viewport: { ...viewport, wrapLongitude: false }
+      };
+      const iceProject = coordinate => projectCoordinate(coordinate, width, height, iceProjection);
       const ring = [];
       for (let step = 0; step <= 120; step++) {
         const longitude = centerLongitude - 180 + step * 3;
