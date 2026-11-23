@@ -881,16 +881,19 @@ function getPhysicalLabelIndex(world) {
   if (cached?.revision === world.revision) return cached;
   const buckets = new Map();
   for (const cell of world.currentCells) {
-    if (!Number.isFinite(Number(cell.longitude)) || !Number.isFinite(Number(cell.latitude))) continue;
-    const longitude = ((Number(cell.longitude) + 180) % 360 + 360) % 360 - 180;
-    const latitude = Math.max(-90, Math.min(90, Number(cell.latitude)));
+    const rawLongitude = Number(cell.longitude);
+    const rawLatitude = Number(cell.latitude);
+    if (!Number.isFinite(rawLongitude) || !Number.isFinite(rawLatitude)) continue;
+    const longitude = ((rawLongitude + 180) % 360 + 360) % 360 - 180;
+    const latitude = Math.max(-90, Math.min(90, rawLatitude));
     const x = Math.min(PHYSICAL_LABEL_BUCKET_COLUMNS - 1, Math.floor((longitude + 180) / PHYSICAL_LABEL_BUCKET_SIZE));
     const y = Math.max(0, Math.min(89, Math.floor((latitude + 90) / PHYSICAL_LABEL_BUCKET_SIZE)));
     const key = y * PHYSICAL_LABEL_BUCKET_COLUMNS + x;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(cell);
+    let bucket = buckets.get(key);
+    if (!bucket) buckets.set(key, bucket = []);
+    bucket.push(cell);
   }
-  const index = { revision: world.revision, buckets, results: new Map() };
+  const index = { revision: world.revision, buckets, results: new WeakMap() };
   physicalLabelStatusCache.set(world, index);
   return index;
 }
@@ -903,8 +906,7 @@ export function isCityPermanentlySubmerged(feature, world) {
   if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return false;
   const index = getPhysicalLabelIndex(world);
   if (!index) return false;
-  const resultKey = longitude.toFixed(4) + ":" + latitude.toFixed(4);
-  if (index.results.has(resultKey)) return index.results.get(resultKey);
+  if (index.results.has(feature)) return index.results.get(feature);
   const wrappedLongitude = ((longitude + 180) % 360 + 360) % 360 - 180;
   const centerX = Math.min(PHYSICAL_LABEL_BUCKET_COLUMNS - 1, Math.floor((wrappedLongitude + 180) / PHYSICAL_LABEL_BUCKET_SIZE));
   const centerY = Math.max(0, Math.min(89, Math.floor((latitude + 90) / PHYSICAL_LABEL_BUCKET_SIZE)));
@@ -923,7 +925,7 @@ export function isCityPermanentlySubmerged(feature, world) {
     }
   }
   const submerged = Boolean(nearest && (nearest.inundated || nearest.permanentlySubmerged) && best < 2.2);
-  index.results.set(resultKey, submerged);
+  index.results.set(feature, submerged);
   return submerged;
 }
 
@@ -966,12 +968,9 @@ function labelBoxCollides(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SI
   const maxX = Math.floor(box.right / cellSize);
   const minY = Math.floor(box.top / cellSize);
   const maxY = Math.floor(box.bottom / cellSize);
-  const checked = new Set();
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       for (const other of occupiedCells.get(`${x}:${y}`) ?? []) {
-        if (checked.has(other)) continue;
-        checked.add(other);
         if (!(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom)) return true;
       }
     }
@@ -987,8 +986,9 @@ function addLabelBox(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SIZE) {
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       const key = `${x}:${y}`;
-      if (!occupiedCells.has(key)) occupiedCells.set(key, []);
-      occupiedCells.get(key).push(box);
+      let bucket = occupiedCells.get(key);
+      if (!bucket) occupiedCells.set(key, bucket = []);
+      bucket.push(box);
     }
   }
 }
