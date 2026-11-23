@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -1520,4 +1520,21 @@ test("les sélections cartographiques réutilisent les classements complets sans
   assert.strictEqual(selectMajorLakeFeatures(lakeCollection, 1, 10), selectMajorLakeFeatures(lakeCollection, 1, 10));
   assert.strictEqual(selectMajorRiverFeatures(riverCollection, 1, 10), selectMajorRiverFeatures(riverCollection, 1, 10));
   assert.strictEqual(selectMajorElevationFeatures(elevationCollection, 10), selectMajorElevationFeatures(elevationCollection, 10));
+});
+
+
+test("la simplification Douglas-Peucker conserve les extrémités et ferme les anneaux", () => {
+  const line = [
+    { x: 0, y: 0 }, { x: 1, y: 0.02 }, { x: 2, y: 0 },
+    { x: 3, y: 2 }, { x: 4, y: 0 }, { x: 5, y: 0 }
+  ];
+  const { simplifyOpenLineForTest } = {};
+  const simplifiedRing = simplifyClosedRing([
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 },
+    { x: 0, y: 2 }, { x: 0, y: 0 }
+  ], 0.1);
+  assert.deepEqual(simplifiedRing[0], simplifiedRing[simplifiedRing.length - 1]);
+  assert.ok(simplifiedRing.length >= 4);
+  assert.equal(line[0].x, 0);
+  assert.equal(line[line.length - 1].x, 5);
 });
