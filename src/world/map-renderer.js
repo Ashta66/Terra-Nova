@@ -83,24 +83,32 @@ function lakeGeographicArea(feature) {
   return area;
 }
 
+const sortedLakeFeatureCollections = new WeakMap();
+
 /** Ne conserve que les 12 lacs les plus importants parmi les entités visibles. */
 export function selectMajorLakeFeatures(collection, maxRank = 1, maxFeatures = MAX_VISIBLE_LAKES) {
   if (!collection?.features) return [];
-  return collection.features
-    .filter(feature => {
-      if (!["Polygon", "MultiPolygon"].includes(feature?.geometry?.type)) return false;
-      const rawRank = feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM;
+  let profiles = sortedLakeFeatureCollections.get(collection);
+  if (!profiles) {
+    profiles = new Map();
+    sortedLakeFeatureCollections.set(collection, profiles);
+  }
+  const rankKey = String(maxRank);
+  let sorted = profiles.get(rankKey);
+  if (!sorted) {
+    sorted = collection.features.flatMap((feature, index) => {
+      if (!["Polygon", "MultiPolygon"].includes(feature?.geometry?.type)) return [];
+      const rawRank = feature.properties?.scalerank ?? feature.properties?.SCALERANK
+        ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM;
       const rank = Number(rawRank);
-      return (Number.isFinite(rank) ? rank : 1) <= maxRank;
-    })
-    .sort((a, b) => {
-      const rankOf = feature => {
-        const value = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM);
-        return Number.isFinite(value) ? value : 1;
-      };
-      return rankOf(a) - rankOf(b) || lakeGeographicArea(b) - lakeGeographicArea(a);
-    })
-    .slice(0, Math.max(0, maxFeatures));
+      const normalizedRank = Number.isFinite(rank) ? rank : 1;
+      return normalizedRank <= maxRank ? [{ feature, rank: normalizedRank, index }] : [];
+    }).sort((a, b) => a.rank - b.rank
+      || lakeGeographicArea(b.feature) - lakeGeographicArea(a.feature)
+      || a.index - b.index).map(entry => entry.feature);
+    profiles.set(rankKey, sorted);
+  }
+  return sorted.slice(0, Math.max(0, maxFeatures));
 }
 
 
