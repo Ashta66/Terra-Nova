@@ -1,6 +1,7 @@
 const sceneContexts = new WeakMap();
 
 function getSceneContext(target) {
+  if (!target) return null;
   let context = sceneContexts.get(target);
   if (context) return context;
   context = target?.getContext?.("2d") ?? null;
