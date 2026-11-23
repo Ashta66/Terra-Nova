@@ -1562,8 +1562,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
     // ne pas retracer son anneau GeoJSON comme une côte visible.
-    const landCoastFeatures = visibleLand?.features?.filter(feature => !isAntarcticLandFeature(feature)) ?? [];
-    const landCoastFeatureSet = new Set(landCoastFeatures);
+    const landCoastFeatures = [];
+    const landCoastFeatureSet = new Set();
+    for (const feature of visibleLand?.features ?? []) {
+      if (isAntarcticLandFeature(feature)) continue;
+      landCoastFeatures.push(feature);
+      landCoastFeatureSet.add(feature);
+    }
     const hasLandCoastFeature = feature => landCoastFeatureSet.has(feature);
     const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     let landClipPath = null;
