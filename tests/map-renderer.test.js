@@ -1398,3 +1398,49 @@ test("les familles cartographiques détectent les ajouts et retraits de couches 
   assert.deepEqual(getChangedMapLayerFamilies(previous, next), ["physical"]);
   assert.deepEqual(getChangedMapLayerFamilies(next, previous), ["physical"]);
 });
+
+
+test("le classement des fleuves ne relit pas les rangs pendant le tri", () => {
+  let rankReads = 0;
+  const features = Array.from({ length: 12 }, (_, index) => ({
+    type: "Feature",
+    properties: { get scalerank() { rankReads++; return index % 2; } },
+    geometry: { type: "LineString", coordinates: Array.from({ length: index + 2 }, (_, point) => [point, index]) }
+  }));
+  const selected = selectMajorRiverFeatures({ features }, 1, 12);
+  const readsAfterSort = rankReads;
+  assert.equal(selected.length, 12);
+  assert.ok(rankReads <= features.length, "le rang est lu une seule fois par entité");
+  selectMajorRiverFeatures({ features: [] }, 1, 12);
+  assert.equal(rankReads, readsAfterSort);
+});
+
+test("le classement des repères d'altitude lit chaque altitude une seule fois", () => {
+  let elevationReads = 0;
+  const features = Array.from({ length: 16 }, (_, index) => ({
+    type: "Feature",
+    properties: { get elevation_m() { elevationReads++; return index * 100; } },
+    geometry: { type: "Point", coordinates: [index, index] }
+  }));
+  const collection = { features };
+  const selected = selectMajorElevationFeatures(collection, 8);
+  assert.equal(selected.length, 8);
+  assert.equal(elevationReads, features.length);
+  selectMajorElevationFeatures(collection, 4);
+  assert.equal(elevationReads, features.length, "le classement mis en cache ne relit pas les altitudes");
+});
+
+test("le regroupement des frontières conserve deux styles de tirets sans allocation par entité", () => {
+  const { canvas, calls } = createCanvas();
+  const boundaries = { type: "FeatureCollection", features: Array.from({ length: 20 }, (_, index) => ({
+    type: "Feature",
+    properties: { BORDERPRECISION: index % 2 === 0 ? 2 : 3, scalerank: 0 },
+    geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.5, 1]] }
+  })) };
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 },
+    politicalBoundaries: boundaries
+  });
+  const dashCalls = calls.filter(call => call[0] === "setLineDash");
+  assert.ok(dashCalls.length <= 2, "les motifs sont appliqués une fois par lot, pas une fois par frontière");
+});
