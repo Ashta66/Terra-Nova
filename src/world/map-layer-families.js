@@ -30,7 +30,9 @@ export function createMapLayerFamilies(layers = {}) {
 
 export function getChangedMapLayerFamilies(previous = {}, next = {}) {
   const changed = [];
-  for (const family of Object.keys(next)) {
+  const families = Object.keys(next);
+  for (let familyIndex = 0; familyIndex < families.length; familyIndex++) {
+    const family = families[familyIndex];
     const before = previous[family] ?? {};
     const after = next[family] ?? {};
     for (const key of Object.keys(before)) {
