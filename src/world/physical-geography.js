@@ -17,6 +17,18 @@ function addCalendarDays(date,days){const d=new Date(date+"T00:00:00Z");d.setUTC
 function distanceCoordinates(longitudeA,latitudeA,longitudeB,latitudeB){const rad=Math.PI/180,p1=latitudeA*rad,p2=latitudeB*rad,dp=(latitudeB-latitudeA)*rad,dl=(((longitudeB-longitudeA+540)%360)-180)*rad,h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(clamp(h,0,1)));}
 function distance(a,b){return distanceCoordinates(a.longitude,a.latitude,b.longitude,b.latitude);}
 function createDistanceFromPoint(point){const rad=Math.PI/180,p1=point.latitude*rad,cosP1=Math.cos(p1),longitude=point.longitude,latitude=point.latitude;return cell=>{const p2=cell.latitude*rad,dp=(cell.latitude-latitude)*rad,dl=(((cell.longitude-longitude+540)%360)-180)*rad,h=Math.sin(dp/2)**2+cosP1*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(clamp(h,0,1)));};}
+function visitOceanNeighbor(nx,ny,cols,rows,mask,queue,tail,grid,step){
+ if(ny<0||ny>=rows)return tail;
+ nx=(nx+cols)%cols;
+ const next=ny*cols+nx;
+ if(mask[next])return tail;
+ const px=Math.min(grid.width-1,nx*step+Math.floor(step/2));
+ const py=Math.min(grid.height-1,ny*step+Math.floor(step/2));
+ if(grid.values[py*grid.width+px]>=0)return tail;
+ mask[next]=1;
+ queue[tail++]=next;
+ return tail;
+}
 function checkCell(c){id(c.id,"Cellule");num(c.longitude,"Longitude",-180,180);num(c.latitude,"Latitude",-90,90);num(c.elevationM??0,"Altitude",-12000,9000);num(c.coastalDistanceKm??0,"Distance côtière",0,20000);if(c.regionId!=null)id(c.regionId,"Région");}
 export function createPhysicalWorld(cells=[]){const ids=new Set(),baseCells=cells.map(c=>{checkCell(c);if(ids.has(c.id))throw Error("Cellule dupliquée : "+c.id);ids.add(c.id);return {...clone(c),baseElevationM:Number(c.elevationM??0),elevationDeltaM:0,currentElevationM:Number(c.elevationM??0),damage:0,ashLoad:0,inundated:false,waterDepthM:0,habitability:1,surfaceState:"natural"};});return {baseCells,currentCells:clone(baseCells),events:[],history:[],revision:0,meanSeaLevelM:0,tileRevisions:{},lastInvalidatedTileKeys:[]};}
 export function validatePhysicalWorld(w){if(!w||!Array.isArray(w.baseCells)||!Array.isArray(w.currentCells)||!Array.isArray(w.events))throw TypeError("État physique invalide.");const ids=new Set();for(const c of w.currentCells){checkCell(c);if(ids.has(c.id))throw Error("Cellule dupliquée : "+c.id);ids.add(c.id);}return true;}
