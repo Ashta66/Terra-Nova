@@ -485,14 +485,17 @@ function drawAntarcticLandBase(context, features, width, height, projection) {
 
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
   if (!collection?.features) return 0;
-  let drawn = 0;  const renderScale = projection.renderScale ?? 1;
+  let drawn = 0;
+  const renderScale = projection.renderScale ?? 1;
+  const coastProfile = simplifyCoast
+    ? (coastProfileOverride ?? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1))
+    : null;
   context.save();
   context.globalAlpha = alpha;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     const featureRank = Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0);
     if (featureRank > maxRank) continue;
-    const coastProfile = simplifyCoast ? (coastProfileOverride ?? getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1)) : null;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (!cachedPath) {
       context.beginPath();
@@ -638,13 +641,13 @@ function drawLandHachures(context, collection, width, height, projection, color)
   if (!collection?.features || typeof context.clip !== "function") return;
   context.save();
   const renderScale = projection.renderScale ?? 1;
+  const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   context.globalAlpha = 0.12;
   context.strokeStyle = color;
   context.lineWidth = 0.45 * renderScale;
   for (const feature of collection.features) {
     if (!feature?.geometry) continue;
     context.save();
-    const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       context.clip(cachedPath, "evenodd");
