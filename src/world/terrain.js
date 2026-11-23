@@ -174,14 +174,7 @@ export function classifyLandform(elevation, west, east, north, south, latitude, 
 }
 
 function applyLandformTint(color, landform) {
-  const tints = {
-    mountains: [190, 174, 157],
-    plateaus: [183, 158, 121],
-    valleys: [91, 116, 80],
-    plains: [137, 151, 103],
-    hills: [163, 143, 113]
-  };
-  const tint = tints[landform];
+  const tint = LANDFORM_TINTS[landform];
   if (!tint) return color;
   const strength = landform === "mountains" ? 0.04 : 0.035;
   const inverse = 1 - strength;
