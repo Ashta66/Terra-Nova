@@ -186,13 +186,14 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
 export function buildOceanConnectivityMask(grid,step=12){
  if(!grid?.values||!Number.isInteger(step)||step<1)throw TypeError("Grille de relief invalide.");
  const cols=Math.ceil(grid.width/step),rows=Math.ceil(grid.height/step),mask=new Uint8Array(cols*rows),queue=new Int32Array(cols*rows);
- const elevationAt=(gx,gy)=>grid.values[Math.min(grid.height-1,gy*step+Math.floor(step/2))*grid.width+Math.min(grid.width-1,gx*step+Math.floor(step/2))];
  let head=0,tail=0;
- const seed=(gx,gy)=>{const index=gy*cols+gx;if(!mask[index]&&elevationAt(gx,gy)<0){mask[index]=1;queue[tail++]=index;}};
+ const seed=(gx,gy)=>{const index=gy*cols+gx;if(!mask[index]){const px=Math.min(grid.width-1,gx*step+Math.floor(step/2)),py=Math.min(grid.height-1,gy*step+Math.floor(step/2));if(grid.values[py*grid.width+px]<0){mask[index]=1;queue[tail++]=index;}}};
  for(let x=0;x<cols;x++){seed(x,0);if(rows>1)seed(x,rows-1);}
  while(head<tail){const index=queue[head++],x=index%cols,y=Math.floor(index/cols);
-  const visit=(nx,ny)=>{if(ny<0||ny>=rows)return;nx=(nx+cols)%cols;const next=ny*cols+nx;if(!mask[next]&&elevationAt(nx,ny)<0){mask[next]=1;queue[tail++]=next;}};
-  visit(x-1,y);visit(x+1,y);visit(x,y-1);visit(x,y+1);
+  tail=visitOceanNeighbor(x-1,y,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x+1,y,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x,y-1,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x,y+1,cols,rows,mask,queue,tail,grid,step);
  }
  return {mask,cols,rows,step};
 }
