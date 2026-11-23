@@ -22,9 +22,16 @@ export function addDays(isoDate, amount = 1) {
   date.setUTCDate(date.getUTCDate() + amount);
   return toIsoDate(date);
 }
+const dateFormatters = new Map();
+const DATE_FORMAT_OPTIONS = Object.freeze({ day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 export function formatDate(isoDate, locale = "fr-FR") {
   const date = parseDate(isoDate);
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+  let formatter = dateFormatters.get(locale);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, DATE_FORMAT_OPTIONS);
+    dateFormatters.set(locale, formatter);
+  }
+  return formatter.format(date);
 }
 export function createClock(overrides = {}) {
   const date = overrides.date ?? START_DATE;
