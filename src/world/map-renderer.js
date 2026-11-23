@@ -7,7 +7,7 @@ import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
 
 /** Partitionne une collection en un seul passage, sans rappeler le test de capacité. */
-function partitionFeatures(features, supports) {
+export function partitionFeatures(features, supports) {
   const supported = [], unsupported = [];
   for (const feature of features ?? []) {
     (supports(feature) ? supported : unsupported).push(feature);
