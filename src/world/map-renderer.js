@@ -1220,9 +1220,9 @@ function territoryMatchesSelectedCountry(feature, selectedCountry) {
 }
 export function classifyHistoricalTerritoryStyle(feature){
  const p=feature?.properties??{},s=String(p.historicalStatus??p.status??p.STATUS??p.CONTROL_STATUS??"").toLowerCase();
- if(["contested","disputed","contesté","disputé"].includes(s)||p.DISPUTED===1||p.DISPUTED==="1")return "contested";
- if(["influence","sphere-of-influence","influence-zone","non-state","cultural"].includes(s))return "influence";
- if(["unclaimed","unoccupied","no-claim"].includes(s))return "unclaimed";return "sovereign";
+ if(CONTESTED_STATUSES.has(s)||p.DISPUTED===1||p.DISPUTED==="1")return "contested";
+ if(INFLUENCE_STATUSES.has(s))return "influence";
+ if(UNCLAIMED_STATUSES.has(s))return "unclaimed";return "sovereign";
 }
 export function classifyPhysicalCellVisual(c){
   // Les cellules sont un support de calcul : elles ne sont jamais dessinées en rectangles.
