@@ -28,20 +28,20 @@ export function createMapLayerFamilies(layers = {}) {
   };
 }
 
-const MAP_LAYER_FAMILY_KEYS = Object.freeze({
-  physical: Object.freeze(["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"]),
-  political: Object.freeze(["labels", "territories", "politicalBoundaries", "administrativeBoundaries"]),
-  dynamic: Object.freeze(["physicalWorld"])
-});
-const MAP_LAYER_FAMILY_ORDER = Object.freeze(["physical", "political", "dynamic"]);
-
 export function getChangedMapLayerFamilies(previous = {}, next = {}) {
   const changed = [];
-  for (const family of MAP_LAYER_FAMILY_ORDER) {
+  for (const family of Object.keys(next)) {
     const before = previous[family] ?? {};
     const after = next[family] ?? {};
-    for (const key of MAP_LAYER_FAMILY_KEYS[family]) {
+    for (const key of Object.keys(before)) {
       if (before[key] !== after[key]) {
+        changed.push(family);
+        break;
+      }
+    }
+    if (changed[changed.length - 1] === family) continue;
+    for (const key of Object.keys(after)) {
+      if (!Object.hasOwn(before, key)) {
         changed.push(family);
         break;
       }
