@@ -1053,6 +1053,27 @@ test("la taille des textes évolue progressivement sans saut au seuil de zoom",(
 });
 
 
+test("le contour externe de l'Antarctique n'ajoute pas de trait au nord du continent", () => {
+  const renderStrokeCount = collection => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: true
+    });
+    return calls.filter(call => call[0] === "stroke").length;
+  };
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [-180, -70], [-90, -65], [0, -64], [90, -65], [180, -70],
+      [180, -89], [0, -89], [-180, -89], [-180, -70]
+    ]] }
+  }] };
+  assert.equal(renderStrokeCount(antarctica), renderStrokeCount({ type: "FeatureCollection", features: [] }),
+    "le contour de la géométrie antarctique ne doit pas être tracé");
+});
+
 test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaillés sans débordement de pile", () => {
   const { canvas, calls } = createCanvas();
   const ring = Array.from({ length: 140000 }, (_, index) => {
