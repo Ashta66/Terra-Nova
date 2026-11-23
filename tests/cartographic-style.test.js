@@ -213,20 +213,22 @@ test("le cadre de la carte adopte une matière distincte sans intercepter le can
     ["present", /border-radius:\s*3px/],
     ["future", /map-frame::after/]
   ]) {
-    const start = css.lastIndexOf(`body[data-cartographic-era="${era}"] .map-frame`);
-    assert.notEqual(start, -1, `cadre dédié absent pour ${era}`);
-    assert.match(css.slice(start, start + 850), treatment, `traitement du cadre absent pour ${era}`);
+    const selector = new RegExp(`body\\[data-cartographic-era="${era}"\\]\\s+\\.map-frame`, "g");
+    const matches = [...css.matchAll(selector)];
+    assert.ok(matches.length, `cadre dédié absent pour ${era}`);
+    assert.ok(matches.some(match => treatment.test(css.slice(match.index, match.index + 850))),
+      `traitement du cadre absent pour ${era}`);
   }
 });
 
 
-test("les ères 1789–1913 ne superposent pas de grille carrée à la carte", () => {
+test("les ères 1789–1913 ne superposent pas de points rouges ni de grille carrée à la carte", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
   const modern = css.match(/body\\[data-cartographic-era="modern"\\] \\.map-cartographic-overlay::before \\{([^}]*)\\}/);
   assert.ok(modern, "cadre cartographique moderne présent");
   assert.match(modern[1], /background:\\s*none/);
   assert.doesNotMatch(modern[1], /repeating-linear-gradient/);
-  assert.doesNotMatch(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay \\{\\s*opacity:/);
+  assert.doesNotMatch(css, /body\\[data-cartographic-era="revolution"\\] \\.map-frame::after\\s*\\{[^}]*radial-gradient/);
 });
 
 test("les variables de thème ne sont réécrites que lors d'un changement d'année et les diagnostics exigent debug=1", () => {
