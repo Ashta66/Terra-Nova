@@ -1094,3 +1094,30 @@ test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaill
   assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
     "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
 });
+
+test("l'Antarctique est exclu du remplissage terrestre translucide WebGL", () => {
+  const { canvas } = createCanvas();
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    bbox: [-180, -90, 180, -63],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  }] };
+  let renderedLayers = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    supports: () => true,
+    supportsBoundary: () => true,
+    renderLayers: layers => { renderedLayers = layers; return {}; }
+  };
+  renderWorldMap(canvas, antarctica, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    terrainEnabled: true,
+    geographicWebGLRenderer
+  });
+  const landFill = renderedLayers.find(layer => layer.key === "land-fill");
+  assert.ok(landFill, "la couche de remplissage terrestre doit être rendue");
+  assert.equal(landFill.features.length, 0,
+    "l'Antarctique possède déjà son aplat blanc opaque et ne doit pas recevoir le voile blanc translucide");
+});
+
