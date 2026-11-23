@@ -132,12 +132,14 @@ test("les textures de matière sont de vrais assets organiques et non des motifs
 });
 
 
-test("l'interface de 2040 privilégie un futur graphite et des accents non électriques", () => {
+test("theme 2040 : graphite sombre et accents non électriques", () => {
   const theme = getCartographicTheme(2040);
   assert.equal(theme.id, "present");
   assert.equal(theme.colors.accent, "#a58d68");
+  assert.equal(theme.colors.surface, "#080e12");
+  assert.equal(theme.colors.panel, "#111a20");
   assert.equal(theme.visuals.material, "glass");
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /data-cartographic-era="present"[^}]*--theme-accent:\s*#a58d68/i);
-  assert.match(css, /data-cartographic-era="present"[^}]*background-blend-mode:\s*soft-light/i);
+  assert.match(css, /data-cartographic-era="present"[\s\S]*?--theme-accent:\s*#a58d68/);
+  assert.match(css, /data-cartographic-era="present"[\s\S]*?background-blend-mode:\s*soft-light,\s*normal/);
 });
