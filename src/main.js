@@ -1189,7 +1189,11 @@ function render() {
     lastThemeYear = year;
   }
   document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
-  $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
+  const yearScrubber = $("year-scrubber");
+  yearScrubber.value = String(Number(state.clock.date.slice(0, 4)));
+  const timelineProgress = (Number(yearScrubber.value) - Number(yearScrubber.min))
+    / Math.max(1, Number(yearScrubber.max) - Number(yearScrubber.min)) * 100;
+  yearScrubber.style.setProperty("--timeline-progress", `${Math.max(0, Math.min(100, timelineProgress))}%`);
   if (!document.body.classList.contains("campaign-started")) {
     $("start-year").value = String(year);
     $("start-year-value").textContent = String(year);
