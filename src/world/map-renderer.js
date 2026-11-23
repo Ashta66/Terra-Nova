@@ -1196,12 +1196,20 @@ export function classifyPhysicalCellVisual(c){
 }
 function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  if(!world)return 0;let count=0;ctx.save();
- // Une passe unique pour les côtes modifiées, et non une passe complète par événement.
- if(terrainGrid&&projection.type==="equirectangular"&&(world.events??[]).some(e=>["tsunami","meteor-impact","earthquake"].includes(e.type))){
+ // Repère les événements physiques sans créer de tableau ni de callback temporaire.
+ const events = world.events ?? [];
+ let hasTerrainEvent = false;
+ for (const event of events) {
+  if (event.type === "tsunami" || event.type === "meteor-impact" || event.type === "earthquake") {
+   hasTerrainEvent = true;
+   break;
+  }
+ }
+ if (terrainGrid && projection.type === "equirectangular" && hasTerrainEvent) {
   drawTerrainRaster(ctx,w,h,terrainGrid,projection.viewport,1,false,world,true);
  }
  const zoom=Number(projection.lodZoom??projection.viewport?.zoom??1);
- for(const event of world.events??[]){
+ for(const event of events){
   const center=projectCoordinate([event.longitude,event.latitude],w,h,projection);
   const north=projectCoordinate([event.longitude,Math.min(89.8,event.latitude+event.radiusKm/111.32)],w,h,projection);
   const east=projectCoordinate([event.longitude+event.radiusKm/(111.32*Math.max(.18,Math.cos(event.latitude*Math.PI/180))),event.latitude],w,h,projection);
