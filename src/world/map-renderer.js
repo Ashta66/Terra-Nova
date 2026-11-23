@@ -666,12 +666,13 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
     context.lineWidth = lineWidth * renderScale;
-    const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+    const singleLine = geometry.type === "LineString";
+    const lines = geometry.coordinates;
     if (cachedPath) {
       context.stroke(cachedPath);
       // Conserver la sémantique historique : un cours d'eau multi-segments
       // compte chaque ligne réellement dessinée, même avec un chemin Path2D unique.
-      drawn += lines.length;
+      drawn += singleLine ? 1 : lines.length;
       continue;
     }
     for (const line of lines) {
