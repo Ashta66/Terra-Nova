@@ -1,4 +1,4 @@
-import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
+import { advanceClock, createClock, formatDate, SPEEDS, MAX_SIMULATION_YEAR } from "./core/clock.js";
 import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
@@ -1204,7 +1204,9 @@ function render(updateMap = true) {
   if (cachedYearButtons === null) cachedYearButtons = [...document.querySelectorAll("[data-year]")];
   cachedYearButtons.forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   const yearScrubber = $("year-scrubber");
-  yearScrubber.value = String(Number(state.clock.date.slice(0, 4)));
+  yearScrubber.max = String(MAX_SIMULATION_YEAR);
+  yearScrubber.value = String(Math.min(MAX_SIMULATION_YEAR, Number(state.clock.date.slice(0, 4))));
+  $("timeline-range").textContent = MIN_SIMULATION_YEAR + " — " + MAX_SIMULATION_YEAR;
   const timelineProgress = (Number(yearScrubber.value) - Number(yearScrubber.min))
     / Math.max(1, Number(yearScrubber.max) - Number(yearScrubber.min)) * 100;
   yearScrubber.style.setProperty("--timeline-progress", `${Math.max(0, Math.min(100, timelineProgress))}%`);
@@ -1229,6 +1231,11 @@ function schedule() {
     const previousDate = state.clock.date;
     const previousPhysicalWorld = state.physicalWorld;
     state.clock = advanceClock(state.clock, state.clock.speed);
+    if (Number(state.clock.date.slice(0, 4)) > MAX_SIMULATION_YEAR) {
+      state.clock.date = MAX_SIMULATION_DATE;
+      state.clock.paused = true;
+      stopTimer();
+    }
     if (state.physicalWorld) {
       state.physicalWorld = expirePhysicalWorldForDate(state.physicalWorld, state.clock.date);
     }
@@ -1245,16 +1252,21 @@ $("toggle-clock").addEventListener("click", () => {
   render();
 });
 $("advance-day").addEventListener("click", () => {
-  state.clock = advanceClock(state.clock);
-  render();
+  moveClockToDate(new Date(Date.parse(state.clock.date + "T00:00:00Z") + 86400000));
 });
 const MIN_SIMULATION_YEAR = 1444;
-const MAX_SIMULATION_YEAR = 9999;
+const MAX_SIMULATION_DATE = MAX_SIMULATION_YEAR + "-12-31";
 function moveClockToDate(nextDate) {
   const oldDate = new Date(state.clock.date + "T00:00:00Z");
-  const delta = Math.round((nextDate - oldDate) / 86400000);
-  state.clock.date = nextDate.toISOString().slice(0, 10);
+  const limit = new Date(MAX_SIMULATION_DATE + "T00:00:00Z");
+  const boundedDate = nextDate > limit ? limit : nextDate;
+  const delta = Math.round((boundedDate - oldDate) / 86400000);
+  state.clock.date = boundedDate.toISOString().slice(0, 10);
   state.clock.day = Math.max(1, state.clock.day + delta);
+  if (state.clock.date === MAX_SIMULATION_DATE && !state.clock.paused) {
+    state.clock.paused = true;
+    stopTimer();
+  }
   render();
 }
 function moveClockToYear(year) {
