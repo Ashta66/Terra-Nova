@@ -891,7 +891,8 @@ function getPhysicalLabelIndex(world) {
     const key = y * PHYSICAL_LABEL_BUCKET_COLUMNS + x;
     let bucket = buckets.get(key);
     if (!bucket) buckets.set(key, bucket = []);
-    bucket.push(cell);
+    // Les coordonnées normalisées sont calculées une fois par révision du monde.
+    bucket.push({ cell, longitude, latitude });
   }
   const index = { revision: world.revision, buckets, results: new WeakMap() };
   physicalLabelStatusCache.set(world, index);
@@ -916,11 +917,11 @@ export function isCityPermanentlySubmerged(feature, world) {
     if (y < 0 || y >= 90) continue;
     for (let dx = -2; dx <= 2; dx++) {
       const x = (centerX + dx + PHYSICAL_LABEL_BUCKET_COLUMNS) % PHYSICAL_LABEL_BUCKET_COLUMNS;
-      for (const cell of index.buckets.get(y * PHYSICAL_LABEL_BUCKET_COLUMNS + x) ?? []) {
-        const deltaLongitude = ((Number(cell.longitude) - longitude + 540) % 360) - 180;
-        const deltaLatitude = Number(cell.latitude) - latitude;
+      for (const entry of index.buckets.get(y * PHYSICAL_LABEL_BUCKET_COLUMNS + x) ?? []) {
+        const deltaLongitude = ((entry.longitude - longitude + 540) % 360) - 180;
+        const deltaLatitude = entry.latitude - latitude;
         const distance = Math.hypot(deltaLongitude * Math.cos(latitude * Math.PI / 180), deltaLatitude);
-        if (distance < best) { best = distance; nearest = cell; }
+        if (distance < best) { best = distance; nearest = entry.cell; }
       }
     }
   }
