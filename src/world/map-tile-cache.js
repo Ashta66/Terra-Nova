@@ -1,6 +1,18 @@
 const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_ENTRIES = 192;
 
+function getTileByteLength(value) {
+  if (Number.isFinite(value?.byteLength)) return value.byteLength;
+  if (Number.isFinite(value?.size)) return value.size;
+  if (Number.isFinite(value?.width) && Number.isFinite(value?.height)) return value.width * value.height * 4;
+  return 0;
+}
+
+function touchLru(entries, key, entry) {
+  entries.delete(key);
+  entries.set(key, entry);
+}
+
 /** Cache LRU pondéré pour bitmaps encodés / payloads de tuiles. */
 export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
   const budget = Math.max(1, Number(maxBytes) || DEFAULT_MAX_BYTES);
