@@ -27,6 +27,11 @@ export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   };
 }
 
+const snapTerrainFraction = value => {
+  const nearest = Math.round(value * 1e12) / 1e12;
+  return Math.abs(value - nearest) < 1e-12 ? nearest : value;
+};
+
 function terrainGridCoordinates(grid, longitude, latitude) {
   const fallbackSpacing = Number(grid.spacingDegrees) || (180 / grid.height);
   const longitudeSpacing = Number(grid.longitudeSpacingDegrees) || fallbackSpacing;
