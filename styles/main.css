@@ -943,13 +943,7 @@ body[data-cartographic-era="revolution"] .map-frame {
   border-radius:0;border:2px solid color-mix(in srgb,var(--theme-border) 75%,var(--theme-accent));
   box-shadow:0 20px 50px #0009,inset 0 0 0 1px #ffffff12;
 }
-body[data-cartographic-era="revolution"] .map-frame::after {
-  opacity:.34;background:
-    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) left 7px top 7px/18px 18px,
-    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) right 7px top 7px/18px 18px,
-    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) left 7px bottom 7px/18px 18px,
-    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) right 7px bottom 7px/18px 18px;
-}
+/* L'ère Révolution conserve son cadre net : aucun motif de points sur la surface de la carte. */
 body[data-cartographic-era="modern"] .map-frame {
   border-radius:0;border:1px solid #82918a66;
   box-shadow:0 22px 54px #000a,inset 0 0 0 1px #d0d7c30c;
