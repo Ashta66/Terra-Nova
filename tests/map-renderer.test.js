@@ -941,7 +941,7 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("Kingdom of Bavaria"),"Royaume de Bavière");
  assert.equal(frenchTerritoryName("Duchy of Burgundy"),"Duché de Bourgogne");
  assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
- assert.equal(frenchTerritoryName("Sultanate of Oman"),"Sultanat Oman");
+ assert.equal(frenchTerritoryName("Sultanate of Oman"),"Sultanat d’Oman");
  assert.equal(frenchTerritoryName("Kingdom of Wallachia"),"Royaume de Valachie");
  assert.equal(frenchTerritoryName("Orange Free State"),"État libre d’Orange");
  assert.equal(frenchTerritoryName("Gold Coast"),"Côte-de-l’Or");
