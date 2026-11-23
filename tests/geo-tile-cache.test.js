@@ -19,3 +19,11 @@ test("une seconde modification incrémente la révision sans toucher les autres 
   assert.equal(getGeoTileRevision(second.revisions, "18:9"), 2);
   assert.equal(getGeoTileRevision(second.revisions, "19:9"), 0);
 });
+test("les invalidations multiples sont dédupliquées et triées par ligne puis colonne", () => {
+  const cells = [{ longitude: 179.5, latitude: 0 }, { longitude: 179.5, latitude: 0 }];
+  const result = invalidateGeoTiles({}, cells, 1);
+  assert.equal(result.invalidatedTileKeys.length, 9);
+  const positions = result.invalidatedTileKeys.map(key => key.split(":").map(Number));
+  assert.deepEqual(positions, [...positions].sort((a, b) => a[1] - b[1] || a[0] - b[0]));
+  for (const key of result.invalidatedTileKeys) assert.equal(result.revisions[key], 1);
+});
