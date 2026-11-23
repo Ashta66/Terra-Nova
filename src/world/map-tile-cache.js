@@ -2,10 +2,16 @@ const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_ENTRIES = 192;
 
 function getTileByteLength(value) {
-  if (Number.isFinite(value?.byteLength)) return value.byteLength;
-  if (Number.isFinite(value?.size)) return value.size;
-  if (Number.isFinite(value?.width) && Number.isFinite(value?.height)) return value.width * value.height * 4;
+  if (Number.isFinite(value?.byteLength)) return Math.max(0, value.byteLength);
+  if (Number.isFinite(value?.size)) return Math.max(0, value.size);
+  if (Number.isFinite(value?.width) && value.width > 0 && Number.isFinite(value?.height) && value.height > 0) {
+    return value.width * value.height * 4;
+  }
   return 0;
+}
+
+function closeTileValue(value) {
+  try { value?.close?.(); } catch { /* une ressource défaillante ne doit pas bloquer l'éviction */ }
 }
 
 function touchLru(entries, key, entry) {
@@ -27,7 +33,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       if (!oldest) break;
       entries.delete(oldest[0]);
       bytes -= oldest[1].bytes;
-      oldest[1].value?.close?.();
+      closeTileValue(oldest[1].value);
     }
   };
   return {
@@ -48,7 +54,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       const size = getTileByteLength(value);
       if (!id || !value || size > budget) return false;
       const previous = entries.get(id);
-      if (previous) { bytes -= previous.bytes; entries.delete(id); if (previous.value !== value) previous.value?.close?.(); }
+      if (previous) { bytes -= previous.bytes; entries.delete(id); if (previous.value !== value) closeTileValue(previous.value); }
       entries.set(id, { value, bytes: size });
       bytes += size;
       evict();
@@ -60,11 +66,11 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       if (!entry) return false;
       entries.delete(id);
       bytes -= entry.bytes;
-      entry.value?.close?.();
+      closeTileValue(entry.value);
       return true;
     },
     clear() {
-      for (const entry of entries.values()) entry.value?.close?.();
+      for (const entry of entries.values()) closeTileValue(entry.value);
       entries.clear();
       bytes = 0;
       hits = 0;
