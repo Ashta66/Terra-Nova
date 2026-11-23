@@ -375,12 +375,10 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     ...projection,
     viewport: { ...viewport, centerLongitude: snappedLongitude, centerLatitude: snappedLatitude }
   };
-  const key = [
-    projection.type, width, height, zoom.toFixed(4),
-    snappedLongitude.toFixed(4), snappedLatitude.toFixed(4),
-    coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
-    coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all"
-  ].join(":");
+  const key = projection.type + ":" + width + ":" + height + ":" + zoom.toFixed(4)
+    + ":" + snappedLongitude.toFixed(4) + ":" + snappedLatitude.toFixed(4)
+    + ":" + (coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full")
+    + ":" + (coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all");
   let entries = projectedPathCache.get(feature);
   if (!entries) {
     entries = new Map();
@@ -429,13 +427,11 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
   const centerLongitude = ((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360 - 180;
   const snappedLongitude = Math.round(centerLongitude / centerStep) * centerStep;
   const snappedLatitude = Math.round(Number(viewport.centerLatitude ?? 0) / centerStep) * centerStep;
-  const key = [
-    width, height, projection.type, zoom.toFixed(4),
-    snappedLongitude.toFixed(4), snappedLatitude.toFixed(4),
-    coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full",
-    coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all",
-    renderObjectId(features)
-  ].join(":");
+  const key = width + ":" + height + ":" + projection.type + ":" + zoom.toFixed(4)
+    + ":" + snappedLongitude.toFixed(4) + ":" + snappedLatitude.toFixed(4)
+    + ":" + (coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full")
+    + ":" + (coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all")
+    + ":" + renderObjectId(features);
   const cached = combinedLandMaskCache.get(key);
   if (cached) {
     combinedLandMaskCacheHits++;
