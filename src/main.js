@@ -204,7 +204,10 @@ function startMapWarmup(){
 function scheduleMapIndexWarmup(){
   if(mapIndexWarmupStarted)return;
   mapIndexWarmupStarted=true;
-  const collections=[worldFeatures,lakeFeatures,riverFeatures,mapLabels,territoryFeatures].filter(collection=>collection?.features?.length);
+  const collections = [];
+  for (const collection of [worldFeatures, lakeFeatures, riverFeatures, mapLabels, territoryFeatures]) {
+    if (collection?.features?.length) collections.push(collection);
+  }
   let cursor=0;
   const idle=deadline=>{
     let didWork=false;
