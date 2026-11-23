@@ -132,8 +132,15 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
   }
  }
  if (!fineCells.length) return world;
- const untouched = world.currentCells.filter(cell => distance({ longitude, latitude }, cell) > radiusKm);
- const untouchedBase = world.baseCells.filter(cell => distance({ longitude, latitude }, cell) > radiusKm);
+ const origin = { longitude, latitude };
+ const untouched = [];
+ for (const cell of world.currentCells) {
+  if (distance(origin, cell) > radiusKm) untouched.push(cell);
+ }
+ const untouchedBase = [];
+ for (const cell of world.baseCells) {
+  if (distance(origin, cell) > radiusKm) untouchedBase.push(cell);
+ }
  let refined = createPhysicalWorld(fineCells);
  for (const previous of [...(world.events ?? [])].sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
   refined = applyPhysicalEvent(refined, previous).world;
