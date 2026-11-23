@@ -127,9 +127,8 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
         values.push(value);
       }
     }
-    const metrics = Object.fromEntries(
-      [...metricValues].map(([key, values]) => [key, summarize(values)])
-    );
+    const metrics = {};
+    for (const [key, values] of metricValues) metrics[key] = summarize(values);
     return { schemaVersion: 1, metadata: { ...metadata, ...(samples.at(-1)?.metadata ?? {}), sampleCount: samples.length, durationMs: Math.max(0, clockNow() - startedAt), userAgent: environment.navigator?.userAgent ?? "unknown", collectedAt: new Date().toISOString() }, metrics };
   }
   function clear() { active = false; samples = []; previousFrameAt = null; startedAt = 0; }
