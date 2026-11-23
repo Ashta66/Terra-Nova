@@ -25,10 +25,12 @@ import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
+import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
+const mapBenchmarkCollector = createMapBenchmarkCollector();
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
   : null;
@@ -155,8 +157,6 @@ function viewSize() {
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
 const $ = (id) => document.getElementById(id);
-// Les diagnostics restent invisibles en jeu normal et ne s'activent qu'avec ?debug=1.
-document.body.classList.toggle("debug-mode", new URLSearchParams(window.location.search).get("debug") === "1");
 let lastThemeYear = null;
 let initialLoadingFinished=false;
 let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;
