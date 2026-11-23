@@ -172,3 +172,50 @@ test("le sélecteur LOD conserve le repli mondial si les données régionales ma
   selector.reset();
   assert.equal(selector.select(6.05, world, regional, 6).level, "world-110m");
 });
+
+
+test("les requêtes GeoJSON concurrentes pour une même ressource sont mutualisées", async () => {
+  let calls = 0;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const fetcher = async () => {
+    calls++;
+    await gate;
+    return { ok: true, json: async () => regional };
+  };
+  const first = loadOptionalGeoJson("./shared-regional.geojson", fetcher);
+  const second = loadOptionalGeoJson("./shared-regional.geojson", fetcher);
+  await Promise.resolve();
+  release();
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(calls, 1);
+  assert.equal(a, b);
+  assert.equal(a.features[0].id, "regional");
+});
+
+test("une URL régionale avec paramètres conserve la bonne clé de ressource", async () => {
+  let requested = "";
+  const loaded = await loadOptionalGeoJson("./data/ne_10m_rivers.geojson?v=2", async url => {
+    requested = url;
+    return { ok: true, json: async () => regional };
+  });
+  assert.match(requested, /ne_10m_rivers_lake_centerlines\\.geojson$/);
+  assert.equal(loaded, regional);
+});
+
+test("les labels régionaux ignorent les coordonnées non finies", () => {
+  const places = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Paris", scalerank: 2, pop_max: 2000000 }, geometry: { type: "Point", coordinates: [2.3, 48.8] } },
+    { type: "Feature", properties: { name: "Coordonnée invalide", scalerank: 1, pop_max: 5000000 }, geometry: { type: "Point", coordinates: [NaN, 48] } },
+    { type: "Feature", properties: { name: "Latitude absente", scalerank: 1, pop_max: 5000000 }, geometry: { type: "Point", coordinates: [2] } }
+  ] };
+  const labels = buildRegionalCityLabels(places);
+  assert.deepEqual(labels.features.map(feature => feature.properties.name), ["Paris"]);
+});
+
+test("les réponses GeoJSON mal formées sont ignorées sans fuite de requête en attente", async () => {
+  const url = "./malformed-regional.geojson";
+  assert.equal(await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => null })), null);
+  const recovered = await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => regional }));
+  assert.equal(recovered, regional);
+});
