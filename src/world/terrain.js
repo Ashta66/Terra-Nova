@@ -334,7 +334,9 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
  const pixelDegrees=10/tileSize;
  const dx=360/grid.width,dy=180/grid.height,hasPhysicalChanges=Number(physicalWorld?.revision??0)>0,physical=hasPhysicalChanges?physicalLookup(physicalWorld):null;
  let cache=terrainTileCache.get(grid);if(!cache){cache=new Map();terrainTileCache.set(grid,cache);}
- const revisions=physicalWorld?.tileRevisions,hasLocalRevisions=revisions&&Object.keys(revisions).length>0;
+ const revisions=physicalWorld?.tileRevisions;
+ let hasLocalRevisions=false;
+ if(revisions){for(const key in revisions){if(Object.hasOwn(revisions,key)){hasLocalRevisions=true;break;}}}
  const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true;
  let drawn=false;
  for(let ty=0;ty<18;ty++){
