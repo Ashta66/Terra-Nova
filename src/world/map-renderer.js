@@ -1065,8 +1065,8 @@ function polygonInteriorLabelPoint(feature) {
   return largest;
 }
 
-function territoryName(properties = {}) {
-  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]) {
+export function territoryName(properties = {}) {
+  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG", "FORMAL_FR", "FORMAL_EN", "NAME_0", "ADMIN_0"]) {
     const value = properties[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
@@ -1477,7 +1477,62 @@ const FRENCH_HISTORICAL_NAMES = {
   "portuguese": "portugais",
   "dutch": "néerlandais",
   "german": "allemand",
-  "teutonic": "teutonique"
+  "teutonic": "teutonique",
+  "bavaria": "Bavière",
+  "bohemia": "Bohême",
+  "burgundy": "Bourgogne",
+  "saxony": "Saxe",
+  "lorraine": "Lorraine",
+  "savoy": "Savoie",
+  "milan": "Milan",
+  "tuscany": "Toscane",
+  "navarre": "Navarre",
+  "aragon": "Aragon",
+  "castile": "Castille",
+  "galicia": "Galice",
+  "wallachia": "Valachie",
+  "moldavia": "Moldavie",
+  "transylvania": "Transylvanie",
+  "georgia": "Géorgie",
+  "armenia": "Arménie",
+  "azerbaijan": "Azerbaïdjan",
+  "sri lanka": "Sri Lanka",
+  "ceylon": "Ceylan",
+  "burma": "Birmanie",
+  "siam": "Siam",
+  "cambodia": "Cambodge",
+  "vietnam": "Viêt Nam",
+  "annam": "Annam",
+  "tonkin": "Tonkin",
+  "cochin china": "Cochinchine",
+  "manchuria": "Mandchourie",
+  "tibet": "Tibet",
+  "mongolia": "Mongolie",
+  "korea": "Corée",
+  "yemen": "Yémen",
+  "oman": "Oman",
+  "muscat": "Mascate",
+  "tripolitania": "Tripolitaine",
+  "cyrenaica": "Cyrénaïque",
+  "libya": "Libye",
+  "nubia": "Nubie",
+  "sudan": "Soudan",
+  "senegal": "Sénégal",
+  "congo": "Congo",
+  "angola": "Angola",
+  "mozambique": "Mozambique",
+  "rhodesia": "Rhodésie",
+  "transvaal": "Transvaal",
+  "orange free state": "État libre d’Orange",
+  "cape colony": "Colonie du Cap",
+  "gold coast": "Côte-de-l’Or",
+  "natal": "Natal",
+  "queensland": "Queensland",
+  "new south wales": "Nouvelle-Galles du Sud",
+  "victoria": "Victoria",
+  "tasmania": "Tasmanie",
+  "western australia": "Australie-Occidentale",
+  "south australia": "Australie-Méridionale"
 };
 
 const frenchRegionNames = typeof Intl !== "undefined" && Intl.DisplayNames
@@ -1495,6 +1550,14 @@ export function frenchTerritoryName(value, properties = {}) {
   if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
   if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
   if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
+  const administrativeForm = key.match(/^(kingdom|empire|duchy|principality|republic|sultanate|khanate|emirate|county|province|colony|territory) of (.+)$/);
+  if (administrativeForm) {
+    const prefixes = { kingdom: "Royaume", empire: "Empire", duchy: "Duché", principality: "Principauté",
+      republic: "République", sultanate: "Sultanat", khanate: "Khanat", emirate: "Émirat",
+      county: "Comté", province: "Province", colony: "Colonie", territory: "Territoire" };
+    const place = FRENCH_HISTORICAL_NAMES[administrativeForm[2]];
+    if (place) return prefixes[administrativeForm[1]] + (["empire","sultanate","khanate","emirate"].includes(administrativeForm[1]) ? " " : " de ") + place;
+  }
   const iso3 = String(properties.ISO_A3 ?? properties.ADM0_A3 ?? properties.SOV_A3 ?? "").toUpperCase();
   const iso2 = String(properties.ISO_A2 ?? properties.iso_a2 ?? ISO3_TO_ISO2[iso3] ?? "").toUpperCase();
   if (frenchRegionNames && /^[A-Z]{2}$/.test(iso2) && iso2 !== "-99") {
