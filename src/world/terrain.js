@@ -2,6 +2,20 @@ const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
 export const RELIEF_EXAGGERATION = 18;
 
+const SEA_COLOR_STOPS = [
+  [-11000, [25, 45, 57]], [-4000, [27, 50, 62]], [-1500, [30, 57, 68]],
+  [-500, [36, 68, 77]], [-50, [46, 80, 87]], [0, [55, 91, 96]]
+];
+const LAND_COLOR_STOPS = [
+  [0, [91, 112, 72]], [250, [105, 119, 72]], [1000, [132, 128, 77]],
+  [1500, [148, 132, 92]], [2000, [157, 143, 122]], [2600, [183, 177, 164]],
+  [3200, [213, 216, 215]], [4000, [238, 241, 242]], [5000, [250, 251, 252]]
+];
+const LANDFORM_TINTS = {
+  mountains: [190, 174, 157], plateaus: [183, 158, 121],
+  valleys: [91, 116, 80], plains: [137, 151, 103], hills: [163, 143, 113]
+};
+
 export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   if (!(buffer instanceof ArrayBuffer) && !ArrayBuffer.isView(buffer)) throw new TypeError("Tampon binaire requis.");
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
