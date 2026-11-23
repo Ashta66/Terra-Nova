@@ -1052,13 +1052,19 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
     type: "Feature", properties: { name, scalerank: rank },
     geometry: { type: "LineString", coordinates: Array.from({ length: vertices }, (_, i) => [i, i / 10]) }
   });
-  const selected = selectMajorRiverFeatures({ type: "FeatureCollection", features: [
+  const collection = { type: "FeatureCollection", features: [
     river("petit affluent", 2, 80),
     river("grand fleuve", 1, 20),
     river("fleuve majeur", 0, 12),
     river("fleuve secondaire", 1, 60)
-  ] }, 1, 3);
+  ] };
+  const selected = selectMajorRiverFeatures(collection, 1, 3);
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
+  assert.deepEqual(selectMajorRiverFeatures(collection, 1, 2).map(feature => feature.properties.name),
+    ["fleuve majeur", "fleuve secondaire"]);
+  assert.deepEqual(collection.features.map(feature => feature.properties.name),
+    ["petit affluent", "grand fleuve", "fleuve majeur", "fleuve secondaire"],
+    "le classement mis en cache ne doit pas réordonner la source");
 });
 
 test("les côtes physiques gagnent en détail à mesure que le zoom augmente", () => {
