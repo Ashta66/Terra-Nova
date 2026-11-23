@@ -513,15 +513,18 @@ function drawAntarcticLandBase(context, features, width, height, projection) {
     for (const polygon of polygons) {
       const ring = polygon?.[0];
       if (!Array.isArray(ring) || ring.length < 4) continue;
-      const coast = ring.filter(point => Array.isArray(point) && Number.isFinite(point[0])
-        && Number.isFinite(point[1]) && point[1] > -88.5);
-      if (coast.length < 3) continue;
       // À exactement 180° du centre, Math.round() choisissait parfois
       // +180° pour le premier sommet -180° : toute la côte partait alors
-      // hors du bord droit. Conserver le bord fourni, puis dérouler la suite.
+      // hors du bord droit. Dérouler les longitudes en un seul parcours,
+      // sans allouer les tableaux coast et points à chaque rendu.
       let previousLongitude = null;
+      let pointCount = 0;
       const viewportCenter = Number(viewport.centerLongitude ?? 0);
-      const project = coordinate => {
+      const coastProjection = { ...projection, viewport: { ...viewport, wrapLongitude: false } };
+      context.beginPath();
+      for (const coordinate of ring) {
+        if (!Array.isArray(coordinate) || !Number.isFinite(coordinate[0])
+          || !Number.isFinite(coordinate[1]) || coordinate[1] <= -88.5) continue;
         let longitude = coordinate[0];
         if (previousLongitude === null) {
           while (longitude - viewportCenter > 180) longitude -= 360;
@@ -531,14 +534,13 @@ function drawAntarcticLandBase(context, features, width, height, projection) {
           while (longitude - previousLongitude < -180) longitude += 360;
         }
         previousLongitude = longitude;
-        return projectCoordinate([longitude, coordinate[1]], width, height,
-          { ...projection, viewport: { ...viewport, wrapLongitude: false } });
-      };
-      const points = coast.map(project).filter(Boolean);
-      if (points.length < 3) continue;
-      context.beginPath();
-      context.moveTo(points[0].x, points[0].y);
-      for (let index = 1; index < points.length; index++) context.lineTo(points[index].x, points[index].y);
+        const point = projectCoordinate([longitude, coordinate[1]], width, height, coastProjection);
+        if (!point) continue;
+        if (pointCount === 0) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+        pointCount++;
+      }
+      if (pointCount < 3) continue;
       context.lineTo(southEast.x, southEast.y);
       context.lineTo(southWest.x, southWest.y);
       context.closePath();
