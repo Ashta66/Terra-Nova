@@ -1,4 +1,5 @@
 export const START_DATE = "1444-01-01";
+export const MAX_SIMULATION_YEAR = 2200;
 export const SPEEDS = Object.freeze([1, 5, 20, 60]);
 
 function parseDate(value) {
