@@ -827,6 +827,7 @@ function drawElevationPoints(context, collection, width, height, projection, the
   const profile = getSecondaryDetailProfile(zoom);
   const candidates = getSortedElevationPointFeatures(collection);
   const candidateCount = Math.min(candidates.length, profile.elevationMax);
+  context.save();
   for (let index = 0; index < candidateCount; index++) {
     const feature = candidates[index];
     const elevation = Number(feature.properties?.elevation_m ?? 0);
@@ -837,7 +838,6 @@ function drawElevationPoints(context, collection, width, height, projection, the
     const [longitude, latitude] = feature.geometry.coordinates;
     const point = projectCoordinate([longitude, latitude], width, height, projection);
     if (!point) continue;
-    context.save();
     context.fillStyle = isDepression ? "#6f8f9b" : theme.colors.accent;
     context.strokeStyle = theme.colors.coast;
     context.lineWidth = 0.8 * renderScale;
@@ -850,7 +850,6 @@ function drawElevationPoints(context, collection, width, height, projection, the
         context.fillStyle = theme.colors.text;
         context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
       }
-      context.restore();
       drawn++;
       continue;
     }
@@ -858,9 +857,9 @@ function drawElevationPoints(context, collection, width, height, projection, the
     context.arc(point.x, point.y, 2.2 * renderScale, 0, Math.PI * 2);
     context.fill();
     context.stroke();
-    context.restore();
     drawn++;
   }
+  context.restore();
   return drawn;
 }
 
