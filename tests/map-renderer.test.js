@@ -1524,17 +1524,13 @@ test("les sélections cartographiques réutilisent les classements complets sans
 
 
 test("la simplification Douglas-Peucker conserve les extrémités et ferme les anneaux", () => {
-  const line = [
-    { x: 0, y: 0 }, { x: 1, y: 0.02 }, { x: 2, y: 0 },
-    { x: 3, y: 2 }, { x: 4, y: 0 }, { x: 5, y: 0 }
-  ];
-  const { simplifyOpenLineForTest } = {};
   const simplifiedRing = simplifyClosedRing([
     { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 },
     { x: 0, y: 2 }, { x: 0, y: 0 }
   ], 0.1);
   assert.deepEqual(simplifiedRing[0], simplifiedRing[simplifiedRing.length - 1]);
   assert.ok(simplifiedRing.length >= 4);
-  assert.equal(line[0].x, 0);
-  assert.equal(line[line.length - 1].x, 5);
+  assert.deepEqual(simplifiedRing.slice(0, -1), [
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }
+  ]);
 });
