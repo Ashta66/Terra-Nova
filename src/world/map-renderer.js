@@ -1664,13 +1664,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
                 if (hasLandCoastFeature(feature)) unsupportedLandFallback.push(feature);
               } else supportedLand.push(feature);
             }
-            (
-              !hasLandCoastFeature(feature)
-                || globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
-                || !geographicRenderer.supportsBoundary(feature)
-                ? unsupportedCoasts
-                : supportedCoasts
-            ).push(feature);
+            if (hasLandCoastFeature(feature)) {
+              (
+                globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
+                  || !geographicRenderer.supportsBoundary(feature)
+                  ? unsupportedCoasts
+                  : supportedCoasts
+              ).push(feature);
+            }
           }
           return { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts };
         });
@@ -1701,7 +1702,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         });
         if (unsupportedCoasts.length) {
           measureLayer("land-coast-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedCoasts.filter(feature => hasLandCoastFeature(feature)) }, width, height, projection,
+            { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
             "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-coast-canvas-fallback"] = 0;
