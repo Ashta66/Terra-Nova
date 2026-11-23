@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -1497,4 +1497,18 @@ test("les repères d'altitude partagent un seul encadrement d'état Canvas", () 
   const markerSaves = withMarkers.calls.filter(call => call[0] === "save").length;
   assert.equal(markerSaves - baselineSaves, 1,
     "le lot de repères doit ajouter un seul save, quel que soit le nombre de sommets");
+});
+
+
+test("le partitionnement des entités WebGL évalue chaque capacité une seule fois", () => {
+  const features = Array.from({ length: 40 }, (_, index) => ({ index }));
+  let supportChecks = 0;
+  const result = partitionFeatures(features, feature => {
+    supportChecks++;
+    return feature.index % 3 === 0;
+  });
+  assert.equal(supportChecks, features.length);
+  assert.equal(result.supported.length, 14);
+  assert.equal(result.unsupported.length, 26);
+  assert.deepEqual([...result.supported, ...result.unsupported].sort((a, b) => a.index - b.index), features);
 });
