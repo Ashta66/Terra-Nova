@@ -41,7 +41,7 @@ export function getNextPhysicalSurfaceExpiryDate(world){
 }
 
 export function expirePhysicalSurfaceEffects(world,date){
- if(!world?.currentCells||!/^\\d{4,6}-\\d{2}-\\d{2}$/.test(String(date)))return world;
+ if(!world?.currentCells||!/^\d{4,6}-\d{2}-\d{2}$/.test(String(date)))return world;
  // L'échéancier est calculé une seule fois par version immuable du monde.
  // Les ticks suivants deviennent O(1) jusqu'à la prochaine échéance.
  let nextExpiryDate;
