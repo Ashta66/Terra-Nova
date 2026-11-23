@@ -226,7 +226,7 @@ test("les ères 1789–1913 ne superposent pas de points rouges ni de grille car
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
   const modern = css.match(/body\[data-cartographic-era="modern"\] \.map-cartographic-overlay::before \{([^}]*)\}/);
   assert.ok(modern, "cadre cartographique moderne présent");
-  assert.match(modern[1], /background:\\s*none/);
+  assert.match(modern[1], /background:\s*none/);
   assert.doesNotMatch(modern[1], /repeating-linear-gradient/);
   assert.doesNotMatch(css, /body\[data-cartographic-era="revolution"\] \.map-frame::after\s*\{[^}]*radial-gradient/);
 });
