@@ -174,3 +174,16 @@ test("l'échéancier prend en compte l'expiration mensuelle des effets de surfac
  assert.notEqual(afterVisual,impact);
  assert.equal(getNextPhysicalSurfaceExpiryDate(afterVisual),null);
 });
+
+test("la reconstruction historique trie les événements sans muter leur ordre source",()=>{
+ const world=createPhysicalWorld(cells);
+ world.events=[
+  {id:"late-uplift",type:"tectonic-uplift",date:"1700-01-01",longitude:0,latitude:0,radiusKm:100,upliftM:30},
+  {id:"early-uplift",type:"tectonic-uplift",date:"1500-01-01",longitude:0,latitude:0,radiusKm:100,upliftM:10}
+ ];
+ const first=getPhysicalStateAtDate(world,"1600-01-01");
+ const second=getPhysicalStateAtDate(world,"1600-01-01");
+ assert.equal(first.currentCells[0].elevationDeltaM,10);
+ assert.equal(second.currentCells[0].elevationDeltaM,10);
+ assert.equal(world.events[0].id,"late-uplift");
+});
