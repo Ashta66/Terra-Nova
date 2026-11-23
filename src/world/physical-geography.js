@@ -92,11 +92,7 @@ export function expirePhysicalSurfaceEffects(world,date){
 
 export function getPhysicalStateAtDate(world,date){
  let current=createPhysicalWorld(world.baseCells);
- let ordered=sortedPhysicalEventsCache.get(world.events);
- if(!ordered){
-  ordered=world.events.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
-  sortedPhysicalEventsCache.set(world.events,ordered);
- }
+ const ordered=getSortedPhysicalEvents(world.events);
  for(const event of ordered){
   if(event.date>date)break;
   current=applyPhysicalEvent(current,event).world;
