@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -937,6 +937,18 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("English territory",{ADMIN_FR:"Territoire anglais"}),"Territoire anglais");
  assert.equal(frenchTerritoryName("Teutonic Knights",{name_fr:"Chevaliers teutoniques"}),"Chevaliers teutoniques");
  assert.equal(frenchTerritoryName("English territory",{NAME:"English territory",NAME_FR:"Territoire anglais"}),"Territoire anglais");
+ assert.equal(territoryName({NAME:"English Territory",NAME_FR:"Territoire anglais"}),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Kingdom of Bavaria"),"Royaume de Bavière");
+ assert.equal(frenchTerritoryName("Duchy of Burgundy"),"Duché de Bourgogne");
+ assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
+ assert.equal(frenchTerritoryName("Sultanate of Oman"),"Sultanat Oman");
+ assert.equal(frenchTerritoryName("Kingdom of Wallachia"),"Royaume de Valachie");
+ assert.equal(frenchTerritoryName("Orange Free State"),"État libre d’Orange");
+ assert.equal(frenchTerritoryName("Gold Coast"),"Côte-de-l’Or");
+ assert.equal(frenchTerritoryName("New South Wales"),"Nouvelle-Galles du Sud");
+ assert.equal(frenchTerritoryName("Kingdom of Ceylon"),"Royaume de Ceylan");
+ assert.equal(frenchTerritoryName("Kingdom of Bohemia"),"Royaume de Bohême");
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Kingdom",NAME_FR:"Peuples autochtones"}}),true);
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
