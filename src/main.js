@@ -1119,8 +1119,18 @@ $("sandbox-country").addEventListener("change", event => {
   $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
   renderMap();
 });
-$("start-year").addEventListener("input", event => {
+const startYearSlider = $("start-year");
+function updateStartYearSliderProgress() {
+  const min = Number(startYearSlider.min);
+  const max = Number(startYearSlider.max);
+  const value = Number(startYearSlider.value);
+  const progress = (value - min) / Math.max(1, max - min) * 100;
+  startYearSlider.style.setProperty("--start-year-progress", `${Math.max(0, Math.min(100, progress))}%`);
+}
+updateStartYearSliderProgress();
+startYearSlider.addEventListener("input", event => {
   const year = Number(event.target.value);
+  updateStartYearSliderProgress();
   $("start-year-value").textContent = String(year);
   state.clock.date = year + "-01-01";
   state.clock.day = 1;
