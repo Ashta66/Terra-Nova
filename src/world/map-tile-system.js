@@ -22,16 +22,16 @@ export function getMapTileAncestors(tile) {
   if (!tile || !Number.isInteger(tile.z) || tile.z < 1) return [];
   const ancestors = [];
   for (let z = tile.z - 1; z >= 0; z--) {
-    const shift = tile.z - z;
-    ancestors.push({ z, x: Math.floor(tile.x / (2 ** shift)), y: Math.floor(tile.y / (2 ** shift)), key: getMapTileKey(z, Math.floor(tile.x / (2 ** shift)), Math.floor(tile.y / (2 ** shift))) });
+    const divisor = 2 ** (tile.z - z);
+    const x = Math.floor(tile.x / divisor);
+    const y = Math.floor(tile.y / divisor);
+    ancestors.push({ z, x, y, key: getMapTileKey(z, x, y) });
   }
   return ancestors;
 }
 
-function viewportTileBounds(viewport, overscan) {
+function viewportTileBounds(viewport, overscan, centerLon, centerLat) {
   const zoom = Math.max(1, Number(viewport.zoom) || 1);
-  const centerLon = Number(viewport.centerLongitude) || 0;
-  const centerLat = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
   const halfLon = Math.min(180, 180 / zoom * overscan);
   const halfLat = Math.min(90, 90 / zoom * overscan);
   return {
@@ -54,18 +54,20 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
   const count = 2 ** z;
   const overscan = clamp(Number(options.overscan) || 1.5, 1, 2.5);
   const maxTiles = clamp(Math.floor(Number(options.maxTiles) || DEFAULT_TILE_BUDGET), 1, 256);
-  const bounds = viewportTileBounds(viewport, overscan);
+  const centerLongitude = Number(viewport.centerLongitude) || 0;
+  const centerLatitude = clamp(Number(viewport.centerLatitude) || 0, -90, 90);
+  const bounds = viewportTileBounds(viewport, overscan, centerLongitude, centerLatitude);
   const xStart = Math.floor(bounds.west * count);
   const xEnd = Math.floor(bounds.east * count);
   const yStart = clamp(Math.floor(bounds.north * count), 0, count - 1);
   const yEnd = clamp(Math.floor(bounds.south * count), 0, count - 1);
-  const centerX = wrap((Number(viewport.centerLongitude) + 180) / 360) * count;
-  const centerY = clamp((90 - (Number(viewport.centerLatitude) || 0)) / 180, 0, 1) * count;
+  const centerX = wrap((centerLongitude + 180) / 360) * count;
+  const centerY = ((90 - centerLatitude) / 180) * count;
   const previous = options.previousViewport;
-  let dx = previous ? Number(viewport.centerLongitude) - Number(previous.centerLongitude) : 0;
+  let dx = previous ? centerLongitude - Number(previous.centerLongitude) : 0;
   if (dx > 180) dx -= 360;
   if (dx < -180) dx += 360;
-  const dy = previous ? Number(previous.centerLatitude) - Number(viewport.centerLatitude) : 0;
+  const dy = previous ? Number(previous.centerLatitude) - centerLatitude : 0;
   const magnitude = Math.hypot(dx, dy) || 1;
   const nx = dx / magnitude, ny = dy / magnitude;
   const candidates = [];
@@ -73,9 +75,10 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
   for (let rawX = xStart; rawX <= xEnd; rawX++) {
     const x = ((rawX % count) + count) % count;
     for (let y = yStart; y <= yEnd; y++) {
+      const tileIndex = y * count + x;
+      if (seen.has(tileIndex)) continue;
+      seen.add(tileIndex);
       const key = getMapTileKey(z, x, y);
-      if (seen.has(key)) continue;
-      seen.add(key);
       const ox = rawX + 0.5 - centerX;
       const oy = y + 0.5 - centerY;
       const distance = Math.hypot(ox, oy);
@@ -84,16 +87,29 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
     }
   }
   candidates.sort((a, b) => a.priority - b.priority);
-  const tiles = candidates.slice(0, maxTiles).map(({ priority, ...tile }) => tile);
+  const candidateCount = candidates.length;
+  const tileCount = Math.min(candidateCount, maxTiles);
+  const tiles = new Array(tileCount);
+  for (let index = 0; index < tileCount; index++) {
+    const candidate = candidates[index];
+    tiles[index] = {
+      z: candidate.z,
+      x: candidate.x,
+      y: candidate.y,
+      key: candidate.key,
+      ancestors: candidate.ancestors
+    };
+  }
+  const zoomLog2 = Math.log2(zoom);
   return {
     zoom,
     z,
     nextZ: Math.min(MAX_TILE_ZOOM, z + 1),
     previousZ: Math.max(0, z - 1),
-    fractionalZoom: Math.log2(zoom) - Math.floor(Math.log2(zoom)),
+    fractionalZoom: zoomLog2 - Math.floor(zoomLog2),
     tiles,
-    requestedTileCount: candidates.length,
-    truncated: candidates.length > tiles.length,
+    requestedTileCount: candidateCount,
+    truncated: candidateCount > tileCount,
     overscan
   };
 }
