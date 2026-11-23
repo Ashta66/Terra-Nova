@@ -159,7 +159,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
   if (distance(origin, cell) > radiusKm) untouchedBase.push(cell);
  }
  let refined = createPhysicalWorld(fineCells);
- for (const previous of [...(world.events ?? [])].sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
+ for (const previous of getSortedPhysicalEvents(world.events ?? [])) {
   refined = applyPhysicalEvent(refined, previous).world;
  }
  const next = clone(world);
