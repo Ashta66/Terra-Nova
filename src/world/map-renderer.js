@@ -400,21 +400,30 @@ function isAntarcticLandFeature(feature) {
     return Number(bbox[1]) <= -70 && Number(bbox[3]) <= -60
       && Number(bbox[2]) - Number(bbox[0]) >= 300;
   }
-  const coordinates = [];
-  const visit = value => {
-    if (!Array.isArray(value)) return;
+
+  // Parcours itératif : certains GeoJSON côtiers contiennent des anneaux
+  // de centaines de milliers de sommets. Éviter la récursion et les spreads
+  // Math.min/Math.max, qui dépassent la limite d'arguments du moteur JS.
+  const pending = [feature?.geometry?.coordinates];
+  let minLatitude = Infinity, maxLatitude = -Infinity;
+  let minLongitude = Infinity, maxLongitude = -Infinity;
+  let coordinateCount = 0;
+  while (pending.length) {
+    const value = pending.pop();
+    if (!Array.isArray(value)) continue;
     if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
-      coordinates.push(value);
-      return;
+      const longitude = value[0], latitude = value[1];
+      minLongitude = Math.min(minLongitude, longitude);
+      maxLongitude = Math.max(maxLongitude, longitude);
+      minLatitude = Math.min(minLatitude, latitude);
+      maxLatitude = Math.max(maxLatitude, latitude);
+      coordinateCount++;
+      continue;
     }
-    for (const child of value) visit(child);
-  };
-  visit(feature?.geometry?.coordinates);
-  if (!coordinates.length) return false;
-  const latitudes = coordinates.map(point => point[1]);
-  const longitudes = coordinates.map(point => point[0]);
-  return Math.min(...latitudes) <= -70 && Math.max(...latitudes) <= -60
-    && Math.max(...longitudes) - Math.min(...longitudes) >= 300;
+    for (let index = 0; index < value.length; index++) pending.push(value[index]);
+  }
+  return coordinateCount > 0 && minLatitude <= -70 && maxLatitude <= -60
+    && maxLongitude - minLongitude >= 300;
 }
 
 function drawPolygonLayer(context, collection, width, height, projection, fill, stroke, lineWidth, alpha = 1, simplifyCoast = false, maxRank = Infinity, coastProfileOverride = null) {
