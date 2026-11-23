@@ -92,9 +92,10 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
   if (coversWorld) {
     const period = W * viewZoom;
     const rects = [];
-    for (const offset of [-period, 0, period]) {
-      const rect = { ...base, x: base.x + offset };
-      if (intersectsScreen(rect, W, H)) rects.push(rect);
+    for (let index = -1; index <= 1; index++) {
+      const x = base.x + index * period;
+      if (base.x + base.w + index * period <= 0 || x >= W) continue;
+      rects.push({ x, y: base.y, w: base.w, h: base.h });
     }
     return {
       rects,
