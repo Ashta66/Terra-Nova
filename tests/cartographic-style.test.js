@@ -156,3 +156,24 @@ test("1492 utilise un parchemin patiné avec une encre claire et contrastée", (
   assert.match(css, /body\[data-cartographic-era="exploration"\] \.button-primary/);
   assert.match(css, /\.side-copy,[\s\S]*?color:\s*var\(--theme-muted\)/);
 });
+
+
+test("le HUD cartographique reste décoratif, évolutif et transparent aux interactions", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(html, /class="map-cartographic-overlay" aria-hidden="true"/);
+  assert.match(html, /class="map-compass"/);
+  assert.match(css, /\.map-cartographic-overlay\s*\{[^}]*pointer-events:\s*none/s);
+  for (const era of ["exploration", "westphalia", "modern", "present", "future"]) {
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \.map-cartographic-overlay`), `habillage de carte absent pour ${era}`);
+  }
+});
+
+test("les commandes et la frise ont un feedback mécanique accessible", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /\.button:active:not\(:disabled\)[\s\S]*?translateY\(1px\)/);
+  assert.match(css, /\.speed-chip\.is-active/);
+  assert.match(css, /\.era-milestones button\.is-active/);
+  assert.match(css, /#year-scrubber::-webkit-slider-thumb/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});
