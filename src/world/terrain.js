@@ -126,7 +126,11 @@ function interpolateStops(value, stops) {
       const [low, a] = stops[i - 1], [high, b] = stops[i];
       const t = clamp((value - low) / (high - low), 0, 1);
       const smooth = t * t * (3 - 2 * t);
-      return a.map((channel, index) => Math.round(channel + (b[index] - channel) * smooth));
+      return [
+        Math.round(a[0] + (b[0] - a[0]) * smooth),
+        Math.round(a[1] + (b[1] - a[1]) * smooth),
+        Math.round(a[2] + (b[2] - a[2]) * smooth)
+      ];
     }
   }
   return [...stops.at(-1)[1]];
