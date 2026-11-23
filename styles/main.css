@@ -1340,6 +1340,7 @@ body:not(.campaign-started) .dossier-objective p{font-size:8px;line-height:1.2}
 body:not(.campaign-started) .dossier-data-note{display:none}
 body:not(.campaign-started) .setup-note{flex:0 0 auto;margin:3px 0 0;font-size:8px;line-height:1.25}
 body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10px 13px}
+@media(max-width:1050px) and (min-width:761px){body:not(.campaign-started) .campaign-datebar{width:calc(100% - 720px);left:14px}}
 @media(max-height:850px) and (min-width:761px){
   body:not(.campaign-started) .campaign-setup{padding-top:86px;padding-bottom:10px}
   body:not(.campaign-started) .setup-card{max-height:calc(100dvh - 96px);padding:11px 14px 10px}
@@ -1358,6 +1359,7 @@ body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10
 
 /* Sélection dissociée : catalogue généreux à gauche, dossier de nation à droite. */
 @media(min-width:761px){
+  body:not(.campaign-started) .campaign-datebar{width:calc(100% - 760px)}
   body:not(.campaign-started) .setup-card{
     width:min(690px,58vw);max-width:690px;max-height:calc(100dvh - 112px);
     padding:17px 18px 14px;gap:0;
