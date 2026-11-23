@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { getCartographicTheme, listCartographicEras } from "../src/world/cartographic-style.js";
 
 test("1444 utilise une identité d'atlas ancien", () => {
@@ -85,4 +86,14 @@ test("les ères moderne et contemporaine restent sombres à partir de 2000", () 
   }
   assert.equal(getCartographicTheme(2000).id, "modern");
   assert.equal(getCartographicTheme(2026).id, "present");
+});
+
+
+test("chaque ère possède une finition d'interface dédiée sans animation décorative", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  for (const era of ["exploration", "westphalia", "revolution", "modern", "present", "future"]) {
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="\\${era}"\\] \\.era-banner`), `bannière dédiée absente pour ${era}`);
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="\\${era}"\\] \\.map-frame`), `cadre cartographique dédié absent pour ${era}`);
+  }
+  assert.match(css, /prefers-reduced-motion:\\s*reduce/);
 });
