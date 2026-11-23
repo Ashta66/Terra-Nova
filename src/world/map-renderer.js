@@ -1243,6 +1243,38 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const drawStaticLayers = target => {
     target.fillStyle = theme.colors.ocean;
     target.fillRect(0, 0, width, height);
+    // Banquise antarctique géographique : indépendante des tuiles ETOPO et de leur LOD.
+    // Elle est peinte sous le relief et les polygones terrestres, sans passe GPU.
+    if (projection.type === "equirectangular") {
+      const viewport = projection.viewport ?? {};
+      const centerLongitude = Number(viewport.centerLongitude ?? 0);
+      const iceProject = createContinuousProjector(width, height, projection);
+      const ring = [];
+      for (let step = 0; step <= 120; step++) {
+        const longitude = centerLongitude - 180 + step * 3;
+        const point = iceProject([longitude, -68]);
+        if (point) ring.push(point);
+      }
+      for (let step = 120; step >= 0; step--) {
+        const longitude = centerLongitude - 180 + step * 3;
+        const point = iceProject([longitude, -90]);
+        if (point) ring.push(point);
+      }
+      if (ring.length >= 4) {
+        const gradient = target.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, "rgba(239,247,250,0.04)");
+        gradient.addColorStop(0.45, "rgba(239,247,250,0.72)");
+        gradient.addColorStop(1, "rgba(248,251,252,0.96)");
+        target.save();
+        target.beginPath();
+        target.moveTo(ring[0].x, ring[0].y);
+        for (let index = 1; index < ring.length; index++) target.lineTo(ring[index].x, ring[index].y);
+        target.closePath();
+        target.fillStyle = gradient;
+        target.fill();
+        target.restore();
+      }
+    }
     target.save();
     target.strokeStyle = theme.colors.grid;
     target.globalAlpha = 0.10;
