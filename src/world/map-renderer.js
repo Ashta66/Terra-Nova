@@ -1438,8 +1438,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           const supportedCoasts = [];
           const unsupportedCoasts = [];
           for (const feature of visibleLand.features) {
-            (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
-              ? unsupportedLand : supportedLand).push(feature);
+            if (!isAntarcticLandFeature(feature)) {
+              (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
+                ? unsupportedLand : supportedLand).push(feature);
+            }
             (
               !landCoastFeatures.includes(feature)
                 || globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
