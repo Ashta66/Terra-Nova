@@ -302,3 +302,31 @@ test("le bandeau chronologique disparaît après le lancement de la campagne", (
   assert.match(css, /\.campaign-datebar\s*\{display:none\}/);
   assert.match(css, /body:not\(\.campaign-started\) \.campaign-datebar\s*\{[^}]*display:grid/s);
 });
+
+test("les infobulles cartographiques exposent les données stratégiques des nations jouables", () => {
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(js, /function normalizeCampaignCountryName\(value\)/);
+  assert.match(js, /function findCampaignCountryForMapHit\(hit\)/);
+  assert.match(js, /campaignPreview\.rank \+ " · " \+ campaignPreview\.region/);
+  assert.match(js, /"Difficulté " \+ campaignPreview\.difficulty \+ "\/5"/);
+  assert.match(css, /\.map-tooltip\.is-campaign-country/);
+});
+
+test("la liste des nations fournit une navigation clavier et des attributs de sélection accessibles", () => {
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(js, /btn\.setAttribute\("role","option"\)/);
+  assert.match(js, /btn\.setAttribute\("aria-selected",String\(isSelected\)\)/);
+  assert.match(js, /btn\.dataset\.difficulty=String\(x\.difficulty\)/);
+  assert.match(js, /event\.key==="ArrowDown"/);
+  assert.match(js, /event\.key==="Home"/);
+  assert.match(css, /\.country-result:focus-visible/);
+});
+
+test("les clics cartographiques résolvent les noms de pays sans dépendre des accents", () => {
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(js, /normalize\("NFD"\)/);
+  assert.match(js, /findCampaignCountryForMapHit\(hit\)/);
+  assert.match(js, /normalized\.startsWith\(name\) \|\| name\.startsWith\(normalized\)/);
+});
