@@ -39,15 +39,15 @@ function createCanvas() {
 
 const land = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] };
 
-test("la banquise antarctique est dessinée indépendamment du LOD des tuiles", () => {
+test("aucune couche de banquise antarctique indépendante n'est dessinée", () => {
   const { canvas, calls } = createCanvas();
   renderWorldMap(canvas, land, {
     width: 640, height: 320, pixelRatio: 1,
     viewport: { zoom: 1, centerLatitude: -25, centerLongitude: 0 },
     terrainEnabled: true
   });
-  assert.ok(calls.some(call => call[0] === "createLinearGradient"),
-    "la transition de banquise doit être rendue sur le canevas avant le masque du relief");
+  assert.ok(!calls.some(call => call[0] === "createLinearGradient"),
+    "aucun aplat de banquise ne doit être ajouté au-dessus de l'océan");
 });
 
 test("l'Antarctique n'est pas recoloré par la couche des territoires politiques", () => {
@@ -1032,7 +1032,7 @@ test("les sommets de montagnes ne dessinent plus de triangles mais gardent les n
     viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
   });
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
-  assert.equal(calls.filter(call => call[0] === "closePath").length, 1, "seul le contour fermé de la banquise est attendu, aucun triangle de sommet");
+  assert.equal(calls.filter(call => call[0] === "closePath").length, 0, "aucun triangle ni polygone de banquise ne doit être dessiné");
 });
 
 
