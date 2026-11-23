@@ -222,3 +222,20 @@ test("les statistiques distinguent un worker indisponible du fallback synchrone"
  assert.equal(stats.workerSyncFallbackJobs,1);
  assert.equal(stats.workerRuntimeFailures,0);
 });
+
+test("généralise les MultiLineString et GeometryCollection sans perdre leurs chemins", () => {
+ const lineA=[[0,0],[1,0.0001],[2,0],[3,0]];
+ const lineB=[[10,0],[11,0.0001],[12,0],[13,0]];
+ const source={type:"FeatureCollection",features:[{
+  type:"Feature",properties:{},geometry:{type:"GeometryCollection",geometries:[
+   {type:"MultiLineString",coordinates:[lineA,lineB]}
+  ]}
+ }]};
+ const result=simplifyGeoJsonCollection(source,0.01);
+ const geometries=result.features[0].geometry.geometries;
+ assert.equal(geometries[0].coordinates.length,2);
+ assert.ok(geometries[0].coordinates.every(line=>line.length<4));
+ assert.equal(result.geometryStats.originalVertices,8);
+ assert.equal(result.geometryStats.simplifiedVertices,4);
+ assert.equal(source.features[0].geometry.geometries[0].coordinates[0].length,4);
+});
