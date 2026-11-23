@@ -84,7 +84,19 @@ export function expirePhysicalSurfaceEffects(world,date){
  return next;
 }
 
-export function getPhysicalStateAtDate(world,date){let current=createPhysicalWorld(world.baseCells);for(const e of [...world.events].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))){if(e.date>date)break;current=applyPhysicalEvent(current,e).world;}current=expirePhysicalSurfaceEffects(current,date);return current;}
+export function getPhysicalStateAtDate(world,date){
+ let current=createPhysicalWorld(world.baseCells);
+ let ordered=sortedPhysicalEventsCache.get(world.events);
+ if(!ordered){
+  ordered=world.events.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+  sortedPhysicalEventsCache.set(world.events,ordered);
+ }
+ for(const event of ordered){
+  if(event.date>date)break;
+  current=applyPhysicalEvent(current,event).world;
+ }
+ return expirePhysicalSurfaceEffects(current,date);
+}
 
 export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) {
  if (!world?.currentCells || !grid?.values || !Number.isInteger(pixelStep) || pixelStep < 1) return world;
