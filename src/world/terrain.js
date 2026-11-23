@@ -198,14 +198,7 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
     // local des fosses/dorsales qui surchargerait la lecture stratégique.
-    const sea = interpolateStops(elevation, [
-      [-11000, [25, 45, 57]],
-      [-4000, [27, 50, 62]],
-      [-1500, [30, 57, 68]],
-      [-500, [36, 68, 77]],
-      [-50, [46, 80, 87]],
-      [0, [55, 91, 96]]
-    ]);
+    const sea = interpolateStops(elevation, SEA_COLOR_STOPS);
     const restrainedShade = clamp(1 + (shade - 1) * 0.12, 0.98, 1.02);
     return sea.map(channel => Math.round(clamp(channel * restrainedShade, 0, 255)));
   }
