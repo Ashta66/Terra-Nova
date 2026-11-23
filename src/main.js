@@ -620,7 +620,9 @@ function dispatchMapWorkerRender(job) {
   }
   try {
     mapRenderWorker.postMessage({ id: job.id, familyUpdates, options });
-    for (const family of Object.keys(familyUpdates)) mapRenderWorkerLayerRefs[family] = job.families[family];
+    for (const family in familyUpdates) {
+      if (Object.hasOwn(familyUpdates, family)) mapRenderWorkerLayerRefs[family] = job.families[family];
+    }
     mapRenderWorkerBusy = true;
     mapRenderWorkerActive = job;
   } catch (error) {
