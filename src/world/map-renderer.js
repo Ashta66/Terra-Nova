@@ -1677,7 +1677,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         });
         const { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts } = classification;
         let drawn = 0;
-        if (unsupportedLand.length) {
+        if (unsupportedLandFallback.length) {
           drawn += measureLayer("land-canvas-fallback", () => drawPolygonLayer(target,
             { ...visibleLand, features: unsupportedLandFallback }, width, height, projection,
             landFill, null, 0, 1, true, Infinity, coastProfile));
