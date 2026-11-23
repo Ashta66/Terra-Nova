@@ -750,7 +750,7 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
     let batchHasGeometry = false;
     for (const feature of batch.features) {
       const geometry = feature?.geometry;
-      if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
+      if (!geometry || (geometry.type !== "LineString" && geometry.type !== "MultiLineString")) continue;
       const singleLine = geometry.type === "LineString";
       const lines = geometry.coordinates;
       const lineCount = singleLine ? 1 : lines.length;
