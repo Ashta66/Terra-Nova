@@ -50,9 +50,13 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       return entries.has(id);
     },
     delete(key) {
-      const id = String(key), entry = entries.get(id);
+      const id = String(key);
+      const entry = entries.get(id);
       if (!entry) return false;
-      entries.delete(id); bytes -= entry.bytes; entry.value?.close?.(); return true;
+      entries.delete(id);
+      bytes -= entry.bytes;
+      entry.value?.close?.();
+      return true;
     },
     clear() { for (const entry of entries.values()) entry.value?.close?.(); entries.clear(); bytes = 0; hits = 0; misses = 0; },
     stats() { return { entries: entries.size, bytes, maxBytes: budget, maxEntries: limit, hits, misses }; }
