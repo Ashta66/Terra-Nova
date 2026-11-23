@@ -1103,12 +1103,12 @@ test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
     geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -70], [180, -90], [-180, -90], [-180, -63]]] }
   };
   const collection = { type: "FeatureCollection", features: [...land.features, antarcticaFeature] };
-  let renderedLayers = null;
+  const renderedLayerBatches = [];
   const geographicWebGLRenderer = {
     canvas: {},
     supports: () => true,
     supportsBoundary: () => true,
-    renderLayers: layers => { renderedLayers = layers; return {}; }
+    renderLayers: layers => { renderedLayerBatches.push(layers); return {}; }
   };
   const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
   globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = false;
@@ -1123,7 +1123,8 @@ test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
     if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
   }
-  assert.ok(renderedLayers, "le moteur WebGL géographique doit recevoir les couches");
+  const renderedLayers = renderedLayerBatches.flat();
+  assert.ok(renderedLayers.length, "le moteur WebGL géographique doit recevoir les couches");
   const landFill = renderedLayers.find(layer => layer.key === "land-fill");
   assert.ok(landFill, "la couche de remplissage terrestre doit être rendue");
   assert.equal(landFill.features.length, 1,
