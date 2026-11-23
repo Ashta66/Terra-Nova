@@ -27,6 +27,7 @@ import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrati
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
+import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
@@ -405,8 +406,9 @@ function resetMapView() {
   updateMapControls();
 }
 
+const expirePhysicalWorldForDate = createDateScopedExpiry(expirePhysicalSurfaceEffects);
 function renderMap() {
-  if (state.physicalWorld) state.physicalWorld = expirePhysicalSurfaceEffects(state.physicalWorld, state.clock.date);
+  if (state.physicalWorld) state.physicalWorld = expirePhysicalWorldForDate(state.physicalWorld, state.clock.date);
   if (!worldFeatures || mapRenderFrame !== null) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = null;
