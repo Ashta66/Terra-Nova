@@ -997,7 +997,7 @@ test("les sommets de montagnes ne dessinent plus de triangles mais gardent les n
     viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
   });
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
-  assert.equal(calls.some(call => call[0] === "closePath"), false);
+  assert.equal(calls.filter(call => call[0] === "closePath").length, 1, "seul le contour fermé de la banquise est attendu, aucun triangle de sommet");
 });
 
 
