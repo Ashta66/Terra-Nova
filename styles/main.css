@@ -1246,3 +1246,6 @@ body:not(.campaign-started) .map-legend{font-size:8px}
   body:not(.campaign-started) .campaign-datebar,
   body:not(.campaign-started) .setup-card{scroll-behavior:auto;transition:none}
 }
+
+/* Le bandeau de date appartient uniquement à l'écran de préparation. */
+.campaign-datebar{display:none}
