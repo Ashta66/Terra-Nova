@@ -41,3 +41,13 @@ test("les points d'altitude disposent de valeurs numériques plausibles", async 
     assert.ok(feature.properties.elevation_m >= -500 && feature.properties.elevation_m <= 9000);
   }
 });
+
+test("les libellés cartographiques locaux sont francisés", async () => {
+  const collection = JSON.parse(await readFile(new URL("../data/ne_110m_map_labels.geojson", import.meta.url), "utf8"));
+  const names = collection.features.map(feature => feature.properties.name);
+  assert.ok(names.includes("Amérique du Nord"));
+  assert.ok(names.includes("Océan Atlantique"));
+  assert.ok(names.includes("Pékin"));
+  assert.ok(names.includes("Le Caire"));
+  assert.ok(!names.some(name => /^(North America|South America|Africa|Asia|Oceania|Antarctica|Atlantic Ocean|Pacific Ocean|Indian Ocean|Arctic Ocean)$/.test(name)));
+});
