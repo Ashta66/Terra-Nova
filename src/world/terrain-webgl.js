@@ -668,6 +668,8 @@ export function renderTerrainWebGL(grid, width, height, viewport = {}) {
   resizeTerrainWebGLSurface(canvas, width, height);
   gl.viewport(0, 0, width, height);
   gl.useProgram(program);
+  gl.uniform2f(renderer.viewCenter,Number(viewport?.centerLongitude??0),Number(viewport?.centerLatitude??0));
+  gl.uniform1f(renderer.zoomLocation,Math.max(0.0001,Number(viewport?.zoom??1)));
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, renderer.texture);
   gl.uniform2f(gl.getUniformLocation(program, "u_viewCenter"),
@@ -719,7 +721,8 @@ varying vec4 v_atlasBounds;
 varying vec2 v_atlasUv;
 varying vec2 v_atlasStep;
 varying vec2 v_tileStep;
-void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;v_atlasBounds=a_atlasBounds;gl_Position=vec4(a_position,0.0,1.0);}
+varying vec2 v_screenUv;
+void main(){v_atlasUv=a_atlasUv;v_atlasStep=a_atlasStep;v_tileStep=a_tileStep;v_atlasBounds=a_atlasBounds;v_screenUv=a_position*0.5+0.5;gl_Position=vec4(a_position,0.0,1.0);}
 `;
 
 
@@ -727,6 +730,9 @@ const TILE_FRAGMENT_SHADER = `
 precision highp float;
 uniform sampler2D u_elevation;
 uniform float u_opacity;
+uniform vec2 u_viewCenter;
+uniform float u_zoom;
+varying vec2 v_screenUv;
 varying vec2 v_atlasUv;
 varying vec2 v_atlasStep;
 varying vec2 v_tileStep;
@@ -754,7 +760,15 @@ float elevationAt(vec2 uv){
 }
 vec3 ramp(float v,float lo,float hi,vec3 a,vec3 b){float t=clamp((v-lo)/(hi-lo),0.0,1.0);t=t*t*(3.0-2.0*t);return mix(a,b,t);}
 void main(){
+ float zoom=max(0.0001,u_zoom);
+ float longitude=u_viewCenter.x+(v_screenUv.x-0.5)*360.0/zoom;
+ float latitude=u_viewCenter.y+(v_screenUv.y-0.5)*180.0/zoom;
+ longitude=mod(longitude+180.0,360.0)-180.0;
+ bool greenlandIceSheet=latitude>=60.0&&latitude<=84.0&&longitude>=-75.0&&longitude<=-10.0;
+ bool antarcticIceSheet=latitude<=-70.0;
+ bool iceSheet=(greenlandIceSheet||antarcticIceSheet);
  float e=elevationAt(v_atlasUv);
+ if(iceSheet&&e>=1500.0)e=max(e,5000.0);
  float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
  float n=elevationAt(v_atlasUv-vec2(0.0,v_atlasStep.y)), south=elevationAt(v_atlasUv+vec2(0.0,v_atlasStep.y));
  float sx=(east-w)/max(1.0,222640.0*v_tileStep.x),sy=(n-south)/max(1.0,222640.0*v_tileStep.y);
@@ -795,10 +809,12 @@ function createTileRenderer(tileStore) {
   gl.enableVertexAttribArray(tileStep);gl.vertexAttribPointer(tileStep,2,gl.FLOAT,false,48,24);
   gl.enableVertexAttribArray(atlasBounds);gl.vertexAttribPointer(atlasBounds,4,gl.FLOAT,false,48,32);
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
+  const viewCenter=gl.getUniformLocation(program,"u_viewCenter");
+  const zoomLocation=gl.getUniformLocation(program,"u_zoom");
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
   if(!cache)return null;
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,viewCenter,zoomLocation,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
   canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
   canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
   return renderer;
