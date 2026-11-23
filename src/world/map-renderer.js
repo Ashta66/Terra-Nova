@@ -1212,9 +1212,8 @@ const selectedTerritoryCollator = new Intl.Collator(undefined, { sensitivity: "a
 function territoryMatchesSelectedCountry(feature, selectedCountry) {
   if (!selectedCountry) return false;
   const p = feature?.properties ?? {};
-  const names = [p.NAME, p.ADMIN, p.name, p.NAME_EN, p.SOVEREIGNT, p.NAME_LONG, p.SUBJECTO];
-  for (let index = 0; index < names.length; index++) {
-    const name = names[index];
+  for (let index = 0; index < TERRITORY_MATCH_FIELDS.length; index++) {
+    const name = p[TERRITORY_MATCH_FIELDS[index]];
     if (name && selectedTerritoryCollator.compare(String(name), selectedCountry) === 0) return true;
   }
   return false;
