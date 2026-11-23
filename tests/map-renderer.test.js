@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -1204,4 +1204,17 @@ test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
     "seule la terre ordinaire doit recevoir le remplissage translucide");
   assert.ok(landFill.features.every(feature => feature !== antarcticaFeature),
     "la géométrie antarctique doit être absente du remplissage translucide");
+});
+
+
+test("les repères d'altitude sont triés une seule fois par collection et conservent leur priorité", () => {
+  const mountain = { type: "Feature", properties: { elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86, 28] } };
+  const hill = { type: "Feature", properties: { elevation_m: 1200 }, geometry: { type: "Point", coordinates: [10, 10] } };
+  const depression = { type: "Feature", properties: { elevation_m: -430 }, geometry: { type: "Point", coordinates: [20, 20] } };
+  const polygon = { type: "Feature", properties: { elevation_m: 9999 }, geometry: { type: "Polygon", coordinates: [] } };
+  const collection = { type: "FeatureCollection", features: [hill, polygon, depression, mountain] };
+  assert.deepEqual(selectMajorElevationFeatures(collection, 2), [mountain, hill]);
+  assert.deepEqual(selectMajorElevationFeatures(collection, 3), [mountain, hill, depression]);
+  assert.deepEqual(collection.features, [hill, polygon, depression, mountain],
+    "le tri en cache ne doit jamais réordonner la collection source");
 });
