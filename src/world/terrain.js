@@ -383,7 +383,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
        }
       }else color=terrainColorForElevation(e,1,"ocean");
-      if(globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true) color=terrainDebugElevationColor(e);
+      if(debugElevation) color=terrainDebugElevationColor(e);
       pixels[index]=color[0];pixels[index+1]=color[1];pixels[index+2]=color[2];pixels[index+3]=255;
      }
     }
