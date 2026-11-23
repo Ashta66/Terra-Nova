@@ -139,7 +139,7 @@ test("le moteur dessine une FeatureCollection et retourne son thème", () => {
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1 });
   assert.equal(result.featureCount, 1);
   assert.equal(result.landCount, 1);
-  assert.equal(result.theme.id, "manuscript");
+  assert.equal(result.theme.id, "exploration");
   assert.ok(calls.some(call => call[0] === "fillRect"));
   assert.ok(calls.some(call => call[0] === "fill" && call[1] === "evenodd"));
   assert.ok(calls.some(call => call[0] === "clip" && call[1] === "evenodd"));
