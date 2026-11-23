@@ -662,7 +662,8 @@ function getSortedMajorRiverFeatures(collection, maxRank) {
       if (rank <= maxRank) ranked.push({ feature, rank, vertices: lineVertexCount(feature), index });
     }
     ranked.sort((a, b) => a.rank - b.rank || b.vertices - a.vertices || a.index - b.index);
-    sorted = ranked.map(entry => entry.feature);
+    sorted = new Array(ranked.length);
+    for (let index = 0; index < ranked.length; index++) sorted[index] = ranked[index].feature;
     profiles.set(cacheKey, sorted);
   }
   return sorted;
