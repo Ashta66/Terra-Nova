@@ -1473,3 +1473,28 @@ test("le cache de submersion est isolé par entité et réinitialisé à chaque 
   world.revision++;
   assert.equal(isCityPermanentlySubmerged(first, world), false);
 });
+
+
+test("les repères d'altitude partagent un seul encadrement d'état Canvas", () => {
+  const emptyLand = { type: "FeatureCollection", features: [] };
+  const options = {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
+  };
+  const baseline = createCanvas();
+  renderWorldMap(baseline.canvas, emptyLand, options);
+  const withMarkers = createCanvas();
+  const elevationPoints = {
+    type: "FeatureCollection",
+    features: Array.from({ length: 4 }, (_, index) => ({
+      type: "Feature",
+      properties: { kind: "mountain", elevation_m: 6000 + index, name: "Sommet " + index },
+      geometry: { type: "Point", coordinates: [index * 2, index] }
+    }))
+  };
+  renderWorldMap(withMarkers.canvas, emptyLand, { ...options, elevationPoints });
+  const baselineSaves = baseline.calls.filter(call => call[0] === "save").length;
+  const markerSaves = withMarkers.calls.filter(call => call[0] === "save").length;
+  assert.equal(markerSaves - baselineSaves, 1,
+    "le lot de repères doit ajouter un seul save, quel que soit le nombre de sommets");
+});
