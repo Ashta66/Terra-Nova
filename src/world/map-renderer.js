@@ -995,7 +995,7 @@ function getSortedLabelCandidates(collection) {
         cityRank: kind === "city"
           ? Number(properties.scalerank ?? properties.SCALERANK ?? properties.minZoom ?? 99) : 0,
         population: kind === "city" ? Number(properties.POP_MAX ?? properties.pop_max ?? 0) : 0,
-        name: String(properties.name ?? "")
+        name: localizeMapLabel(properties.name, kind, properties)
       });
     }
     ranked.sort((a, b) => a.kindRank - b.kindRank
@@ -1066,7 +1066,7 @@ function polygonInteriorLabelPoint(feature) {
 }
 
 export function territoryName(properties = {}) {
-  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG", "FORMAL_FR", "FORMAL_EN", "NAME_0", "ADMIN_0"]) {
+  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "FORMAL_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "FORMAL_EN", "NAME_0", "ADMIN_0", "SOVEREIGNT", "NAME_LONG"]) {
     const value = properties[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
@@ -1536,6 +1536,23 @@ const FRENCH_HISTORICAL_NAMES = {
   "south australia": "Australie-Méridionale"
 };
 
+const FRENCH_MAP_PLACE_NAMES = Object.freeze({
+  "beijing": "Pékin", "peking": "Pékin", "cairo": "Le Caire",
+  "timbuktu": "Tombouctou", "samarkand": "Samarcande",
+  "venice": "Venise", "moscow": "Moscou", "genoa": "Gênes",
+  "constantinople": "Constantinople", "kyoto": "Kyoto",
+  "tenochtitlan": "Tenochtitlan", "cuzco": "Cuzco"
+});
+
+export function localizeMapLabel(value, kind = "place", properties = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (kind === "country" || kind === "province") return frenchTerritoryName(raw, properties);
+  const key = raw.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  return kind === "city" ? FRENCH_MAP_PLACE_NAMES[key] ?? raw : raw;
+}
+
 const frenchRegionNames = typeof Intl !== "undefined" && Intl.DisplayNames
   ? new Intl.DisplayNames(["fr"], { type: "region" })
   : null;
@@ -1749,7 +1766,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     if (feature.geometry?.type !== "Point") continue;
     const point = projectCoordinate(feature.geometry.coordinates, width, height, projection);
     if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;
-    const name = String(feature.properties?.name ?? "");
+    const name = localizeMapLabel(feature.properties?.name, kind, feature.properties ?? {});
     if (!name) continue;
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = getMapLabelFontSize(kind, zoom, renderScale);
@@ -1785,7 +1802,7 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
       context.lineWidth = 1.2 * renderScale;
       context.stroke();
     }
-    hits.push({ name, kind, x: point.x, y: point.y, bounds: { left: x - 5 * renderScale, right: x + textWidth + 5 * renderScale, top: y - fontSize - 5 * renderScale, bottom: y + 6 * renderScale }, coordinates: feature.geometry.coordinates });
+    hits.push({ name: displayName, kind, x: point.x, y: point.y, bounds: { left: x - 5 * renderScale, right: x + textWidth + 5 * renderScale, top: y - fontSize - 5 * renderScale, bottom: y + 6 * renderScale }, coordinates: feature.geometry.coordinates });
   }
   context.restore();
   return hits;
