@@ -107,7 +107,7 @@ test("le shader des tuiles reconnaît les calottes polaires à faible zoom", () 
   assert.match(shader, /longitude>=-75\.0&&longitude<=-10\.0/);
   assert.match(shader, /antarcticSnowCoverage=1\.0-smoothstep\(-72\.0,-68\.0,latitude\)/);
   assert.match(shader, /greenlandIceSheet&&e>=1500\.0/);
-  assert.match(shader, /antarcticSnowAmount=antarcticSnowCoverage\*\(e<0\.0\?0\.94:0\.62\)/);
+  assert.match(shader, /antarcticSnowAmount=antarcticSnowCoverage\*\(e<0\.0\?0\.72:0\.98\)/);
 });
 
 
