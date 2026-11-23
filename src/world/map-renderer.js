@@ -609,8 +609,11 @@ function riverFeatureRank(feature) {
 }
 function lineVertexCount(feature) {
   const geometry = feature?.geometry;
-  const lines = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
-  return lines.reduce((total, line) => total + (Array.isArray(line) ? line.length : 0), 0);
+  if (geometry?.type === "LineString") return Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
+  if (geometry?.type !== "MultiLineString" || !Array.isArray(geometry.coordinates)) return 0;
+  let total = 0;
+  for (const line of geometry.coordinates) if (Array.isArray(line)) total += line.length;
+  return total;
 }
 const majorRiverFeatureCollections = new WeakMap();
 
