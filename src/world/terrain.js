@@ -208,7 +208,11 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   }
 
   const land = interpolateStops(elevation, LAND_COLOR_STOPS);
-  return applyLandformTint(land.map(channel => Math.round(clamp(channel * shade, 0, 255))), landform);
+  return applyLandformTint([
+    Math.round(clamp(land[0] * shade, 0, 255)),
+    Math.round(clamp(land[1] * shade, 0, 255)),
+    Math.round(clamp(land[2] * shade, 0, 255))
+  ], landform);
 }
 
 export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6, exaggeration = RELIEF_EXAGGERATION) {
