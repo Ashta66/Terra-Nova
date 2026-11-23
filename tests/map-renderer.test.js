@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -38,6 +38,35 @@ function createCanvas() {
 }
 
 const land = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] };
+
+test("le masque du relief exclut la géométrie antarctique", () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    constructor() { this.added = 0; }
+    addPath() { this.added++; }
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const antarctica = {
+      type: "Feature",
+      bbox: [-180, -90, 180, -63],
+      geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+    };
+    const ordinaryLand = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+    };
+    const path = buildLandClipPath({ type: "FeatureCollection", features: [ordinaryLand, antarctica] },
+      640, 320, { type: "equirectangular", viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 } });
+    assert.equal(path.added, 1, "seule la terre non antarctique doit entrer dans le masque du relief");
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
 
 test("aucune couche de banquise antarctique indépendante n'est dessinée", () => {
   const { canvas, calls } = createCanvas();
