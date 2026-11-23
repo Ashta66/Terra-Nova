@@ -1242,6 +1242,16 @@ startYearSlider.addEventListener("input", event => {
   $("map-title").textContent = "Le monde en " + year;
   render();
 });
+document.querySelectorAll("[data-campaign-mode]").forEach(button => button.addEventListener("click", () => {
+  const mode = button.dataset.campaignMode;
+  if (!["grand-strategy", "sandbox"].includes(mode)) return;
+  $("campaign-mode").value = mode;
+  document.querySelectorAll("[data-campaign-mode]").forEach(option => {
+    const active = option === button;
+    option.classList.toggle("is-active", active);
+    option.setAttribute("aria-pressed", String(active));
+  });
+}));
 $("begin-campaign").addEventListener("click", () => {
   const year = Number($("start-year").value);
   const mode = $("campaign-mode").value;
