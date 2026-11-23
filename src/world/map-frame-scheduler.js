@@ -9,6 +9,10 @@ export function createMapFrameScheduler(render, requestFrame = globalThis.reques
   }
   let frame = null;
   let disposed = false;
+  const renderFrame = () => {
+    frame = null;
+    if (!disposed) render();
+  };
   const schedule = () => {
     if (disposed || frame !== null) return false;
     frame = requestFrame(() => {
