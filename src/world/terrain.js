@@ -111,11 +111,7 @@ export function sampleElevation(grid, longitude, latitude) {
   // Stabiliser les fractions proches des valeurs simples (0, 1/2, 1).
   // Les coordonnées ETOPO décimales peuvent sinon décaler une demi-cellule
   // de quelques ULP et produire une altitude artificiellement imprécise.
-  const snapFraction = value => {
-    const nearest = Math.round(value * 1e12) / 1e12;
-    return Math.abs(value - nearest) < 1e-12 ? nearest : value;
-  };
-  const sampleX = snapFraction(fx), sampleY = snapFraction(fy);
+  const sampleX = snapTerrainFraction(fx), sampleY = snapTerrainFraction(fy);
   const at = (column, row) => grid.values[row * grid.width + column];
   const a = at(x0, y0) + (at(x1, y0) - at(x0, y0)) * sampleX;
   const b = at(x0, y1) + (at(x1, y1) - at(x0, y1)) * sampleX;
