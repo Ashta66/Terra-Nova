@@ -1444,3 +1444,32 @@ test("le regroupement des frontières conserve deux styles de tirets sans alloca
   const dashCalls = calls.filter(call => call[0] === "setLineDash");
   assert.ok(dashCalls.length <= 4, "les deux passes de couleur réutilisent chacune les deux lots de motifs, indépendamment du nombre de frontières");
 });
+
+
+test("l’index physique met en cache les coordonnées normalisées des cellules", () => {
+  let longitudeReads = 0, latitudeReads = 0;
+  const cell = {
+    get longitude() { longitudeReads++; return 2.4; },
+    get latitude() { latitudeReads++; return 48.9; },
+    permanentlySubmerged: true
+  };
+  const world = { revision: 1, currentCells: [cell] };
+  const city = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+  assert.equal(longitudeReads, 1);
+  assert.equal(latitudeReads, 1);
+});
+
+test("le cache de submersion est isolé par entité et réinitialisé à chaque révision", () => {
+  const world = { revision: 1, currentCells: [
+    { longitude: 2.4, latitude: 48.9, permanentlySubmerged: true }
+  ] };
+  const first = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  const second = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  assert.equal(isCityPermanentlySubmerged(first, world), true);
+  assert.equal(isCityPermanentlySubmerged(second, world), true);
+  world.currentCells[0].permanentlySubmerged = false;
+  world.revision++;
+  assert.equal(isCityPermanentlySubmerged(first, world), false);
+});
