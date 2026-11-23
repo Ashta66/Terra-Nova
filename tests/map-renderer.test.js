@@ -1246,7 +1246,7 @@ test("les frontières administratives Canvas sont regroupées par style de tiret
   const baseline = render(makeBoundaries(0));
   const batched = render(makeBoundaries(10));
   assert.equal(batched.result.administrativeBoundaryCount, 10);
-  assert.equal(batched.strokeCount - baseline.strokeCount, 2,
-    "dix frontières de deux styles doivent produire seulement deux strokes Canvas");
+  assert.equal(batched.strokeCount - baseline.strokeCount, 1,
+    "les frontières administratives partagent un motif de tirets et doivent produire un seul stroke Canvas");
 });
 
