@@ -224,17 +224,17 @@ test("le cadre de la carte adopte une matière distincte sans intercepter le can
 
 test("les ères 1789–1913 ne superposent pas de points rouges ni de grille carrée à la carte", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  const modern = css.match(/body\\[data-cartographic-era="modern"\\] \\.map-cartographic-overlay::before \\{([^}]*)\\}/);
+  const modern = css.match(/body\[data-cartographic-era="modern"\] \.map-cartographic-overlay::before \{([^}]*)\}/);
   assert.ok(modern, "cadre cartographique moderne présent");
   assert.match(modern[1], /background:\\s*none/);
   assert.doesNotMatch(modern[1], /repeating-linear-gradient/);
-  assert.doesNotMatch(css, /body\\[data-cartographic-era="revolution"\\] \\.map-frame::after\\s*\\{[^}]*radial-gradient/);
+  assert.doesNotMatch(css, /body\[data-cartographic-era="revolution"\] \.map-frame::after\s*\{[^}]*radial-gradient/);
 });
 
 test("les variables de thème ne sont réécrites que lors d'un changement d'année et les diagnostics exigent debug=1", () => {
   const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
-  assert.match(js, /new URLSearchParams\\(window\\.location\\.search\\)\\.get\\("debug"\\) === "1"/);
+  assert.match(js, /new URLSearchParams\(window\.location\.search\)\.get\("debug"\) === "1"/);
   assert.match(js, /let lastThemeYear = null/);
-  assert.match(js, /if \\(lastThemeYear !== year\\) \\{/);
+  assert.match(js, /if \(lastThemeYear !== year\) \{/);
   assert.match(js, /lastThemeYear = year/);
 });
