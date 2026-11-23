@@ -19,6 +19,14 @@
     <div class="topbar-actions"><span class="build-label">PROTO · LOT 1</span><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div>
   </header>
 
+  <section class="campaign-datebar" aria-label="Chronologie de départ">
+    <div class="campaign-datebar-heading"><span>DATE DE DÉPART</span><strong id="start-year-value">1444</strong><em>CHOISISSEZ VOTRE SIÈCLE</em></div>
+    <label class="setup-date campaign-date-slider" aria-label="Date de départ">
+      <input id="start-year" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Faire défiler les années historiques">
+      <span class="setup-range-ends"><span>1444</span><span>2100</span></span>
+    </label>
+    <span class="campaign-datebar-mark" aria-hidden="true">TN / 01</span>
+  </section>
   <section id="campaign-setup" class="campaign-setup" aria-labelledby="setup-title">
     <div class="setup-card">
       <p class="eyebrow">TERRA NOVA · NOUVELLE CAMPAGNE</p>
@@ -26,10 +34,6 @@
       <p class="setup-lead">Explorez la carte, faites défiler les siècles et choisissez la nation dont vous écrirez l'histoire.</p>
       <p class="setup-map-hint"><span class="setup-live-dot"></span> Prévisualisation historique interactive · les frontières suivent la date choisie</p>
       <div class="setup-grid">
-        <label class="setup-date">DATE DE DÉPART <strong id="start-year-value">1444</strong>
-          <input id="start-year" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Faire défiler les années historiques">
-          <span class="setup-range-ends"><span>1444</span><span>2100</span></span>
-        </label>
         <label>MODE DE PARTIE
           <select id="campaign-mode">
             <option value="grand-strategy" selected>Grande stratégie · Une nation, une destinée</option>
