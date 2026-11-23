@@ -1250,3 +1250,26 @@ test("les frontières administratives Canvas sont regroupées par style de tiret
     "les frontières administratives partagent un motif de tirets et doivent produire un seul stroke Canvas");
 });
 
+
+test("les métriques typographiques des labels sont réutilisées entre les rendus", () => {
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Label métrique réutilisable", kind: "country" }, geometry: { type: "Point", coordinates: [0, 0] } }
+  ] };
+  const render = () => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1, labels,
+      viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
+    });
+    return calls.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length;
+  };
+  assert.equal(render(), 1);
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.equal(calls.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length, 1);
+  assert.equal(calls.filter(call => call[0] === "measureText").length, 0,
+    "la seconde passe ne doit plus mesurer une largeur déjà mise en cache");
+});
