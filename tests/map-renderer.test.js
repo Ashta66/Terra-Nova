@@ -1032,3 +1032,25 @@ test("la taille des textes évolue progressivement sans saut au seuil de zoom",(
   assert.ok(getMapLabelFontSize("country",4,1)>getMapLabelFontSize("country",1,1));
   assert.ok(getMapLabelFontSize("city",20,1)>getMapLabelFontSize("city",1,1));
 });
+
+
+test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaillés sans débordement de pile", () => {
+  const { canvas, calls } = createCanvas();
+  const ring = Array.from({ length: 140000 }, (_, index) => {
+    const longitude = -180 + (index % 70000) * (360 / 69999);
+    const latitude = index < 70000 ? -70 : -89;
+    return [longitude, latitude];
+  });
+  ring.push(ring[0]);
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [ring] }
+  }] };
+  assert.doesNotThrow(() => renderWorldMap(canvas, antarctica, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    terrainEnabled: true
+  }));
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
+});
