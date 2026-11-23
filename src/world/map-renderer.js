@@ -1654,12 +1654,15 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         const classification = measureLayer("land-feature-classification", () => {
           const supportedLand = [];
           const unsupportedLand = [];
+          const unsupportedLandFallback = [];
           const supportedCoasts = [];
           const unsupportedCoasts = [];
           for (const feature of visibleLand.features) {
             if (!isAntarcticLandFeature(feature)) {
-              (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
-                ? unsupportedLand : supportedLand).push(feature);
+              if (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)) {
+                unsupportedLand.push(feature);
+                if (hasLandCoastFeature(feature)) unsupportedLandFallback.push(feature);
+              } else supportedLand.push(feature);
             }
             (
               !hasLandCoastFeature(feature)
@@ -1669,13 +1672,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
                 : supportedCoasts
             ).push(feature);
           }
-          return { supportedLand, unsupportedLand, supportedCoasts, unsupportedCoasts };
+          return { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts };
         });
-        const { supportedLand, unsupportedLand, supportedCoasts, unsupportedCoasts } = classification;
+        const { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts } = classification;
         let drawn = 0;
         if (unsupportedLand.length) {
           drawn += measureLayer("land-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedLand.filter(feature => hasLandCoastFeature(feature)) }, width, height, projection,
+            { ...visibleLand, features: unsupportedLandFallback }, width, height, projection,
             landFill, null, 0, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-canvas-fallback"] = 0;
