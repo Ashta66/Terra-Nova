@@ -198,3 +198,23 @@ test("le registre des événements adopte une présentation documentaire selon c
   assert.match(css, /#year-scrubber[\s\S]*?repeating-linear-gradient/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
+
+
+test("le cadre de la carte adopte une matière distincte sans intercepter le canvas", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /\.map-frame::after[\s\S]*?pointer-events:\s*none/);
+  assert.match(css, /\.map-frame #world-map\s*\{[^}]*z-index:\s*0/s);
+  assert.match(css, /\.map-cartographic-overlay\s*\{[^}]*pointer-events:\s*none/s);
+  for (const [era, treatment] of [
+    ["exploration", /border:\s*5px double/],
+    ["westphalia", /border:\s*5px double/],
+    ["revolution", /border-radius:\s*0/],
+    ["modern", /border:\s*1px solid/],
+    ["present", /border-radius:\s*3px/],
+    ["future", /map-frame::after/]
+  ]) {
+    const start = css.indexOf(`body[data-cartographic-era="${era}"] .map-frame`);
+    assert.notEqual(start, -1, `cadre dédié absent pour ${era}`);
+    assert.match(css.slice(start, start + 850), treatment, `traitement du cadre absent pour ${era}`);
+  }
+});
