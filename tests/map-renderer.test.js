@@ -50,6 +50,23 @@ test("la banquise antarctique est dessinée indépendamment du LOD des tuiles", 
     "la transition de banquise doit être rendue sur le canevas avant le masque du relief");
 });
 
+test("l'Antarctique n'est pas recoloré par la couche des territoires politiques", () => {
+  const { canvas } = createCanvas();
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    bbox: [-180, -90, 180, -63],
+    properties: { NAME: "Antarctica", ADMIN: "Antarctica", ADM0_A3: "ATA" },
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  }] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
+    territories: antarctica
+  });
+  assert.equal(result.territoryCount, 0,
+    "aucun aplat ni contour politique ne doit être appliqué au continent antarctique");
+});
+
 test("le continent antarctique conserve un aplat visible même lorsque le relief est activé", () => {
   const { canvas, calls } = createCanvas();
   const antarctica = { type: "FeatureCollection", features: [{
