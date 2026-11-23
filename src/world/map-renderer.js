@@ -746,8 +746,11 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
     for (const feature of batch.features) {
       const geometry = feature?.geometry;
       if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
-      const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
-      for (const line of lines) {
+      const singleLine = geometry.type === "LineString";
+      const lines = geometry.coordinates;
+      const lineCount = singleLine ? 1 : lines.length;
+      for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+        const line = singleLine ? lines : lines[lineIndex];
         const project = createContinuousProjector(width, height, projection);
         let segment = [];
         let lineDrawn = false;
