@@ -332,3 +332,26 @@ test("les clics cartographiques résolvent les noms de pays sans dépendre des a
 });
 
 test("la fiche de campagne présente statut, situation territoriale et lecture historique",()=>{const js=readFileSync(new URL("../src/main.js",import.meta.url),"utf8");const css=readFileSync(new URL("../styles/main.css",import.meta.url),"utf8");assert.match(js,/dossier\.stateStatus/);assert.match(js,/dossier\.territory/);assert.match(js,/dossier\.historicalLens/);assert.match(css,/\.dossier-status/);assert.match(css,/\.dossier-situation/);assert.match(css,/\.dossier-historical-lens/);});
+
+
+test("la préparation propose deux boutons de mode synchronisés avec le mode réellement lancé", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(html, /data-campaign-mode="grand-strategy"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-campaign-mode="sandbox"[^>]*aria-pressed="false"/);
+  assert.match(html, /id="campaign-mode" class="visually-hidden"/);
+  assert.match(js, /button\.dataset\.campaignMode/);
+  assert.match(js, /\$\("campaign-mode"\)\.value = mode/);
+  assert.match(js, /const mode = \$\("campaign-mode"\)\.value/);
+  assert.match(css, /\.campaign-mode-button\.is-active/);
+  assert.match(css, /\.campaign-mode-button:focus-visible/);
+});
+
+test("la sélection des nations et le dossier occupent deux panneaux équilibrés sur grand écran", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /body:not\(\.campaign-started\) \.setup-card\{width:min\(1080px,calc\(100vw - 48px\)\)/);
+  assert.match(css, /body:not\(\.campaign-started\) \.setup-country\{grid-column:1;grid-row:1\}/);
+  assert.match(css, /body:not\(\.campaign-started\) \.country-selected\.country-dossier-panel\{grid-column:2;grid-row:1\}/);
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.campaign-mode-button\{transition:none\}/);
+});
