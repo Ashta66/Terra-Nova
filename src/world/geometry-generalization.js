@@ -1,5 +1,10 @@
 const DEFAULT_TOLERANCE = 0.004;
 const ROUND_DIGITS = 6;
+function sumValues(values) {
+  let total = 0;
+  for (const value of values) total += value;
+  return total;
+}
 const coordinateKey = point => Array.isArray(point) && point.length >= 2
   ? Number(point[0]).toFixed(ROUND_DIGITS) + "," + Number(point[1]).toFixed(ROUND_DIGITS)
   : "";
