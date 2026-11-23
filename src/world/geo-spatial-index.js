@@ -304,7 +304,11 @@ export function getGeoSpatialTilePlan(collection, viewport = {}) {
     indexCache.set(collection, index);
   }
   const tileIds = getVisibleTileKeys(index, viewport);
-  const tileKeys = tileIds.map(tileId => `${tileId % index.columns}:${Math.floor(tileId / index.columns)}`);
+  const tileKeys = new Array(tileIds.length);
+  for (let tileIndex = 0; tileIndex < tileIds.length; tileIndex++) {
+    const tileId = tileIds[tileIndex];
+    tileKeys[tileIndex] = (tileId % index.columns) + ":" + Math.floor(tileId / index.columns);
+  }
   const selected = queryGeoSpatialIndexForTiles(index, tileIds);
   return { tileKeys, visibleTileCount: tileKeys.length, featureCount: selected.features.length };
 }
