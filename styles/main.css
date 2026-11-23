@@ -887,3 +887,95 @@ body[data-cartographic-era="future"] .chat-preview {
 @media (prefers-reduced-motion:reduce) {
   .ai-orb,.chat-preview,.chat-message { animation:none!important;transition:none!important; }
 }
+
+
+/* Encadrement de la scène : la carte reste le seul plan interactif */
+.map-frame { border:1px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border)); }
+.map-frame::after {
+  content:"";position:absolute;z-index:3;inset:0;pointer-events:none;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px top 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px top 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px top 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px top 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px bottom 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px bottom 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px bottom 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px bottom 10px/1px 24px no-repeat;
+  opacity:.52;
+}
+.map-stage-heading .eyebrow { margin-bottom:5px; }
+.map-stage-heading h2 { text-shadow:0 2px 18px #0008; }
+.map-bottom-bar {
+  min-height:35px;padding:9px 10px 0;
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 65%,transparent);
+}
+.map-footnote { padding-left:10px;opacity:.76; }
+body[data-cartographic-era="exploration"] .map-frame,
+body[data-cartographic-era="westphalia"] .map-frame {
+  border:5px double color-mix(in srgb,var(--theme-accent) 62%,#332416);
+  border-radius:2px;
+  box-shadow:0 24px 58px #000a,0 0 0 1px #17100b,inset 0 0 0 2px #e0bd7950,inset 0 0 42px #160e0870;
+  background:
+    radial-gradient(ellipse at center,#263c40 0%,#182d31 72%,#111f22 100%);
+}
+body[data-cartographic-era="exploration"] .map-frame::after,
+body[data-cartographic-era="westphalia"] .map-frame::after {
+  inset:5px;opacity:.75;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px top 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px top 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px top 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px top 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px bottom 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px bottom 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px bottom 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px bottom 7px/2px 32px no-repeat;
+}
+body[data-cartographic-era="exploration"] .map-compass {
+  width:76px;height:76px;border:1px double var(--theme-accent);
+  background:radial-gradient(circle,#5b432477,#21180cbb 72%);
+  box-shadow:0 0 0 4px #9d77452a,0 4px 16px #0009,inset 0 0 18px #d9b87820;
+}
+body[data-cartographic-era="westphalia"] .map-compass {
+  width:70px;height:70px;border:3px double var(--theme-accent);
+  background:radial-gradient(circle,#3b3430aa,#14191dcc 72%);
+}
+body[data-cartographic-era="revolution"] .map-frame {
+  border-radius:0;border:2px solid color-mix(in srgb,var(--theme-border) 75%,var(--theme-accent));
+  box-shadow:0 20px 50px #0009,inset 0 0 0 1px #ffffff12;
+}
+body[data-cartographic-era="revolution"] .map-frame::after {
+  opacity:.34;background:
+    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) left 7px top 7px/18px 18px,
+    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) right 7px top 7px/18px 18px,
+    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) left 7px bottom 7px/18px 18px,
+    radial-gradient(circle,var(--theme-accent) 0 2px,transparent 2.5px) right 7px bottom 7px/18px 18px;
+}
+body[data-cartographic-era="modern"] .map-frame {
+  border-radius:0;border:1px solid #82918a66;
+  box-shadow:0 22px 54px #000a,inset 0 0 0 1px #d0d7c30c;
+}
+body[data-cartographic-era="modern"] .map-frame::after { opacity:.28; }
+body[data-cartographic-era="present"] .map-frame,
+body[data-cartographic-era="future"] .map-frame {
+  border-radius:3px;border-color:color-mix(in srgb,var(--theme-accent) 42%,#17252c);
+  box-shadow:0 26px 68px #000b,0 0 26px color-mix(in srgb,var(--theme-accent) 5%,transparent),inset 0 0 0 1px #ffffff0a;
+}
+body[data-cartographic-era="future"] .map-frame::after {
+  opacity:.36;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px top 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px top 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px top 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px top 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px bottom 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px bottom 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px bottom 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px bottom 8px/1px 38px no-repeat;
+}
+@media(max-width:760px) {
+  body[data-cartographic-era="exploration"] .map-frame,
+  body[data-cartographic-era="westphalia"] .map-frame { border-width:3px; }
+  .map-frame::after { opacity:.28; }
+}
