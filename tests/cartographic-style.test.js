@@ -119,3 +119,14 @@ test("chaque ère applique une texture de matière perceptible aux surfaces d'in
   }
   assert.match(css, /background-blend-mode:\s*(?:soft-light|overlay|multiply)/);
 });
+
+
+test("les textures de matière sont de vrais assets organiques et non des motifs CSS linéaires", () => {
+  const materials = ["parchment", "vellum", "newsprint", "military", "glass", "obsidian"];
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  for (const material of materials) {
+    const svg = readFileSync(new URL(`../assets/textures/${material}.svg`, import.meta.url), "utf8");
+    assert.match(svg, /<feTurbulence/, `grain organique absent pour ${material}`);
+    assert.match(css, new RegExp(`assets/textures/${material}\\.svg`), `texture non reliée au thème ${material}`);
+  }
+});
