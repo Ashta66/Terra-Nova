@@ -1027,3 +1027,107 @@ body[data-cartographic-era="future"] .map-frame::after {
   body[data-cartographic-era="westphalia"] .map-frame { border-width:3px; }
   .map-frame::after { opacity:.28; }
 }
+
+
+/* Finition tactile du HUD — micro-reliefs, repères et lisibilité des instruments */
+.topbar {
+  box-shadow: 0 5px 18px #0004, inset 0 1px 0 #ffffff0a;
+}
+.brand-mark {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb,var(--theme-accent) 12%,transparent),0 2px 8px #0005;
+  text-shadow: 0 0 12px color-mix(in srgb,var(--theme-accent) 28%,transparent);
+}
+.brand-mark::after {
+  content:"";
+  position:absolute;
+  inset:3px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
+  pointer-events:none;
+}
+.side-panel {
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border)) transparent;
+}
+.side-panel::-webkit-scrollbar,
+.country-results::-webkit-scrollbar { width:6px; }
+.side-panel::-webkit-scrollbar-thumb,
+.country-results::-webkit-scrollbar-thumb {
+  border:1px solid transparent;
+  border-radius:8px;
+  background:color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border));
+  background-clip:padding-box;
+}
+.side-heading { position:relative; }
+.side-heading h1,
+.side-heading h2 { text-shadow:0 2px 14px #0004; }
+.date-display {
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.035em;
+  text-shadow:0 2px 18px color-mix(in srgb,var(--theme-accent) 15%,transparent),0 3px 8px #0007;
+}
+.country-result {
+  position:relative;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease,padding-left .16s ease;
+}
+.country-result:hover { padding-left:14px; }
+.country-result.is-selected {
+  background:linear-gradient(90deg,color-mix(in srgb,var(--theme-accent) 18%,var(--theme-panel)),transparent);
+  box-shadow:inset 3px 0 var(--theme-accent),inset 0 1px 0 #ffffff0a;
+}
+.country-result.is-selected .country-result-name { color:var(--theme-text); }
+.country-selected {
+  position:relative;
+  border-color:color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border));
+  background:
+    linear-gradient(135deg,color-mix(in srgb,var(--theme-accent) 9%,transparent),transparent 58%),
+    var(--theme-panel-raised);
+  box-shadow:inset 0 1px 0 #ffffff10,0 7px 18px #0003;
+}
+.map-stage-heading {
+  padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 60%,transparent);
+}
+.map-stage-heading h2 { letter-spacing:-.025em; }
+.map-tools .map-tool {
+  box-shadow:inset 0 1px 0 #ffffff10,0 2px 5px #0003;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.map-tools .map-tool:active { transform:translateY(1px);box-shadow:inset 0 2px 5px #0006; }
+.map-zoom-level {
+  padding:5px 4px;
+  border-top:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  font-variant-numeric:tabular-nums;
+}
+.map-tooltip {
+  border-color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-border));
+  border-radius:var(--theme-radius);
+  background:
+    linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-raised) 94%,transparent),color-mix(in srgb,var(--theme-panel) 97%,transparent));
+  color:var(--theme-text);
+  box-shadow:0 12px 32px #0009,inset 0 1px 0 #ffffff14;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.map-tooltip span { color:var(--theme-muted); }
+.map-bottom-bar { font-variant-numeric:tabular-nums; }
+.map-legend i {
+  box-shadow:0 0 0 1px #0006,0 1px 4px #0005;
+}
+.map-data-tools {
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 48%,transparent);
+  margin-top:5px;
+}
+.map-data-copy strong { color:var(--theme-accent);letter-spacing:.045em; }
+.map-data-button {
+  border-radius:var(--theme-radius);
+  box-shadow:inset 0 1px 0 #ffffff12,0 3px 9px #0004;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease;
+}
+.map-data-button:active:not(:disabled) { transform:translateY(1px);box-shadow:inset 0 2px 5px #0006; }
+.button,.speed-chip,.era-milestones button { -webkit-tap-highlight-color:transparent; }
+@media (prefers-reduced-motion:reduce) {
+  .country-result,.map-tools .map-tool,.map-data-button { transition:none!important; }
+}
