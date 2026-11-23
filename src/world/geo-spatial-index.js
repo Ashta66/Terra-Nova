@@ -132,24 +132,34 @@ function getViewportTileRanges(index, viewport) {
   const north = Math.min(90, centerLatitude + 90 / zoom);
   const minY = latitudeCell(north, index.rows, index.cellSize);
   const maxY = latitudeCell(south, index.rows, index.cellSize);
-  const longitudeRanges = rawWest < -180
-    ? [[rawWest + 360, 180], [-180, rawEast]]
-    : rawEast > 180
-      ? [[rawWest, 180], [-180, rawEast - 360]]
-      : [[rawWest, rawEast]];
-  const xRanges = longitudeRanges.map(([west, east]) => [
-    longitudeCell(Math.max(-180, west), index.columns, index.cellSize),
-    longitudeCell(Math.min(180, east), index.columns, index.cellSize)
-  ]);
-  return { minY, maxY, xRanges };
+  let minX1, maxX1, minX2 = 0, maxX2 = -1, rangeCount = 1;
+  if (rawWest < -180) {
+    minX1 = longitudeCell(Math.max(-180, rawWest + 360), index.columns, index.cellSize);
+    maxX1 = longitudeCell(180, index.columns, index.cellSize);
+    minX2 = longitudeCell(-180, index.columns, index.cellSize);
+    maxX2 = longitudeCell(Math.min(180, rawEast), index.columns, index.cellSize);
+    rangeCount = 2;
+  } else if (rawEast > 180) {
+    minX1 = longitudeCell(Math.max(-180, rawWest), index.columns, index.cellSize);
+    maxX1 = longitudeCell(180, index.columns, index.cellSize);
+    minX2 = longitudeCell(-180, index.columns, index.cellSize);
+    maxX2 = longitudeCell(Math.min(180, rawEast - 360), index.columns, index.cellSize);
+    rangeCount = 2;
+  } else {
+    minX1 = longitudeCell(Math.max(-180, rawWest), index.columns, index.cellSize);
+    maxX1 = longitudeCell(Math.min(180, rawEast), index.columns, index.cellSize);
+  }
+  return { minY, maxY, minX1, maxX1, minX2, maxX2, rangeCount };
 }
 
 function getVisibleTileKeys(index, viewport) {
-  const { minY, maxY, xRanges } = getViewportTileRanges(index, viewport);
+  const { minY, maxY, minX1, maxX1, minX2, maxX2, rangeCount } = getViewportTileRanges(index, viewport);
   const keys = [];
   for (let y = minY; y <= maxY; y++) {
-    for (const [minX, maxX] of xRanges) {
-      for (let x = minX; x <= maxX; x++) keys.push(y * index.columns + x);
+    const rowOffset = y * index.columns;
+    for (let x = minX1; x <= maxX1; x++) keys.push(rowOffset + x);
+    if (rangeCount === 2) {
+      for (let x = minX2; x <= maxX2; x++) keys.push(rowOffset + x);
     }
   }
   return keys;
