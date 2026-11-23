@@ -135,7 +135,6 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
   }
  }
  if (!fineCells.length) return world;
- const origin = { longitude, latitude };
  const untouched = [];
  for (const cell of world.currentCells) {
   if (distance(origin, cell) > radiusKm) untouched.push(cell);
