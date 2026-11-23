@@ -4,6 +4,7 @@ import { invalidateGeoTiles } from "./geo-tile-cache.js";
 const TYPES=new Set(["meteor-impact","earthquake","volcanic-eruption","tsunami","sea-level-rise","tectonic-uplift"]);
 const R=6371,clone=v=>structuredClone(v),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const physicalExpirySchedule=new WeakMap();
+const sortedPhysicalEventsCache=new WeakMap();
 function id(v,l){if(typeof v!=="string"||!v.trim())throw new TypeError(l+" requis.");return v;}
 function num(v,l,a=-Infinity,b=Infinity){v=Number(v);if(!Number.isFinite(v)||v<a||v>b)throw new TypeError(l+" invalide.");return v;}
 function addCalendarMonths(date,months){const d=new Date(date+"T00:00:00Z");const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+months);const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(day,last));return d.toISOString().slice(0,10);}
