@@ -230,6 +230,52 @@ export function filterMajorLakeFeatures(collection, minAreaKm2 = MIN_LAKE_AREA_K
 
 // Simplification Douglas-Peucker en pixels écran. La tolérance est donc
 // constante visuellement : en zoomant, les détails géographiques réapparaissent.
+function distanceToSegmentSquared(point, start, end) {
+  const dx = end.x - start.x, dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  const x = start.x + t * dx, y = start.y + t * dy;
+  return (point.x - x) ** 2 + (point.y - y) ** 2;
+}
+
+// Douglas-Peucker commun aux côtes et aux lignes : pile typée compacte,
+// sans tableaux de paires ni callbacks filter créés à chaque segment.
+function simplifyOpenPoints(input, tolerance) {
+  if (input.length <= 2 || tolerance <= 0) return input;
+  const keep = new Uint8Array(input.length);
+  keep[0] = 1;
+  keep[input.length - 1] = 1;
+  const stack = new Int32Array(input.length * 2);
+  let stackSize = 0;
+  stack[stackSize++] = 0;
+  stack[stackSize++] = input.length - 1;
+  const threshold = tolerance * tolerance;
+  while (stackSize > 0) {
+    const last = stack[--stackSize];
+    const first = stack[--stackSize];
+    let maxDistance = threshold, farthest = -1;
+    for (let index = first + 1; index < last; index++) {
+      const distance = distanceToSegmentSquared(input[index], input[first], input[last]);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        farthest = index;
+      }
+    }
+    if (farthest !== -1) {
+      keep[farthest] = 1;
+      stack[stackSize++] = first;
+      stack[stackSize++] = farthest;
+      stack[stackSize++] = farthest;
+      stack[stackSize++] = last;
+    }
+  }
+  const result = [];
+  for (let index = 0; index < input.length; index++) {
+    if (keep[index]) result.push(input[index]);
+  }
+  return result;
+}
+
 export function simplifyClosedRing(points, tolerance = 0.55) {
   if (!Array.isArray(points) || points.length <= 4 || tolerance <= 0) return points ?? [];
   const ring = points.length > 1
@@ -239,75 +285,27 @@ export function simplifyClosedRing(points, tolerance = 0.55) {
     : points.slice();
   if (ring.length <= 3) return [...ring, ring[0]];
 
-  const distanceToSegmentSquared = (point, start, end) => {
-    const dx = end.x - start.x, dy = end.y - start.y;
-    if (dx === 0 && dy === 0) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
-    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
-    const x = start.x + t * dx, y = start.y + t * dy;
-    return (point.x - x) ** 2 + (point.y - y) ** 2;
-  };
-  const simplifyOpen = input => {
-    if (input.length <= 2) return input;
-    const keep = new Uint8Array(input.length);
-    keep[0] = 1; keep[input.length - 1] = 1;
-    const stack = [[0, input.length - 1]];
-    const threshold = tolerance * tolerance;
-    while (stack.length) {
-      const [first, last] = stack.pop();
-      let maxDistance = threshold, farthest = -1;
-      for (let i = first + 1; i < last; i++) {
-        const distance = distanceToSegmentSquared(input[i], input[first], input[last]);
-        if (distance > maxDistance) { maxDistance = distance; farthest = i; }
-      }
-      if (farthest !== -1) {
-        keep[farthest] = 1;
-        stack.push([first, farthest], [farthest, last]);
-      }
-    }
-    return input.filter((_, index) => keep[index]);
-  };
-
   // Une boucle fermée a des extrémités identiques : on la coupe au sommet
   // le plus éloigné du premier point pour éviter que DP ne l'efface entièrement.
   let split = 1, farthest = -1;
-  for (let i = 1; i < ring.length; i++) {
-    const distance = (ring[i].x - ring[0].x) ** 2 + (ring[i].y - ring[0].y) ** 2;
-    if (distance > farthest) { farthest = distance; split = i; }
+  for (let index = 1; index < ring.length; index++) {
+    const distance = (ring[index].x - ring[0].x) ** 2 + (ring[index].y - ring[0].y) ** 2;
+    if (distance > farthest) { farthest = distance; split = index; }
   }
-  const firstHalf = simplifyOpen(ring.slice(0, split + 1));
-  const secondHalf = simplifyOpen([...ring.slice(split), ring[0]]);
-  const result = [...firstHalf, ...secondHalf.slice(1, -1)];
+  const firstHalf = simplifyOpenPoints(ring.slice(0, split + 1), tolerance);
+  const secondInput = ring.slice(split);
+  secondInput.push(ring[0]);
+  const secondHalf = simplifyOpenPoints(secondInput, tolerance);
+  const result = firstHalf.slice();
+  for (let index = 1; index < secondHalf.length - 1; index++) result.push(secondHalf[index]);
   if (result.length < 3) return [...ring, ring[0]];
   result.push(result[0]);
   return result;
 }
- 
+
 function simplifyOpenLine(points, tolerance = 0.5) {
   if (!Array.isArray(points) || points.length <= 2 || tolerance <= 0) return points ?? [];
-  const distanceToSegmentSquared = (point, start, end) => {
-    const dx = end.x - start.x, dy = end.y - start.y;
-    if (dx === 0 && dy === 0) return (point.x - start.x) ** 2 + (point.y - start.y) ** 2;
-    const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
-    const x = start.x + t * dx, y = start.y + t * dy;
-    return (point.x - x) ** 2 + (point.y - y) ** 2;
-  };
-  const keep = new Uint8Array(points.length);
-  keep[0] = 1;
-  keep[points.length - 1] = 1;
-  const stack = [[0, points.length - 1]];
-  const threshold = tolerance * tolerance;
-  while (stack.length) {
-    const [first, last] = stack.pop();
-    let maxDistance = threshold, farthest = -1;
-    for (let i = first + 1; i < last; i++) {
-      const distance = distanceToSegmentSquared(points[i], points[first], points[last]);
-      if (distance > maxDistance) { maxDistance = distance; farthest = i; }
-    }
-    if (farthest !== -1) {      keep[farthest] = 1;
-      stack.push([first, farthest], [farthest, last]);
-    }
-  }
-  return points.filter((_, index) => keep[index]);
+  return simplifyOpenPoints(points, tolerance);
 }
 
 function projectedRingArea(points) {
