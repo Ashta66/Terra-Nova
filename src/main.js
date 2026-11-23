@@ -1181,7 +1181,7 @@ function populateCampaignCountries() {
       || isNonStateHistoricalRegion(feature)) continue;
     const name = raw.trim();
     if (uniqueCountries.has(name)) continue;
-    const label = frenchTerritoryName(name, p);
+    const label = frenchTerritoryName(territoryName(p) || name, p);
     const region = countryRegion(feature);
     const difficulty = countryDifficulty(name, region, feature);
     uniqueCountries.set(name, {
