@@ -1461,9 +1461,7 @@ mapCanvas.addEventListener("pointermove", (event) => {
     const rect = mapCanvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const hit = [...mapLabelHits].reverse().find(label =>
-      x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
-    );
+    const hit = findMapLabelHit(x, y);
     mapCanvas.style.cursor = hit ? "pointer" : "grab";
     if (hit) showMapTooltip(hit, x, y, false);
     else hideMapTooltip();
@@ -1511,16 +1509,27 @@ function setGeoEventPlacementMode(type) {
 }
 for(const [id,type] of [["meteor-test","meteor-impact"],["tsunami-test","tsunami"],["earthquake-test","earthquake"]]) $(id).addEventListener("click",()=>setGeoEventPlacementMode(type));
 
+const MAP_LABEL_KIND_NAMES = Object.freeze({
+  continent: "Continent", ocean: "Océan", city: "Ville historique",
+  country: "Pays / territoire", province: "Province ou région"
+});
+function findMapLabelHit(x, y) {
+  for (let i = mapLabelHits.length - 1; i >= 0; i--) {
+    const label = mapLabelHits[i];
+    const bounds = label.bounds;
+    if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return label;
+  }
+  return null;
+}
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
-  const kindNames = { continent: "Continent", ocean: "Océan", city: "Ville historique", country: "Pays / territoire", province: "Province ou région" };
   tooltip.replaceChildren();
   const title = document.createElement("strong");
   title.textContent = label.name;
   const subtitle = document.createElement("span");
   subtitle.textContent = selected
-    ? `${kindNames[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
-    : `${kindNames[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
+    ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
+    : `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
   tooltip.append(title, subtitle);
   tooltip.hidden = false;
   tooltip.classList.toggle("is-selected", selected);
@@ -1581,7 +1590,7 @@ function composeScene() {
   }
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
-  mapLabelHits = [];
+  mapLabelHits.length = 0;
   if (!mapDrag) {
     for (const rect of composition.rects) {
       const scaleX = rect.w / sceneSize.w;
@@ -1674,9 +1683,7 @@ mapCanvas.addEventListener("click", (event) => {
     }catch(error){$("save-status").textContent="Événement impossible : "+error.message;}
     return;
   }
-  const hit = [...mapLabelHits].reverse().find(label =>
-    x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
-  );
+  const hit = findMapLabelHit(x, y);
   if (hit) showMapTooltip(hit, x, y, true);
 });
 mapCanvas.addEventListener("pointerup", stopMapDrag);
