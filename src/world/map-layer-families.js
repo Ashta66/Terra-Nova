@@ -30,24 +30,26 @@ export function createMapLayerFamilies(layers = {}) {
 
 export function getChangedMapLayerFamilies(previous = {}, next = {}) {
   const changed = [];
-  const families = Object.keys(next);
-  for (let familyIndex = 0; familyIndex < families.length; familyIndex++) {
-    const family = families[familyIndex];
+  for (const family in next) {
+    if (!Object.hasOwn(next, family)) continue;
     const before = previous[family] ?? {};
     const after = next[family] ?? {};
-    for (const key of Object.keys(before)) {
-      if (before[key] !== after[key]) {
-        changed.push(family);
+    let familyChanged = false;
+    for (const key in before) {
+      if (Object.hasOwn(before, key) && before[key] !== after[key]) {
+        familyChanged = true;
         break;
       }
     }
-    if (changed[changed.length - 1] === family) continue;
-    for (const key of Object.keys(after)) {
-      if (!Object.hasOwn(before, key)) {
-        changed.push(family);
-        break;
+    if (!familyChanged) {
+      for (const key in after) {
+        if (Object.hasOwn(after, key) && !Object.hasOwn(before, key)) {
+          familyChanged = true;
+          break;
+        }
       }
     }
+    if (familyChanged) changed.push(family);
   }
   return changed;
 }
