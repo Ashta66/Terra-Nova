@@ -94,7 +94,8 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
     const rects = [];
     for (let index = -1; index <= 1; index++) {
       const x = base.x + index * period;
-      if (base.x + base.w + index * period <= 0 || x >= W) continue;
+      if (base.x + base.w + index * period <= 0 || x >= W
+        || base.y + base.h <= 0 || base.y >= H) continue;
       rects.push({ x, y: base.y, w: base.w, h: base.h });
     }
     return {
