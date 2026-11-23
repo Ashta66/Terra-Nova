@@ -5,9 +5,16 @@ function percentile(sorted, ratio) {
   return lower === upper ? sorted[lower] : sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
 }
 function summarize(values) {
-  const finite = values.filter(Number.isFinite).sort((a, b) => a - b);
+  const finite = [];
+  let sum = 0;
+  for (const value of values) {
+    if (!Number.isFinite(value)) continue;
+    finite.push(value);
+    sum += value;
+  }
   if (!finite.length) return null;
-  return { count: finite.length, min: finite[0], median: percentile(finite, 0.5), p95: percentile(finite, 0.95), max: finite.at(-1), average: finite.reduce((sum, value) => sum + value, 0) / finite.length };
+  finite.sort((a, b) => a - b);
+  return { count: finite.length, min: finite[0], median: percentile(finite, 0.5), p95: percentile(finite, 0.95), max: finite[finite.length - 1], average: sum / finite.length };
 }
 export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
   const clockNow = () => environment.performance?.now?.() ?? Date.now();
