@@ -162,11 +162,21 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
  * au chargement et sert de repli lorsque le zoom dépasse les seuils configurés.
  */
 export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance = 0, options = {}) {
-  const normalizedLevels = [...new Map(levels
-    .filter(level => Number.isFinite(level?.maxZoom) && Number.isFinite(level?.tolerance) && level.tolerance > 0)
-    .map(level => ({ maxZoom: level.maxZoom, tolerance: level.tolerance }))
-    .sort((a, b) => a.maxZoom - b.maxZoom)
-    .map(level => [level.maxZoom, level])).values()];
+  const normalizedLevels = [];
+  for (const level of levels) {
+    if (!Number.isFinite(level?.maxZoom) || !Number.isFinite(level?.tolerance) || level.tolerance <= 0) continue;
+    normalizedLevels.push({ maxZoom: level.maxZoom, tolerance: level.tolerance });
+  }
+  normalizedLevels.sort((a, b) => a.maxZoom - b.maxZoom);
+  let normalizedCount = 0;
+  for (const level of normalizedLevels) {
+    if (normalizedCount && normalizedLevels[normalizedCount - 1].maxZoom === level.maxZoom) {
+      normalizedLevels[normalizedCount - 1] = level;
+    } else {
+      normalizedLevels[normalizedCount++] = level;
+    }
+  }
+  normalizedLevels.length = normalizedCount;
   const cache = new Map();
   const generationSamples = [];
   const pending = new Map();
