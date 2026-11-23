@@ -660,15 +660,34 @@ export function getSecondaryDetailProfile(zoom = 1) {
   };
 }
 
+const sortedElevationPointCollections = new WeakMap();
+
+function getSortedElevationPointFeatures(collection) {
+  if (!collection?.features) return [];
+  let sorted = sortedElevationPointCollections.get(collection);
+  if (!sorted) {
+    sorted = collection.features
+      .filter(feature => feature.geometry?.type === "Point")
+      .sort((a, b) => Math.abs(Number(b.properties?.elevation_m ?? 0)) - Math.abs(Number(a.properties?.elevation_m ?? 0)));
+    sortedElevationPointCollections.set(collection, sorted);
+  }
+  return sorted;
+}
+
+export function selectMajorElevationFeatures(collection, maxFeatures = 64) {
+  return getSortedElevationPointFeatures(collection).slice(0, Math.max(0, maxFeatures));
+}
+
 function drawElevationPoints(context, collection, width, height, projection, theme) {
   if (!collection?.features) return 0;
   let drawn = 0;
   const renderScale = projection.renderScale ?? 1;
   const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   const profile = getSecondaryDetailProfile(zoom);
-  const candidates = [...collection.features].filter(feature => feature.geometry?.type === "Point").sort((a, b) => Math.abs(Number(b.properties?.elevation_m ?? 0)) - Math.abs(Number(a.properties?.elevation_m ?? 0))).slice(0, profile.elevationMax);
-  for (const feature of candidates) {
-    if (feature.geometry?.type !== "Point") continue;
+  const candidates = getSortedElevationPointFeatures(collection);
+  const candidateCount = Math.min(candidates.length, profile.elevationMax);
+  for (let index = 0; index < candidateCount; index++) {
+    const feature = candidates[index];
     const elevation = Number(feature.properties?.elevation_m ?? 0);
     const isMountain = feature.properties?.kind === "mountain";
     const isDepression = feature.properties?.kind === "depression";
@@ -684,7 +703,8 @@ function drawElevationPoints(context, collection, width, height, projection, the
     if (isMountain) {
       // Les triangles de sommets sont supprimés : le relief ETOPO suffit à
       // lire les montagnes. On conserve uniquement le nom des très hauts sommets.
-      if (elevation >= 5000 && typeof context.fillText === "function") {        context.font = `${10 * renderScale}px Georgia, serif`;
+      if (elevation >= 5000 && typeof context.fillText === "function") {
+        context.font = `${10 * renderScale}px Georgia, serif`;
         context.textAlign = "left";
         context.fillStyle = theme.colors.text;
         context.fillText(feature.properties?.name ?? "Sommet", point.x + 6 * renderScale, point.y - 4 * renderScale);
