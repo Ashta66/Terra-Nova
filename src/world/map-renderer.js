@@ -665,7 +665,7 @@ function drawLineLayer(context, collection, width, height, projection, color, li
     : collection.features;
   for (const feature of candidates) {
     const geometry = feature?.geometry;
-    if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
+    if (!geometry || (geometry.type !== "LineString" && geometry.type !== "MultiLineString")) continue;
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
     context.lineWidth = lineWidth * renderScale;
