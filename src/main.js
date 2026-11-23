@@ -28,6 +28,7 @@ import { getMapQualityProfile } from "./world/map-quality-profile.js";
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
+import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
@@ -1165,7 +1166,7 @@ $("begin-campaign").addEventListener("click", () => {
   render();
 });
 
-function render() {
+function render(updateMap = true) {
   $("current-date").textContent = formatDate(state.clock.date);
   if (document.body.classList.contains("campaign-started")) $("map-title").textContent = "Le monde en " + state.clock.date.slice(0, 4);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
@@ -1211,7 +1212,7 @@ function render() {
   document.querySelectorAll("[data-speed]").forEach(button => {
     button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
   });
-  renderMap();
+  if (updateMap) renderMap();
 }
 
 function stopTimer() {
@@ -1221,8 +1222,16 @@ function stopTimer() {
 function schedule() {
   stopTimer();
   if (!state.clock.paused) interval = setInterval(() => {
+    const previousDate = state.clock.date;
+    const previousPhysicalWorld = state.physicalWorld;
     state.clock = advanceClock(state.clock, state.clock.speed);
-    render();
+    if (state.physicalWorld) {
+      state.physicalWorld = expirePhysicalWorldForDate(state.physicalWorld, state.clock.date);
+    }
+    const mapNeedsRefresh = shouldRenderMapAfterClockAdvance(
+      previousDate, state.clock.date, previousPhysicalWorld, state.physicalWorld
+    );
+    render(mapNeedsRefresh);
   }, 1000);
 }
 
