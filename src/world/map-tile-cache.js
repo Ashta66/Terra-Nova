@@ -26,12 +26,16 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
     }
   };
   return {
-    has(key) { return entries.has(String(key)); },
+    has(key) {
+      const id = String(key);
+      return entries.has(id);
+    },
     get(key) {
-      const entry = entries.get(String(key));
+      const id = String(key);
+      const entry = entries.get(id);
       if (!entry) { misses++; return null; }
       hits++;
-      touch(String(key), entry);
+      touch(id, entry);
       return entry.value;
     },
     set(key, value) {
