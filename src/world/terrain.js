@@ -337,7 +337,10 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
  const revisions=physicalWorld?.tileRevisions;
  let hasLocalRevisions=false;
  if(revisions){for(const key in revisions){if(Object.hasOwn(revisions,key)){hasLocalRevisions=true;break;}}}
- const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array && globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE !== true;
+ const disablePrecomputed=globalThis.__TERRA_DISABLE_PRECOMPUTED_HILLSHADE===true;
+ const disableSmoothing=globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING===true;
+ const debugElevation=globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true;
+ const precomputed=hillshadeGridCache.get(grid) instanceof Uint8Array && !disablePrecomputed;
  let drawn=false;
  for(let ty=0;ty<18;ty++){
   const north=90-ty*10,south=north-10,screenY=height/2-(north-cy)*height*zoom/180,destH=10*height*zoom/180;
