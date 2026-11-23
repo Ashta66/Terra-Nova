@@ -405,6 +405,17 @@ test("l'index spatial conserve les grandes géométries et les géométries sans
 });
 
 
+test("l'index spatial poursuit sa construction après une géométrie globale ou vide", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "global" }, geometry: { type: "Polygon", coordinates: [[[-179, -80], [179, -80], [179, 80], [-179, 80], [-179, -80]]] } },
+    { type: "Feature", properties: { id: "empty" }, geometry: null },
+    { type: "Feature", properties: { id: "local" }, geometry: { type: "Point", coordinates: [2, 48] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection);
+  const visible = queryGeoSpatialIndex(index, { zoom: 12, centerLongitude: 2, centerLatitude: 48 });
+  assert.deepEqual(visible.features.map(feature => feature.properties.id), ["global", "empty", "local"]);
+});
+
 test("les sélections spatiales sont réutilisées tant que le viewport reste dans les mêmes secteurs", () => {
   const collection = { type: "FeatureCollection", features: [
     { type: "Feature", properties: { id: "a" }, geometry: { type: "Point", coordinates: [2, 48] } },
