@@ -497,3 +497,169 @@ body[data-cartographic-era="future"] .button:hover:not(:disabled) {
 }
 body[data-cartographic-era="future"] .side-panel,
 body[data-cartographic-era="future"] .ai-orb { filter: none; }
+
+
+/* Direction artistique renforcée — détails statiques, sans coût de rendu cartographique */
+body[data-cartographic-era="exploration"] .topbar,
+body[data-cartographic-era="exploration"] .setup-card {
+  background: linear-gradient(110deg, #3c2e1e, #241d15 72%);
+  border-color: #8e7046;
+  box-shadow: inset 0 1px #e0bd7930, 0 8px 28px #08060455;
+}
+body[data-cartographic-era="exploration"] .map-stage-heading {
+  border-bottom: 1px solid #987548;
+  padding-bottom: 14px;
+}
+body[data-cartographic-era="exploration"] .era-banner {
+  background: linear-gradient(90deg, #5a4328, #302518);
+  border: 1px solid #a17b49;
+  color: #f0d9a9;
+  box-shadow: inset 0 1px #e7c98a30;
+}
+body[data-cartographic-era="exploration"] .chronicle-console,
+body[data-cartographic-era="exploration"] .chat-preview {
+  background: repeating-linear-gradient(0deg, #d3b77a08 0, #d3b77a08 1px, transparent 1px, transparent 5px), #302519;
+  border-color: #80633e;
+}
+body[data-cartographic-era="exploration"] .button-primary {
+  background: linear-gradient(180deg, #9a7139, #684a29);
+  border-color: #c19a5d;
+  color: #fff0cf;
+}
+body[data-cartographic-era="exploration"] .map-frame {
+  border: 2px solid #987548;
+  box-shadow: 0 0 0 4px #98754820, 0 14px 34px #08060466;
+}
+
+body[data-cartographic-era="westphalia"] .topbar,
+body[data-cartographic-era="westphalia"] .setup-card {
+  background: linear-gradient(105deg, #292d34, #1d2027 58%, #30252b);
+  border-bottom: 2px double #897b69;
+}
+body[data-cartographic-era="westphalia"] .side-heading,
+body[data-cartographic-era="westphalia"] .map-stage-heading {
+  border-bottom: 3px double #897b69;
+  padding-bottom: 13px;
+}
+body[data-cartographic-era="westphalia"] .era-banner {
+  background: linear-gradient(100deg, #3b3437, #292b31);
+  border: 3px double #a18c70;
+  color: #e8d8bd;
+}
+body[data-cartographic-era="westphalia"] .chronicle-console,
+body[data-cartographic-era="westphalia"] .chat-preview {
+  background: linear-gradient(145deg, #303238, #22252b);
+  border: 1px solid #817767;
+  box-shadow: inset 0 0 0 3px #c0ad8b0d;
+}
+body[data-cartographic-era="westphalia"] .button,
+body[data-cartographic-era="westphalia"] .speed-chip {
+  border-radius: 2px;
+  border-color: #827665;
+}
+body[data-cartographic-era="westphalia"] .map-frame {
+  border: 3px double #96846d;
+  box-shadow: 0 0 0 5px #96846d18, 0 14px 32px #05060970;
+}
+
+body[data-cartographic-era="revolution"] .topbar,
+body[data-cartographic-era="revolution"] .setup-card {
+  background: linear-gradient(90deg, #292929, #1d1d1d);
+  border-bottom: 2px solid #a8323e;
+}
+body[data-cartographic-era="revolution"] .side-heading,
+body[data-cartographic-era="revolution"] .map-stage-heading {
+  border-bottom: 1px solid #77716a;
+}
+body[data-cartographic-era="revolution"] .era-banner {
+  background: linear-gradient(90deg, #3c292b, #292727 70%);
+  border-left: 3px solid #b43b46;
+  color: #f0e9e3;
+}
+body[data-cartographic-era="revolution"] .chronicle-console,
+body[data-cartographic-era="revolution"] .chat-preview {
+  background: repeating-linear-gradient(0deg, #ffffff08 0, #ffffff08 1px, transparent 1px, transparent 3px), #292929;
+  border-color: #6d6863;
+}
+body[data-cartographic-era="revolution"] .button-primary {
+  background: #762d35;
+  border-color: #b34a50;
+}
+body[data-cartographic-era="revolution"] .map-frame {
+  border: 1px solid #8b8580;
+  box-shadow: 0 0 0 3px #ffffff0a, 0 14px 30px #0009;
+}
+
+body[data-cartographic-era="modern"] .topbar,
+body[data-cartographic-era="modern"] .setup-card {
+  background: linear-gradient(100deg, #1b2a31, #111b21 62%, #242a25);
+  border-bottom: 1px solid #788477;
+}
+body[data-cartographic-era="modern"] .chronicle-console,
+body[data-cartographic-era="modern"] .chat-preview {
+  background: linear-gradient(145deg, #202d32, #141f24);
+  border: 1px solid #46565a;
+  box-shadow: inset 0 1px #c2c8b40b;
+}
+body[data-cartographic-era="modern"] .era-banner {
+  background: linear-gradient(90deg, #354239, #1d2b30);
+  border: 1px solid #788477;
+  color: #d8dfd2;
+  letter-spacing: .09em;
+}
+body[data-cartographic-era="modern"] .speed-chip,
+body[data-cartographic-era="modern"] .button {
+  border-radius: 1px;
+}
+body[data-cartographic-era="modern"] .map-frame {
+  border: 1px solid #596b70;
+  box-shadow: inset 0 0 0 1px #b7c1ad12, 0 16px 34px #0008;
+}
+
+body[data-cartographic-era="present"] .topbar,
+body[data-cartographic-era="present"] .setup-card {
+  background: linear-gradient(110deg, #1c303b, #101c25 72%);
+  border-color: #38515d;
+  box-shadow: inset 0 1px #b4d6e015, 0 8px 28px #00000025;
+}
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="present"] .chat-preview {
+  background: linear-gradient(145deg, #192b35, #101d26);
+  border: 1px solid #344e5a;
+  box-shadow: inset 0 1px #c2e5f00c;
+}
+body[data-cartographic-era="present"] .era-banner {
+  background: linear-gradient(100deg, #244351, #172a35);
+  border: 1px solid #497184;
+  color: #d6e9ed;
+}
+body[data-cartographic-era="present"] .map-frame {
+  border: 1px solid #45616d;
+  box-shadow: 0 0 0 1px #9bc6d012, 0 16px 38px #0008;
+}
+
+body[data-cartographic-era="future"] .topbar,
+body[data-cartographic-era="future"] .setup-card {
+  background: linear-gradient(105deg, #0a1922, #050b11 70%);
+  border-color: #17343d;
+}
+body[data-cartographic-era="future"] .chronicle-console,
+body[data-cartographic-era="future"] .chat-preview {
+  background: linear-gradient(145deg, #0b1a22, #050c12);
+  border: 1px solid #1b3a43;
+  box-shadow: inset 0 0 0 1px #5ac5c40a;
+}
+body[data-cartographic-era="future"] .era-banner {
+  background: linear-gradient(90deg, #102832, #08151d);
+  border: 1px solid #28515a;
+  color: #a9c6c4;
+  letter-spacing: .12em;
+}
+body[data-cartographic-era="future"] .map-frame {
+  border: 1px solid #20434b;
+  box-shadow: 0 0 0 1px #4ac7ce10, 0 18px 44px #000b;
+}
+body[data-cartographic-era="future"] .button,
+body[data-cartographic-era="future"] .speed-chip {
+  border-radius: 3px;
+}
