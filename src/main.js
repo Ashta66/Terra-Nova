@@ -26,6 +26,7 @@ import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEv
 import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
+import { getCartographicTheme } from "./world/cartographic-style.js";
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
@@ -1270,9 +1271,28 @@ function render() {
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
   const year = Number(state.clock.date.slice(0, 4));
   $("clock-year").textContent = String(year);
-  const era = year < 1492 ? "Âge des royaumes" : year < 1648 ? "Explorations & empires" : year < 1789 ? "Équilibre des puissances" : year < 1914 ? "Révolutions & nations" : year < 2026 ? "Ère contemporaine" : "Ère future";
-  $("era-name").textContent = era;
-  $("map-era").textContent = era;
+  const theme = getCartographicTheme(year);
+  const visuals = theme.visuals;
+  document.body.dataset.cartographicEra = theme.id;
+  document.body.style.setProperty("--theme-surface", visuals.surface);
+  document.body.style.setProperty("--theme-panel", visuals.panel);
+  document.body.style.setProperty("--theme-border", visuals.border);
+  document.body.style.setProperty("--theme-accent", theme.colors.accent);
+  document.body.style.setProperty("--theme-text", theme.colors.text);
+  document.body.style.setProperty("--theme-radius", visuals.borderRadius + "px");
+  document.body.style.setProperty("--theme-map-filter", visuals.mapFilter);
+  document.body.style.setProperty("--theme-display-font", '"' + theme.typography.display + '", Georgia, serif');
+  document.body.style.setProperty("--theme-body-font", '"' + theme.typography.body + '", ui-sans-serif, system-ui, sans-serif');
+  $("era-name").textContent = theme.label;
+  $("map-era").textContent = theme.label;
+  const aiTitle = $("ai-title");
+  if (aiTitle) aiTitle.textContent = theme.interfaceTitle;
+  const aiSubtitle = $("ai-subtitle");
+  if (aiSubtitle) aiSubtitle.textContent = theme.interfaceSubtitle;
+  const aiMessage = $("ai-era-message");
+  if (aiMessage) aiMessage.textContent = theme.interfaceMessage;
+  const eventPrompt = $("event-prompt");
+  if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
   document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
   if (!document.body.classList.contains("campaign-started")) {
