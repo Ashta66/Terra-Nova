@@ -253,3 +253,27 @@ test("le curseur de date de création de campagne possède son propre style tact
   assert.match(js, /startYearSlider\.addEventListener\("input"/);
   assert.match(js, /updateStartYearSliderProgress\(\);/);
 });
+
+
+test("le HUD expose des finitions tactiles cohérentes sur ses commandes et ses panneaux", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /\.topbar\s*\{[^}]*inset 0 1px 0/s);
+  assert.match(css, /\.brand-mark::after\s*\{[^}]*pointer-events:none/s);
+  assert.match(css, /\.side-panel::-webkit-scrollbar-thumb/);
+  assert.match(css, /\.date-display\s*\{[^}]*font-variant-numeric:tabular-nums/s);
+  assert.match(css, /\.country-result\.is-selected\s*\{[^}]*inset 3px 0 var\(--theme-accent\)/s);
+  assert.match(css, /\.country-selected\s*\{[^}]*box-shadow:/s);
+  assert.match(css, /\.map-stage-heading\s*\{[^}]*border-bottom:/s);
+  assert.match(css, /\.map-tools \.map-tool:active\s*\{[^}]*translateY\(1px\)/s);
+  assert.match(css, /\.map-zoom-level\s*\{[^}]*font-variant-numeric:tabular-nums/s);
+  assert.match(css, /\.map-tooltip\s*\{[^}]*backdrop-filter:blur\(10px\)/s);
+  assert.match(css, /\.map-legend i\s*\{[^}]*box-shadow:/s);
+  assert.match(css, /\.map-data-button:active:not\(:disabled\)\s*\{[^}]*translateY\(1px\)/s);
+});
+
+test("les finitions du HUD respectent les matériaux d'époque et la réduction des animations", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(css, /color-mix\(in srgb,var\(--theme-accent\)/);
+  assert.match(css, /background:\s*linear-gradient\(135deg,color-mix\(in srgb,var\(--theme-accent\)/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.country-result,[\s\S]*?transition:none!important/);
+});
