@@ -20,7 +20,7 @@ function createCanvas() {
     arc: (...args) => calls.push(["arc", ...args]),
     fillText: (...args) => calls.push(["fillText", ...args]),
     strokeText: (...args) => calls.push(["strokeText", ...args]),
-    measureText: (text) => ({ width: String(text).length * 6 }),
+    measureText: (text) => { calls.push(["measureText", text]); return { width: String(text).length * 6 }; },
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
@@ -1261,15 +1261,12 @@ test("les métriques typographiques des labels sont réutilisées entre les rend
       width: 640, height: 320, pixelRatio: 1, labels,
       viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
     });
-    return calls.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length;
+    return calls;
   };
-  assert.equal(render(), 1);
-  const { canvas, calls } = createCanvas();
-  renderWorldMap(canvas, land, {
-    width: 640, height: 320, pixelRatio: 1, labels,
-    viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
-  });
-  assert.equal(calls.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length, 1);
-  assert.equal(calls.filter(call => call[0] === "measureText").length, 0,
+  const first = render();
+  const second = render();
+  assert.equal(first.filter(call => call[0] === "measureText").length, 1);
+  assert.equal(second.filter(call => call[0] === "measureText").length, 0,
     "la seconde passe ne doit plus mesurer une largeur déjà mise en cache");
+  assert.equal(second.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length, 1);
 });
