@@ -46,3 +46,11 @@ test("chaque ère expose une identité typographique et un intitulé d'interface
   }
 });
 
+test("chaque ère expose ses paramètres visuels d'interface et de carte", () => {
+  for (const year of [1492, 1648, 1789, 1914, 2026, 2100]) {
+    const theme = getCartographicTheme(year);
+    assert.ok(Number.isFinite(theme.visuals?.borderRadius), `arrondi manquant pour ${year}`);
+    assert.ok(theme.visuals?.mapFilter, `filtre cartographique manquant pour ${year}`);
+    assert.ok(theme.visuals?.surface, `style de surface manquant pour ${year}`);
+  }
+});
