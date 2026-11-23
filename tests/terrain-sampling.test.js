@@ -40,7 +40,7 @@ test("un haut plateau uniforme n'est pas blanchi comme un pic isolé", () => {
 test("une zone polaire déjà enneigée conserve son altitude de couleur", () => {
   const polarGrid = createDegreeGrid(5000);
 
-  assert.equal(terrainSnowElevationForPixel(polarGrid, 0, 0, 1), 5000);
+  assert.equal(terrainSnowElevationForPixel(polarGrid, 0, -89.5, 1), 5000);
 });
 
 
