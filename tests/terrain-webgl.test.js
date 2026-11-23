@@ -95,3 +95,16 @@ test("l'atlas des altitudes utilise NEAREST pour éviter le mélange des octets 
   assert.ok(calls.every(args => args[2] !== gl.LINEAR));
   atlas.dispose();
 });
+
+test("le shader des tuiles reconnaît les calottes polaires à faible zoom", () => {
+  const shader = getTerrainWebGLShaders().tileFragment;
+  assert.match(shader, /uniform vec2 u_viewSize;/);
+  assert.match(shader, /uniform vec2 u_viewCenter;/);
+  assert.match(shader, /uniform float u_zoom;/);
+  assert.match(shader, /float longitude=u_viewCenter\.x\s*\+/);
+  assert.match(shader, /float latitude=u_viewCenter\.y\s*\+/);
+  assert.match(shader, /latitude>=60\.0&&latitude<=84\.0/);
+  assert.match(shader, /longitude>=-75\.0&&longitude<=-10\.0/);
+  assert.match(shader, /latitude<=-70\.0/);
+  assert.match(shader, /iceSheet&&e>=1500\.0/);
+});
