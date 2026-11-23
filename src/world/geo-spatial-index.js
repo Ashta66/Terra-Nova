@@ -72,17 +72,20 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   return {
     collection, cellSize: size, columns, rows, cells, global, bounds,
     queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0,
-    featureMarks: new Uint32Array(collection.features.length), featureMark: 0
+    featureMarks: new Uint32Array(collection.features.length), featureMark: 0,
+    queryMarks: new Uint32Array(collection.features.length), queryMark: 0
   };
 }
 
-function nextFeatureMark(index) {
-  index.featureMark = (index.featureMark + 1) >>> 0;
-  if (index.featureMark === 0) {
-    index.featureMarks.fill(0);
-    index.featureMark = 1;
+function nextFeatureMark(index, query = false) {
+  const marks = query ? index.queryMarks : index.featureMarks;
+  const key = query ? "queryMark" : "featureMark";
+  index[key] = (index[key] + 1) >>> 0;
+  if (index[key] === 0) {
+    marks.fill(0);
+    index[key] = 1;
   }
-  return index.featureMark;
+  return index[key];
 }
 
 function getTileFeatureIndices(index, tileId) {
@@ -161,8 +164,8 @@ function queryGeoSpatialIndexForTiles(index, tileKeys) {
     return cached;
   }
 
-  const mark = nextFeatureMark(index);
-  const marks = index.featureMarks;
+  const mark = nextFeatureMark(index, true);
+  const marks = index.queryMarks;
   const ordered = [];
   for (const tileId of tileKeys) {
     for (const featureIndex of getTileFeatureIndices(index, tileId)) {
