@@ -447,7 +447,24 @@ function drawAntarcticLandBase(context, features, width, height, projection) {
       const coast = ring.filter(point => Array.isArray(point) && Number.isFinite(point[0])
         && Number.isFinite(point[1]) && point[1] > -88.5);
       if (coast.length < 3) continue;
-      const project = createContinuousProjector(width, height, projection);
+      // À exactement 180° du centre, Math.round() choisissait parfois
+      // +180° pour le premier sommet -180° : toute la côte partait alors
+      // hors du bord droit. Conserver le bord fourni, puis dérouler la suite.
+      let previousLongitude = null;
+      const viewportCenter = Number(viewport.centerLongitude ?? 0);
+      const project = coordinate => {
+        let longitude = coordinate[0];
+        if (previousLongitude === null) {
+          while (longitude - viewportCenter > 180) longitude -= 360;
+          while (longitude - viewportCenter < -180) longitude += 360;
+        } else {
+          while (longitude - previousLongitude > 180) longitude -= 360;
+          while (longitude - previousLongitude < -180) longitude += 360;
+        }
+        previousLongitude = longitude;
+        return projectCoordinate([longitude, coordinate[1]], width, height,
+          { ...projection, viewport: { ...viewport, wrapLongitude: false } });
+      };
       const points = coast.map(project).filter(Boolean);
       if (points.length < 3) continue;
       context.beginPath();
