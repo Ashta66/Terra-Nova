@@ -374,7 +374,11 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
         generatedLevels,
         cachedLevels: cache.size,
         configuredLevels: normalizedLevels.length,
-        generationTimeMs: generationSamples.reduce((sum, value) => sum + value, 0),
+        generationTimeMs: (() => {
+          let total = 0;
+          for (const sample of generationSamples) total += sample;
+          return total;
+        })(),
         lastGenerationMs: generationSamples.at(-1) ?? 0,
         removedVertices,
         cachedTolerances: [...cache.keys()],
