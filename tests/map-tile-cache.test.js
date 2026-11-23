@@ -85,3 +85,24 @@ test("les statistiques distinguent les accès réussis et manqués", () => {
   assert.equal(cache.stats().hits, 1);
   assert.equal(cache.stats().misses, 1);
 });
+
+
+test("une méthode close défaillante ne bloque ni suppression ni éviction", () => {
+  const cache = createMapTileCache({ maxEntries: 1, maxBytes: 100 });
+  const broken = { byteLength: 8, close() { throw new Error("close failed"); } };
+  const next = closable(8);
+  assert.equal(cache.set("broken", broken), true);
+  assert.equal(cache.delete("broken"), true);
+  assert.equal(cache.stats().entries, 0);
+  cache.set("first", broken);
+  assert.equal(cache.set("next", next), true);
+  assert.equal(cache.has("next"), true);
+});
+
+test("les tailles négatives et dimensions invalides ne diminuent pas le budget mémoire", () => {
+  const cache = createMapTileCache({ maxBytes: 100 });
+  cache.set("negative", { byteLength: -50 });
+  cache.set("invalid-dimensions", { width: -10, height: 20 });
+  assert.equal(cache.stats().bytes, 0);
+  assert.equal(cache.stats().entries, 2);
+});
