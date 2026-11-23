@@ -1556,7 +1556,11 @@ export function frenchTerritoryName(value, properties = {}) {
       republic: "République", sultanate: "Sultanat", khanate: "Khanat", emirate: "Émirat",
       county: "Comté", province: "Province", colony: "Colonie", territory: "Territoire" };
     const place = FRENCH_HISTORICAL_NAMES[administrativeForm[2]];
-    if (place) return prefixes[administrativeForm[1]] + (["empire","sultanate","khanate","emirate"].includes(administrativeForm[1]) ? " " : " de ") + place;
+    if (place) {
+      const form = administrativeForm[1];
+      const connector = form === "sultanate" && /^[aeiouh]/i.test(place) ? " d’" : " de ";
+      return prefixes[form] + connector + place;
+    }
   }
   const iso3 = String(properties.ISO_A3 ?? properties.ADM0_A3 ?? properties.SOV_A3 ?? "").toUpperCase();
   const iso2 = String(properties.ISO_A2 ?? properties.iso_a2 ?? ISO3_TO_ISO2[iso3] ?? "").toUpperCase();
