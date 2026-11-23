@@ -627,6 +627,10 @@ function drawLandHachures(context, collection, width, height, projection, color)
     if (!feature?.geometry) continue;
     context.save();
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
+    // ne pas retracer son anneau GeoJSON comme une côte visible.
+    const landCoastFeatures = visibleLand?.features?.filter(feature => !isAntarcticLandFeature(feature)) ?? [];
+    const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       context.clip(cachedPath, "evenodd");
@@ -1424,7 +1428,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       && projection.type === "equirectangular" && typeof geographicRenderer.supports === "function";
     const landCount = measureLayer("terres-et-cotes", () => {
       if (!canRenderLandWebGL) {
-        return drawPolygonLayer(target, visibleLand, width, height, projection, landFill,
+        return drawPolygonLayer(target, landCoastCollection, width, height, projection, landFill,
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
       try {
@@ -1437,7 +1441,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
             (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
               ? unsupportedLand : supportedLand).push(feature);
             (
-              globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
+              landCoastFeatures.includes(feature)
+              && globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
                 || !geographicRenderer.supportsBoundary(feature)
                 ? unsupportedCoasts
                 : supportedCoasts
@@ -1449,7 +1454,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         let drawn = 0;
         if (unsupportedLand.length) {
           drawn += measureLayer("land-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedLand }, width, height, projection,
+            { ...visibleLand, features: unsupportedLand.filter(feature => landCoastFeatures.includes(feature)) }, width, height, projection,
             landFill, null, 0, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-canvas-fallback"] = 0;
@@ -1472,7 +1477,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         });
         if (unsupportedCoasts.length) {
           measureLayer("land-coast-canvas-fallback", () => drawPolygonLayer(target,
-            { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
+            { ...visibleLand, features: unsupportedCoasts.filter(feature => landCoastFeatures.includes(feature)) }, width, height, projection,
             "rgba(0,0,0,0)", theme.colors.coast, 0.85, 1, true, Infinity, coastProfile));
         } else {
           renderTimings["land-coast-canvas-fallback"] = 0;
