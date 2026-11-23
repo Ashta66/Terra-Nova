@@ -277,3 +277,22 @@ test("les finitions du HUD respectent les matériaux d'époque et la réduction 
   assert.match(css, /background:\s*linear-gradient\(135deg,color-mix\(in srgb,var\(--theme-accent\)/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.country-result,[\s\S]*?transition:none!important/);
 });
+
+
+test("la campagne s'ouvre sur un atlas plein cadre avec une frise de départ en tête", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(html, /class="campaign-datebar"/);
+  assert.match(html, /id="start-year" type="range"/);
+  assert.match(css, /body:not\(\.campaign-started\) \.game-layout\s*\{[^}]*position:fixed/s);
+  assert.match(css, /body:not\(\.campaign-started\) \.time-sidebar,[\s\S]*?\.ai-sidebar\s*\{display:none\}/);
+  assert.match(css, /body:not\(\.campaign-started\) \.campaign-datebar\s*\{[^}]*backdrop-filter:blur\(14px\)/s);
+  assert.match(css, /body:not\(\.campaign-started\) \.setup-card\s*\{[^}]*backdrop-filter:blur\(16px\)/s);
+});
+
+test("les nations peuvent être choisies directement depuis les repères de la carte", () => {
+  const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(js, /!document\.body\.classList\.contains\("campaign-started"\) && hit\.kind === "country"/);
+  assert.match(js, /selectCampaignCountry\(country\.raw\)/);
+  assert.match(js, /item\.label\.toLocaleLowerCase\("fr"\) === hitName/);
+});
