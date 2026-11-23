@@ -54,3 +54,19 @@ test("chaque ère expose ses paramètres visuels d'interface et de carte", () =>
     assert.ok(theme.visuals?.surface, `style de surface manquant pour ${year}`);
   }
 });
+
+
+test("les ères exposent une matière visuelle distincte et le futur reste peu lumineux", () => {
+  const expectedMaterials = ["parchment", "vellum", "newsprint", "military", "glass", "obsidian"];
+  const eras = [1492, 1648, 1789, 1914, 2026, 2100].map(year => getCartographicTheme(year));
+  assert.deepEqual(eras.map(theme => theme.visuals?.material), expectedMaterials);
+  const future = eras.at(-1);
+  const luminance = hex => {
+    const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
+    const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  assert.ok(luminance(future.colors.surface) < 0.012, "la surface future doit rester presque noire");
+  assert.ok(luminance(future.colors.panel) < 0.025, "les panneaux futurs doivent rester très sombres");
+  assert.equal(future.visuals.mapFilter, "none", "le futur ne doit pas éclaircir la carte par un filtre de contraste");
+});
