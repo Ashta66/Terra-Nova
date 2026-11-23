@@ -1406,7 +1406,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       target.restore();
       // L'Antarctique reçoit un aplat neige autonome après le relief : les tuiles
       // ETOPO ne peuvent donc ni le masquer ni le rendre transparent au zoom mondial.
-      if (projection.type === "equirectangular" && visibleLand?.features?.length) {
+      if (projection.type === "equirectangular" && visibleLand?.features?.length
+        && globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE !== true) {
         const antarcticFeatures = visibleLand.features.filter(isAntarcticLandFeature);
         if (antarcticFeatures.length) {
           measureLayer("antarctic-land-base", () => drawAntarcticLandBase(target,
