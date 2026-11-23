@@ -889,3 +889,80 @@ body[data-cartographic-era="present"] .chat-message, body[data-cartographic-era=
 body[data-cartographic-era="present"] .ai-intro { color: #aeb8b2; }
 body[data-cartographic-era="present"] .ai-orb { border-color: #75684f; color: #b6a17d; box-shadow: inset 0 0 18px #b6a17d0b; }
 body[data-cartographic-era="present"] .ai-orb:before, body[data-cartographic-era="present"] .ai-orb:after { border-color: #75684f44; }
+
+
+/* 1492 — véritable support de carte : parchemin ivoire, patine et encre */
+body[data-cartographic-era="exploration"] .side-panel,
+body[data-cartographic-era="exploration"] .topbar,
+body[data-cartographic-era="exploration"] .setup-card,
+body[data-cartographic-era="exploration"] .chronicle-console,
+body[data-cartographic-era="exploration"] .chat-message,
+body[data-cartographic-era="exploration"] .era-banner {
+  background-color: #d8c49b;
+  background-image: url("../assets/textures/parchment.svg");
+  background-size: cover;
+  background-position: center;
+  background-blend-mode: normal;
+  color: #382817;
+  border-color: #8c6840;
+  box-shadow: inset 0 0 32px #65451f18, 0 8px 22px #09060435;
+}
+body[data-cartographic-era="exploration"] .side-panel {
+  border-color: #9b7948;
+}
+body[data-cartographic-era="exploration"] .topbar {
+  border-bottom: 2px solid #987345;
+}
+body[data-cartographic-era="exploration"] .side-heading h1,
+body[data-cartographic-era="exploration"] .side-heading h2,
+body[data-cartographic-era="exploration"] .map-stage-heading h2,
+body[data-cartographic-era="exploration"] .date-display,
+body[data-cartographic-era="exploration"] .ai-intro,
+body[data-cartographic-era="exploration"] .chat-message,
+body[data-cartographic-era="exploration"] .chronicle-console strong {
+  color: #382817;
+}
+body[data-cartographic-era="exploration"] .eyebrow,
+body[data-cartographic-era="exploration"] .side-section-title,
+body[data-cartographic-era="exploration"] .chat-preview label,
+body[data-cartographic-era="exploration"] .run-indicator,
+body[data-cartographic-era="exploration"] .clock-subline strong {
+  color: #79552e;
+}
+body[data-cartographic-era="exploration"] .side-copy,
+body[data-cartographic-era="exploration"] .mini-status,
+body[data-cartographic-era="exploration"] .save-status,
+body[data-cartographic-era="exploration"] .clock-subline span,
+body[data-cartographic-era="exploration"] .timeline-heading span,
+body[data-cartographic-era="exploration"] .timeline-ends,
+body[data-cartographic-era="exploration"] .speed-control > span,
+body[data-cartographic-era="exploration"] .time-stats {
+  color: #6d573b;
+}
+body[data-cartographic-era="exploration"] .button,
+body[data-cartographic-era="exploration"] .speed-chip,
+body[data-cartographic-era="exploration"] .chat-preview textarea,
+body[data-cartographic-era="exploration"] .speed-control select {
+  background: #c5ad80;
+  color: #382817;
+  border-color: #94734a;
+}
+body[data-cartographic-era="exploration"] .button-primary {
+  background: linear-gradient(180deg, #8f6838, #674725);
+  color: #fff0d1;
+  border-color: #79552e;
+}
+body[data-cartographic-era="exploration"] .era-banner {
+  background-image: url("../assets/textures/parchment.svg");
+  color: #684724;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 13px;
+  box-shadow: inset 0 0 0 1px #8a633b55, inset 0 0 24px #68472420;
+}
+body[data-cartographic-era="exploration"] .chronicle-console {
+  box-shadow: inset 0 0 26px #65451f20, 0 8px 22px #09060430;
+}
+body[data-cartographic-era="exploration"] .map-frame {
+  border: 2px solid #987548;
+  box-shadow: 0 0 0 4px #98754820, 0 14px 34px #08060466;
+}
