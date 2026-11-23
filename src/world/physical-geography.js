@@ -121,8 +121,8 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
   for (let offset = -xSpan; offset <= xSpan; offset += pixelStep) {
    const column = ((Math.floor(centerX) + offset) % grid.width + grid.width) % grid.width;
    const gridY = Math.floor(row / pixelStep), gridX = Math.floor(column / pixelStep);
-   const seenKey = gridY * grid.width + gridX;
-   if (seen.has(seenKey)) continue;
+   const seenKey = gridY * cellColumns + gridX;
+   if (seen[seenKey]) continue;
    const lon = (column + .5) / grid.width * 360 - 180;
    const lat = 90 - (row + .5) / grid.height * 180;
    const cell = { id: "", longitude: lon, latitude: lat };
