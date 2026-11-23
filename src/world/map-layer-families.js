@@ -29,11 +29,23 @@ export function createMapLayerFamilies(layers = {}) {
 }
 
 export function getChangedMapLayerFamilies(previous = {}, next = {}) {
-  return Object.keys(next).filter(family => {
+  const changed = [];
+  for (const family of Object.keys(next)) {
     const before = previous[family] ?? {};
     const after = next[family] ?? {};
-    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
-    for (const key of keys) if (before[key] !== after[key]) return true;
-    return false;
-  });
+    for (const key of Object.keys(before)) {
+      if (before[key] !== after[key]) {
+        changed.push(family);
+        break;
+      }
+    }
+    if (changed[changed.length - 1] === family) continue;
+    for (const key of Object.keys(after)) {
+      if (!Object.hasOwn(before, key)) {
+        changed.push(family);
+        break;
+      }
+    }
+  }
+  return changed;
 }
