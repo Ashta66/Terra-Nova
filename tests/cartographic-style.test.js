@@ -177,3 +177,24 @@ test("les commandes et la frise ont un feedback mécanique accessible", () => {
   assert.match(css, /#year-scrubber::-webkit-slider-thumb/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
+
+
+test("le registre des événements adopte une présentation documentaire selon chaque ère", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(html, /id="ai-era-message" class="chat-message assistant-message"/);
+  assert.match(html, /id="event-prompt"/);
+  assert.match(css, /\.chat-message::before[\s\S]*?REGISTRE/);
+  assert.match(css, /\.chat-preview[\s\S]*?box-shadow:/);
+  for (const [era, label] of [
+    ["revolution", "GAZETTE"],
+    ["modern", "ÉTAT-MAJOR"],
+    ["present", "CENTRE DE VEILLE"],
+    ["future", "CONSOLE ORBITALE"]
+  ]) {
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.chat-message::before[\\s\\S]*?${label}`));
+  }
+  assert.match(css, /\.chronicle-console::after[\s\S]*?repeating-linear-gradient/);
+  assert.match(css, /#year-scrubber[\s\S]*?repeating-linear-gradient/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+});
