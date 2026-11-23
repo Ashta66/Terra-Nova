@@ -1095,29 +1095,39 @@ test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaill
     "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
 });
 
-test("l'Antarctique est exclu du remplissage terrestre translucide WebGL", () => {
+test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
   const { canvas } = createCanvas();
-  const antarctica = { type: "FeatureCollection", features: [{
+  const antarcticaFeature = {
     type: "Feature",
     bbox: [-180, -90, 180, -63],
-    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
-  }] };
-  let renderedLayers = [];
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -70], [180, -90], [-180, -90], [-180, -63]]] }
+  };
+  const collection = { type: "FeatureCollection", features: [...land.features, antarcticaFeature] };
+  let renderedLayers = null;
   const geographicWebGLRenderer = {
     canvas: {},
     supports: () => true,
     supportsBoundary: () => true,
     renderLayers: layers => { renderedLayers = layers; return {}; }
   };
-  renderWorldMap(canvas, antarctica, {
-    width: 640, height: 320, pixelRatio: 1,
-    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
-    terrainEnabled: true,
-    geographicWebGLRenderer
-  });
+  const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = false;
+  try {
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: false,
+      geographicWebGLRenderer
+    });
+  } finally {
+    if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
+  }
+  assert.ok(renderedLayers, "le moteur WebGL géographique doit recevoir les couches");
   const landFill = renderedLayers.find(layer => layer.key === "land-fill");
   assert.ok(landFill, "la couche de remplissage terrestre doit être rendue");
-  assert.equal(landFill.features.length, 0,
-    "l'Antarctique possède déjà son aplat blanc opaque et ne doit pas recevoir le voile blanc translucide");
+  assert.equal(landFill.features.length, 1,
+    "seule la terre ordinaire doit recevoir le remplissage translucide");
+  assert.ok(landFill.features.every(feature => feature !== antarcticaFeature),
+    "la géométrie antarctique doit être absente du remplissage translucide");
 });
-
