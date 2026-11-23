@@ -81,3 +81,18 @@ test("la longitude s'enroule proprement à l'antiméridien", () => {
     10
   );
 });
+
+test("les calottes glaciaires polaires restent blanches à faible zoom", () => {
+  const greenlandGrid = createDegreeGrid(2200);
+  const antarcticaGrid = createDegreeGrid(2600);
+
+  assert.ok(terrainSnowElevationForPixel(greenlandGrid, 0, 75, 2) >= 4000);
+  assert.ok(terrainSnowElevationForPixel(antarcticaGrid, 0, -80, 2) >= 4000);
+});
+
+test("un haut sommet conserve une altitude de neige exploitable pour la surcouche politique", () => {
+  const mountainGrid = createDegreeGrid(900);
+  mountainGrid.values[90 * mountainGrid.width + 180] = 5000;
+
+  assert.equal(terrainSnowElevationForPixel(mountainGrid, 0, 0, 1), 5000);
+});
