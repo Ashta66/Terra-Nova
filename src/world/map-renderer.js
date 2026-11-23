@@ -1066,7 +1066,7 @@ function polygonInteriorLabelPoint(feature) {
 }
 
 function territoryName(properties = {}) {
-  for (const key of ["NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]) {
+  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]) {
     const value = properties[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
