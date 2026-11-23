@@ -30,11 +30,13 @@ test("three layer families preserve references and isolate revisions", () => {
   assert.equal(before.physical.land, land); assert.deepEqual(getChangedMapLayerFamilies(before, after), ["political"]);
 });
 test("visual frame scheduler coalesces calls and supports cancellation", () => {
-  const callbacks = new Map(); let next = 0, renders = 0;
-  const schedule = createMapFrameScheduler(() => renders++, callback => { callbacks.set(++next, callback); return next; }, id => callbacks.delete(id));
+  const callbacks = new Map(); let next = 0, renders = 0, firstCallback;
+  const schedule = createMapFrameScheduler(() => renders++, callback => { firstCallback ??= callback; callbacks.set(++next, callback); return next; }, id => callbacks.delete(id));
   assert.equal(schedule(), true); assert.equal(schedule(), false);
   const [id, callback] = [...callbacks.entries()][0]; callbacks.delete(id); callback();
-  assert.equal(renders, 1); schedule(); assert.equal(schedule.cancel(), true); assert.equal(callbacks.size, 0);
+  assert.equal(renders, 1); schedule();
+  assert.equal([...callbacks.values()][0], firstCallback);
+  assert.equal(schedule.cancel(), true); assert.equal(callbacks.size, 0);
 });
 test("weighted tile cache evicts least recently used entries within byte budget", () => {
   const cache = createMapTileCache({ maxBytes: 8, maxEntries: 3 });
