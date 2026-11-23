@@ -110,8 +110,18 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
   }
   function exportResults({ stop = true } = {}) {
     if (stop) active = false;
-    const metricKeys = [...new Set(samples.flatMap(sample => Object.keys(sample.metrics)))];
-    const metrics = Object.fromEntries(metricKeys.map(key => [key, summarize(samples.map(sample => sample.metrics[key]).filter(Number.isFinite))]));
+    const metricValues = new Map();
+    for (const sample of samples) {
+      for (const [key, value] of Object.entries(sample.metrics)) {
+        if (!Number.isFinite(value)) continue;
+        let values = metricValues.get(key);
+        if (!values) metricValues.set(key, values = []);
+        values.push(value);
+      }
+    }
+    const metrics = Object.fromEntries(
+      [...metricValues].map(([key, values]) => [key, summarize(values)])
+    );
     return { schemaVersion: 1, metadata: { ...metadata, ...(samples.at(-1)?.metadata ?? {}), sampleCount: samples.length, durationMs: Math.max(0, clockNow() - startedAt), userAgent: environment.navigator?.userAgent ?? "unknown", collectedAt: new Date().toISOString() }, metrics };
   }
   function clear() { active = false; samples = []; previousFrameAt = null; startedAt = 0; }
