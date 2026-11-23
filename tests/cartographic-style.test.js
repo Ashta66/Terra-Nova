@@ -95,5 +95,5 @@ test("chaque ère possède une finition d'interface dédiée sans animation déc
     assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.era-banner`), `bannière dédiée absente pour ${era}`);
     assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.map-frame`), `cadre cartographique dédié absent pour ${era}`);
   }
-  assert.match(css, /prefers-reduced-motion:\\s*reduce/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
