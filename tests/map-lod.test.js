@@ -199,7 +199,7 @@ test("une URL régionale avec paramètres conserve la bonne clé de ressource", 
     requested = url;
     return { ok: true, json: async () => regional };
   });
-  assert.match(requested, /ne_10m_rivers_lake_centerlines\\.geojson$/);
+  assert.ok(requested.endsWith("ne_10m_rivers_lake_centerlines.geojson"));
   assert.equal(loaded, regional);
 });
 
