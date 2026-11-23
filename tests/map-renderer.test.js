@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
@@ -909,6 +909,21 @@ test("le rendu physique conserve le relief ETOPO hors des cellules modifiées",(
 });
 
 
+test("la localisation couvre les champs formels, les libellés cartographiques et les variantes de lieux", () => {
+  assert.equal(territoryName({ NAME: "Kingdom of X", FORMAL_FR: "Royaume de X" }), "Royaume de X");
+  assert.equal(territoryName({ NAME_EN: "Republic of Annam", FORMAL_FR: "République de l’Annam" }), "République de l’Annam");
+  assert.equal(localizeMapLabel("Republic of Korea", "country"), "Corée du Sud");
+  assert.equal(localizeMapLabel("Province of Bavaria", "province"), "Province de Bavière");
+  assert.equal(localizeMapLabel("Beijing", "city"), "Pékin");
+  assert.equal(localizeMapLabel("Cairo", "city"), "Le Caire");
+  assert.equal(localizeMapLabel("Timbuktu", "city"), "Tombouctou");
+  assert.equal(localizeMapLabel("Samarkand", "city"), "Samarcande");
+  assert.equal(localizeMapLabel("Venice", "city"), "Venise");
+  assert.equal(localizeMapLabel("Genoa", "city"), "Gênes");
+  assert.equal(localizeMapLabel("Atlantique", "ocean"), "Atlantique");
+  assert.equal(localizeMapLabel("", "city"), "");
+});
+
 test("les noms historiques sont francisés et les enclaves anglaises sont explicitement nommées",()=>{
  assert.equal(frenchTerritoryName("New France"),"Nouvelle-France");
  assert.equal(frenchTerritoryName("Aquitaine",{NAME:"Aquitaine",SUBJECTO:"Kingdom of England"}),"Aquitaine anglaise");
@@ -951,6 +966,10 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("Kingdom of Ceylon"),"Royaume de Ceylan");
  assert.equal(frenchTerritoryName("Kingdom of Bohemia"),"Royaume de Bohême");
  assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Kingdom",NAME_FR:"Peuples autochtones"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Peuples indigènes"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Communautés autochtones"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Chasseurs-cueilleurs"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Pasteurs nomades"}}),true);
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
