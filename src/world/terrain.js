@@ -163,7 +163,12 @@ function applyLandformTint(color, landform) {
   const tint = tints[landform];
   if (!tint) return color;
   const strength = landform === "mountains" ? 0.04 : 0.035;
-  return color.map((channel, index) => Math.round(channel * (1 - strength) + tint[index] * strength));
+  const inverse = 1 - strength;
+  return [
+    Math.round(color[0] * inverse + tint[0] * strength),
+    Math.round(color[1] * inverse + tint[1] * strength),
+    Math.round(color[2] * inverse + tint[2] * strength)
+  ];
 }
 
 
