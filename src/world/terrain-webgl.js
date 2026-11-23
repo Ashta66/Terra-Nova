@@ -769,7 +769,7 @@ void main(){
  float iceSheet=(greenlandIceSheet||antarcticSnowCoverage>0.0);
  float e=elevationAt(v_atlasUv);
  bool polarSnow=greenlandIceSheet&&e>=1500.0;
- float antarcticSnowAmount=antarcticSnowCoverage*(e<0.0?0.94:0.62);
+ float antarcticSnowAmount=antarcticSnowCoverage*(e<0.0?0.72:0.98);
  float snowLine=mix(5200.0,3600.0,smoothstep(25.0,75.0,abs(latitude)));
  bool summitSnow=e>=snowLine;
  float w=elevationAt(v_atlasUv-vec2(v_atlasStep.x,0.0)), east=elevationAt(v_atlasUv+vec2(v_atlasStep.x,0.0));
