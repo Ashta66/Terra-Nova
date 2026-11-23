@@ -131,7 +131,8 @@ export function selectMajorLakeFeatures(collection, maxRank = 1, maxFeatures = M
     for (let index = 0; index < candidates.length; index++) sorted[index] = candidates[index].feature;
     profiles.set(rankKey, sorted);
   }
-  return sorted.slice(0, Math.max(0, maxFeatures));
+  const limit = Math.max(0, maxFeatures);
+  return sorted.length <= limit ? sorted : sorted.slice(0, limit);
 }
 
 
