@@ -1563,9 +1563,13 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
     // ne pas retracer son anneau GeoJSON comme une côte visible.
     const landCoastFeatures = [];
+    const antarcticFeatures = [];
     const landCoastFeatureSet = new Set();
     for (const feature of visibleLand?.features ?? []) {
-      if (isAntarcticLandFeature(feature)) continue;
+      if (isAntarcticLandFeature(feature)) {
+        antarcticFeatures.push(feature);
+        continue;
+      }
       landCoastFeatures.push(feature);
       landCoastFeatureSet.add(feature);
     }
@@ -1623,7 +1627,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       // ETOPO ne peuvent donc ni le masquer ni le rendre transparent au zoom mondial.
       if (projection.type === "equirectangular" && visibleLand?.features?.length
         && globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE !== true) {
-        const antarcticFeatures = visibleLand.features.filter(isAntarcticLandFeature);
         if (antarcticFeatures.length) {
           measureLayer("antarctic-land-base", () => drawAntarcticLandBase(target,
             antarcticFeatures, width, height, projection));
