@@ -46,7 +46,8 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   const cells = new Map();
   const global = [];
   const bounds = new Array(collection.features.length);
-  collection.features.forEach((feature, index) => {
+  for (let index = 0; index < collection.features.length; index++) {
+    const feature = collection.features[index];
     const box = getBounds(feature);
     bounds[index] = box;
     if (!box) { global.push(index); return; }
@@ -67,7 +68,7 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
         bucket.push(index);
       }
     }
-  });
+  }
   return {
     collection, cellSize: size, columns, rows, cells, global, bounds,
     queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0
