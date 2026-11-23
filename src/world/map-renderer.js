@@ -1757,10 +1757,14 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   const cityLabelLimit = Math.max(2, Math.round(getCityLabelLimit(zoom) * density));
   let cityLabelsDrawn = 0;
   context.save();
-  for (let candidateIndex = 0; candidateIndex < Math.min(candidates.length, candidateLimit); candidateIndex++) {
+  let secondaryCandidatesVisited = 0;
+  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
     const feature = candidates[candidateIndex];
-    if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     const kind = feature.properties?.kind ?? "place";
+    // Les noms des pays restent prioritaires à l'échelle mondiale : le budget
+    // de densité ne doit limiter que les labels secondaires (continents, villes…).
+    if (kind !== "country" && secondaryCandidatesVisited++ >= candidateLimit) continue;
+    if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     if (zoom < 3 && kind === "province") continue;
     if (kind === "city" && cityLabelsDrawn >= cityLabelLimit) continue;
     if (feature.geometry?.type !== "Point") continue;
