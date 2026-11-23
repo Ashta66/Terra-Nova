@@ -11,7 +11,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
-import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
+import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
