@@ -915,6 +915,13 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("British Raj"),"Inde britannique");
  assert.equal(frenchTerritoryName("Republic of Korea",{ADMIN:"Republic of Korea",ISO_A3:"KOR"}),"Corée du Sud");
  assert.equal(frenchTerritoryName("United Republic of Tanzania",{ADMIN:"United Republic of Tanzania",ISO_A3:"TZA"}),"Tanzanie");
+ assert.equal(frenchTerritoryName("Ivory Coast"),"Côte d’Ivoire");
+ assert.equal(frenchTerritoryName("Democratic Republic of the Congo"),"République démocratique du Congo");
+ assert.equal(frenchTerritoryName("Czechia"),"Tchéquie");
+ assert.equal(frenchTerritoryName("South Korea"),"Corée du Sud");
+ assert.equal(frenchTerritoryName("East Timor"),"Timor oriental");
+ assert.equal(frenchTerritoryName("Cape Verde"),"Cap-Vert");
+ assert.equal(frenchTerritoryName("United Arab Emirates"),"Émirats arabes unis");
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
