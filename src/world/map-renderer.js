@@ -6,6 +6,24 @@ import { selectGeoSpatialFeatures } from "./geo-spatial-index.js";
 
 export const selectVisibleFeatures = selectGeoSpatialFeatures;
 
+const BRITISH_TERRITORY_NAMES = new Set([
+  "england", "english territory", "kingdom of england", "great britain", "britain",
+  "british empire", "united kingdom", "united kingdom of great britain and ireland"
+]);
+const SPANISH_TERRITORY_NAMES = new Set(["castile", "aragon", "granada", "spain", "crown of castile", "spanish empire"]);
+const PORTUGUESE_TERRITORY_NAMES = new Set(["portugal", "kingdom of portugal"]);
+const CONTESTED_STATUSES = new Set(["contested", "disputed", "contesté", "disputé"]);
+const INFLUENCE_STATUSES = new Set(["influence", "sphere-of-influence", "influence-zone", "non-state", "cultural"]);
+const UNCLAIMED_STATUSES = new Set(["unclaimed", "unoccupied", "no-claim"]);
+const TERRITORY_MATCH_FIELDS = ["NAME", "ADMIN", "name", "NAME_EN", "SOVEREIGNT", "NAME_LONG", "SUBJECTO"];
+const TERRITORY_PALETTE = [
+  "#B66F62", "#668D78", "#B18A4F", "#718BAF", "#9A769F", "#B47E91", "#6D9B9C",
+  "#A28A62", "#7E86A8", "#A27B5D", "#78936B", "#B07862", "#64899B", "#A18A9A",
+  "#9A9A61", "#8B765E", "#6F9A88", "#A77C75", "#7885A0", "#B08B69"
+];
+const TERRITORY_INFLUENCE_DASH = [3, 3];
+const TERRITORY_CONTESTED_DASH = [2, 2];
+
 /** Partitionne une collection en un seul passage, sans rappeler le test de capacité. */
 export function partitionFeatures(features, supports) {
   const supported = [], unsupported = [];
