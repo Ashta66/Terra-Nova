@@ -154,3 +154,15 @@ test("1492 présente un véritable parchemin clair et une encre lisible", () => 
   assert.match(css, /body\[data-cartographic-era="exploration"\] \.side-panel[\s\S]*?background-blend-mode:\s*normal/);
   assert.match(css, /body\[data-cartographic-era="exploration"\] \.side-panel[\s\S]*?color:\s*#382817/);
 });
+
+
+test("1492 utilise un parchemin patiné sombre plutôt qu'un aplat ivoire", () => {
+  const parchment = readFileSync(new URL("../assets/textures/parchment.svg", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(parchment, /fill="#92764e"/, "la base du parchemin doit être brun miel");
+  assert.match(parchment, /stop-color="#24170f" stop-opacity=".82"/, "les bords doivent porter une patine sombre");
+  assert.match(parchment, /baseFrequency=".012 .34"/, "les fibres doivent avoir une structure allongée");
+  assert.match(css, /body\[data-cartographic-era="exploration"\] \{[\s\S]*?background: radial-gradient\(ellipse at 50% 18%, #443321 0, #21190f 72%\)/);
+  assert.match(css, /body\[data-cartographic-era="exploration"\] \.side-panel,[\s\S]*?background-color: #92764e/);
+  assert.match(css, /body\[data-cartographic-era="exploration"\] \.button,[\s\S]*?background: #715638/);
+});
