@@ -1293,3 +1293,43 @@ test("le classement des grands lacs est mis en cache par collection et rang", ()
     "une seconde sélection avec le même rang réutilise le classement calculé");
   assert.deepEqual(second, first.slice(0, 5));
 });
+
+
+test("l'index spatial traite les collections géométriques imbriquées sans récursion", () => {
+  const nested = { type: "Feature", properties: { id: "nested" }, geometry: {
+    type: "GeometryCollection", geometries: [
+      { type: "GeometryCollection", geometries: [
+        { type: "Point", coordinates: [4, 45] },
+        { type: "LineString", coordinates: [[5, 45], [6, 46]] }
+      ] }
+    ]
+  } };
+  const collection = { type: "FeatureCollection", features: [nested] };
+  const visible = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), {
+    zoom: 5, centerLongitude: 5, centerLatitude: 45
+  });
+  assert.strictEqual(visible.features[0], nested);
+});
+
+test("les clés de tuiles numériques conservent la sélection autour de l'antiméridien", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "est" }, geometry: { type: "Point", coordinates: [179, 0] } },
+    { type: "Feature", properties: { id: "ouest" }, geometry: { type: "Point", coordinates: [-179, 0] } },
+    { type: "Feature", properties: { id: "loin" }, geometry: { type: "Point", coordinates: [0, 0] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection, 10);
+  const result = queryGeoSpatialIndex(index, { zoom: 8, centerLongitude: 180, centerLatitude: 0 });
+  assert.deepEqual(result.features.map(feature => feature.properties.id), ["est", "ouest"]);
+  assert.strictEqual(queryGeoSpatialIndex(index, { zoom: 8, centerLongitude: -180, centerLatitude: 0 }), result);
+});
+
+test("le plan de tuiles expose toujours des clés lisibles après indexation numérique", async () => {
+  const { getGeoSpatialTilePlan } = await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "Point", coordinates: [2, 48] } }
+  ] };
+  const plan = getGeoSpatialTilePlan(collection, { zoom: 4, centerLongitude: 0, centerLatitude: 45 });
+  assert.ok(plan.tileKeys.length > 0);
+  assert.ok(plan.tileKeys.every(key => /^\\d+:\\d+$/.test(key)));
+  assert.equal(plan.visibleTileCount, plan.tileKeys.length);
+});
