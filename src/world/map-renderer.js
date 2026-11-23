@@ -617,21 +617,62 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
   if (!collection?.features) return 0;
   const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   if (administrative && zoom < 3) return 0;
-  let count = 0;
-  context.save();
   const renderScale = projection.renderScale ?? 1;
-  context.strokeStyle = color;
-  context.lineWidth = lineWidth * renderScale;
-  context.globalAlpha = 0.92;
   const scaledDash = dash.map(value => value * renderScale);
   const simplifyProfile = getBoundarySimplificationProfile(zoom);
+  const batches = new Map();
+
+  // Les frontières sont regroupées par motif de trait : un seul beginPath/stroke
+  // par style au lieu d'un aller-retour Canvas pour chaque feature GeoJSON.
   for (const feature of collection.features) {
     const properties = feature?.properties ?? {};
     const precision = Number(properties.BORDERPRECISION ?? properties.borderPrecision ?? 3);
     const rank = Number(properties.scalerank ?? properties.SCALERANK ?? properties.min_zoom ?? properties.MIN_ZOOM ?? 0);
     if (administrative && ((zoom < 5 && rank > 1) || (zoom < 8 && rank > 3))) continue;
-    context.setLineDash?.(precisionAware && precision < 3 ? [3 * renderScale, 2 * renderScale] : scaledDash);
-    count += drawLineLayer(context, { type: "FeatureCollection", features: [feature] }, width, height, projection, color, lineWidth, simplifyProfile);
+    const lineDash = precisionAware && precision < 3
+      ? [3 * renderScale, 2 * renderScale]
+      : scaledDash;
+    const key = lineDash.join(",");
+    if (!batches.has(key)) batches.set(key, { dash: lineDash, features: [] });
+    batches.get(key).features.push(feature);
+  }
+
+  let count = 0;
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth * renderScale;
+  context.globalAlpha = 0.92;
+  for (const batch of batches.values()) {
+    context.setLineDash?.(batch.dash);
+    context.beginPath();
+    let batchHasGeometry = false;
+    for (const feature of batch.features) {
+      const geometry = feature?.geometry;
+      if (!geometry || !["LineString", "MultiLineString"].includes(geometry.type)) continue;
+      const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
+      for (const line of lines) {
+        const project = createContinuousProjector(width, height, projection);
+        let segment = [];
+        let lineDrawn = false;
+        const flushSegment = () => {
+          const points = simplifyOpenLine(segment, simplifyProfile.tolerance);
+          if (points.length) {
+            context.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) context.lineTo(points[i].x, points[i].y);
+            lineDrawn = true;
+          }
+          segment = [];
+        };
+        for (const coordinate of line ?? []) {
+          const point = project(coordinate);
+          if (!point) { flushSegment(); continue; }
+          segment.push(point);
+        }
+        flushSegment();
+        if (lineDrawn) { count++; batchHasGeometry = true; }
+      }
+    }
+    if (batchHasGeometry) context.stroke();
   }
   context.restore();
   return count;
