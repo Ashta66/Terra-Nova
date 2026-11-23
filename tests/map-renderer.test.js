@@ -922,6 +922,12 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("East Timor"),"Timor oriental");
  assert.equal(frenchTerritoryName("Cape Verde"),"Cap-Vert");
  assert.equal(frenchTerritoryName("United Arab Emirates"),"Émirats arabes unis");
+ assert.equal(frenchTerritoryName("Teutonic Knights"),"Chevaliers teutoniques");
+ assert.equal(frenchTerritoryName("Teutonic Order"),"Ordre Teutonique");
+ assert.equal(frenchTerritoryName("English territory"),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Polish-Lithuanian Commonwealth"),"République des Deux Nations");
+ assert.equal(frenchTerritoryName("Viceroyalty of New Spain"),"Vice-royauté de Nouvelle-Espagne");
+ assert.equal(frenchTerritoryName("British West Indies"),"Antilles britanniques");
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
