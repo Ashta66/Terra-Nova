@@ -159,6 +159,8 @@ const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
 const $ = (id) => document.getElementById(id);
 let lastThemeYear = null;
+let cachedYearButtons = null;
+let cachedSpeedButtons = null;
 let initialLoadingFinished=false;
 let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;
 let mapWarmupPromise=null,mapIndexWarmupStarted=false;
@@ -1199,7 +1201,8 @@ function render(updateMap = true) {
     if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
     lastThemeYear = year;
   }
-  document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
+  if (cachedYearButtons === null) cachedYearButtons = [...document.querySelectorAll("[data-year]")];
+  cachedYearButtons.forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   const yearScrubber = $("year-scrubber");
   yearScrubber.value = String(Number(state.clock.date.slice(0, 4)));
   const timelineProgress = (Number(yearScrubber.value) - Number(yearScrubber.min))
@@ -1209,7 +1212,8 @@ function render(updateMap = true) {
     $("start-year").value = String(year);
     $("start-year-value").textContent = String(year);
   }
-  document.querySelectorAll("[data-speed]").forEach(button => {
+  if (cachedSpeedButtons === null) cachedSpeedButtons = [...document.querySelectorAll("[data-speed]")];
+  cachedSpeedButtons.forEach(button => {
     button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
   });
   if (updateMap) renderMap();
