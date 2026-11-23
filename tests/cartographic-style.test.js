@@ -213,7 +213,7 @@ test("le cadre de la carte adopte une matière distincte sans intercepter le can
     ["present", /border-radius:\s*3px/],
     ["future", /map-frame::after/]
   ]) {
-    const start = css.indexOf(`body[data-cartographic-era="${era}"] .map-frame`);
+    const start = css.lastIndexOf(`body[data-cartographic-era="${era}"] .map-frame`);
     assert.notEqual(start, -1, `cadre dédié absent pour ${era}`);
     assert.match(css.slice(start, start + 850), treatment, `traitement du cadre absent pour ${era}`);
   }
