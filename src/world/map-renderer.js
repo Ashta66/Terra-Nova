@@ -627,10 +627,6 @@ function drawLandHachures(context, collection, width, height, projection, color)
     if (!feature?.geometry) continue;
     context.save();
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
-    // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
-    // ne pas retracer son anneau GeoJSON comme une côte visible.
-    const landCoastFeatures = visibleLand?.features?.filter(feature => !isAntarcticLandFeature(feature)) ?? [];
-    const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       context.clip(cachedPath, "evenodd");
@@ -1357,6 +1353,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     target.restore();
 
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
+    // ne pas retracer son anneau GeoJSON comme une côte visible.
+    const landCoastFeatures = visibleLand?.features?.filter(feature => !isAntarcticLandFeature(feature)) ?? [];
+    const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     let landClipPath = null;
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
@@ -1441,8 +1441,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
             (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)
               ? unsupportedLand : supportedLand).push(feature);
             (
-              landCoastFeatures.includes(feature)
-              && globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
+              !landCoastFeatures.includes(feature)
+                || globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
                 || !geographicRenderer.supportsBoundary(feature)
                 ? unsupportedCoasts
                 : supportedCoasts
@@ -1484,7 +1484,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         }
         return drawn + supportedLand.length;
       } catch {
-        return drawPolygonLayer(target, visibleLand, width, height, projection, landFill,
+        return drawPolygonLayer(target, landCoastCollection, width, height, projection, landFill,
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
     });
