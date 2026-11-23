@@ -1221,7 +1221,7 @@ $("sandbox-country").addEventListener("change", event => {
   playerCountry = event.target.value;
   previewCountry = playerCountry;
   $("map-title").textContent = frenchTerritoryName(event.target.value) + " · " + state.clock.date.slice(0,4);
-  $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
+  $("save-status").textContent = "Sandbox : nation active — " + frenchTerritoryName(event.target.value);
   renderMap();
 });
 const startYearSlider = $("start-year");
@@ -1275,7 +1275,7 @@ $("begin-campaign").addEventListener("click", () => {
   document.body.classList.toggle("sandbox-mode", mode === "sandbox");
   $("map-title").textContent = frenchTerritoryName(country) + " · " + year;
   $("sandbox-country").value = country;
-  $("save-status").textContent = "Campagne : " + country + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
+  $("save-status").textContent = "Campagne : " + frenchTerritoryName(country) + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
   schedule();
   render();
 });
