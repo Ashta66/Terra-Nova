@@ -127,7 +127,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
    const lat = 90 - (row + .5) / grid.height * 180;
    const cell = { id: "", longitude: lon, latitude: lat };
    if (distance(origin, cell) > radiusKm) continue;
-   seen.add(seenKey);
+   seen[seenKey] = 1;
    cell.id = "impact-" + event.id + "-" + gridY + "-" + gridX;
    const elevationM = Number(grid.values[row * grid.width + column]);
    let coastalDistanceKm = elevationM < 0 ? 0 : Infinity;
