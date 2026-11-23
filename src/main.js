@@ -515,11 +515,14 @@ function updateMapDiagnostics(result) {
     "frontieres-politiques": "Frontières politiques",
     "frontieres-administratives": "Frontières administratives", etiquettes: "Étiquettes"
   };
-  layers.replaceChildren(...Object.entries(result.renderTimings ?? {}).map(([key, value]) => {
+  const fragments = document.createDocumentFragment();
+  for (const key in (result.renderTimings ?? {})) {
+    if (!Object.hasOwn(result.renderTimings, key)) continue;
     const item = document.createElement("span");
-    item.textContent = (labels[key] ?? key) + " : " + value.toFixed(1) + " ms";
-    return item;
-  }));
+    item.textContent = (labels[key] ?? key) + " : " + result.renderTimings[key].toFixed(1) + " ms";
+    fragments.append(item);
+  }
+  layers.replaceChildren(fragments);
 }
 
 const MAP_WORKER_LAYER_FAMILIES = ["physical", "political", "dynamic"];
