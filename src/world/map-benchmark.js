@@ -93,7 +93,7 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     const userAgent = environment.navigator?.userAgent ?? "unknown";
     const screen = environment.screen ?? {};
     const visualViewport = environment.visualViewport ?? {};
-    const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+    const mobileUserAgent = MOBILE_USER_AGENT.test(userAgent);
     samples.push({ metrics, metadata: {
       ...context,
       terrainRenderer: result.terrainRenderer ?? "unknown",
