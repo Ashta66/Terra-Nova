@@ -4,6 +4,7 @@ import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryCol
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
+import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
 
 function createCanvas() {
   const calls = [];
@@ -1332,4 +1333,57 @@ test("le plan de tuiles expose toujours des clés lisibles après indexation num
   assert.ok(plan.tileKeys.length > 0);
   assert.ok(plan.tileKeys.every(key => /^[0-9]+:[0-9]+$/.test(key)));
   assert.equal(plan.visibleTileCount, plan.tileKeys.length);
+});
+
+
+test("le classement géographique des lacs supporte des anneaux très détaillés sans spread massif", () => {
+  const ring = Array.from({ length: 140000 }, (_, index) => [
+    -5 + (index % 70000) / 7000,
+    40 + Math.floor(index / 70000) * 2
+  ]);
+  ring.push(ring[0]);
+  const feature = { type: "Feature", geometry: { type: "Polygon", coordinates: [ring] } };
+  assert.doesNotThrow(() => selectMajorLakeFeatures({ features: [feature] }, 1, 1));
+});
+
+test("le calcul des surfaces de polygones ignore les coordonnées invalides sans contaminer l'aire", () => {
+  const valid = { type: "Feature", geometry: { type: "Polygon", coordinates: [
+    [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]
+  ] } };
+  const invalidHole = { type: "Feature", geometry: { type: "Polygon", coordinates: [
+    [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]],
+    [[0.5, 0.5], [NaN, 1], [1, 1], [0.5, 0.5]]
+  ] } };
+  assert.equal(filterSmallIslandComponents({ features: [valid] }, 1).features.length, 1);
+  assert.equal(filterSmallIslandComponents({ features: [invalidHole] }, 1).features.length, 1);
+});
+
+test("le filtrage des composants insulaires conserve l'ordre source sans tri global", () => {
+  const ring = size => [[0, 0], [size, 0], [size, size], [0, size], [0, 0]];
+  const polygons = [ring(5), ring(0.02), ring(3), ring(0.01)];
+  const result = filterSmallIslandComponents({
+    features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: polygons.map(polygon => [polygon]) } }]
+  }, 100);
+  assert.deepEqual(result.features[0].geometry.coordinates, [[polygons[0]], [polygons[2]]]);
+});
+
+test("le filtre des grands lacs conserve les rangs et l'ordre des entités", () => {
+  const makeLake = (name, rank, size) => ({
+    type: "Feature", properties: { name, scalerank: rank },
+    bbox: [0, 0, size, size],
+    geometry: { type: "Polygon", coordinates: [] }
+  });
+  const collection = { type: "FeatureCollection", features: [
+    makeLake("rang 1", 1, 8), makeLake("rang 3", 3, 20),
+    makeLake("rang absent", undefined, 7), makeLake("petit", 1, 0.1)
+  ] };
+  assert.deepEqual(filterMajorLakeFeatures(collection, 500).features.map(feature => feature.properties.name),
+    ["rang 1", "rang absent"]);
+});
+
+test("les familles cartographiques détectent les ajouts et retraits de couches sans Set temporaire", () => {
+  const previous = { physical: { land: {}, lakes: {}, rivers: {} }, political: { labels: {} } };
+  const next = { physical: { land: previous.physical.land, lakes: null, glaciers: {} }, political: { labels: previous.political.labels } };
+  assert.deepEqual(getChangedMapLayerFamilies(previous, next), ["physical"]);
+  assert.deepEqual(getChangedMapLayerFamilies(next, previous), ["physical"]);
 });
