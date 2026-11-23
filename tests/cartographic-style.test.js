@@ -348,12 +348,17 @@ test("la préparation propose deux boutons de mode synchronisés avec le mode r�
   assert.match(css, /\.campaign-mode-button:focus-visible/);
 });
 
-test("la préparation place les deux dossiers sur les bords et laisse la carte visible au centre", () => {
+test("les panneaux de pré-campagne sont des éléments frères ancrés dans le viewport", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /@media\(min-width:1000px\)[\s\S]*?\.setup-card\{[\s\S]*?position:fixed;left:18px/);
-  assert.match(css, /\.country-selected\.country-dossier-panel\{[\s\S]*?position:fixed;z-index:31;right:18px/);
-  assert.match(css, /\.setup-grid\{display:contents\}/);
-  assert.match(css, /\.campaign-setup\{inset:58px 0 0;display:block;padding:0;background:none;pointer-events:none\}/);
-  assert.match(css, /@media\(max-width:999px\)[\s\S]*?\.country-selected\.country-dossier-panel\{position:static/);
-  assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.campaign-mode-button\{transition:none\}/);
+  const setupStart = html.indexOf('id="campaign-setup"');
+  const setupEnd = html.indexOf('<main class="game-layout">', setupStart);
+  const campaignMarkup = html.slice(setupStart, setupEnd);
+  assert.ok(campaignMarkup.indexOf('class="setup-card"') < campaignMarkup.indexOf('class="country-selected country-dossier-panel"'));
+  assert.match(campaignMarkup, /<\/div>\s*<section class="country-selected country-dossier-panel"/);
+  assert.match(css, /#campaign-setup>\.setup-card\{[\s\S]*?position:absolute;left:clamp\(12px/);
+  assert.match(css, /#campaign-setup>\.country-dossier-panel\{[\s\S]*?position:absolute;right:clamp\(12px/);
+  assert.match(css, /#campaign-setup\.campaign-setup\{[\s\S]*?display:block/);
+  assert.match(css, /#campaign-setup \.setup-grid\{display:contents\}/);
+  assert.match(css, /@media\(max-width:999px\)[\s\S]*?#campaign-setup>\.country-dossier-panel\{[\s\S]*?position:relative/);
 });
