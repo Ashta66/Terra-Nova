@@ -200,7 +200,11 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
     // local des fosses/dorsales qui surchargerait la lecture stratégique.
     const sea = interpolateStops(elevation, SEA_COLOR_STOPS);
     const restrainedShade = clamp(1 + (shade - 1) * 0.12, 0.98, 1.02);
-    return sea.map(channel => Math.round(clamp(channel * restrainedShade, 0, 255)));
+    return [
+      Math.round(clamp(sea[0] * restrainedShade, 0, 255)),
+      Math.round(clamp(sea[1] * restrainedShade, 0, 255)),
+      Math.round(clamp(sea[2] * restrainedShade, 0, 255))
+    ];
   }
 
   const land = interpolateStops(elevation, [
