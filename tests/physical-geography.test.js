@@ -187,3 +187,16 @@ test("la reconstruction historique trie les événements sans muter leur ordre s
  assert.equal(second.currentCells[0].elevationDeltaM,10);
  assert.equal(world.events[0].id,"late-uplift");
 });
+
+
+test("les constantes d'événement sont pré-calculées sans changer les résultats physiques",()=>{
+ const world=createPhysicalWorld(cells);
+ const quake=applyPhysicalEvent(world,{id:"quake-context",type:"earthquake",date:"1602-01-01",longitude:0,latitude:0,radiusKm:150,magnitude:8,ruptureOffsetM:2,ruptureBearingDeg:35});
+ const center=quake.world.currentCells.find(cell=>cell.id==="coast");
+ assert.ok(center.damage>0);
+ assert.equal(center.currentElevationM,center.baseElevationM+center.elevationDeltaM);
+ const tsunami=applyPhysicalEvent(world,{id:"wave-context",type:"tsunami",date:"1603-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100});
+ const flooded=tsunami.world.currentCells.find(cell=>cell.id==="coast");
+ assert.equal(flooded.waterExpiresAt,"1603-02-01");
+ assert.ok(flooded.tsunamiWaterDepthM>0);
+});
