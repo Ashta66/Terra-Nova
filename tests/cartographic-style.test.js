@@ -330,3 +330,5 @@ test("les clics cartographiques résolvent les noms de pays sans dépendre des a
   assert.match(js, /findCampaignCountryForMapHit\(hit\)/);
   assert.match(js, /normalized\.startsWith\(name\) \|\| name\.startsWith\(normalized\)/);
 });
+
+test("la fiche de campagne présente statut, situation territoriale et lecture historique",()=>{const js=readFileSync(new URL("../src/main.js",import.meta.url),"utf8");const css=readFileSync(new URL("../styles/main.css",import.meta.url),"utf8");assert.match(js,/dossier\.stateStatus/);assert.match(js,/dossier\.territory/);assert.match(js,/dossier\.historicalLens/);assert.match(css,/\.dossier-status/);assert.match(css,/\.dossier-situation/);assert.match(css,/\.dossier-historical-lens/);});
