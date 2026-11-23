@@ -50,7 +50,7 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
     const feature = collection.features[index];
     const box = getBounds(feature);
     bounds[index] = box;
-    if (!box) { global.push(index); return; }
+    if (!box) { global.push(index); continue; }
     const west = longitudeCell(Math.max(-180, box.minX), columns, size);
     const east = longitudeCell(Math.min(180, box.maxX), columns, size);
     const north = latitudeCell(Math.min(90, box.maxY), rows, size);
@@ -58,7 +58,7 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
     const count = (east - west + 1) * (south - north + 1);
     if (count > MAX_CELLS_PER_FEATURE || box.maxX - box.minX > 180) {
       global.push(index);
-      return;
+      continue;
     }
     for (let y = north; y <= south; y++) {
       for (let x = west; x <= east; x++) {
