@@ -197,6 +197,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   let workerRuntimeFailures = 0;
   let workerSyncFallbackJobs = 0;
   let workerFailed = false;
+  let disposed = false;
   let nextWorkerRequestId = 1;
 
   const now = () => globalThis.performance?.now?.() ?? Date.now();
@@ -278,16 +279,16 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function failWorker() {
-    if (workerFailed) return;
+    if (workerFailed || disposed) return;
     workerRuntimeFailures += 1;
     workerFailed = true;
-    worker?.terminate?.();
+    try { worker?.terminate?.(); } catch { /* arrêt du worker best-effort */ }
     worker = null;
     for (const requestId of [...workerJobs.keys()]) settleWorkerJob(requestId, null, true);
   }
 
   function getWorker() {
-    if (worker || workerFailed || typeof options.createWorker !== "function") return worker;
+    if (disposed || worker || workerFailed || typeof options.createWorker !== "function") return worker;
     workerCreationAttempts += 1;
     try { worker = options.createWorker(); } catch { worker = null; }
     if (!worker) {
@@ -309,7 +310,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function prepareLevelAsync(level, fallback) {
-    if (!level || cache.has(level.tolerance)) return Promise.resolve(false);
+    if (disposed || !level || cache.has(level.tolerance)) return Promise.resolve(false);
     if (pending.has(level.tolerance)) return pending.get(level.tolerance);
     const activeWorker = getWorker();
     if (!activeWorker) {
@@ -337,6 +338,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function prepareZoomAsync(zoom = 1) {
+    if (disposed) return Promise.resolve(false);
     const level = getLevelForZoom(zoom);
     if (!level || !baseCollection?.features || cache.has(level.tolerance)) return Promise.resolve(false);
     return prepareLevelAsync(level, () => {
@@ -347,6 +349,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function prepareAdjacentAsync(zoom = 1, direction = 1) {
+    if (disposed) return Promise.resolve(false);
     const targetZoom = getAdjacentZoom(zoom, direction);
     if (targetZoom === null || !baseCollection?.features) return Promise.resolve(false);
     let level = null;
@@ -360,7 +363,9 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
   }
 
   function dispose() {
-    worker?.terminate?.();
+    if (disposed) return;
+    disposed = true;
+    try { worker?.terminate?.(); } catch { /* arrêt du worker best-effort */ }
     worker = null;
     for (const job of workerJobs.values()) job.resolve(false);
     workerJobs.clear();
