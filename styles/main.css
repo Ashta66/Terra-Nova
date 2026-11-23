@@ -307,741 +307,295 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
   .country-results{max-height:88px}
 }
 
-/* Identité cartographique vivante : palette, matières et typographie suivent l'époque */
+/* Système visuel unifié des six ères — une seule source de vérité */
 body {
   --theme-surface: #0b141b;
   --theme-panel: #14232c;
-  --theme-border: #2c4149;
-  --theme-accent: #d9b878;
-  --theme-text: #edf2ed;
+  --theme-panel-raised: #1a2b34;
+  --theme-border: #354a50;
+  --theme-accent: #c6a66b;
+  --theme-text: #edf1ec;
+  --theme-muted: #b0bfba;
+  --theme-control: #101d24;
+  --theme-control-text: #edf1ec;
   --theme-radius: 6px;
   --theme-map-filter: none;
   --theme-display-font: Georgia, serif;
   --theme-body-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: dark;
   background: var(--theme-surface);
   color: var(--theme-text);
   font-family: var(--theme-body-font);
-  transition: background-color .35s ease, color .35s ease;
+  transition: background-color .25s ease, color .25s ease;
 }
+body[data-cartographic-era="exploration"] {
+  --theme-surface: #21190f;
+  --theme-panel: #382b1d;
+  --theme-panel-raised: #493822;
+  --theme-border: #80613c;
+  --theme-accent: #d0ad70;
+  --theme-text: #f2e5ca;
+  --theme-muted: #d7c5a3;
+  --theme-control: #281e14;
+  --theme-control-text: #f5e8cd;
+  --theme-radius: 3px;
+  --theme-display-font: Cinzel, Georgia, serif;
+  --theme-body-font: "EB Garamond", Georgia, serif;
+  --theme-map-filter: sepia(.16) saturate(.88) contrast(1.04);
+  background-image: radial-gradient(ellipse at 50% 0%, #493722 0, #21190f 70%);
+}
+body[data-cartographic-era="westphalia"] {
+  --theme-surface: #191b20;
+  --theme-panel: #292c32;
+  --theme-panel-raised: #35363a;
+  --theme-border: #756957;
+  --theme-accent: #bd9d79;
+  --theme-text: #f0e9dc;
+  --theme-muted: #c9c0b1;
+  --theme-control: #202329;
+  --theme-control-text: #f0e9dc;
+  --theme-radius: 3px;
+  --theme-display-font: "Cormorant Garamond", Georgia, serif;
+  --theme-body-font: "Libre Baskerville", Georgia, serif;
+  --theme-map-filter: sepia(.1) saturate(.86) contrast(1.05);
+  background-image: linear-gradient(115deg, #252932, #191b20 58%, #2a2025);
+}
+body[data-cartographic-era="revolution"] {
+  --theme-surface: #1b1b1a;
+  --theme-panel: #292927;
+  --theme-panel-raised: #353330;
+  --theme-border: #69635c;
+  --theme-accent: #c45a60;
+  --theme-text: #f2eee7;
+  --theme-muted: #c9c3b9;
+  --theme-control: #20201f;
+  --theme-control-text: #f2eee7;
+  --theme-radius: 1px;
+  --theme-display-font: "Playfair Display", Georgia, serif;
+  --theme-body-font: Newsreader, Georgia, serif;
+  --theme-map-filter: grayscale(.12) contrast(1.06);
+  background-image: linear-gradient(180deg, #252422, #191918);
+}
+body[data-cartographic-era="modern"] {
+  --theme-surface: #10191e;
+  --theme-panel: #202b30;
+  --theme-panel-raised: #2b3739;
+  --theme-border: #59645f;
+  --theme-accent: #c1aa76;
+  --theme-text: #edf0e9;
+  --theme-muted: #c0c9c0;
+  --theme-control: #151f24;
+  --theme-control-text: #edf0e9;
+  --theme-radius: 0;
+  --theme-display-font: Oswald, "Arial Narrow", sans-serif;
+  --theme-body-font: "IBM Plex Mono", monospace;
+  --theme-map-filter: saturate(.8) contrast(1.06);
+  background-image: linear-gradient(135deg, #1a272b, #10191e 62%, #20251f);
+}
+body[data-cartographic-era="present"] {
+  --theme-surface: #090e10;
+  --theme-panel: #141b1d;
+  --theme-panel-raised: #1d2627;
+  --theme-border: #3d4945;
+  --theme-accent: #c0a47a;
+  --theme-text: #e8ece6;
+  --theme-muted: #b9c2ba;
+  --theme-control: #0e1517;
+  --theme-control-text: #e8ece6;
+  --theme-radius: 5px;
+  --theme-display-font: Inter, sans-serif;
+  --theme-body-font: "Plus Jakarta Sans", Inter, sans-serif;
+  --theme-map-filter: none;
+  background-image: radial-gradient(ellipse at 50% 0%, #1b2423, #090e10 68%);
+}
+body[data-cartographic-era="future"] {
+  --theme-surface: #03090f;
+  --theme-panel: #09131a;
+  --theme-panel-raised: #101e25;
+  --theme-border: #29434a;
+  --theme-accent: #9cae8a;
+  --theme-text: #dce9e5;
+  --theme-muted: #aebfbc;
+  --theme-control: #060e14;
+  --theme-control-text: #dce9e5;
+  --theme-radius: 3px;
+  --theme-display-font: Orbitron, sans-serif;
+  --theme-body-font: "JetBrains Mono", monospace;
+  --theme-map-filter: none;
+  background-image: radial-gradient(ellipse at 50% -20%, #10212a 0, #03090f 64%);
+}
+
+/* Surfaces : même matériau et mêmes niveaux de contraste pour toute l'interface */
 .topbar,
 .side-panel,
 .setup-card,
+.chronicle-console,
 .chat-preview,
 .chat-message,
-.ai-sidebar .ai-capabilities,
-.ai-sidebar textarea {
+.ai-sidebar .ai-capabilities {
+  color: var(--theme-text);
+  background-color: var(--theme-panel);
   border-color: var(--theme-border);
 }
-.topbar { background: var(--theme-panel); }
+.topbar {
+  background-image: linear-gradient(110deg, var(--theme-panel-raised), var(--theme-panel));
+  border-bottom: 1px solid var(--theme-border);
+}
 .side-panel {
-  background: var(--theme-panel);
+  background-image: linear-gradient(155deg, var(--theme-panel-raised), var(--theme-panel) 72%);
   border-color: var(--theme-border);
   border-radius: var(--theme-radius);
-  color: var(--theme-text);
-  transition: background-color .35s ease, border-color .35s ease, border-radius .35s ease, color .35s ease;
+  box-shadow: 0 12px 30px #0004;
 }
-.side-heading h2,
-.setup-card h1,
-.date-display,
-.chat-message,
-.era-banner {
+.setup-card {
+  background: linear-gradient(145deg, var(--theme-panel-raised), var(--theme-panel));
+  border: 1px solid var(--theme-border);
+}
+.chronicle-console,
+.chat-preview,
+.chat-message {
+  background-color: var(--theme-panel-raised);
+  border-color: var(--theme-border);
+}
+.map-stage { background-color: var(--theme-surface); }
+.map-frame {
+  background-color: var(--theme-panel);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 16px 38px #0007;
+}
+.map-frame #world-map { filter: var(--theme-map-filter); }
+.side-heading h1, .side-heading h2,
+.map-stage-heading h2, .setup-card h1,
+.date-display, .chat-message {
+  color: var(--theme-text);
   font-family: var(--theme-display-font);
 }
-.side-heading h2 { color: var(--theme-text); }
-.side-heading .eyebrow,
-.ai-sidebar .eyebrow { color: var(--theme-accent); }
-.ai-sidebar .chat-preview,
-.ai-sidebar .chat-message {
-  background: color-mix(in srgb, var(--theme-panel) 88%, var(--theme-surface));
-  border-color: var(--theme-border);
+.side-copy, .ai-intro, .ai-capabilities,
+.time-stats, .mini-status, .save-status,
+.map-bottom-bar, .map-legend, .map-scale,
+.timeline-heading span, .timeline-ends,
+.clock-subline span, .ai-disclaimer {
+  color: var(--theme-muted);
+}
+.eyebrow, .side-section-title, .chat-preview label,
+.clock-subline strong, .date-display {
+  color: var(--theme-accent);
+}
+.run-indicator { color: var(--theme-accent); }
+.button, .speed-chip, .map-tool, .era-milestones button,
+.speed-control select, .chat-preview textarea {
+  color: var(--theme-control-text);
+  background: var(--theme-control);
+  border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
 }
-.ai-sidebar textarea {
-  background: var(--theme-surface);
+.button:hover:not(:disabled), .speed-chip:hover,
+.map-tool:hover, .era-milestones button:hover {
+  border-color: var(--theme-accent);
+}
+.button-primary {
+  color: #171710;
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+.button-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.button:disabled, .speed-chip:disabled { opacity: .62; }
+.chat-preview textarea::placeholder { color: var(--theme-muted); opacity: .82; }
+.chat-preview textarea:focus-visible,
+.button:focus-visible, .speed-chip:focus-visible,
+.map-tool:focus-visible, .era-milestones button:focus-visible,
+.speed-control select:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+.era-banner {
   color: var(--theme-text);
+  background: var(--theme-panel-raised);
+  border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
+  font-family: var(--theme-display-font);
 }
-.ai-sidebar .ai-send { border-radius: var(--theme-radius); }
-.map-frame #world-map { filter: var(--theme-map-filter); }
-body[data-cartographic-era="exploration"] .side-panel { box-shadow: inset 0 0 0 1px #c18b4320, inset 0 12px 30px #d3a75a0b; }
-body[data-cartographic-era="westphalia"] .side-panel { box-shadow: inset 0 0 0 3px #9b394422; }
-body[data-cartographic-era="revolution"] .side-panel { box-shadow: inset 0 0 0 1px #a8323e22; }
-body[data-cartographic-era="modern"] .side-panel { box-shadow: inset 0 2px #b39a6222; }
-body[data-cartographic-era="present"] .side-panel { box-shadow: 0 8px 24px #18394a12; }
-body[data-cartographic-era="future"] .side-panel { box-shadow: inset 0 0 18px #48d5dc12, 0 0 18px #22a9c322; }
-@media (prefers-reduced-motion: reduce) {
-  body, .side-panel { transition: none !important; }
-}
+.era-pulse { background: var(--theme-accent); box-shadow: 0 0 7px color-mix(in srgb, var(--theme-accent), transparent 35%); }
+.era-live, .build-label { color: var(--theme-muted); }
 
+/* Matières discrètes : grain contenu dans les surfaces, jamais sur les glyphes */
+body[data-cartographic-era="exploration"] { --material-texture-exploration: url("../assets/textures/parchment.svg"); }
+body[data-cartographic-era="westphalia"] { --material-texture-westphalia: url("../assets/textures/vellum.svg"); }
+body[data-cartographic-era="revolution"] { --material-texture-revolution: url("../assets/textures/newsprint.svg"); }
+body[data-cartographic-era="modern"] { --material-texture-modern: url("../assets/textures/military.svg"); }
+body[data-cartographic-era="present"] { --material-texture-present: url("../assets/textures/glass.svg"); }
+body[data-cartographic-era="future"] { --material-texture-future: url("../assets/textures/obsidian.svg"); }
 
-/* Matières éditoriales propres à chaque époque */
-body[data-cartographic-era="exploration"] {
-  background-color: #211a13;
-  background-image: radial-gradient(ellipse at 50% 0%, #59452a 0, transparent 58%);
-}
-body[data-cartographic-era="exploration"] .side-panel {
-  background: linear-gradient(135deg, #4b3b27, #302519 72%);
-  border-color: #9b7948;
-  box-shadow: inset 0 0 0 1px #c18b4340, inset 0 0 42px #d3a75a12;
-}
-body[data-cartographic-era="exploration"] .chat-message,
-body[data-cartographic-era="exploration"] .chat-preview textarea {
-  background-color: #382c1d;
-  border-color: #8d7047;
-}
-body[data-cartographic-era="westphalia"] {
-  background-color: #171b20;
-  background-image: linear-gradient(115deg, #202832, #17191e 55%, #261c25);
-}
-body[data-cartographic-era="westphalia"] .side-panel {
-  background: linear-gradient(145deg, #30343a, #22272d);
-  border: 3px double #897b69;
-  box-shadow: inset 0 0 0 5px #171b2040;
-}
-body[data-cartographic-era="westphalia"] .chat-message {
-  background: linear-gradient(120deg, #30343b, #28272b);
-  border-style: double;
-}
-body[data-cartographic-era="revolution"] {
-  background-color: #1b1b1b;
-  background-image: repeating-linear-gradient(0deg, #ffffff05 0, #ffffff05 1px, transparent 1px, transparent 4px);
-}
-body[data-cartographic-era="revolution"] .side-panel {
-  background: linear-gradient(180deg, #343331, #242424);
-  border: 1px solid #77716a;
-  box-shadow: inset 0 0 0 1px #a8323e26;
-}
-body[data-cartographic-era="revolution"] .side-heading .eyebrow,
-body[data-cartographic-era="revolution"] .ai-sidebar .eyebrow { color: #c45a60; }
-body[data-cartographic-era="modern"] {
-  background-color: #10191e;
-  background-image: linear-gradient(135deg, #1a2931, #10191e 58%, #202820);
-}
-body[data-cartographic-era="modern"] .side-panel {
-  background: linear-gradient(160deg, #26343a, #18252b);
-  border-radius: 0;
-  border-top: 2px solid #8c967e;
-  box-shadow: inset 0 1px #ffffff0c;
-}
-body[data-cartographic-era="modern"] .chat-message,
-body[data-cartographic-era="modern"] .chat-preview textarea {
-  background: #111c22;
-  border-radius: 0;
-}
-body[data-cartographic-era="present"] {
-  color-scheme: dark;
-  background-color: #0b151c;
-  background-image: radial-gradient(ellipse at 50% 0%, #1c303b, #0b151c 70%);
-}
-body[data-cartographic-era="present"] .side-panel {
-  background: linear-gradient(145deg, #1c2d37, #111e27);
-  box-shadow: inset 0 1px #8db8c51a, 0 12px 34px #00000030;
-}
-body[data-cartographic-era="present"] .chat-message {
-  background: #142630;
-  color: #d4e0e2;
-  border-color: #38515d;
-}
-body[data-cartographic-era="present"] .chat-preview textarea {
-  background: #101e27;
-  color: #d4e0e2;
-  border-color: #38515d;
-}
-body[data-cartographic-era="present"] .ai-intro { color: #a8bec5; }
-body[data-cartographic-era="future"] {
-  color-scheme: dark;
-  background: #03070c;
-  background-image: radial-gradient(ellipse at 50% -20%, #0a1c25 0, #03070c 62%);
-  --theme-accent: #8a9d78;
-}
-body[data-cartographic-era="future"] .topbar,
-body[data-cartographic-era="future"] .side-panel {
-  background: linear-gradient(160deg, #09131b, #050b11 78%);
-  border-color: #15313b;
-  box-shadow: inset 0 1px #8db8b508;
-}
-body[data-cartographic-era="future"] .map-stage {
-  background: radial-gradient(ellipse at 50% 45%, #0a1a22, #03070c 72%);
-}
-body[data-cartographic-era="future"] .map-frame {
-  background: radial-gradient(ellipse at center, #07151d, #02070b 78%);
-  border-color: #18333a;
-  box-shadow: 0 18px 48px #0009;
-}
-body[data-cartographic-era="future"] .ai-orb {
-  border-color: #41636a;
-  color: #8a9d78;
-  box-shadow: 0 0 18px #24515a16, inset 0 0 14px #24515a0d;
-}
-body[data-cartographic-era="future"] .ai-orb:before,
-body[data-cartographic-era="future"] .ai-orb:after { border-color: #41636a55; }
-body[data-cartographic-era="future"] .chat-message,
-body[data-cartographic-era="future"] .chat-preview textarea {
-  background: #050d13;
-  border-color: #19333b;
-  color: #a8c1c1;
-}
-body[data-cartographic-era="future"] .ai-intro,
-body[data-cartographic-era="future"] .side-copy,
-body[data-cartographic-era="future"] .ai-capabilities { color: #829a9d; }
-body[data-cartographic-era="future"] .side-heading .eyebrow,
-body[data-cartographic-era="future"] .ai-sidebar .eyebrow { color: #8a9d78; }
-body[data-cartographic-era="future"] .button-primary {
-  color: #c2d1c5;
-  background: #183039;
-  border-color: #31515a;
-}
-body[data-cartographic-era="future"] .button:hover:not(:disabled) {
-  border-color: #52777b;
-  background: #10232b;
-}
-body[data-cartographic-era="future"] .side-panel,
-body[data-cartographic-era="future"] .ai-orb { filter: none; }
-
-
-/* Direction artistique renforcée — détails statiques, sans coût de rendu cartographique */
-body[data-cartographic-era="exploration"] .topbar,
-body[data-cartographic-era="exploration"] .setup-card {
-  background: linear-gradient(110deg, #3c2e1e, #241d15 72%);
-  border-color: #8e7046;
-  box-shadow: inset 0 1px #e0bd7930, 0 8px 28px #08060455;
-}
-body[data-cartographic-era="exploration"] .map-stage-heading {
-  border-bottom: 1px solid #987548;
-  padding-bottom: 14px;
-}
-body[data-cartographic-era="exploration"] .era-banner {
-  background: linear-gradient(90deg, #5a4328, #302518);
-  border: 1px solid #a17b49;
-  color: #f0d9a9;
-  box-shadow: inset 0 1px #e7c98a30;
-}
-body[data-cartographic-era="exploration"] .chronicle-console,
-body[data-cartographic-era="exploration"] .chat-preview {
-  background: repeating-linear-gradient(0deg, #d3b77a08 0, #d3b77a08 1px, transparent 1px, transparent 5px), #302519;
-  border-color: #80633e;
-}
-body[data-cartographic-era="exploration"] .button-primary {
-  background: linear-gradient(180deg, #9a7139, #684a29);
-  border-color: #c19a5d;
-  color: #fff0cf;
-}
-body[data-cartographic-era="exploration"] .map-frame {
-  border: 2px solid #987548;
-  box-shadow: 0 0 0 4px #98754820, 0 14px 34px #08060466;
-}
-
-body[data-cartographic-era="westphalia"] .topbar,
-body[data-cartographic-era="westphalia"] .setup-card {
-  background: linear-gradient(105deg, #292d34, #1d2027 58%, #30252b);
-  border-bottom: 2px double #897b69;
-}
-body[data-cartographic-era="westphalia"] .side-heading,
-body[data-cartographic-era="westphalia"] .map-stage-heading {
-  border-bottom: 3px double #897b69;
-  padding-bottom: 13px;
-}
-body[data-cartographic-era="westphalia"] .era-banner {
-  background: linear-gradient(100deg, #3b3437, #292b31);
-  border: 3px double #a18c70;
-  color: #e8d8bd;
-}
-body[data-cartographic-era="westphalia"] .chronicle-console,
-body[data-cartographic-era="westphalia"] .chat-preview {
-  background: linear-gradient(145deg, #303238, #22252b);
-  border: 1px solid #817767;
-  box-shadow: inset 0 0 0 3px #c0ad8b0d;
-}
-body[data-cartographic-era="westphalia"] .button,
-body[data-cartographic-era="westphalia"] .speed-chip {
-  border-radius: 2px;
-  border-color: #827665;
-}
-body[data-cartographic-era="westphalia"] .map-frame {
-  border: 3px double #96846d;
-  box-shadow: 0 0 0 5px #96846d18, 0 14px 32px #05060970;
-}
-
-body[data-cartographic-era="revolution"] .topbar,
-body[data-cartographic-era="revolution"] .setup-card {
-  background: linear-gradient(90deg, #292929, #1d1d1d);
-  border-bottom: 2px solid #a8323e;
-}
-body[data-cartographic-era="revolution"] .side-heading,
-body[data-cartographic-era="revolution"] .map-stage-heading {
-  border-bottom: 1px solid #77716a;
-}
-body[data-cartographic-era="revolution"] .era-banner {
-  background: linear-gradient(90deg, #3c292b, #292727 70%);
-  border-left: 3px solid #b43b46;
-  color: #f0e9e3;
-}
-body[data-cartographic-era="revolution"] .chronicle-console,
-body[data-cartographic-era="revolution"] .chat-preview {
-  background: repeating-linear-gradient(0deg, #ffffff08 0, #ffffff08 1px, transparent 1px, transparent 3px), #292929;
-  border-color: #6d6863;
-}
-body[data-cartographic-era="revolution"] .button-primary {
-  background: #762d35;
-  border-color: #b34a50;
-}
-body[data-cartographic-era="revolution"] .map-frame {
-  border: 1px solid #8b8580;
-  box-shadow: 0 0 0 3px #ffffff0a, 0 14px 30px #0009;
-}
-
-body[data-cartographic-era="modern"] .topbar,
-body[data-cartographic-era="modern"] .setup-card {
-  background: linear-gradient(100deg, #1b2a31, #111b21 62%, #242a25);
-  border-bottom: 1px solid #788477;
-}
-body[data-cartographic-era="modern"] .chronicle-console,
-body[data-cartographic-era="modern"] .chat-preview {
-  background: linear-gradient(145deg, #202d32, #141f24);
-  border: 1px solid #46565a;
-  box-shadow: inset 0 1px #c2c8b40b;
-}
-body[data-cartographic-era="modern"] .era-banner {
-  background: linear-gradient(90deg, #354239, #1d2b30);
-  border: 1px solid #788477;
-  color: #d8dfd2;
-  letter-spacing: .09em;
-}
-body[data-cartographic-era="modern"] .speed-chip,
-body[data-cartographic-era="modern"] .button {
-  border-radius: 1px;
-}
-body[data-cartographic-era="modern"] .map-frame {
-  border: 1px solid #596b70;
-  box-shadow: inset 0 0 0 1px #b7c1ad12, 0 16px 34px #0008;
-}
-
-body[data-cartographic-era="present"] .topbar,
-body[data-cartographic-era="present"] .setup-card {
-  background: linear-gradient(110deg, #1c303b, #101c25 72%);
-  border-color: #38515d;
-  box-shadow: inset 0 1px #b4d6e015, 0 8px 28px #00000025;
-}
-body[data-cartographic-era="present"] .chronicle-console,
-body[data-cartographic-era="present"] .chat-preview {
-  background: linear-gradient(145deg, #192b35, #101d26);
-  border: 1px solid #344e5a;
-  box-shadow: inset 0 1px #c2e5f00c;
-}
-body[data-cartographic-era="present"] .era-banner {
-  background: linear-gradient(100deg, #244351, #172a35);
-  border: 1px solid #497184;
-  color: #d6e9ed;
-}
-body[data-cartographic-era="present"] .map-frame {
-  border: 1px solid #45616d;
-  box-shadow: 0 0 0 1px #9bc6d012, 0 16px 38px #0008;
-}
-
-body[data-cartographic-era="future"] .topbar,
-body[data-cartographic-era="future"] .setup-card {
-  background: linear-gradient(105deg, #0a1922, #050b11 70%);
-  border-color: #17343d;
-}
-body[data-cartographic-era="future"] .chronicle-console,
-body[data-cartographic-era="future"] .chat-preview {
-  background: linear-gradient(145deg, #0b1a22, #050c12);
-  border: 1px solid #1b3a43;
-  box-shadow: inset 0 0 0 1px #5ac5c40a;
-}
-body[data-cartographic-era="future"] .era-banner {
-  background: linear-gradient(90deg, #102832, #08151d);
-  border: 1px solid #28515a;
-  color: #a9c6c4;
-  letter-spacing: .12em;
-}
-body[data-cartographic-era="future"] .map-frame {
-  border: 1px solid #20434b;
-  box-shadow: 0 0 0 1px #4ac7ce10, 0 18px 44px #000b;
-}
-body[data-cartographic-era="future"] .button,
-body[data-cartographic-era="future"] .speed-chip {
-  border-radius: 3px;
-}
-
-
-/* Textures de matière : grain CSS statique, sans image, canvas ni passe GPU */
-body[data-cartographic-era="exploration"] {
-  --material-texture-exploration:
-    repeating-linear-gradient(31deg, #e7c98a0a 0 1px, transparent 1px 5px),
-    repeating-linear-gradient(119deg, #130d0708 0 1px, transparent 1px 7px),
-    radial-gradient(ellipse at 18% 22%, #e4c17a12, transparent 48%);
-}
-body[data-cartographic-era="exploration"] .side-panel {
-  background-image: var(--material-texture-exploration), linear-gradient(135deg, #4b3b27, #302519 72%);
-  background-blend-mode: soft-light, normal;
-}
+body[data-cartographic-era="exploration"] .side-panel,
 body[data-cartographic-era="exploration"] .topbar,
 body[data-cartographic-era="exploration"] .setup-card,
 body[data-cartographic-era="exploration"] .chronicle-console,
 body[data-cartographic-era="exploration"] .chat-message,
 body[data-cartographic-era="exploration"] .era-banner {
-  background-image: var(--material-texture-exploration), linear-gradient(135deg, #493822, #261e15);
+  background-color: #382b1d;
+  background-image: var(--material-texture-exploration), linear-gradient(145deg, #493822, #2b2117);
+  background-size: cover, auto;
   background-blend-mode: soft-light, normal;
+  color: #f2e5ca;
 }
-
-body[data-cartographic-era="westphalia"] {
-  --material-texture-westphalia:
-    repeating-linear-gradient(0deg, #e3d5bd0a 0 1px, transparent 1px 6px),
-    repeating-linear-gradient(90deg, #090d1409 0 1px, transparent 1px 8px),
-    radial-gradient(ellipse at 72% 18%, #c8b18a10, transparent 54%);
-}
-body[data-cartographic-era="westphalia"] .side-panel {
-  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #30343a, #22272d);
-  background-blend-mode: soft-light, normal;
-}
+body[data-cartographic-era="westphalia"] .side-panel,
 body[data-cartographic-era="westphalia"] .topbar,
 body[data-cartographic-era="westphalia"] .setup-card,
 body[data-cartographic-era="westphalia"] .chronicle-console,
 body[data-cartographic-era="westphalia"] .chat-message,
 body[data-cartographic-era="westphalia"] .era-banner {
-  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #303238, #22252b);
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #35363a, #292c32);
   background-blend-mode: soft-light, normal;
 }
-
-body[data-cartographic-era="revolution"] {
-  --material-texture-revolution:
-    radial-gradient(#eee8df18 .55px, transparent .8px),
-    repeating-linear-gradient(0deg, #f0e9df08 0 1px, transparent 1px 4px);
-}
-body[data-cartographic-era="revolution"] .side-panel {
-  background-image: var(--material-texture-revolution), linear-gradient(180deg, #343331, #242424);
-  background-size: 4px 4px, auto;
-  background-blend-mode: soft-light, normal;
-}
+body[data-cartographic-era="revolution"] .side-panel,
 body[data-cartographic-era="revolution"] .topbar,
 body[data-cartographic-era="revolution"] .setup-card,
 body[data-cartographic-era="revolution"] .chronicle-console,
 body[data-cartographic-era="revolution"] .chat-message,
 body[data-cartographic-era="revolution"] .era-banner {
-  background-image: var(--material-texture-revolution), linear-gradient(90deg, #30302f, #202020);
-  background-size: 4px 4px, auto;
+  background-image: var(--material-texture-revolution), linear-gradient(180deg, #353330, #292927);
   background-blend-mode: soft-light, normal;
 }
-
-body[data-cartographic-era="modern"] {
-  --material-texture-modern:
-    repeating-linear-gradient(90deg, #dce2d50a 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(174deg, #050b0e0a 0 1px, transparent 1px 11px),
-    linear-gradient(115deg, transparent 42%, #c1cbb00a 43%, transparent 44%);
-}
-body[data-cartographic-era="modern"] .side-panel {
-  background-image: var(--material-texture-modern), linear-gradient(160deg, #26343a, #18252b);
-  background-blend-mode: soft-light, normal;
-}
+body[data-cartographic-era="modern"] .side-panel,
 body[data-cartographic-era="modern"] .topbar,
 body[data-cartographic-era="modern"] .setup-card,
 body[data-cartographic-era="modern"] .chronicle-console,
 body[data-cartographic-era="modern"] .chat-message,
 body[data-cartographic-era="modern"] .era-banner {
-  background-image: var(--material-texture-modern), linear-gradient(145deg, #202d32, #141f24);
+  background-image: var(--material-texture-modern), linear-gradient(150deg, #2b3739, #202b30);
   background-blend-mode: soft-light, normal;
 }
-
-body[data-cartographic-era="present"] {
-  --material-texture-present:
-    radial-gradient(ellipse at 18% 12%, #a6d4e20d, transparent 46%),
-    repeating-linear-gradient(135deg, #d7edf008 0 1px, transparent 1px 8px),
-    linear-gradient(90deg, transparent 0 48%, #8eb7c008 49%, transparent 51%);
-}
-body[data-cartographic-era="present"] .side-panel {
-  background-image: var(--material-texture-present), linear-gradient(145deg, #1c2d37, #111e27);
-  background-blend-mode: screen, soft-light, normal;
-}
+body[data-cartographic-era="present"] .side-panel,
 body[data-cartographic-era="present"] .topbar,
 body[data-cartographic-era="present"] .setup-card,
 body[data-cartographic-era="present"] .chronicle-console,
 body[data-cartographic-era="present"] .chat-message,
 body[data-cartographic-era="present"] .era-banner {
-  background-image: var(--material-texture-present), linear-gradient(145deg, #192b35, #101d26);
-  background-blend-mode: screen, soft-light, normal;
+  background-image: var(--material-texture-present), linear-gradient(145deg, #1d2627, #141b1d);
+  background-blend-mode: soft-light, normal;
 }
-
-body[data-cartographic-era="future"] {
-  --material-texture-future:
-    repeating-linear-gradient(0deg, #65cbd00a 0 1px, transparent 1px 12px),
-    repeating-linear-gradient(90deg, #65cbd008 0 1px, transparent 1px 12px),
-    radial-gradient(circle at 78% 22%, #55dce012 0 1px, transparent 2px);
-}
-body[data-cartographic-era="future"] .side-panel {
-  background-image: var(--material-texture-future), linear-gradient(160deg, #09131b, #050b11 78%);
-  background-blend-mode: screen, normal, screen;
-}
+body[data-cartographic-era="future"] .side-panel,
 body[data-cartographic-era="future"] .topbar,
 body[data-cartographic-era="future"] .setup-card,
 body[data-cartographic-era="future"] .chronicle-console,
 body[data-cartographic-era="future"] .chat-message,
 body[data-cartographic-era="future"] .era-banner {
-  background-image: var(--material-texture-future), linear-gradient(145deg, #0b1a22, #050c12);
-  background-blend-mode: screen, normal, screen;
+  background-image: var(--material-texture-future), linear-gradient(150deg, #101e25, #09131a);
+  background-blend-mode: soft-light, normal;
 }
+
+/* Chaque époque conserve un cadre cartographique identifiable, sans surcharge */
+body[data-cartographic-era="exploration"] .map-frame { border: 2px solid #80613c; box-shadow: 0 0 0 3px #80613c22, 0 16px 38px #0008; }
+body[data-cartographic-era="westphalia"] .map-frame { border: 3px double #756957; }
+body[data-cartographic-era="revolution"] .map-frame { border: 1px solid #756b62; }
+body[data-cartographic-era="modern"] .map-frame { border: 1px solid #59645f; }
+body[data-cartographic-era="present"] .map-frame { border: 1px solid #3d4945; }
+body[data-cartographic-era="future"] .map-frame { border: 1px solid #29434a; box-shadow: 0 16px 42px #000a; }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-cartographic-era] .side-panel,
-  body[data-cartographic-era] .topbar,
-  body[data-cartographic-era] .map-frame {
+  body, body .side-panel, body .topbar, body .map-frame,
+  body .button, body .speed-chip {
     transition: none !important;
+    animation: none !important;
   }
-}
-
-
-/* Matières réalistes : textures organiques SVG, sans trames géométriques répétitives */
-body[data-cartographic-era="exploration"] { --material-texture-exploration: url("../assets/textures/parchment.svg"); }
-body[data-cartographic-era="exploration"] .side-panel {
-  background-image: var(--material-texture-exploration), linear-gradient(135deg, #4b3b27, #302519 72%);
-  background-size: 100% 100%, auto;
-  background-blend-mode: soft-light, normal;
-}
-body[data-cartographic-era="exploration"] .topbar,
-body[data-cartographic-era="exploration"] .setup-card,
-body[data-cartographic-era="exploration"] .chronicle-console,
-body[data-cartographic-era="exploration"] .chat-message {
-  background-image: var(--material-texture-exploration), linear-gradient(135deg, #493822, #261e15);
-  background-blend-mode: soft-light, normal;
-}
-
-body[data-cartographic-era="westphalia"] { --material-texture-westphalia: url("../assets/textures/vellum.svg"); }
-body[data-cartographic-era="westphalia"] .side-panel {
-  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #30343a, #22272d);
-  background-blend-mode: soft-light, normal;
-}
-body[data-cartographic-era="westphalia"] .topbar,
-body[data-cartographic-era="westphalia"] .setup-card,
-body[data-cartographic-era="westphalia"] .chronicle-console,
-body[data-cartographic-era="westphalia"] .chat-message {
-  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #303238, #22252b);
-  background-blend-mode: soft-light, normal;
-}
-
-body[data-cartographic-era="revolution"] { --material-texture-revolution: url("../assets/textures/newsprint.svg"); }
-body[data-cartographic-era="revolution"] .side-panel {
-  background-image: var(--material-texture-revolution), linear-gradient(180deg, #343331, #242424);
-  background-blend-mode: multiply, normal;
-}
-body[data-cartographic-era="revolution"] .topbar,
-body[data-cartographic-era="revolution"] .setup-card,
-body[data-cartographic-era="revolution"] .chronicle-console,
-body[data-cartographic-era="revolution"] .chat-message {
-  background-image: var(--material-texture-revolution), linear-gradient(90deg, #30302f, #202020);
-  background-blend-mode: multiply, normal;
-}
-
-body[data-cartographic-era="modern"] { --material-texture-modern: url("../assets/textures/military.svg"); }
-body[data-cartographic-era="modern"] .side-panel {
-  background-image: var(--material-texture-modern), linear-gradient(160deg, #26343a, #18252b);
-  background-blend-mode: soft-light, normal;
-}
-body[data-cartographic-era="modern"] .topbar,
-body[data-cartographic-era="modern"] .setup-card,
-body[data-cartographic-era="modern"] .chronicle-console,
-body[data-cartographic-era="modern"] .chat-message {
-  background-image: var(--material-texture-modern), linear-gradient(145deg, #202d32, #141f24);
-  background-blend-mode: soft-light, normal;
-}
-
-body[data-cartographic-era="present"] { --material-texture-present: url("../assets/textures/glass.svg"); }
-body[data-cartographic-era="present"] .side-panel {
-  background-image: var(--material-texture-present), linear-gradient(145deg, #1c2d37, #111e27);
-  background-blend-mode: screen, normal;
-}
-body[data-cartographic-era="present"] .topbar,
-body[data-cartographic-era="present"] .setup-card,
-body[data-cartographic-era="present"] .chronicle-console,
-body[data-cartographic-era="present"] .chat-message {
-  background-image: var(--material-texture-present), linear-gradient(145deg, #192b35, #101d26);
-  background-blend-mode: screen, normal;
-}
-
-body[data-cartographic-era="future"] { --material-texture-future: url("../assets/textures/obsidian.svg"); }
-body[data-cartographic-era="future"] .side-panel {
-  background-image: var(--material-texture-future), linear-gradient(160deg, #09131b, #050b11 78%);
-  background-blend-mode: screen, normal;
-}
-body[data-cartographic-era="future"] .topbar,
-body[data-cartographic-era="future"] .setup-card,
-body[data-cartographic-era="future"] .chronicle-console,
-body[data-cartographic-era="future"] .chat-message {
-  background-image: var(--material-texture-future), linear-gradient(145deg, #0b1a22, #050c12);
-  background-blend-mode: screen, normal;
-}
-
-
-/* Finition artistique : matière lisible, hiérarchie calme, sans quadrillage décoratif */
-body[data-cartographic-era] .side-panel, body[data-cartographic-era] .topbar, body[data-cartographic-era] .chronicle-console, body[data-cartographic-era] .chat-message, body[data-cartographic-era] .setup-card { background-blend-mode: soft-light, normal !important; }
-body[data-cartographic-era] .chronicle-console, body[data-cartographic-era] .chat-preview, body[data-cartographic-era] .map-frame { box-shadow: 0 14px 34px #0006; }
-body[data-cartographic-era] .side-heading, body[data-cartographic-era] .map-stage-heading { border-bottom-width: 1px; }
-body[data-cartographic-era="present"] { --theme-accent: #a58d68; color-scheme: dark; background: radial-gradient(ellipse at 50% 0%, #151b1d 0, #090e11 64%); }
-body[data-cartographic-era="present"] .topbar, body[data-cartographic-era="present"] .side-panel, body[data-cartographic-era="present"] .setup-card { background-color: #0b1114; border-color: #303a39; }
-body[data-cartographic-era="present"] .side-panel { background-image: var(--material-texture-present), linear-gradient(145deg, #171e20, #0c1215); background-blend-mode: soft-light, normal !important; box-shadow: inset 0 1px #c3b49a0a; }
-body[data-cartographic-era="present"] .topbar, body[data-cartographic-era="present"] .chronicle-console, body[data-cartographic-era="present"] .chat-message, body[data-cartographic-era="present"] .setup-card { background-image: var(--material-texture-present), linear-gradient(145deg, #171e20, #0c1215); background-blend-mode: soft-light, normal !important; }
-body[data-cartographic-era="present"] .map-stage { background: radial-gradient(ellipse at 50% 45%, #172124, #090e11 72%); }
-body[data-cartographic-era="present"] .map-frame { background: radial-gradient(ellipse at center, #111a1d, #080d10 78%); border-color: #384340; box-shadow: 0 18px 46px #0009; }
-body[data-cartographic-era="present"] .era-banner { background: linear-gradient(100deg, #292923, #171b1b); border: 1px solid #665b47; color: #d4c3a2; }
-body[data-cartographic-era="present"] .eyebrow, body[data-cartographic-era="present"] .side-section-title, body[data-cartographic-era="present"] .chat-preview label, body[data-cartographic-era="present"] .date-display { color: #b6a17d; }
-body[data-cartographic-era="present"] .button-primary { background: #554a38; border-color: #897654; color: #eee2cb; }
-body[data-cartographic-era="present"] .button:hover:not(:disabled) { background: #252a27; border-color: #9b8968; }
-body[data-cartographic-era="present"] .chat-message, body[data-cartographic-era="present"] .chat-preview textarea { background-color: #0d1518; border-color: #303d3d; color: #c7cfca; }
-body[data-cartographic-era="present"] .ai-intro { color: #aeb8b2; }
-body[data-cartographic-era="present"] .ai-orb { border-color: #75684f; color: #b6a17d; box-shadow: inset 0 0 18px #b6a17d0b; }
-body[data-cartographic-era="present"] .ai-orb:before, body[data-cartographic-era="present"] .ai-orb:after { border-color: #75684f44; }
-
-
-/* 1492 — véritable support de carte : parchemin ivoire, patine et encre */
-body[data-cartographic-era="exploration"] .side-panel,
-body[data-cartographic-era="exploration"] .topbar,
-body[data-cartographic-era="exploration"] .setup-card,
-body[data-cartographic-era="exploration"] .chronicle-console,
-body[data-cartographic-era="exploration"] .chat-message,
-body[data-cartographic-era="exploration"] .era-banner {
-  background-color: #d8c49b;
-  background-image: url("../assets/textures/parchment.svg");
-  background-size: cover;
-  background-position: center;
-  background-blend-mode: normal;
-  color: #382817;
-  border-color: #8c6840;
-  box-shadow: inset 0 0 32px #65451f18, 0 8px 22px #09060435;
-}
-body[data-cartographic-era="exploration"] .side-panel {
-  border-color: #9b7948;
-}
-body[data-cartographic-era="exploration"] .topbar {
-  border-bottom: 2px solid #987345;
-}
-body[data-cartographic-era="exploration"] .side-heading h1,
-body[data-cartographic-era="exploration"] .side-heading h2,
-body[data-cartographic-era="exploration"] .map-stage-heading h2,
-body[data-cartographic-era="exploration"] .date-display,
-body[data-cartographic-era="exploration"] .ai-intro,
-body[data-cartographic-era="exploration"] .chat-message,
-body[data-cartographic-era="exploration"] .chronicle-console strong {
-  color: #382817;
-}
-body[data-cartographic-era="exploration"] .eyebrow,
-body[data-cartographic-era="exploration"] .side-section-title,
-body[data-cartographic-era="exploration"] .chat-preview label,
-body[data-cartographic-era="exploration"] .run-indicator,
-body[data-cartographic-era="exploration"] .clock-subline strong {
-  color: #79552e;
-}
-body[data-cartographic-era="exploration"] .side-copy,
-body[data-cartographic-era="exploration"] .mini-status,
-body[data-cartographic-era="exploration"] .save-status,
-body[data-cartographic-era="exploration"] .clock-subline span,
-body[data-cartographic-era="exploration"] .timeline-heading span,
-body[data-cartographic-era="exploration"] .timeline-ends,
-body[data-cartographic-era="exploration"] .speed-control > span,
-body[data-cartographic-era="exploration"] .time-stats {
-  color: #6d573b;
-}
-body[data-cartographic-era="exploration"] .button,
-body[data-cartographic-era="exploration"] .speed-chip,
-body[data-cartographic-era="exploration"] .chat-preview textarea,
-body[data-cartographic-era="exploration"] .speed-control select {
-  background: #c5ad80;
-  color: #382817;
-  border-color: #94734a;
-}
-body[data-cartographic-era="exploration"] .button-primary {
-  background: linear-gradient(180deg, #8f6838, #674725);
-  color: #fff0d1;
-  border-color: #79552e;
-}
-body[data-cartographic-era="exploration"] .era-banner {
-  background-image: url("../assets/textures/parchment.svg");
-  color: #684724;
-  font-family: "EB Garamond", Georgia, serif;
-  font-size: 13px;
-  box-shadow: inset 0 0 0 1px #8a633b55, inset 0 0 24px #68472420;
-}
-body[data-cartographic-era="exploration"] .chronicle-console {
-  box-shadow: inset 0 0 26px #65451f20, 0 8px 22px #09060430;
-}
-body[data-cartographic-era="exploration"] .map-frame {
-  border: 2px solid #987548;
-  box-shadow: 0 0 0 4px #98754820, 0 14px 34px #08060466;
-}
-
-
-/* 1492 — parchemin patiné et ambiance assombrie, sans aplat ivoire éblouissant */
-body[data-cartographic-era="exploration"] {
-  color-scheme: dark;
-  background: radial-gradient(ellipse at 50% 18%, #443321 0, #21190f 72%);
-  --theme-accent: #bd9257;
-}
-body[data-cartographic-era="exploration"] .side-panel,
-body[data-cartographic-era="exploration"] .topbar,
-body[data-cartographic-era="exploration"] .setup-card,
-body[data-cartographic-era="exploration"] .chronicle-console,
-body[data-cartographic-era="exploration"] .chat-message,
-body[data-cartographic-era="exploration"] .era-banner {
-  background-color: #92764e;
-  background-image: url("../assets/textures/parchment.svg");
-  background-size: 100% 100%;
-  background-position: center;
-  background-blend-mode: normal;
-  color: #24190f;
-  border-color: #594027;
-  box-shadow: inset 0 0 38px #24170f55, 0 10px 26px #08050370;
-}
-body[data-cartographic-era="exploration"] .side-panel,
-body[data-cartographic-era="exploration"] .chronicle-console,
-body[data-cartographic-era="exploration"] .chat-preview {
-  box-shadow: inset 0 0 44px #24170f66, 0 12px 28px #08050366;
-}
-body[data-cartographic-era="exploration"] .side-heading h1,
-body[data-cartographic-era="exploration"] .side-heading h2,
-body[data-cartographic-era="exploration"] .map-stage-heading h2,
-body[data-cartographic-era="exploration"] .date-display,
-body[data-cartographic-era="exploration"] .ai-intro,
-body[data-cartographic-era="exploration"] .chat-message,
-body[data-cartographic-era="exploration"] .chronicle-console strong,
-body[data-cartographic-era="exploration"] .side-copy,
-body[data-cartographic-era="exploration"] .mini-status,
-body[data-cartographic-era="exploration"] .save-status,
-body[data-cartographic-era="exploration"] .clock-subline span,
-body[data-cartographic-era="exploration"] .timeline-heading span,
-body[data-cartographic-era="exploration"] .timeline-ends,
-body[data-cartographic-era="exploration"] .speed-control > span,
-body[data-cartographic-era="exploration"] .time-stats {
-  color: #24190f;
-  text-shadow: 0 1px #e0c99d35;
-}
-body[data-cartographic-era="exploration"] .eyebrow,
-body[data-cartographic-era="exploration"] .side-section-title,
-body[data-cartographic-era="exploration"] .chat-preview label,
-body[data-cartographic-era="exploration"] .run-indicator,
-body[data-cartographic-era="exploration"] .clock-subline strong {
-  color: #3d2917;
-}
-body[data-cartographic-era="exploration"] .button,
-body[data-cartographic-era="exploration"] .speed-chip,
-body[data-cartographic-era="exploration"] .chat-preview textarea,
-body[data-cartographic-era="exploration"] .speed-control select {
-  background: #715638;
-  color: #f0dfbd;
-  border-color: #49321d;
-}
-body[data-cartographic-era="exploration"] .button-primary {
-  background: linear-gradient(180deg, #76532d, #402b19);
-  color: #f2dfb9;
-  border-color: #b08a54;
-}
-body[data-cartographic-era="exploration"] .era-banner {
-  color: #2c1c10;
-  font-family: "EB Garamond", Georgia, serif;
-  box-shadow: inset 0 0 0 1px #49321d88, inset 0 0 36px #24170f66, 0 8px 20px #08050355;
-}
-body[data-cartographic-era="exploration"] .map-stage {
-  background: radial-gradient(ellipse at 50% 42%, #493923, #21190f 76%);
-}
-body[data-cartographic-era="exploration"] .map-frame {
-  background: #2d261b;
-  border: 2px solid #87653d;
-  box-shadow: 0 0 0 4px #87653d24, 0 18px 42px #08050399;
 }
