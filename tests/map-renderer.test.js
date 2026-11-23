@@ -154,6 +154,28 @@ test("le moteur dessine les zones glaciaires et les repères de relief", () => {
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
 });
 
+test("la couche des glaciers exclut le polygone glaciaire continental antarctique", () => {
+  const { canvas } = createCanvas();
+  const antarcticGlacier = {
+    type: "Feature",
+    bbox: [-180, -89.998899, 179.999949, -63.27066],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  };
+  const greenlandGlacier = {
+    type: "Feature",
+    bbox: [-72.342245, 60.596405, -19.292383, 82.611444],
+    geometry: { type: "Polygon", coordinates: [[[-70, 60], [-20, 60], [-20, 82], [-70, 60]]] }
+  };
+  const glaciers = { type: "FeatureCollection", features: [antarcticGlacier, greenlandGlacier] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, glaciers,
+    viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
+    terrainEnabled: false
+  });
+  assert.equal(result.glacierCount, 1,
+    "le glacier du Groenland reste visible, mais le polygone continental antarctique est exclu");
+});
+
 test("le moteur rejette une entrée qui n'est pas une FeatureCollection", () => {
   const { canvas } = createCanvas();
   assert.throws(() => renderWorldMap(canvas, { type: "Topology", arcs: [] }), /FeatureCollection/);
