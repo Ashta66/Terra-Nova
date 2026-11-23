@@ -617,9 +617,16 @@ function getSortedMajorRiverFeatures(collection, maxRank) {
   const cacheKey = String(maxRank);
   let sorted = profiles.get(cacheKey);
   if (!sorted) {
-    sorted = collection.features
-      .filter(feature => ["LineString", "MultiLineString"].includes(feature?.geometry?.type) && riverFeatureRank(feature) <= maxRank)
-      .sort((a, b) => riverFeatureRank(a) - riverFeatureRank(b) || lineVertexCount(b) - lineVertexCount(a));
+    const ranked = [];
+    for (let index = 0; index < collection.features.length; index++) {
+      const feature = collection.features[index];
+      const type = feature?.geometry?.type;
+      if (type !== "LineString" && type !== "MultiLineString") continue;
+      const rank = riverFeatureRank(feature);
+      if (rank <= maxRank) ranked.push({ feature, rank, vertices: lineVertexCount(feature), index });
+    }
+    ranked.sort((a, b) => a.rank - b.rank || b.vertices - a.vertices || a.index - b.index);
+    sorted = ranked.map(entry => entry.feature);
     profiles.set(cacheKey, sorted);
   }
   return sorted;
@@ -689,7 +696,8 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
   const zoom = Number(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   if (administrative && zoom < 3) return 0;
   const renderScale = projection.renderScale ?? 1;
-  const scaledDash = dash.map(value => value * renderScale);
+  const scaledDash = dash.length ? dash.map(value => value * renderScale) : dash;
+  const precisionDash = [3 * renderScale, 2 * renderScale];
   const simplifyProfile = getBoundarySimplificationProfile(zoom);
   const batches = new Map();
 
@@ -700,12 +708,12 @@ function drawStyledBoundaryLayer(context, collection, width, height, projection,
     const precision = Number(properties.BORDERPRECISION ?? properties.borderPrecision ?? 3);
     const rank = Number(properties.scalerank ?? properties.SCALERANK ?? properties.min_zoom ?? properties.MIN_ZOOM ?? 0);
     if (administrative && ((zoom < 5 && rank > 1) || (zoom < 8 && rank > 3))) continue;
-    const lineDash = precisionAware && precision < 3
-      ? [3 * renderScale, 2 * renderScale]
-      : scaledDash;
-    const key = lineDash.join(",");
-    if (!batches.has(key)) batches.set(key, { dash: lineDash, features: [] });
-    batches.get(key).features.push(feature);
+    const usePrecisionDash = precisionAware && precision < 3;
+    const lineDash = usePrecisionDash ? precisionDash : scaledDash;
+    const key = usePrecisionDash ? "precision" : "base";
+    let batch = batches.get(key);
+    if (!batch) batches.set(key, batch = { dash: lineDash, features: [] });
+    batch.features.push(feature);
   }
 
   let count = 0;
@@ -797,9 +805,15 @@ function getSortedElevationPointFeatures(collection) {
   if (!collection?.features) return [];
   let sorted = sortedElevationPointCollections.get(collection);
   if (!sorted) {
-    sorted = collection.features
-      .filter(feature => feature.geometry?.type === "Point")
-      .sort((a, b) => Math.abs(Number(b.properties?.elevation_m ?? 0)) - Math.abs(Number(a.properties?.elevation_m ?? 0)));
+    const ranked = [];
+    for (let index = 0; index < collection.features.length; index++) {
+      const feature = collection.features[index];
+      if (feature.geometry?.type !== "Point") continue;
+      const elevation = Math.abs(Number(feature.properties?.elevation_m ?? 0));
+      ranked.push({ feature, elevation, index });
+    }
+    ranked.sort((a, b) => b.elevation - a.elevation || a.index - b.index);
+    sorted = ranked.map(entry => entry.feature);
     sortedElevationPointCollections.set(collection, sorted);
   }
   return sorted;
@@ -913,27 +927,35 @@ export function isCityPermanentlySubmerged(feature, world) {
   return submerged;
 }
 
+const labelKindPriority = new Map([
+  ["continent", 0], ["ocean", 1], ["country", 2], ["province", 3], ["city", 4]
+]);
+const labelNameCollator = new Intl.Collator("fr", { sensitivity: "base" });
+
 function getSortedLabelCandidates(collection) {
   let candidates = sortedLabelCollections.get(collection);
   if (!candidates) {
-    candidates = [...collection.features].sort((a, b) => {
-      const rank = kind => kind === "continent" ? 0 : kind === "ocean" ? 1 : kind === "country" ? 2 : kind === "province" ? 3 : kind === "city" ? 4 : 5;
-      const kindDifference = rank(a.properties?.kind) - rank(b.properties?.kind);
-      if (kindDifference) return kindDifference;
-      if (a.properties?.kind === "city" && b.properties?.kind === "city") {
-        const rankA = Number(a.properties?.scalerank ?? a.properties?.SCALERANK ?? a.properties?.minZoom ?? 99);
-        const rankB = Number(b.properties?.scalerank ?? b.properties?.SCALERANK ?? b.properties?.minZoom ?? 99);
-        if (rankA !== rankB) return rankA - rankB;
-        const populationDifference = Number(b.properties?.POP_MAX ?? b.properties?.pop_max ?? 0)
-          - Number(a.properties?.POP_MAX ?? a.properties?.pop_max ?? 0);
-        if (populationDifference) return populationDifference;
-      }
-      // Départage stable : à priorité égale, l'ordre ne dépend pas de l'ordre
-      // d'arrivée des sources GeoJSON ou de leur fusion asynchrone.
-      return String(a.properties?.name ?? "").localeCompare(
-        String(b.properties?.name ?? ""), "fr", { sensitivity: "base" }
-      );
-    });
+    const ranked = [];
+    for (let index = 0; index < collection.features.length; index++) {
+      const feature = collection.features[index];
+      const properties = feature.properties ?? {};
+      const kind = properties.kind;
+      ranked.push({
+        feature, index,
+        kind,
+        kindRank: labelKindPriority.get(kind) ?? 5,
+        cityRank: kind === "city"
+          ? Number(properties.scalerank ?? properties.SCALERANK ?? properties.minZoom ?? 99) : 0,
+        population: kind === "city" ? Number(properties.POP_MAX ?? properties.pop_max ?? 0) : 0,
+        name: String(properties.name ?? "")
+      });
+    }
+    ranked.sort((a, b) => a.kindRank - b.kindRank
+      || (a.kind === "city" && b.kind === "city"
+        ? a.cityRank - b.cityRank || b.population - a.population : 0)
+      || labelNameCollator.compare(a.name, b.name)
+      || a.index - b.index);
+    candidates = ranked.map(entry => entry.feature);
     sortedLabelCollections.set(collection, candidates);
   }
   return candidates;
