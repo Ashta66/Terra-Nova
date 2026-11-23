@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTerrainTileAtlasBatchVertices, buildTerrainTileTexture, createTerrainWebGLTileAtlas, expandTerrainTileRect, getTerrainWebGLShaders, getTerrainVertexBufferCapacity } from "../src/world/terrain-webgl.js";
+import { buildTerrainTileAtlasBatchVertices, buildTerrainTileTexture, createTerrainWebGLTileAtlas, expandTerrainTileRect, getTerrainWebGLShaders, getTerrainVertexBufferCapacity, setTerrainViewportUniforms } from "../src/world/terrain-webgl.js";
 
 test("le diagnostic identifie une tuile voisine absente lors de la construction du halo", () => {
   const tile = { level: 0, x: 0, y: 0, originX: 0, originY: 0, width: 2, height: 2 };
@@ -107,4 +107,28 @@ test("le shader des tuiles reconnaît les calottes polaires à faible zoom", () 
   assert.match(shader, /longitude>=-75\.0&&longitude<=-10\.0/);
   assert.match(shader, /latitude<=-70\.0/);
   assert.match(shader, /iceSheet&&e>=1500\.0/);
+});
+
+
+test("le shader reçoit le centre et le zoom géographiques à chaque rendu", () => {
+  const calls = [];
+  const gl = {
+    uniform2f: (...args) => calls.push(["center", ...args]),
+    uniform1f: (...args) => calls.push(["zoom", ...args])
+  };
+  const renderer = { viewCenter: "center-location", zoomLocation: "zoom-location" };
+  assert.equal(setTerrainViewportUniforms(gl, renderer, {
+    centerLongitude: -42.5, centerLatitude: 71.25, zoom: 1.4
+  }), true);
+  assert.deepEqual(calls, [
+    ["center", "center-location", -42.5, 71.25],
+    ["zoom", "zoom-location", 1.4]
+  ]);
+});
+
+test("les terres des calottes groenlandaise et antarctique reçoivent une neige explicite", () => {
+  const shader = getTerrainWebGLShaders().tileFragment;
+  assert.match(shader, /if\s*\(iceSheet\s*&&\s*e\s*>\s*0\.0\)/);
+  assert.match(shader, /vec3\(0\.96,\s*0\.97,\s*0\.98\)/);
+  assert.doesNotMatch(shader, /iceSheet&&e>=1500\.0\)e=max\(e,5000\.0\)/);
 });
