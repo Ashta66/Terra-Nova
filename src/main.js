@@ -267,6 +267,9 @@ function viewSize() {
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
 const $ = (id) => document.getElementById(id);
+// Les diagnostics restent invisibles en jeu normal et ne s'activent qu'avec ?debug=1.
+document.body.classList.toggle("debug-mode", new URLSearchParams(window.location.search).get("debug") === "1");
+let lastThemeYear = null;
 let initialLoadingFinished=false;
 let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;
 let mapWarmupPromise=null,mapIndexWarmupStarted=false;
@@ -1271,19 +1274,31 @@ function render() {
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
   const year = Number(state.clock.date.slice(0, 4));
   $("clock-year").textContent = String(year);
-  const theme = getCartographicTheme(year);
-  const visuals = theme.visuals;
-  document.body.dataset.cartographicEra = theme.id;
-  document.body.style.setProperty("--theme-surface", visuals.surface);
-  document.body.style.setProperty("--theme-panel", visuals.panel);
-  document.body.style.setProperty("--theme-border", visuals.border);
-  document.body.style.setProperty("--theme-accent", theme.colors.accent);
-  document.body.style.setProperty("--theme-text", theme.colors.text);
-  document.body.style.setProperty("--theme-radius", visuals.borderRadius + "px");
-  document.body.style.setProperty("--theme-map-filter", visuals.mapFilter);
-  document.body.style.setProperty("--theme-display-font", '"' + theme.typography.display + '", Georgia, serif');
-  document.body.style.setProperty("--theme-body-font", '"' + theme.typography.body + '", ui-sans-serif, system-ui, sans-serif');
-  $("era-name").textContent = theme.label;
+  if (lastThemeYear !== year) {
+    const theme = getCartographicTheme(year);
+    const visuals = theme.visuals;
+    document.body.dataset.cartographicEra = theme.id;
+    document.body.style.setProperty("--theme-surface", visuals.surface);
+    document.body.style.setProperty("--theme-panel", visuals.panel);
+    document.body.style.setProperty("--theme-border", visuals.border);
+    document.body.style.setProperty("--theme-accent", theme.colors.accent);
+    document.body.style.setProperty("--theme-text", theme.colors.text);
+    document.body.style.setProperty("--theme-radius", visuals.borderRadius + "px");
+    document.body.style.setProperty("--theme-map-filter", visuals.mapFilter);
+    document.body.style.setProperty("--theme-display-font", '"' + theme.typography.display + '", Georgia, serif');
+    document.body.style.setProperty("--theme-body-font", '"' + theme.typography.body + '", ui-sans-serif, system-ui, sans-serif');
+    $("era-name").textContent = theme.label;
+    $("map-era").textContent = theme.label;
+    const aiTitle = $("ai-title");
+    if (aiTitle) aiTitle.textContent = theme.interfaceTitle;
+    const aiSubtitle = $("ai-subtitle");
+    if (aiSubtitle) aiSubtitle.textContent = theme.interfaceSubtitle;
+    const aiMessage = $("ai-era-message");
+    if (aiMessage) aiMessage.textContent = theme.interfaceMessage;
+    const eventPrompt = $("event-prompt");
+    if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
+    lastThemeYear = year;
+  }
   $("map-era").textContent = theme.label;
   const aiTitle = $("ai-title");
   if (aiTitle) aiTitle.textContent = theme.interfaceTitle;
