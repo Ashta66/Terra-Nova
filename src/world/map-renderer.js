@@ -1744,13 +1744,17 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       measureLayer("hachures", () => drawLandHachures(target, visibleLand, width, height, projection, theme.colors.coast));
     }
     const detailProfile = getSecondaryDetailProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
-    const glaciersVisible = detailProfile.glaciers ? {
-      type: "FeatureCollection",
-      features: (visibleGlaciers?.features ?? []).filter(feature =>
-        !isAntarcticLandFeature(feature)
-        && Number(feature.properties?.scalerank ?? feature.properties?.SCALERANK ?? feature.properties?.min_zoom ?? feature.properties?.MIN_ZOOM ?? 0) <= 4
-      )
-    } : { type: "FeatureCollection", features: [] };
+    const visibleGlacierFeatures = [];
+    if (detailProfile.glaciers) {
+      for (const feature of visibleGlaciers?.features ?? []) {
+        if (isAntarcticLandFeature(feature)) continue;
+        const properties = feature.properties;
+        const scaleRank = Number(properties?.scalerank ?? properties?.SCALERANK
+          ?? properties?.min_zoom ?? properties?.MIN_ZOOM ?? 0);
+        if (scaleRank <= 4) visibleGlacierFeatures.push(feature);
+      }
+    }
+    const glaciersVisible = { type: "FeatureCollection", features: visibleGlacierFeatures };
     const majorLakes = { type: "FeatureCollection", features: selectMajorLakeFeatures(visibleLakes, detailProfile.lakesRank, MAX_VISIBLE_LAKES) };
     const majorRivers = { type: "FeatureCollection", features: selectMajorRiverFeatures(visibleRivers, detailProfile.riversRank, detailProfile.riversMax) };
     let geographicDetailGpu = false;
