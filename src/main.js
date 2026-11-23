@@ -1299,15 +1299,6 @@ function render() {
     if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
     lastThemeYear = year;
   }
-  $("map-era").textContent = theme.label;
-  const aiTitle = $("ai-title");
-  if (aiTitle) aiTitle.textContent = theme.interfaceTitle;
-  const aiSubtitle = $("ai-subtitle");
-  if (aiSubtitle) aiSubtitle.textContent = theme.interfaceSubtitle;
-  const aiMessage = $("ai-era-message");
-  if (aiMessage) aiMessage.textContent = theme.interfaceMessage;
-  const eventPrompt = $("event-prompt");
-  if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
   document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
   $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
   if (!document.body.classList.contains("campaign-started")) {
