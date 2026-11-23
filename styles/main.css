@@ -610,3 +610,191 @@ body[data-cartographic-era="future"] .map-frame { border: 1px solid #29434a; box
     animation: none !important;
   }
 }
+
+
+/* HUD de grande stratégie — profondeur, instruments et matières */
+.game-layout { position:relative; isolation:isolate; }
+.time-sidebar,.ai-sidebar {
+  position:relative; z-index:2; align-self:stretch;
+  box-shadow: 0 18px 42px #0008, 0 3px 10px #0005, inset 0 1px 0 #ffffff16;
+}
+.time-sidebar::before,.ai-sidebar::before {
+  content:""; position:absolute; inset:0 0 auto; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--theme-accent) 68%,white 12%),transparent);
+  opacity:.72;
+}
+.chronicle-console {
+  position:relative; padding:16px 14px 14px; margin:15px -7px 0;
+  border:1px solid var(--theme-border); border-radius:var(--theme-radius);
+  background:
+    radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--theme-accent) 12%,transparent),transparent 62%),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 70%);
+  box-shadow:inset 0 1px 0 #ffffff12,0 9px 22px #0003;
+}
+.map-stage { position:relative; z-index:1; min-width:0; }
+.map-stage-heading { padding:0 4px 8px; }
+.map-frame {
+  position:relative; isolation:isolate; overflow:hidden;
+  border-radius:var(--theme-radius);
+  box-shadow:0 26px 64px #0009,0 8px 20px #0006,inset 0 0 0 1px #ffffff12;
+}
+.map-frame::before {
+  content:""; position:absolute; z-index:1; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 54%,#02060938 100%);
+  box-shadow:inset 0 0 46px #0005,inset 0 1px 0 #ffffff20;
+}
+.map-cartographic-overlay {
+  position:absolute; z-index:2; inset:0; overflow:hidden; pointer-events:none;
+  color:var(--theme-accent); opacity:.56;
+  font:500 8px/1.2 var(--theme-body-font); letter-spacing:.12em;
+  text-shadow:0 1px 3px #000,0 0 8px #0009;
+}
+.map-cartographic-overlay::before {
+  content:""; position:absolute; inset:12px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 35%,transparent);
+  opacity:.62;
+}
+.map-overlay-coordinate { position:absolute; padding:3px 5px; background:linear-gradient(90deg,#080d10a8,transparent); }
+.map-overlay-coordinate-nw { top:17px;left:18px; }
+.map-overlay-coordinate-ne { top:17px;right:18px;text-align:right; }
+.map-overlay-coordinate-sw { bottom:16px;left:18px; }
+.map-overlay-coordinate-se { bottom:16px;right:18px;text-align:right; }
+.map-compass {
+  position:absolute; right:26px; bottom:28px; width:62px; height:62px;
+  display:grid; place-items:center; border:1px solid currentColor; border-radius:50%;
+  background:radial-gradient(circle,#111b1b66,#080d1099);
+  box-shadow:0 2px 12px #0008,inset 0 0 12px #ffffff0c;
+  font:9px Georgia,serif;
+}
+.map-compass::before,.map-compass::after { content:"";position:absolute;background:currentColor;opacity:.55; }
+.map-compass::before { width:1px;height:48px; }
+.map-compass::after { width:48px;height:1px; }
+.map-compass i { position:absolute;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:20px solid var(--theme-accent);transform:translateY(-8px);filter:drop-shadow(0 1px 2px #000); }
+.map-compass b { position:absolute;top:4px; } .map-compass em { position:absolute;right:5px;font-style:normal; }
+.map-compass small { position:absolute;bottom:4px; } .map-compass strong { position:absolute;left:5px; }
+.map-reticle { position:absolute;width:22px;height:22px;opacity:.45; }
+.map-reticle-a { top:12px;left:12px;border-top:1px solid currentColor;border-left:1px solid currentColor; }
+.map-reticle-b { right:12px;bottom:12px;border-right:1px solid currentColor;border-bottom:1px solid currentColor; }
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::before,
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before {
+  inset:9px; border:3px double color-mix(in srgb,var(--theme-accent) 64%,transparent);
+  background:
+    repeating-linear-gradient(32deg,transparent 0 74px,color-mix(in srgb,var(--theme-accent) 11%,transparent) 75px 76px,transparent 77px 148px),
+    repeating-linear-gradient(148deg,transparent 0 92px,color-mix(in srgb,var(--theme-accent) 9%,transparent) 93px 94px,transparent 95px 184px);
+}
+body[data-cartographic-era="exploration"] .map-compass,
+body[data-cartographic-era="westphalia"] .map-compass { border-radius:50%; }
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  inset:10px;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 47px,#b5c0b31c 48px,transparent 49px),
+    repeating-linear-gradient(90deg,transparent 0 47px,#b5c0b31c 48px,transparent 49px);
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay,
+body[data-cartographic-era="future"] .map-cartographic-overlay { opacity:.48; }
+body[data-cartographic-era="present"] .map-cartographic-overlay::before,
+body[data-cartographic-era="future"] .map-cartographic-overlay::before {
+  inset:10px;
+  border-color:color-mix(in srgb,var(--theme-accent) 42%,transparent);
+  background:
+    linear-gradient(90deg,var(--theme-accent) 1px,transparent 1px) 0 0/34px 34px,
+    linear-gradient(var(--theme-accent) 1px,transparent 1px) 0 0/34px 34px;
+  mask-image:linear-gradient(90deg,#0008,transparent 28%,transparent 72%,#0008);
+  opacity:.14;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::after {
+  content:""; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0 5px,#9cae8a08 6px,transparent 7px);
+  opacity:.65;
+}
+body[data-cartographic-era="exploration"] .map-overlay-coordinate,
+body[data-cartographic-era="westphalia"] .map-overlay-coordinate {
+  font-family:"EB Garamond",Georgia,serif; letter-spacing:.08em;
+}
+body[data-cartographic-era="modern"] .map-overlay-coordinate,
+body[data-cartographic-era="present"] .map-overlay-coordinate,
+body[data-cartographic-era="future"] .map-overlay-coordinate { font-family:var(--theme-body-font); }
+
+/* Commandes mécaniques : arête éclairée, matière pressée, état actif gravé */
+.button,.speed-chip,.map-tool,.era-milestones button,.map-data-button {
+  position:relative; overflow:hidden;
+  box-shadow:inset 0 1px 0 #ffffff20,0 2px 5px #0004;
+  transition:transform .16s ease,border-color .2s ease,background-color .2s ease,box-shadow .2s ease,filter .2s ease;
+}
+.button::before,.speed-chip::before,.map-tool::before,.era-milestones button::before {
+  content:""; position:absolute;top:0;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg,transparent,#ffffff66,transparent);opacity:.5;pointer-events:none;
+}
+.button:hover:not(:disabled),.speed-chip:hover:not(:disabled),.map-tool:hover:not(:disabled),.era-milestones button:hover {
+  transform:translateY(-1px); box-shadow:inset 0 1px 0 #ffffff28,0 5px 12px #0005;
+}
+.button:active:not(:disabled),.speed-chip:active:not(:disabled),.map-tool:active:not(:disabled),.era-milestones button:active {
+  transform:translateY(1px);box-shadow:inset 0 2px 5px #0006;
+}
+.speed-presets { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px; }
+.speed-chip {
+  min-width:0;padding:7px 3px 6px;border:1px solid var(--theme-border);
+  border-radius:var(--theme-radius);background:linear-gradient(180deg,var(--theme-panel-raised),var(--theme-control));
+  color:var(--theme-text);font:600 12px var(--theme-body-font);cursor:pointer;
+}
+.speed-chip small { display:block;margin-top:3px;color:var(--theme-muted);font:8px var(--theme-body-font);letter-spacing:.04em; }
+.speed-chip.is-active {
+  color:var(--theme-accent);border-color:var(--theme-accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 18%,var(--theme-panel)),var(--theme-control));
+  box-shadow:inset 0 1px 0 #ffffff24,0 0 0 1px color-mix(in srgb,var(--theme-accent) 22%,transparent),0 0 15px color-mix(in srgb,var(--theme-accent) 12%,transparent);
+}
+.era-milestones { position:relative; }
+.era-milestones::before {
+  content:"";position:absolute;top:0;left:4%;right:4%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--theme-border),var(--theme-accent),var(--theme-border),transparent);
+}
+.era-milestones button { border-radius:var(--theme-radius);background:linear-gradient(180deg,var(--theme-panel-raised),var(--theme-panel)); }
+.era-milestones button.is-active {
+  color:var(--theme-accent);border-color:var(--theme-accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 17%,var(--theme-panel-raised)),var(--theme-panel));
+  box-shadow:inset 0 1px 0 #ffffff24,0 0 14px color-mix(in srgb,var(--theme-accent) 13%,transparent);
+}
+.era-milestones button small { color:var(--theme-muted); }
+#year-scrubber { accent-color:var(--theme-accent); }
+#year-scrubber::-webkit-slider-runnable-track {
+  height:4px;border-radius:9px;
+  background:linear-gradient(90deg,var(--theme-accent),var(--theme-border));
+  box-shadow:0 1px 3px #0008;
+}
+#year-scrubber::-webkit-slider-thumb {
+  width:15px;height:15px;margin-top:-5px;border:2px solid var(--theme-accent);
+  border-radius:50%;background:linear-gradient(145deg,#fff8,var(--theme-panel-raised));
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 18%,transparent),0 2px 7px #0009;
+  -webkit-appearance:none;
+}
+#year-scrubber::-moz-range-track { height:4px;border-radius:9px;background:linear-gradient(90deg,var(--theme-accent),var(--theme-border)); }
+#year-scrubber::-moz-range-thumb { width:12px;height:12px;border:2px solid var(--theme-accent);border-radius:50%;background:var(--theme-panel-raised);box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 18%,transparent); }
+
+/* Les époques numériques adoptent le verre fumé sans augmenter le coût du rendu carte */
+body[data-cartographic-era="present"] .time-sidebar,
+body[data-cartographic-era="present"] .ai-sidebar,
+body[data-cartographic-era="future"] .time-sidebar,
+body[data-cartographic-era="future"] .ai-sidebar,
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="future"] .chronicle-console {
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background-image:
+    linear-gradient(145deg,#ffffff08,transparent 42%),
+    radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--theme-accent) 9%,transparent),transparent 65%),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 72%);
+}
+body[data-cartographic-era="modern"] .time-sidebar,
+body[data-cartographic-era="modern"] .ai-sidebar {
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 23px,#c2c9b008 24px),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 72%);
+}
+@media (max-width:760px) {
+  .map-cartographic-overlay { opacity:.28; }
+  .map-compass { transform:scale(.78);transform-origin:bottom right;right:18px;bottom:22px; }
+  .map-overlay-coordinate { font-size:7px; }
+  .chronicle-console { margin:12px 0 0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .button,.speed-chip,.map-tool,.era-milestones button { transition:none!important; }
+}
