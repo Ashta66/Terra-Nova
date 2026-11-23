@@ -531,12 +531,28 @@ function lineVertexCount(feature) {
   const lines = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
   return lines.reduce((total, line) => total + (Array.isArray(line) ? line.length : 0), 0);
 }
-export function selectMajorRiverFeatures(collection, maxRank = 1, maxFeatures = 18) {
+const majorRiverFeatureCollections = new WeakMap();
+
+function getSortedMajorRiverFeatures(collection, maxRank) {
   if (!collection?.features) return [];
-  return collection.features
-    .filter(feature => ["LineString", "MultiLineString"].includes(feature?.geometry?.type) && riverFeatureRank(feature) <= maxRank)
-    .sort((a, b) => riverFeatureRank(a) - riverFeatureRank(b) || lineVertexCount(b) - lineVertexCount(a))
-    .slice(0, maxFeatures);
+  let profiles = majorRiverFeatureCollections.get(collection);
+  if (!profiles) {
+    profiles = new Map();
+    majorRiverFeatureCollections.set(collection, profiles);
+  }
+  const cacheKey = String(maxRank);
+  let sorted = profiles.get(cacheKey);
+  if (!sorted) {
+    sorted = collection.features
+      .filter(feature => ["LineString", "MultiLineString"].includes(feature?.geometry?.type) && riverFeatureRank(feature) <= maxRank)
+      .sort((a, b) => riverFeatureRank(a) - riverFeatureRank(b) || lineVertexCount(b) - lineVertexCount(a));
+    profiles.set(cacheKey, sorted);
+  }
+  return sorted;
+}
+
+export function selectMajorRiverFeatures(collection, maxRank = 1, maxFeatures = 18) {
+  return getSortedMajorRiverFeatures(collection, maxRank).slice(0, Math.max(0, maxFeatures));
 }
 
 function drawLineLayer(context, collection, width, height, projection, color, lineWidth, simplifyProfile = null, maxRank = Infinity, maxFeatures = Infinity) {
