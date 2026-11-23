@@ -37,7 +37,7 @@ const THEMES = [
   },
   {
     from: 2026, to: 2100, id: "present", label: "Présent",
-    colors: { ocean: "#b7d0dc", land: "#9eaa9e", landAlt: "#899b91", coast: "#526b78", grid: "#91aeb9", text: "#263b49", accent: "#287fa5", surface: "#e7eef0", panel: "#f5f8f8", border: "#a9bec5" },
+    colors: { ocean: "#263e4b", land: "#65766e", landAlt: "#56685f", coast: "#8aa4aa", grid: "#405b67", text: "#d4e0e2", accent: "#5b9db4", surface: "#101b22", panel: "#192832", border: "#38515d" },
     texture: "clean", detail: "vector", typography: { display: "Inter", body: "Plus Jakarta Sans" },
     visuals: { material: "glass", borderRadius: 7, mapFilter: "none" },
     interfaceTitle: "Centre de Veille", interfaceSubtitle: "Réseau mondial en temps réel",
