@@ -143,3 +143,14 @@ test("theme 2040 : graphite sombre et accents non électriques", () => {
   assert.match(css, /data-cartographic-era="present"[\s\S]*?--theme-accent:\s*#a58d68/);
   assert.match(css, /data-cartographic-era="present"[\s\S]*?background-blend-mode:\s*soft-light,\s*normal/);
 });
+
+
+test("1492 présente un véritable parchemin clair et une encre lisible", () => {
+  const parchment = readFileSync(new URL("../assets/textures/parchment.svg", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  assert.match(parchment, /fill="#d8c49b"/, "le support doit avoir une base ivoire chaude");
+  assert.match(parchment, /id="patina"/, "la patine ancienne doit être présente");
+  assert.match(parchment, /id="fibres"/, "les fibres du papier doivent être présentes");
+  assert.match(css, /body\[data-cartographic-era="exploration"\] \.side-panel[\s\S]*?background-blend-mode:\s*normal/);
+  assert.match(css, /body\[data-cartographic-era="exploration"\] \.side-panel[\s\S]*?color:\s*#382817/);
+});
