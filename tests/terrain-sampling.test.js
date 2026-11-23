@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sampleElevation } from "../src/world/terrain.js";
-import { terrainSnowElevationForPixel } from "../src/world/terrain.js";
+import * as terrain from "../src/world/terrain.js";
+const { sampleElevation } = terrain;
+
+function terrainSnowElevationForPixel(...args) {
+  assert.equal(typeof terrain.terrainSnowElevationForPixel, "function", "le détecteur de pics doit être exporté");
+  return terrain.terrainSnowElevationForPixel(...args);
+}
 
 function createDegreeGrid(fill = 1000) {
   const values = new Int16Array(360 * 180);
