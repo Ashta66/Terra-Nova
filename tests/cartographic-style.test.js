@@ -231,10 +231,14 @@ test("les ères 1789–1913 ne superposent pas de points rouges ni de grille car
   assert.doesNotMatch(css, /body\[data-cartographic-era="revolution"\] \.map-frame::after\s*\{[^}]*radial-gradient/);
 });
 
-test("les variables de thème ne sont réécrites que lors d'un changement d'année et les diagnostics exigent debug=1", () => {
+test("le thème reste mis à jour par année et la progression de la frise suit la date simulée", () => {
   const js = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
-  assert.match(js, /new URLSearchParams\(window\.location\.search\)\.get\("debug"\) === "1"/);
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
   assert.match(js, /let lastThemeYear = null/);
   assert.match(js, /if \(lastThemeYear !== year\) \{/);
   assert.match(js, /lastThemeYear = year/);
+  assert.match(js, /--timeline-progress/);
+  assert.match(css, /--timeline-progress/);
+  assert.match(css, /#year-scrubber:focus-visible/);
+  assert.doesNotMatch(js, /debugMode|debug-mode|URLSearchParams\(window\.location\.search\)/);
 });
