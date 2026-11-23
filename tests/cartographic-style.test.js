@@ -97,3 +97,25 @@ test("chaque ère possède une finition d'interface dédiée sans animation déc
   }
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
 });
+
+
+test("chaque ère applique une texture de matière perceptible aux surfaces d'interface", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  const textures = {
+    exploration: /--material-texture-exploration:/,
+    westphalia: /--material-texture-westphalia:/,
+    revolution: /--material-texture-revolution:/,
+    modern: /--material-texture-modern:/,
+    present: /--material-texture-present:/,
+    future: /--material-texture-future:/
+  };
+  for (const [era, pattern] of Object.entries(textures)) {
+    assert.match(css, pattern, `texture de matière absente pour ${era}`);
+    assert.match(
+      css,
+      new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.side-panel[^}]*background-image:`),
+      `texture non appliquée aux panneaux pour ${era}`
+    );
+  }
+  assert.match(css, /background-blend-mode:\s*(?:soft-light|overlay|multiply)/);
+});
