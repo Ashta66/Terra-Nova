@@ -92,8 +92,8 @@ test("les ères moderne et contemporaine restent sombres à partir de 2000", () 
 test("chaque ère possède une finition d'interface dédiée sans animation décorative", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
   for (const era of ["exploration", "westphalia", "revolution", "modern", "present", "future"]) {
-    assert.match(css, new RegExp(`body\\[data-cartographic-era="\\${era}"\\] \\.era-banner`), `bannière dédiée absente pour ${era}`);
-    assert.match(css, new RegExp(`body\\[data-cartographic-era="\\${era}"\\] \\.map-frame`), `cadre cartographique dédié absent pour ${era}`);
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.era-banner`), `bannière dédiée absente pour ${era}`);
+    assert.match(css, new RegExp(`body\\[data-cartographic-era="${era}"\\] \\.map-frame`), `cadre cartographique dédié absent pour ${era}`);
   }
   assert.match(css, /prefers-reduced-motion:\\s*reduce/);
 });
