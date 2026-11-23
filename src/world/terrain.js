@@ -398,7 +398,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
     }
    }else{cache.delete(key);cache.set(key,surface);}
    context.save?.();
-   context.imageSmoothingEnabled = globalThis.__TERRA_DISABLE_TERRAIN_SMOOTHING !== true;
+   context.imageSmoothingEnabled = !disableSmoothing;
    context.drawImage(surface,screenX,screenY,destW,destH);
    context.restore?.();drawn=true;
   }
