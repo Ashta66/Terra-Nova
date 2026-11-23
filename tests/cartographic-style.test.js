@@ -220,13 +220,13 @@ test("le cadre de la carte adopte une matière distincte sans intercepter le can
 });
 
 
-test("les ornements de carte restent discrets pendant l'ère des Révolutions", () => {
+test("les ères 1789–1913 ne superposent pas de grille carrée à la carte", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay \\{ opacity:\\.?14/);
-  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay::before[\\s\\S]*?background:none/);
-  assert.match(css, /body\\[data-cartographic-era="revolution"\\] \\.map-compass[\\s\\S]*?opacity:\\.?38/);
-  assert.match(css, /body\\.debug-mode \\.map-diagnostics \\{ display:block/);
-  assert.match(css, /\\.map-diagnostics \\{ display:none/);
+  const modern = css.match(/body\\[data-cartographic-era="modern"\\] \\.map-cartographic-overlay::before \\{([^}]*)\\}/);
+  assert.ok(modern, "cadre cartographique moderne présent");
+  assert.match(modern[1], /background:\\s*none/);
+  assert.doesNotMatch(modern[1], /repeating-linear-gradient/);
+  assert.doesNotMatch(css, /body\\[data-cartographic-era="revolution"\\] \\.map-cartographic-overlay \\{\\s*opacity:/);
 });
 
 test("les variables de thème ne sont réécrites que lors d'un changement d'année et les diagnostics exigent debug=1", () => {
