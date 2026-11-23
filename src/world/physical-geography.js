@@ -136,7 +136,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
       const nx = (column + ox + grid.width) % grid.width, ny = row + oy;
       if (ny < 0 || ny >= grid.height || !ocean.mask[Math.max(0,Math.min(ocean.rows-1,Math.floor(ny/ocean.step)))*ocean.cols+(((Math.floor(nx/ocean.step)%ocean.cols)+ocean.cols)%ocean.cols)]) continue;
       const nlon = (nx + .5) / grid.width * 360 - 180, nlat = 90 - (ny + .5) / grid.height * 180;
-      coastalDistanceKm = Math.min(coastalDistanceKm, distance({longitude:lon,latitude:lat},{longitude:nlon,latitude:nlat}));
+      coastalDistanceKm = Math.min(coastalDistanceKm, distanceCoordinates(lon,lat,nlon,nlat));
      }
     }
     if (coastalDistanceKm === Infinity) coastalDistanceKm = 2000;
