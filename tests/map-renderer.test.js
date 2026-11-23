@@ -60,7 +60,7 @@ test("l'Antarctique n'est pas recoloré par la couche des territoires politiques
   }] };
   const result = renderWorldMap(canvas, land, {
     width: 640, height: 320, pixelRatio: 1,
-    viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
+    viewport: { zoom: 3, centerLatitude: 0, centerLongitude: 0 },
     territories: antarctica
   });
   assert.equal(result.territoryCount, 0,
@@ -161,19 +161,20 @@ test("la couche des glaciers exclut le polygone glaciaire continental antarctiqu
     bbox: [-180, -89.998899, 179.999949, -63.27066],
     geometry: { type: "Polygon", coordinates: [[[-180, -63], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
   };
-  const greenlandGlacier = {
+  const retainedGlacier = {
     type: "Feature",
-    bbox: [-72.342245, 60.596405, -19.292383, 82.611444],
-    geometry: { type: "Polygon", coordinates: [[[-70, 60], [-20, 60], [-20, 82], [-70, 60]]] }
+    bbox: [-5, -5, 10, 10],
+    properties: { name: "glacier de contrôle" },
+    geometry: { type: "Polygon", coordinates: [[[-5, -5], [10, -5], [10, 10], [-5, -5]]] }
   };
-  const glaciers = { type: "FeatureCollection", features: [antarcticGlacier, greenlandGlacier] };
+  const glaciers = { type: "FeatureCollection", features: [antarcticGlacier, retainedGlacier] };
   const result = renderWorldMap(canvas, land, {
     width: 640, height: 320, pixelRatio: 1, glaciers,
     viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
     terrainEnabled: false
   });
   assert.equal(result.glacierCount, 1,
-    "le glacier du Groenland reste visible, mais le polygone continental antarctique est exclu");
+    "un glacier ordinaire reste visible, mais le polygone continental antarctique est exclu");
 });
 
 test("le moteur rejette une entrée qui n'est pas une FeatureCollection", () => {
