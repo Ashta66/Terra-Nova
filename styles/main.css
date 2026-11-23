@@ -663,3 +663,128 @@ body[data-cartographic-era="future"] .button,
 body[data-cartographic-era="future"] .speed-chip {
   border-radius: 3px;
 }
+
+
+/* Textures de matière : grain CSS statique, sans image, canvas ni passe GPU */
+body[data-cartographic-era="exploration"] {
+  --material-texture-exploration:
+    repeating-linear-gradient(31deg, #e7c98a0a 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(119deg, #130d0708 0 1px, transparent 1px 7px),
+    radial-gradient(ellipse at 18% 22%, #e4c17a12, transparent 48%);
+}
+body[data-cartographic-era="exploration"] .side-panel {
+  background-image: var(--material-texture-exploration), linear-gradient(135deg, #4b3b27, #302519 72%);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="exploration"] .topbar,
+body[data-cartographic-era="exploration"] .setup-card,
+body[data-cartographic-era="exploration"] .chronicle-console,
+body[data-cartographic-era="exploration"] .chat-message,
+body[data-cartographic-era="exploration"] .era-banner {
+  background-image: var(--material-texture-exploration), linear-gradient(135deg, #493822, #261e15);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="westphalia"] {
+  --material-texture-westphalia:
+    repeating-linear-gradient(0deg, #e3d5bd0a 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(90deg, #090d1409 0 1px, transparent 1px 8px),
+    radial-gradient(ellipse at 72% 18%, #c8b18a10, transparent 54%);
+}
+body[data-cartographic-era="westphalia"] .side-panel {
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #30343a, #22272d);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="westphalia"] .topbar,
+body[data-cartographic-era="westphalia"] .setup-card,
+body[data-cartographic-era="westphalia"] .chronicle-console,
+body[data-cartographic-era="westphalia"] .chat-message,
+body[data-cartographic-era="westphalia"] .era-banner {
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #303238, #22252b);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="revolution"] {
+  --material-texture-revolution:
+    radial-gradient(#eee8df18 .55px, transparent .8px),
+    repeating-linear-gradient(0deg, #f0e9df08 0 1px, transparent 1px 4px);
+}
+body[data-cartographic-era="revolution"] .side-panel {
+  background-image: var(--material-texture-revolution), linear-gradient(180deg, #343331, #242424);
+  background-size: 4px 4px, auto;
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="revolution"] .topbar,
+body[data-cartographic-era="revolution"] .setup-card,
+body[data-cartographic-era="revolution"] .chronicle-console,
+body[data-cartographic-era="revolution"] .chat-message,
+body[data-cartographic-era="revolution"] .era-banner {
+  background-image: var(--material-texture-revolution), linear-gradient(90deg, #30302f, #202020);
+  background-size: 4px 4px, auto;
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="modern"] {
+  --material-texture-modern:
+    repeating-linear-gradient(90deg, #dce2d50a 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(174deg, #050b0e0a 0 1px, transparent 1px 11px),
+    linear-gradient(115deg, transparent 42%, #c1cbb00a 43%, transparent 44%);
+}
+body[data-cartographic-era="modern"] .side-panel {
+  background-image: var(--material-texture-modern), linear-gradient(160deg, #26343a, #18252b);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="modern"] .topbar,
+body[data-cartographic-era="modern"] .setup-card,
+body[data-cartographic-era="modern"] .chronicle-console,
+body[data-cartographic-era="modern"] .chat-message,
+body[data-cartographic-era="modern"] .era-banner {
+  background-image: var(--material-texture-modern), linear-gradient(145deg, #202d32, #141f24);
+  background-blend-mode: soft-light, normal;
+}
+
+body[data-cartographic-era="present"] {
+  --material-texture-present:
+    radial-gradient(ellipse at 18% 12%, #a6d4e20d, transparent 46%),
+    repeating-linear-gradient(135deg, #d7edf008 0 1px, transparent 1px 8px),
+    linear-gradient(90deg, transparent 0 48%, #8eb7c008 49%, transparent 51%);
+}
+body[data-cartographic-era="present"] .side-panel {
+  background-image: var(--material-texture-present), linear-gradient(145deg, #1c2d37, #111e27);
+  background-blend-mode: screen, soft-light, normal;
+}
+body[data-cartographic-era="present"] .topbar,
+body[data-cartographic-era="present"] .setup-card,
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="present"] .chat-message,
+body[data-cartographic-era="present"] .era-banner {
+  background-image: var(--material-texture-present), linear-gradient(145deg, #192b35, #101d26);
+  background-blend-mode: screen, soft-light, normal;
+}
+
+body[data-cartographic-era="future"] {
+  --material-texture-future:
+    repeating-linear-gradient(0deg, #65cbd00a 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, #65cbd008 0 1px, transparent 1px 12px),
+    radial-gradient(circle at 78% 22%, #55dce012 0 1px, transparent 2px);
+}
+body[data-cartographic-era="future"] .side-panel {
+  background-image: var(--material-texture-future), linear-gradient(160deg, #09131b, #050b11 78%);
+  background-blend-mode: screen, normal, screen;
+}
+body[data-cartographic-era="future"] .topbar,
+body[data-cartographic-era="future"] .setup-card,
+body[data-cartographic-era="future"] .chronicle-console,
+body[data-cartographic-era="future"] .chat-message,
+body[data-cartographic-era="future"] .era-banner {
+  background-image: var(--material-texture-future), linear-gradient(145deg, #0b1a22, #050c12);
+  background-blend-mode: screen, normal, screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-cartographic-era] .side-panel,
+  body[data-cartographic-era] .topbar,
+  body[data-cartographic-era] .map-frame {
+    transition: none !important;
+  }
+}
