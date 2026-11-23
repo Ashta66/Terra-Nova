@@ -10,13 +10,14 @@ function collectPaths(geometry, paths = []) {
   if (geometry.type === "Polygon") addPolygon(geometry.coordinates);
   else if (geometry.type === "MultiPolygon") for (const polygon of geometry.coordinates ?? []) addPolygon(polygon);
   else if (geometry.type === "LineString") paths.push(geometry.coordinates ?? []);
-  else if (geometry.type === "MultiLineString") paths.push(...(geometry.coordinates ?? []));
+  else if (geometry.type === "MultiLineString") {
+    for (const line of geometry.coordinates ?? []) paths.push(line);
+  }
   else if (geometry.type === "GeometryCollection") for (const child of geometry.geometries ?? []) collectPaths(child, paths);
   return paths;
 }
 
-function pointDistanceSquared(point, start, end, latitude) {
-  const cos = Math.max(0.05, Math.cos(latitude * Math.PI / 180));
+function pointDistanceSquared(point, start, end, cos) {
   const px = Number(point[0]) * cos, py = Number(point[1]);
   const sx = Number(start[0]) * cos, sy = Number(start[1]);
   const ex = Number(end[0]) * cos, ey = Number(end[1]);
@@ -28,12 +29,14 @@ function pointDistanceSquared(point, start, end, latitude) {
 
 function simplifyOpen(points, tolerance) {
   if (points.length <= 2 || tolerance <= 0) return points.slice();
-  const meanLatitude = points.reduce((sum,p)=>sum+Number(p[1]||0),0)/points.length;
+  let latitudeSum = 0;
+  for (let i = 0; i < points.length; i++) latitudeSum += Number(points[i][1] || 0);
+  const cosLatitude = Math.max(0.05, Math.cos((latitudeSum / points.length) * Math.PI / 180));
   const keep = new Uint8Array(points.length); keep[0]=1; keep[points.length-1]=1;
   const stack=[[0,points.length-1]], threshold=tolerance*tolerance;
   while(stack.length){
     const [first,last]=stack.pop();let farthest=-1,max=threshold;
-    for(let i=first+1;i<last;i++){const d=pointDistanceSquared(points[i],points[first],points[last],meanLatitude);if(d>max){max=d;farthest=i;}}
+    for(let i=first+1;i<last;i++){const d=pointDistanceSquared(points[i],points[first],points[last],cosLatitude);if(d>max){max=d;farthest=i;}}
     if(farthest>=0){keep[farthest]=1;stack.push([first,farthest],[farthest,last]);}
   }
   return points.filter((_,i)=>keep[i]);
@@ -41,25 +44,62 @@ function simplifyOpen(points, tolerance) {
 
 function simplifyPath(path, tolerance, anchors) {
   if (!Array.isArray(path) || path.length <= 2 || tolerance <= 0) return path;
-  const closed = path.length > 3 && coordinateKey(path[0]) === coordinateKey(path[path.length-1]);
+  const firstKey = coordinateKey(path[0]);
+  const lastKey = coordinateKey(path[path.length - 1]);
+  const closed = path.length > 3 && firstKey === lastKey;
   const points = closed ? path.slice(0,-1) : path.slice();
   if (points.length <= (closed?3:2)) return path;
   const indices=[];
-  for(let i=0;i<points.length;i++)if(!closed&&(i===0||i===points.length-1)||anchors.has(coordinateKey(points[i])))indices.push(i);
+  for (let i = 0; i < points.length; i++) {
+    if ((!closed && (i === 0 || i === points.length - 1))
+      || anchors.has(coordinateKey(points[i]))) indices.push(i);
+  }
   if(closed){
     if(indices.length===1){let far=0,dist=-1;for(let i=0;i<points.length;i++){const d=(Number(points[i][0])-Number(points[indices[0]][0]))**2+(Number(points[i][1])-Number(points[indices[0]][1]))**2;if(d>dist){dist=d;far=i;}}if(far!==indices[0])indices.push(far);}
     if(indices.length===0){let far=1,dist=-1;for(let i=1;i<points.length;i++){const d=(Number(points[i][0])-Number(points[0][0]))**2+(Number(points[i][1])-Number(points[0][1]))**2;if(d>dist){dist=d;far=i;}}indices.push(0,far);}
   }
-  const sorted=[...new Set(indices)].sort((a,b)=>a-b);
-  if(!sorted.length)return path;
+  indices.sort((a, b) => a - b);
+  let writeIndex = 0;
+  for (let i = 0; i < indices.length; i++) {
+    if (i === 0 || indices[i] !== indices[i - 1]) indices[writeIndex++] = indices[i];
+  }
+  indices.length = writeIndex;
+  const sorted = indices;
+  if (!sorted.length) return path;
   const result=[];
   if(!closed){
-    for(let s=0;s<sorted.length-1;s++){const a=sorted[s],b=sorted[s+1],part=simplifyOpen(points.slice(a,b+1),tolerance);result.push(...(s?part.slice(1):part));}
+    for (let s = 0; s < sorted.length - 1; s++) {
+      const a = sorted[s], b = sorted[s + 1];
+      const part = simplifyOpen(points.slice(a, b + 1), tolerance);
+      for (let i = s ? 1 : 0; i < part.length; i++) result.push(part[i]);
+    }
   }else{
-    for(let s=0;s<sorted.length;s++){const a=sorted[s],b=sorted[(s+1)%sorted.length];const segment=[];let i=a;while(true){segment.push(points[i]);if(i===b)break;i=(i+1)%points.length;}const part=simplifyOpen(segment,tolerance);result.push(...(s?part.slice(1):part));}
+    for (let s = 0; s < sorted.length; s++) {
+      const a = sorted[s], b = sorted[(s + 1) % sorted.length];
+      const segment = [];
+      let i = a;
+      while (true) {
+        segment.push(points[i]);
+        if (i === b) break;
+        i = (i + 1) % points.length;
+      }
+      const part = simplifyOpen(segment, tolerance);
+      for (let j = s ? 1 : 0; j < part.length; j++) result.push(part[j]);
+    }
   }
-  const unique=[];for(const point of result)if(!unique.length||coordinateKey(unique[unique.length-1])!==coordinateKey(point))unique.push(point);
-  if(closed){if(unique.length<3)return path;if(coordinateKey(unique[0])!==coordinateKey(unique[unique.length-1]))unique.push(unique[0]);}
+  const unique = [];
+  let previousKey = null;
+  for (const point of result) {
+    const key = coordinateKey(point);
+    if (!unique.length || key !== previousKey) {
+      unique.push(point);
+      previousKey = key;
+    }
+  }
+  if (closed) {
+    if (unique.length < 3) return path;
+    if (coordinateKey(unique[0]) !== previousKey) unique.push(unique[0]);
+  }
   else if(unique.length<2)return path;
   return unique.length<path.length?unique:path;
 }
@@ -81,10 +121,20 @@ function simplifyGeometry(geometry,tolerance,anchors){
  */
 export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERANCE) {
   if(!collection?.features||!Number.isFinite(tolerance)||tolerance<=0)return collection;
-  const paths=collection.features.flatMap(feature=>collectPaths(feature?.geometry,[]));
-  const occurrences=new Map();
-  for(const path of paths){const keys=new Set(path.map(coordinateKey).filter(Boolean));for(const key of keys)occurrences.set(key,(occurrences.get(key)??0)+1);}
-  const sharedAnchors=new Set([...occurrences].filter(([,count])=>count>1).map(([key])=>key));
+  const paths = [];
+  for (const feature of collection.features) collectPaths(feature?.geometry, paths);
+  const occurrences = new Map();
+  for (const path of paths) {
+    const seenInPath = new Set();
+    for (const point of path) {
+      const key = coordinateKey(point);
+      if (!key || seenInPath.has(key)) continue;
+      seenInPath.add(key);
+      occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+    }
+  }
+  const sharedAnchors = new Set();
+  for (const [key, count] of occurrences) if (count > 1) sharedAnchors.add(key);
   let originalVertices=0,simplifiedVertices=0,changedFeatures=0;
   const features=collection.features.map(feature=>{
     if(!feature?.geometry)return feature;
@@ -166,8 +216,11 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       if (active.tolerance <= baseTolerance) return null;
       return active.maxZoom + 0.001;
     }
-    const previous = [...normalizedLevels].reverse().find(level => level.maxZoom < current && level.tolerance > baseTolerance);
-    return previous ? previous.maxZoom : null;
+    for (let index = normalizedLevels.length - 1; index >= 0; index--) {
+      const level = normalizedLevels[index];
+      if (level.maxZoom < current && level.tolerance > baseTolerance) return level.maxZoom;
+    }
+    return null;
   }
 
   function prepareAdjacent(zoom = 1, direction = 1) {
