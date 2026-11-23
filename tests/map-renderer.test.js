@@ -24,6 +24,10 @@ function createCanvas() {
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
+    createLinearGradient: (...args) => {
+      calls.push(["createLinearGradient", ...args]);
+      return { addColorStop: (...stops) => calls.push(["gradientStop", ...stops]) };
+    },
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)]),
     drawImage: (...args) => calls.push(["drawImage", ...args.slice(1)])
@@ -34,6 +38,17 @@ function createCanvas() {
 }
 
 const land = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] };
+
+test("la banquise antarctique est dessinée indépendamment du LOD des tuiles", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLatitude: -25, centerLongitude: 0 },
+    terrainEnabled: true
+  });
+  assert.ok(calls.some(call => call[0] === "createLinearGradient"),
+    "la transition de banquise doit être rendue sur le canevas avant le masque du relief");
+});
 
 test("le moteur dessine une FeatureCollection et retourne son thème", () => {
   const { canvas, calls } = createCanvas();
