@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 19 : hiérarchie de placement des labels maritimes
+
+- [x] Donner aux océans une priorité de placement supérieure aux labels ordinaires.
+- [x] Placer les mers régionales après les océans, mais avant les labels terrestres secondaires.
+- [x] Donner aux détroits une priorité explicite, après les mers et avant les pays.
+- [x] Maintenir les pays au-dessus des provinces et des villes.
+- [x] Définir une priorité de repli déterministe pour les catégories inconnues.
+- [x] Centraliser la résolution de priorité pour éviter les valeurs implicites dispersées.
+- [x] Préserver le tri secondaire des villes par rang et population.
+- [x] Ne pas modifier les seuils de zoom, les budgets de densité ni les géométries.
+- [x] Ajouter des tests sur l'ordre complet et la catégorie inconnue.
+- [x] Documenter la règle de placement et ses limites.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des labels maritimes aux zooms 2 à 7.
+
+Cette hiérarchie agit uniquement sur l'ordre de placement et la résolution des collisions ; elle ne garantit pas l'affichage de tous les labels lorsqu'ils se chevauchent.
+
 ## 24 novembre 2026 — lot 18 : golfes, baies et détroits
 
 - [x] Étendre la nomenclature aux grands golfes et baies stratégiques.
@@ -11,7 +27,8 @@
 - [x] Ajouter des tests de présence, catégorie, coordonnées et seuils d'apparition.
 - [x] CI GitHub Actions : syntaxe et tests réussis (run 45362993858).
 - [x] Documenter le rôle cartographique indicatif des nouvelles entrées.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel aux zooms 4 à 7.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des densités et collisions aux zooms 4 à 7.
 
 Les ancres des golfes, baies et passages sont des points d'étiquetage, non des géométries de navigation ou des limites maritimes.
 
