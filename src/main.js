@@ -1886,7 +1886,8 @@ function scheduleInteractionRender() {
   }, INTERACTION_SETTLE_DELAY_MS);
 }
 function stopMapDrag() {
-  if (mapDrag) lastDragMoved = mapDrag.moved;
+  if (!mapDrag) return;
+  lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
   mapCanvas.style.cursor = "grab";
