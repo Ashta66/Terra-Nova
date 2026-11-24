@@ -2035,7 +2035,7 @@ export function frenchTerritoryName(value, properties = {}) {
   return raw;
 }
 
-export function buildTerritoryLabels(territories, provinces = null) {
+export function buildTerritoryLabels(territories) {
   const features = [];
   for (const feature of territories?.features ?? []) {
     const rawName = territoryName(feature.properties);
@@ -2045,17 +2045,6 @@ export function buildTerritoryLabels(territories, provinces = null) {
     features.push({
       type: "Feature",
       properties: { name, kind: "country", minZoom: 1, priority: 90 },
-      geometry: { type: "Point", coordinates: point }
-    });
-  }
-  for (const feature of provinces?.features ?? []) {
-    const rawName = territoryName(feature.properties);
-    const name = frenchTerritoryName(rawName, feature.properties);
-    const point = polygonInteriorLabelPoint(feature);
-    if (!name || !point || !point.every(Number.isFinite)) continue;
-    features.push({
-      type: "Feature",
-      properties: { name, kind: "province", minZoom: 3.5, priority: 55 },
       geometry: { type: "Point", coordinates: point }
     });
   }
