@@ -8,7 +8,7 @@ Cette tranche d'intégration est développée sur `integration/unified-map-engin
 - [x] Porter le cache de chemins projetés à 2 048 entrées / 500 000 sommets estimés (16 Mo max estimés) et conserver 12 masques composés.
 - [x] Maintenir le Worker LOD persistant pour les niveaux mondiaux/régionaux.
 - [x] Ajouter aux exports de benchmark les métadonnées écran/viewport/DPR/tactiles pour détecter les essais involontairement réalisés en émulation mobile.
-- [x] CI vérifiée sur le commit `f4f104b1357809e820c0cf6844f393190f2500d6` : 252 tests réussis, 0 échec.
+- [x] CI vérifiée sur le commit `9583552642ee3f863952cd5338eba51e31065c9b` : 494 tests réussis, 0 échec ; syntaxe et scripts shell validés.
 - [ ] Valider visuellement dans un navigateur PC réel : continuité des tuiles, transitions parent/enfant, frontières, relief, labels, couches physiques et fallbacks.
 - [ ] Refaire le benchmark de référence sur navigateur PC en mode bureau (cache chaud, zoom 20, même viewport et durée), sans comparer avec les mesures Pixel 10.
 - [ ] Réaliser un test séparé du préchauffage LOD aux zooms 3–5 et vérifier les compteurs du Worker.
