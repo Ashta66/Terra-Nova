@@ -453,7 +453,6 @@ function getProjectedViewportCacheProfile(width, height, projection, coastProfil
   const key = projection.type + ":" + width + ":" + height
     + ":" + zoom.toPrecision(12)
     + ":" + snappedLongitude.toPrecision(12) + ":" + snappedLatitude.toPrecision(12)
-    + ":" + (viewport.wrapLongitude === false ? "nowrap" : "wrap")
     + ":" + (coastProfile ? Number(coastProfile.tolerance).toPrecision(8) : "full")
     + ":" + (coastProfile ? Number(coastProfile.minRingArea).toPrecision(8) : "all");
   return { pathProjection, key };
