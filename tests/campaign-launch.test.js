@@ -81,10 +81,10 @@ test("le blason historique est prioritaire sur le drapeau ISO", () => {
   assert.match(assets, /flagcdn\.com\/w160/);
   assert.match(assets, /commons\.wikimedia\.org\/wiki\/Special:FilePath/);
 });
-test("le catalogue couvre les grandes dynasties et puissances historiques", () => {
-  const dossierSource = readFileSync(new URL("../src/game/country-dossier.js", import.meta.url), "utf8");
-  for (const emblem of ["France","England","Castile","Portugal","Ottoman Empire","Russian Empire","Holy Roman Empire"]) {
-    assert.ok(dossierSource.includes('"'+emblem+'"'), `emblème manquant : ${emblem}`);
+test("le catalogue relie les principales puissances à des armoiries documentées", () => {
+  const assets = readFileSync(new URL("../src/game/country-insignia.js", import.meta.url), "utf8");
+  for (const [name,file] of [["France","Arms_of_the_Kingdom_of_France"],["England","Royal_Arms_of_England"],["Castile","Blason_Castille"],["Portugal","Coat_of_arms_of_the_Kingdom_of_Portugal"],["Ottoman Empire","Osmanli-nisani"],["Russian Empire","Coat_of_arms_of_the_Russian_Empire"],["Holy Roman Empire","Generic_Arms_of_the_Holy_Roman_Emperor"]]) {
+    assert.ok(assets.includes('"'+name+'"') && assets.includes(file), `armoiries sourcées manquantes : ${name}`);
   }
 });
 
