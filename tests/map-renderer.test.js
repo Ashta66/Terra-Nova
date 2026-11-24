@@ -1012,6 +1012,8 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("Department of New South Wales"), "Département de Nouvelle-Galles du Sud");
  assert.equal(territoryName({ NAME: "English Province", NAME_1_FR: "Province française" }), "Province française");
  assert.equal(frenchTerritoryName("English Province", { NAME: "English Province", FORMAL_FR: "Province française" }), "Province française");
+ assert.equal(territoryName({ NAME: "English polity", ADMIN_0_FR: "Entité française" }), "Entité française");
+ assert.equal(frenchTerritoryName("English polity", { NAME: "English polity", NAME_ALT_FR: "Nom alternatif français" }), "Nom alternatif français");
  assert.equal(frenchTerritoryName("Gold Coast"),"Côte-de-l’Or");
  assert.equal(frenchTerritoryName("New South Wales"),"Nouvelle-Galles du Sud");
  assert.equal(frenchTerritoryName("Kingdom of Ceylon"),"Royaume de Ceylan");
