@@ -33,3 +33,29 @@ export function formatMapTooltipCoordinates(coordinates) {
     || longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) return null;
   return latitude.toFixed(2) + "°, " + longitude.toFixed(2) + "°";
 }
+
+/** Produit une description stable et sûre pour le rendu DOM d'une infobulle. */
+export function getMapTooltipDescriptor(label, selected = false, campaignPreview = null, kindNames = {}) {
+  if (!label || typeof label !== "object") return null;
+  const title = String(label.name ?? "").trim() || "Lieu sans nom";
+  const kind = kindNames[label.kind] ?? "Lieu";
+  const coordinates = formatMapTooltipCoordinates(label.coordinates);
+  const isCampaignCountry = Boolean(campaignPreview);
+  const subtitle = isCampaignCountry
+    ? (selected ? "Nation sélectionnée" : "Nation jouable · Cliquez pour choisir")
+    : (selected
+      ? kind + " · " + (coordinates ?? "Coordonnées indisponibles")
+      : kind + " · Cliquez pour afficher les coordonnées");
+  const detail = isCampaignCountry
+    ? [campaignPreview.rank, campaignPreview.region, campaignPreview.difficulty == null
+      ? null : "Difficulté " + campaignPreview.difficulty + "/5"].filter(Boolean).join(" · ")
+    : "";
+  return {
+    key: [label.id ?? "", label.kind ?? "", title, Boolean(selected), detail, subtitle].join("|"),
+    title,
+    subtitle,
+    detail,
+    selected: Boolean(selected),
+    campaign: isCampaignCountry
+  };
+}
