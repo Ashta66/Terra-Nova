@@ -413,6 +413,7 @@ test("les zones polaires d'altitude élevée reçoivent une signature nivale", (
 test("la classification végétale rejette les océans et les coordonnées invalides", () => {
   assert.equal(classifyVegetationZone(-20, 0), "none");
   assert.equal(classifyVegetationZone(100, NaN), "none");
+  assert.equal(classifyVegetationZone(100, 91), "none");
   assert.equal(classifyVegetationZone(Infinity, 40), "none");
 });
 
