@@ -571,4 +571,20 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Respecter les zones sûres mobiles et borner la hauteur du panneau.
 - [x] Prévoir un agencement distinct pour les téléphones en paysage.
 - [x] Traiter les très petits écrans et respecter la préférence de mouvement réduit.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel en fenêtre desktop réduite, téléphone portrait/paysage et écran de faible hauteur.
+- [x] Validation locale du joueur : `npm test` et contrôle visuel confirmés.
+
+
+### Lot prioritaire 4 — direction artistique de l'atlas et cadres des six ères (24 novembre 2026)
+- [x] Donner au titre de carte une signature éditoriale avec filet lumineux adapté à l'accent d'époque.
+- [x] Renforcer le fond atmosphérique du cadre sans toucher au rendu géographique.
+- [x] Ajouter un grain de surface décoratif, limité au cadre et non interactif.
+- [x] Confiner les ornements de l'overlay à leur zone de carte.
+- [x] Donner de la profondeur à la rose des vents et à ses repères.
+- [x] Structurer la légende par une séparation matérielle cohérente.
+- [x] Unifier les commandes cartographiques en instrument tactile.
+- [x] Distinguer l'encadrement portulan des ères Exploration et Westphalie.
+- [x] Différencier les cadres Révolution et Ère industrielle.
+- [x] Créer des signatures contemporaines et futuristes sans éclaircir excessivement la carte.
+- [x] Adapter les outils de carte aux petits écrans.
+- [x] Respecter la préférence de mouvement réduit.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des six ères (1492, 1648, 1789, 1914, 2026 et 2100).
