@@ -1894,7 +1894,7 @@ function stopMapDrag(event) {
   if (!mapDrag || (event && !shouldHandleMapPointerGesture(event, activeMapPointerId))) return;
   const pointerId = activeMapPointerId;
   const endState = getMapPointerGestureEndState(mapDrag, event?.type ?? "pointerup");
-  lastDragMoved = endState.moved || endState.cancelled;
+  lastDragMoved = endState.cancelled ? false : endState.moved;
   mapDrag = null;
   activeMapPointerId = null;
   mapCanvas.classList.remove("is-dragging");
