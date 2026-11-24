@@ -631,6 +631,14 @@ function riverFeatureRank(feature) {
   // comme cours d'eau secondaires, jamais comme affluents éliminés par défaut.
   return Number.isFinite(rank) ? rank : 1;
 }
+export function getRiverRenderStyle(feature, baseWidth = 0.7) {
+  const rank = riverFeatureRank(feature);
+  const safeWidth = Number.isFinite(baseWidth) && baseWidth > 0 ? baseWidth : 0.7;
+  const scale = rank <= 0 ? 1.28 : rank === 1 ? 1 : rank === 2 ? 0.76 : rank === 3 ? 0.58 : 0.46;
+  const alpha = rank <= 0 ? 0.92 : rank === 1 ? 0.78 : rank === 2 ? 0.62 : rank === 3 ? 0.5 : 0.4;
+  return { rank, lineWidth: safeWidth * scale, alpha };
+}
+
 function lineVertexCount(feature) {
   const geometry = feature?.geometry;
   if (geometry?.type === "LineString") return Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
@@ -680,12 +688,17 @@ function drawLineLayer(context, collection, width, height, projection, color, li
   const candidates = Number.isFinite(maxFeatures)
     ? selectMajorRiverFeatures(collection, maxRank, maxFeatures)
     : collection.features;
+  context.save?.();
+  context.lineCap = "round";
+  context.lineJoin = "round";
   for (const feature of candidates) {
     const geometry = feature?.geometry;
     if (!geometry || (geometry.type !== "LineString" && geometry.type !== "MultiLineString")) continue;
+    const style = getRiverRenderStyle(feature, lineWidth);
     const cachedPath = getProjectedPath(feature, width, height, projection, simplifyProfile);
     context.strokeStyle = color;
-    context.lineWidth = lineWidth * renderScale;
+    context.globalAlpha = style.alpha;
+    context.lineWidth = style.lineWidth * renderScale;
     const singleLine = geometry.type === "LineString";
     const lines = geometry.coordinates;
     if (cachedPath) {
@@ -720,6 +733,7 @@ function drawLineLayer(context, collection, width, height, projection, color, li
       if (drewSegment) { context.stroke(); drawn++; }
     }
   }
+  context.restore?.();
   return drawn;
 }
 
@@ -2705,11 +2719,23 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         const ratio = backingWidth / width;
         const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
         const lakeColor = parseWebGLColor(theme.colors.ocean);
-        const riverColor = parseWebGLColor(theme.colors.accent);
+        const riverLayers = [];
+        for (const rank of [0, 1, 2, 3, 4]) {
+          const ranked = supportedRivers.filter(feature => riverFeatureRank(feature) === rank);
+          if (!ranked.length) continue;
+          const style = getRiverRenderStyle({ properties: { scalerank: rank } });
+          const color = parseWebGLColor(theme.colors.accent);
+          color[3] *= style.alpha;
+          riverLayers.push({
+            key: "river-lines-rank-" + rank, type: "lines", features: ranked,
+            color, lineWidth: style.lineWidth * ratio
+          });
+        }
         measureLayer("details-geographiques-webgl", () => geographicRenderer.renderLayers([
           { key: "glacier-fills", type: "polygons", features: supportedGlaciers, color: glacierColor },
           { key: "lake-fills", type: "polygons", features: supportedLakes, color: lakeColor },
-          { key: "river-lines", type: "lines", features: supportedRivers, color: riverColor, lineWidth: 0.7 * ratio }        ], backingWidth, backingHeight, projection.viewport));
+          ...riverLayers
+        ], backingWidth, backingHeight, projection.viewport));
         target.save();
         target.setTransform(1, 0, 0, 1, 0, 0);
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
