@@ -9,7 +9,8 @@
 - [x] Préserver le tri alphabétique et l'ordre source comme derniers critères déterministes.
 - [x] Ne modifier aucune propriété des entités géographiques.
 - [x] Ajouter des tests unitaires sur les valeurs valides, invalides et les arbitrages de priorité.
-- [ ] CI GitHub Actions et validation locale du joueur : en attente.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Le lot fiabilise uniquement le classement des labels urbains. Il ne change ni les coordonnées, ni les seuils d'apparition, ni les données historiques des villes.
 
