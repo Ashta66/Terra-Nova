@@ -1,3 +1,18 @@
+## 24 novembre 2026 — lot 21 : robustesse du classement des villes
+
+- [x] Extraire la normalisation du rang cartographique des villes dans un helper déterministe.
+- [x] Accepter les variantes de casse des champs de rang et les seuils de zoom comme repli.
+- [x] Normaliser les rangs absents, négatifs ou non numériques sans produire de comparaisons NaN.
+- [x] Reconnaître plusieurs conventions de champs de population (POP_MAX, POP_EST et variantes).
+- [x] Neutraliser les populations absentes, négatives ou invalides.
+- [x] Conserver la priorité du rang cartographique avant la population.
+- [x] Préserver le tri alphabétique et l'ordre source comme derniers critères déterministes.
+- [x] Ne modifier aucune propriété des entités géographiques.
+- [x] Ajouter des tests unitaires sur les valeurs valides, invalides et les arbitrages de priorité.
+- [ ] CI GitHub Actions et validation locale du joueur : en attente.
+
+Le lot fiabilise uniquement le classement des labels urbains. Il ne change ni les coordonnées, ni les seuils d'apparition, ni les données historiques des villes.
+
 ## 24 novembre 2026 — lot 20 : densité adaptative et finesse des labels
 
 - [x] Extraire le calcul du budget de labels secondaires dans un profil déterministe testable.
