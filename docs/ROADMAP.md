@@ -544,3 +544,17 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Étendre les tests aux placeholders, codes valides, alias régional et champs de repli.
 - [x] Documenter les règles de disponibilité et les limites des fournisseurs externes.
 - [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des drapeaux/blasons sur quelques nations et d'un cas sans image.
+
+
+### Lot prioritaire 2 — cohérence fonctionnelle de la sélection de campagne (24 novembre 2026)
+- [x] Refuser les clés de nation absentes du catalogue sans altérer la sélection.
+- [x] Synchroniser les sélecteurs de nation de préparation et de sandbox via un contrôleur commun.
+- [x] Effacer une éventuelle erreur de validation après une sélection valide.
+- [x] Maintenir le dossier stratégique, le titre cartographique et les sélecteurs cohérents.
+- [x] Restaurer le focus sur la nation choisie après une activation clavier.
+- [x] Appliquer une navigation de liste à tabulation unique avec flèches, Début et Fin.
+- [x] Faire circuler la navigation clavier en haut et en bas de la liste.
+- [x] Annoncer le nombre de résultats et rendre l'état vide perceptible aux lecteurs d'écran.
+- [x] Actualiser les insignes historiques lorsque la nouvelle date est validée, sans reconstruire toute la liste à chaque mouvement du curseur.
+- [x] Annoncer l'année initiale et l'année courante du curseur, et signaler vocalement la nation sélectionnée.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle clavier (Tab, flèches, Début/Fin, Entrée) et changement de nation en sandbox.
