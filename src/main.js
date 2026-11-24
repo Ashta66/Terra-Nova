@@ -14,7 +14,7 @@ import { resolveCountryInsignia } from "./game/country-insignia.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
-import { getMapTooltipPosition, formatMapTooltipCoordinates } from "./world/map-tooltip-layout.js";
+import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
@@ -82,6 +82,7 @@ let regionalRiverLoadAttempted = false;
 let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
 let mapLabelHitIndex = null;
+let mapTooltipDescriptorKey = null;
 let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
@@ -1717,28 +1718,30 @@ function showMapTooltip(label, x, y, selected) {
     hideMapTooltip();
     return;
   }
-  tooltip.replaceChildren();
-  const title = document.createElement("strong");
-  title.textContent = String(label.name ?? "Lieu sans nom");
-  const subtitle = document.createElement("span");
   const campaignPreview = !document.body.classList.contains("campaign-started")
     && label.kind === "country" ? findCampaignCountryForMapHit(label) : null;
-  if (campaignPreview) {
-    const detail = document.createElement("span");
-    detail.className = "map-tooltip-country-detail";
-    detail.textContent = campaignPreview.rank + " · " + campaignPreview.region
-      + " · " + "Difficulté " + campaignPreview.difficulty + "/5";
-    subtitle.textContent = selected ? "Nation sélectionnée" : "Nation jouable · Cliquez pour choisir";
-    tooltip.append(title, subtitle, detail);
-  } else {
-    const coordinates = formatMapTooltipCoordinates(label.coordinates);
-    subtitle.textContent = selected
-      ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${coordinates ?? "Coordonnées indisponibles"}`
-      : `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
-    tooltip.append(title, subtitle);
+  const descriptor = getMapTooltipDescriptor(label, selected, campaignPreview, MAP_LABEL_KIND_NAMES);
+  if (!descriptor) {
+    hideMapTooltip();
+    return;
   }
-  tooltip.classList.toggle("is-selected", Boolean(selected));
-  tooltip.classList.toggle("is-campaign-country", Boolean(campaignPreview));
+  if (descriptor.key !== mapTooltipDescriptorKey) {
+    tooltip.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = descriptor.title;
+    const subtitle = document.createElement("span");
+    subtitle.textContent = descriptor.subtitle;
+    tooltip.append(title, subtitle);
+    if (descriptor.detail) {
+      const detail = document.createElement("span");
+      detail.className = "map-tooltip-country-detail";
+      detail.textContent = descriptor.detail;
+      tooltip.append(detail);
+    }
+    mapTooltipDescriptorKey = descriptor.key;
+  }
+  tooltip.classList.toggle("is-selected", descriptor.selected);
+  tooltip.classList.toggle("is-campaign-country", descriptor.campaign);
   tooltip.hidden = false;
   const position = getMapTooltipPosition(
     x, y, frame.clientWidth, frame.clientHeight,
@@ -1926,6 +1929,11 @@ mapCanvas.addEventListener("click", (event) => {
 });
 mapCanvas.addEventListener("pointerup", stopMapDrag);
 mapCanvas.addEventListener("pointercancel", stopMapDrag);
+mapCanvas.addEventListener("lostpointercapture", stopMapDrag);
+window.addEventListener("blur", () => {
+  if (mapDrag) stopMapDrag();
+  hideMapTooltip();
+});
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
@@ -1944,4 +1952,7 @@ state.clock = createClock();
 render();
 updateMapControls();
 loadWorldMap();
-window.addEventListener("resize", () => renderMap());
+window.addEventListener("resize", () => {
+  hideMapTooltip();
+  renderMap();
+});
