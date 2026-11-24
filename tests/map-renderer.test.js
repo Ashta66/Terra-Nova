@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -671,6 +671,31 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
   }
 });
 
+
+test("la hiérarchie hydrographique différencie largeur et opacité des cours d'eau", () => {
+  const major = getRiverRenderStyle({ properties: { scalerank: 0 } });
+  const primary = getRiverRenderStyle({ properties: { scalerank: 1 } });
+  const secondary = getRiverRenderStyle({ properties: { scalerank: 2 } });
+  const minor = getRiverRenderStyle({ properties: { scalerank: 3 } });
+  assert.ok(major.lineWidth > primary.lineWidth);
+  assert.ok(primary.lineWidth > secondary.lineWidth);
+  assert.ok(secondary.lineWidth > minor.lineWidth);
+  assert.ok(major.alpha > primary.alpha);
+  assert.ok(primary.alpha > secondary.alpha);
+  assert.ok(secondary.alpha > minor.alpha);
+});
+
+test("les cours d'eau sans rang conservent un style secondaire stable", () => {
+  const missing = getRiverRenderStyle({ properties: {} });
+  const explicit = getRiverRenderStyle({ properties: { scalerank: 1 } });
+  assert.deepEqual(missing, explicit);
+});
+
+test("le style hydrographique accepte une largeur invalide sans produire de trait nul", () => {
+  const style = getRiverRenderStyle({ properties: { scalerank: 0 } }, 0);
+  assert.ok(style.lineWidth > 0);
+  assert.ok(style.alpha > 0 && style.alpha <= 1);
+});
 
 test("un MultiLineString conserve le nombre de segments hydrographiques avec Path2D", () => {
   const previous = globalThis.Path2D;
