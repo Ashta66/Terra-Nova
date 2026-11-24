@@ -711,3 +711,18 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer surtout `land-mask-path`, `land-feature-classification`, médiane et p95.
 
 **Précaution :** les caches s'appuient sur l'immuabilité des features GeoJSON et des tableaux de features. Si une collection est modifiée en place, elle doit être remplacée par une nouvelle collection afin de déclencher une nouvelle classification. Aucun gain chiffré n'est revendiqué avant le prochain benchmark local.
+
+
+## Lot prioritaire 13 — cohérence du cache géométrique au zoom rapproché (24 novembre 2026)
+- [x] Centraliser le profil de projection utilisé pour les clés des chemins et des masques composés.
+- [x] Distinguer explicitement le mode wrapLongitude dans les clés de cache.
+- [x] Conserver la précision effective du zoom dans les clés pour éviter les collisions dues à l'arrondi à quatre décimales.
+- [x] Réutiliser le même profil de vue pour construire le masque composé et ses chemins enfants.
+- [x] Réduire les tableaux temporaires du parcours des géométries polygonales et linéaires.
+- [x] Ajouter des compteurs de constructions et d'évictions pour les deux niveaux de cache.
+- [x] Exporter ces compteurs dans le collecteur de benchmark.
+- [x] Ajouter des tests de non-régression sur les variations de projection et les nouvelles métriques.
+- [ ] Validation locale du joueur : npm test et contrôle visuel du masque, des côtes et de l'Antarctique aux zooms 1, 5 et 20.
+- [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer médiane/p95, reconstructions, évictions et pics mémoire.
+
+Précaution : le centre reste volontairement quantifié à une cellule de 1 / zoom degré. Les nouvelles clés éliminent les collisions de paramètres non équivalents, mais ne suppriment pas ce compromis de quantification déjà présent. Les compteurs de construction et d'éviction sont cumulatifs depuis l'initialisation du module.
