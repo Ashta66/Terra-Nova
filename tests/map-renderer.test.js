@@ -2267,3 +2267,75 @@ test("la zone interactive complète reste dans la marge sûre du viewport", () =
   assert.ok(fitted.hitBounds.right <= 150);
   assert.ok(fitted.hitBounds.bottom <= 80);
 });
+
+
+test("les collisions normalisent les coordonnées numériques avant comparaison", () => {
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: "10", right: "20", top: "10", bottom: "20" },
+    { left: "2", right: "12", top: "15", bottom: "25" }
+  ), true);
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: "10", right: "20", top: "10", bottom: "20" },
+    { left: "21", right: "30", top: "10", bottom: "20" }
+  ), false);
+});
+
+test("les emprises de collision acceptent les coordonnées négatives et rejettent les ordres invalides", () => {
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: -20, right: -10, top: -8, bottom: 2 },
+    { left: -15, right: -5, top: -4, bottom: 6 }
+  ), true);
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: 10, right: 0, top: 0, bottom: 10 },
+    { left: 0, right: 10, top: 0, bottom: 10 }
+  ), false);
+});
+
+test("le placement viewport normalise les bornes numériques et les coordonnées du texte", () => {
+  const layout = {
+    textX: "4", textY: "50",
+    box: { left: "-2", right: "12", top: "40", bottom: "60" },
+    hitBounds: { left: "-4", right: "14", top: "38", bottom: "62" },
+    marker: { x: "4", y: "49", radius: "2", lineWidth: "1" }
+  };
+  const fitted = fitMapLabelLayoutToViewport(layout, 100, 100, 8);
+  assert.ok(fitted);
+  assert.equal(fitted.textX, 12);
+  assert.equal(fitted.marker.x, 12);
+  assert.equal(fitted.hitBounds.left, 8);
+  assert.equal(fitted.box.left, 10);
+});
+
+test("le placement viewport écarte les coordonnées de texte ou marqueurs non finies", () => {
+  const base = getMapLabelLayout("city", { x: 20, y: 20 }, 30, 10, 1);
+  assert.equal(fitMapLabelLayoutToViewport({ ...base, textX: NaN }, 100, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...base, marker: { ...base.marker, x: Infinity }
+  }, 100, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...base, marker: { ...base.marker, radius: -1 }
+  }, 100, 100), null);
+});
+
+test("les collisions utilisent les zones interactives complètes des labels", async () => {
+  const { canvas, calls } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { kind: "city", name: "Alpha", POP_MAX: 900000 }, geometry: { type: "Point", coordinates: [0, 0] } },
+    { type: "Feature", properties: { kind: "city", name: "Beta", POP_MAX: 800000 }, geometry: { type: "Point", coordinates: [1.2, 0] } }
+  ] };
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const hits = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 8, centerLongitude: 0, centerLatitude: 0 },
+    mapLabels: labels, theme: getCartographicTheme(2026)
+  });
+  const cityHits = (hits.labelHits ?? []).filter(hit => hit.kind === "city");
+  if (cityHits.length > 1) {
+    for (let i = 0; i < cityHits.length; i++) {
+      for (let j = i + 1; j < cityHits.length; j++) {
+        assert.equal(doMapLabelBoxesOverlap(cityHits[i].bounds, cityHits[j].bounds), false);
+      }
+    }
+  }
+  assert.ok(calls.length > 0);
+});
