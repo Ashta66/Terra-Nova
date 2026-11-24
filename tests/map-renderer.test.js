@@ -1427,7 +1427,8 @@ test("les limites administratives nombreuses ne déclenchent aucun tracé Canvas
     }))
   };
   const { canvas, calls } = createCanvas();
-  const result = renderWorldMap(canvas, land, {
+  const emptyLand = { type: "FeatureCollection", features: [] };
+  const result = renderWorldMap(canvas, emptyLand, {
     width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }, administrativeBoundaries
   });
   assert.equal(result.administrativeBoundaryCount, 0);
