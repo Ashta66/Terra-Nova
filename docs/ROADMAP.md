@@ -1,3 +1,20 @@
+## 24 novembre 2026 — lot 30 : cohérence de recherche et garde-fous de l'index
+
+- [x] Détecter les coordonnées de pointeur dont l'indice de cellule sort de la plage des entiers sûrs.
+- [x] Basculer sur une recherche linéaire sûre lorsque le calcul de cellule n'est pas représentable.
+- [x] Ignorer les indices locaux mal formés, négatifs ou hors collection.
+- [x] Ignorer les indices de débordement invalides sans interrompre le ciblage.
+- [x] Préserver l'ordre de dessin lors de l'alternance entre candidats locaux et débordement.
+- [x] Vérifier l'équivalence entre grille et recherche linéaire avec des cellules fractionnaires.
+- [x] Couvrir explicitement les collections vides.
+- [x] Ajouter un test différentiel déterministe sur 180 labels et 600 positions de pointeur.
+- [x] Ajouter des tests sur les coordonnées extrêmes positives et négatives avec index actif.
+- [x] Ajouter dix tests de régression sur les index mal formés, les limites et l'équivalence.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le ciblage indexé garde un chemin de repli déterministe pour les coordonnées non représentables et ignore les références d'index invalides sans interrompre les interactions.
+
 ## 24 novembre 2026 — lot 29 : bornes extrêmes et cycle de vie de l'index spatial
 
 - [x] Vérifier que les coordonnées de cellule restent des entiers sûrs avant toute boucle d'indexation.
@@ -11,7 +28,7 @@
 - [x] Tester les tailles de cellule invalides et sous-normales.
 - [x] Ajouter dix tests de régression sur les limites numériques et la mutation de collection.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Les coordonnées extrêmes ne peuvent plus provoquer une boucle d'indexation non terminante ou une explosion du nombre de cellules. Les cas atypiques restent ciblables via le chemin de débordement.
 
