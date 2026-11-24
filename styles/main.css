@@ -1727,3 +1727,102 @@ body:not(.campaign-started) .setup-card :focus-visible {
   body:not(.campaign-started) .setup-card,
   body:not(.campaign-started) .country-results { scroll-behavior:auto; }
 }
+
+/* Lot artistique 4 — identité matérielle de l'atlas et profondeur du cadre */
+.map-stage-heading {
+  position:relative;
+  padding:4px 7px 11px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 72%,transparent);
+}
+.map-stage-heading::after {
+  content:"";position:absolute;left:7px;bottom:-1px;width:clamp(54px,8vw,112px);height:2px;
+  background:linear-gradient(90deg,var(--theme-accent),transparent);
+  box-shadow:0 0 12px color-mix(in srgb,var(--theme-accent) 32%,transparent);
+}
+.map-stage-heading .eyebrow { display:flex;align-items:center;gap:8px;letter-spacing:.22em; }
+.map-stage-heading .eyebrow::before {
+  content:"";width:18px;height:1px;background:var(--theme-accent);opacity:.8;
+}
+.map-stage-heading h2 { text-shadow:0 2px 16px #0008; }
+.map-frame {
+  background:
+    radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--theme-accent) 7%,var(--theme-panel)),var(--theme-panel) 76%);
+  outline:1px solid color-mix(in srgb,var(--theme-border) 48%,transparent);
+  outline-offset:4px;
+}
+.map-frame::after {
+  content:"";position:absolute;z-index:1;inset:0;pointer-events:none;opacity:.17;
+  background-image:repeating-linear-gradient(0deg,transparent 0 3px,#ffffff08 4px,transparent 5px);
+  mix-blend-mode:soft-light;
+}
+.map-cartographic-overlay { contain:paint; }
+.map-cartographic-overlay::before {
+  box-shadow:inset 0 0 22px color-mix(in srgb,var(--theme-accent) 8%,transparent);
+}
+.map-compass {
+  backdrop-filter:blur(3px);
+  text-shadow:0 1px 3px #000;
+}
+.map-compass i { filter:drop-shadow(0 0 4px color-mix(in srgb,var(--theme-accent) 38%,transparent)); }
+.map-reticle { filter:drop-shadow(0 1px 2px #000); }
+.map-bottom-bar {
+  position:relative;
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 62%,transparent);
+  margin-top:7px;padding-top:9px;
+}
+.map-legend { row-gap:7px; }
+.map-legend i { box-shadow:0 0 0 1px #0006,0 0 7px color-mix(in srgb,var(--theme-accent) 12%,transparent); }
+.map-tools { padding:4px;border:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent);background:color-mix(in srgb,var(--theme-panel) 76%,transparent);box-shadow:inset 0 1px #ffffff0a,0 5px 16px #0003; }
+.map-tool { box-shadow:inset 0 1px #ffffff18,0 2px 5px #0005; }
+.map-reset { letter-spacing:.08em;text-transform:uppercase; }
+body[data-cartographic-era="exploration"] .map-frame {
+  border:6px double #80613c;
+  outline:1px solid #d0ad704d;
+  outline-offset:5px;
+  box-shadow:0 0 0 9px #24190e55,0 24px 58px #000b,inset 0 0 34px #d0ad7014;
+}
+body[data-cartographic-era="exploration"] .map-frame::after {
+  opacity:.22;
+  background:repeating-linear-gradient(37deg,transparent 0 90px,#d0ad7010 91px 92px,transparent 93px 180px);
+}
+body[data-cartographic-era="westphalia"] .map-frame {
+  border:4px double #756957;
+  box-shadow:0 0 0 2px #d2c5a51c,0 22px 54px #000a,inset 0 0 25px #d2c5a50c;
+}
+body[data-cartographic-era="revolution"] .map-frame {
+  border:1px solid #756b62;
+  box-shadow:0 0 0 4px #292927,0 0 0 5px #756b6255,0 22px 50px #000a;
+}
+body[data-cartographic-era="modern"] .map-frame {
+  border:1px solid #68746d;
+  box-shadow:0 0 0 2px #10191e,0 0 0 3px #68746d55,0 24px 56px #000b;
+}
+body[data-cartographic-era="present"] .map-frame {
+  border:1px solid #3d5555;
+  box-shadow:0 0 0 1px #a8c6b81a,0 0 32px #6d9b9b0c,0 24px 60px #000c;
+}
+body[data-cartographic-era="future"] .map-frame {
+  border:1px solid #31515b;
+  box-shadow:0 0 0 1px #69d5d522,0 0 26px #32b9c51a,0 26px 66px #000e,inset 0 0 34px #32b9c50b;
+}
+body[data-cartographic-era="future"] .map-frame::after {
+  opacity:.3;
+  background:repeating-linear-gradient(0deg,transparent 0 7px,#72d8df0a 8px,transparent 9px);
+}
+body[data-cartographic-era="future"] .map-tools {
+  border-color:#3a6871;background:#07151dcc;box-shadow:0 0 18px #2ab7c51c,inset 0 1px #a4f1ed16;
+}
+body[data-cartographic-era="exploration"] .map-tools,
+body[data-cartographic-era="westphalia"] .map-tools {
+  border-style:double;border-width:3px;background:#241b12c9;
+}
+@media(max-width:760px) {
+  .map-stage-heading { align-items:flex-start;flex-direction:column; }
+  .map-tools { max-width:100%;flex-wrap:wrap;align-self:stretch; }
+  .map-stage-heading::after { bottom:-1px; }
+  .map-frame { outline-offset:2px; }
+  .map-compass { right:16px;bottom:18px;transform:scale(.82);transform-origin:bottom right; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .map-frame,.map-tools,.map-tool { transition:none!important; }
+}
