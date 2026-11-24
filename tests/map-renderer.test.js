@@ -2152,8 +2152,8 @@ test("les noms maritimes adoptent une typographie cursive et un contraste mesur√
   assert.match(ocean.font, /^italic /);
   assert.match(regionalSea.font, /^italic /);
   assert.match(strait.font, /^italic /);
-  assert.equal(regionalSea.alpha, ocean.alpha);
-  assert.equal(strait.lineWidth, ocean.lineWidth);
+  assert.ok(regionalSea.alpha < ocean.alpha);
+  assert.ok(strait.lineWidth < regionalSea.lineWidth);
   assert.match(ocean.font, /Libre Baskerville/);
   assert.equal(ocean.fill, theme.colors.text);
   assert.ok(ocean.alpha < country.alpha);
