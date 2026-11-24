@@ -1788,20 +1788,28 @@ function composeScene() {
   }
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
-  mapLabelHits.length = 0;
+  // Construire un nouveau snapshot puis publier hits et index ensemble :
+  // aucun lecteur ne peut observer une collection partiellement reconstruite.
+  const nextMapLabelHits = [];
   if (!mapDrag) {
     for (const rect of composition.rects) {
       const scaleX = rect.w / sceneSize.w;
       const scaleY = rect.h / sceneSize.h;
+      if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY)
+        || scaleX <= 0 || scaleY <= 0) continue;
       for (const hit of sceneLabelHits) {
+        const sourceBounds = hit?.bounds;
+        if (!sourceBounds) continue;
         const bounds = {
-          left: rect.x + hit.bounds.left * scaleX,
-          right: rect.x + hit.bounds.right * scaleX,
-          top: rect.y + hit.bounds.top * scaleY,
-          bottom: rect.y + hit.bounds.bottom * scaleY
+          left: rect.x + sourceBounds.left * scaleX,
+          right: rect.x + sourceBounds.right * scaleX,
+          top: rect.y + sourceBounds.top * scaleY,
+          bottom: rect.y + sourceBounds.bottom * scaleY
         };
-        if (bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
-        mapLabelHits.push({
+        if (![bounds.left, bounds.right, bounds.top, bounds.bottom].every(Number.isFinite)
+          || bounds.left > bounds.right || bounds.top > bounds.bottom
+          || bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
+        nextMapLabelHits.push({
           ...hit,
           x: rect.x + hit.x * scaleX,
           y: rect.y + hit.y * scaleY,
@@ -1810,7 +1818,9 @@ function composeScene() {
       }
     }
   }
-  mapLabelHitIndex = createMapLabelHitIndex(mapLabelHits);
+  const nextMapLabelHitIndex = createMapLabelHitIndex(nextMapLabelHits);
+  mapLabelHits = nextMapLabelHits;
+  mapLabelHitIndex = nextMapLabelHitIndex;
   // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
   // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.
   // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.
