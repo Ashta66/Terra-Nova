@@ -145,3 +145,41 @@ test("un point dans une cellule vide est rejeté sans parcourir toute la collect
   assert.equal(findMapLabelHitAtPoint(hits, 50, 50, index), null);
   assert.equal(index.cells.has("0:0"), true);
 });
+
+test("la fusion sans allocation respecte l'ordre entre cellule et débordement", () => {
+  const hugeBelow = hit("Large dessous", { left: -10000, right: 10000, top: -10000, bottom: 10000 });
+  const localAbove = hit("Local dessus", { left: 10, right: 20, top: 10, bottom: 20 });
+  const hits = [hugeBelow, localAbove];
+  const index = createMapLabelHitIndex(hits, 16);
+  assert.equal(findMapLabelHitAtPoint(hits, 15, 15, index), localAbove);
+});
+
+test("un label de débordement dessiné après la cellule reste prioritaire", () => {
+  const localBelow = hit("Local dessous", { left: 10, right: 20, top: 10, bottom: 20 });
+  const hugeAbove = hit("Large dessus", { left: -10000, right: 10000, top: -10000, bottom: 10000 });
+  const hits = [localBelow, hugeAbove];
+  const index = createMapLabelHitIndex(hits, 16);
+  assert.equal(findMapLabelHitAtPoint(hits, 15, 15, index), hugeAbove);
+});
+
+test("les limites exactes d'une cellule sont indexées de façon inclusive", () => {
+  const alpha = hit("Alpha", { left: 0, right: 32, top: 0, bottom: 32 });
+  const hits = [alpha];
+  const index = createMapLabelHitIndex(hits, 32);
+  for (const [x, y] of [[0, 0], [32, 0], [0, 32], [32, 32]]) {
+    assert.equal(findMapLabelHitAtPoint(hits, x, y, index), alpha);
+  }
+});
+
+test("la recherche sans index conserve la priorité du dernier label", () => {
+  const first = hit("Premier", { left: 0, right: 20, top: 0, bottom: 20 });
+  const last = hit("Dernier", { left: 0, right: 20, top: 0, bottom: 20 });
+  assert.equal(findMapLabelHitAtPoint([first, last], 10, 10), last);
+});
+
+test("un index incomplet ou mal formé déclenche une recherche linéaire sûre", () => {
+  const alpha = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [alpha];
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, { hits, cells: {}, cellSize: 96, overflow: [] }), alpha);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, { hits, cells: new Map(), cellSize: 0, overflow: [] }), alpha);
+});
