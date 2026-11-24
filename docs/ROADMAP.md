@@ -10,6 +10,7 @@
 - [x] Différencier progressivement la taille des océans, mers régionales et détroits.
 - [x] Réduire légèrement le contraste et l'épaisseur des mers puis des détroits pour limiter la compétition visuelle.
 - [x] Ajouter des tests sur les profils de densité, les entrées invalides, les tailles et le contraste maritime.
+- [x] CI GitHub Actions : syntaxe et tests réussis (run 45453918378).
 - [ ] Validation locale du joueur : `npm test` et contrôle visuel de la densité aux zooms 1, 3, 5 et 10.
 
 Le budget est désormais consommé par les candidats effectivement visibles dans le viewport. Le classement, les seuils d'apparition et les priorités de placement restent les arbitres des collisions.
