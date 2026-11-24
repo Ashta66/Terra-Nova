@@ -71,11 +71,19 @@ test("la recherche des nations expose un compteur accessible et un raccourci d'e
   assert.match(html, /aria-describedby="country-result-count"/);
 });
 
-test("le dossier affiche le drapeau ISO de la nation ou son blason historique", () => {
+test("le blason historique est prioritaire sur le drapeau ISO", () => {
   assert.match(script, /function countryFlagCode\(feature\)/);
   assert.match(script, /function countryFlagEmoji\(code\)/);
+  assert.match(script, /hasHeraldicEmblem=Boolean\(dossier\.emblem/);
+  assert.match(script, /const insignia=hasHeraldicEmblem/);
   assert.match(script, /dossier-emblem--flag/);
   assert.match(script, /dossier-emblem--crest/);
+  assert.match(script, /Blason historique/);
   assert.match(script, /Drapeau de /);
-  assert.match(script, /Blason de /);
+});
+test("le catalogue couvre les grandes dynasties et puissances historiques", () => {
+  const dossierSource = readFileSync(new URL("../src/game/country-dossier.js", import.meta.url), "utf8");
+  for (const emblem of ["Holy Roman Empire","Byzantine Empire","Mughal Empire","Qing Dynasty","Aztec Empire","Inca Empire","Prussia","Dutch Republic","Papal States"]) {
+    assert.ok(dossierSource.includes('"'+emblem+'"'), `emblème manquant : ${emblem}`);
+  }
 });
