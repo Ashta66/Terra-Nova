@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 15 : précision des emprises et interactions des labels
+
+- [x] Centraliser le calcul de position des textes, marges de collision et emprises interactives.
+- [x] Distinguer les marges des pays, villes et labels secondaires.
+- [x] Élargir légèrement les zones interactives sans augmenter artificiellement les collisions.
+- [x] Faire correspondre les hitboxes à la géométrie réellement dessinée.
+- [x] Définir une géométrie de marqueur de ville issue du même calcul de layout.
+- [x] Éviter que l'ombre du texte se propage au marqueur de ville.
+- [x] Mettre les dimensions à l'échelle du rendu haute densité.
+- [x] Borner les mesures invalides pour éviter les rectangles NaN ou infinis.
+- [x] Préserver les priorités et l'ordre de collision existants.
+- [x] Ajouter des tests pour pays, villes, continents, échelles et valeurs invalides.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des clics/infobulles sur les labels.
+
+Le lot ne modifie ni les données géographiques, ni les priorités de sélection, ni les règles d'apparition des noms. La qualité de ciblage doit être confirmée dans le navigateur.
+
 ## 24 novembre 2026 — lot 14 : typographie cartographique des six ères
 
 - [x] Utiliser la police d'affichage de l'ère pour les noms de pays et de continents.
@@ -10,7 +26,8 @@
 - [x] Réduire l'opacité des labels océaniques et secondaires.
 - [x] Accorder les marqueurs de villes à l'accent coloré de l'époque.
 - [x] Ajouter des tests sur les six ères, la hiérarchie, les contrastes et l'échelle de rendu.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel des six ères à plusieurs niveaux de zoom.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des six ères à plusieurs niveaux de zoom.
 
 Le changement ne touche ni les coordonnées, ni les priorités de collision, ni les règles d'apparition des labels. La lisibilité réelle doit être confirmée sur la carte en contexte.
 
