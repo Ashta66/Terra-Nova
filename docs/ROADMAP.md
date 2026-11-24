@@ -884,3 +884,13 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et contrôle visuel aux zooms 1, 3, 5 et 10.
 - [ ] CI GitHub Actions du lot à confirmer.
 
+## Lot 23 — placement sûr des labels en bord de carte (24 novembre 2026)
+- [x] Ajouter un ajustement géométrique des labels dans les marges sûres du viewport.
+- [x] Déplacer ensemble le texte, le marqueur et les emprises de collision/interaction.
+- [x] Prendre en compte les zones interactives, pas seulement les glyphes visibles.
+- [x] Écarter proprement les labels dont l'emprise ne peut pas tenir dans le viewport.
+- [x] Préserver exactement le placement des labels déjà dans la zone sûre.
+- [x] Ajouter des tests de bord gauche, bord inférieur, dimensions excessives et emprises interactives.
+- [ ] Validation locale : `npm test` et contrôle visuel aux quatre bords de la carte, en particulier sur petits écrans.
+- [ ] CI GitHub Actions du lot à confirmer.
+
