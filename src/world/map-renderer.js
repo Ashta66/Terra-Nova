@@ -360,24 +360,31 @@ function traceRing(context, ring, width, height, projection, coastProfile) {
 
 function traceGeometry(context, geometry, width, height, projection, coastProfile = null) {
   if (!geometry) return false;
-  const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.type === "MultiPolygon" ? geometry.coordinates : [];
-  if (polygons.length) {
+  const geometryType = geometry.type;
+  if (geometryType === "Polygon" || geometryType === "MultiPolygon") {
     let vertices = 0;
     const polygonProfile = coastProfile ?? { tolerance: 0.55, minRingArea: 0.7 };
-    for (const polygon of polygons) {
-      const exterior = polygon[0];
-      if (!exterior) continue;
-      const exteriorCount = traceRing(context, exterior, width, height, projection, polygonProfile);
+    const polygons = geometryType === "Polygon" ? geometry.coordinates : geometry.coordinates ?? [];
+    const polygonCount = geometryType === "Polygon" ? 1 : polygons.length;
+    for (let polygonIndex = 0; polygonIndex < polygonCount; polygonIndex++) {
+      const polygon = geometryType === "Polygon" ? polygons : polygons[polygonIndex];
+      if (!polygon?.length) continue;
+      const exteriorCount = traceRing(context, polygon[0], width, height, projection, polygonProfile);
       if (!exteriorCount) continue;
       vertices += exteriorCount;
-      for (const hole of polygon.slice(1)) vertices += traceRing(context, hole, width, height, projection, polygonProfile);
+      for (let ringIndex = 1; ringIndex < polygon.length; ringIndex++) {
+        vertices += traceRing(context, polygon[ringIndex], width, height, projection, polygonProfile);
+      }
     }
     return vertices;
   }
-  const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.type === "MultiLineString" ? geometry.coordinates : [];
-  if (lines.length) {
+  if (geometryType === "LineString" || geometryType === "MultiLineString") {
     let vertices = 0;
-    for (const line of lines) {
+    const lines = geometryType === "LineString" ? geometry.coordinates : geometry.coordinates ?? [];
+    const lineCount = geometryType === "LineString" ? 1 : lines.length;
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
+      const line = geometryType === "LineString" ? lines : lines[lineIndex];
+      if (!Array.isArray(line)) continue;
       let segment = [];
       const flushSegment = () => {
         const points = coastProfile ? simplifyOpenLine(segment, coastProfile.tolerance) : segment;
@@ -409,8 +416,12 @@ const MAX_PROJECTED_PATH_VERTICES = 500_000;
 let projectedPathVertexCount = 0;
 let projectedPathCacheHits = 0;
 let projectedPathCacheMisses = 0;
+let projectedPathCacheBuilds = 0;
+let projectedPathCacheEvictions = 0;
 let combinedLandMaskCacheHits = 0;
 let combinedLandMaskCacheMisses = 0;
+let combinedLandMaskCacheBuilds = 0;
+let combinedLandMaskCacheEvictions = 0;
 const antarcticLandClassificationCache = new WeakMap();
 let antarcticClassificationCacheHits = 0;
 let antarcticClassificationCacheMisses = 0;
@@ -427,13 +438,9 @@ function touchProjectedPath(entry, feature) {
   projectedPathCacheLru.set(entry, feature);
 }
 
-function getProjectedPath(feature, width, height, projection, coastProfile = null) {
-  if (typeof Path2D === "undefined" || !feature?.geometry) return null;
+function getProjectedViewportCacheProfile(width, height, projection, coastProfile) {
   const viewport = projection.viewport ?? {};
   const zoom = Math.max(1, Number(viewport.zoom ?? 1));
-  // Les chemins sont partagés dans de très petites cellules de vue. Le centre
-  // est quantifié à 1°/zoom (au plus ~1,34 px d'écart au rendu), ce qui évite
-  // de reconstruire toutes les géométries après chaque micro-déplacement.
   const centerStep = 1 / zoom;
   const normalizedLongitude = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180);
   const snappedLongitude = Math.round(normalizedLongitude / centerStep) * centerStep;
@@ -442,10 +449,20 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     ...projection,
     viewport: { ...viewport, centerLongitude: snappedLongitude, centerLatitude: snappedLatitude }
   };
-  const key = projection.type + ":" + width + ":" + height + ":" + zoom.toFixed(4)
-    + ":" + snappedLongitude.toFixed(4) + ":" + snappedLatitude.toFixed(4)
-    + ":" + (coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full")
-    + ":" + (coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all");
+  // La clé conserve la précision des paramètres effectivement employés par projectCoordinate.
+  const key = projection.type + ":" + width + ":" + height
+    + ":" + zoom.toPrecision(12)
+    + ":" + snappedLongitude.toPrecision(12) + ":" + snappedLatitude.toPrecision(12)
+    + ":" + (viewport.wrapLongitude === false ? "nowrap" : "wrap")
+    + ":" + (coastProfile ? Number(coastProfile.tolerance).toPrecision(8) : "full")
+    + ":" + (coastProfile ? Number(coastProfile.minRingArea).toPrecision(8) : "all");
+  return { pathProjection, key };
+}
+
+function getProjectedPath(feature, width, height, projection, coastProfile = null) {
+  if (typeof Path2D === "undefined" || !feature?.geometry) return null;
+  const profile = getProjectedViewportCacheProfile(width, height, projection, coastProfile);
+  const key = profile.key;
   let entries = projectedPathCache.get(feature);
   if (!entries) {
     entries = new Map();
@@ -458,8 +475,9 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     return cached.path;
   }
   projectedPathCacheMisses++;
+  projectedPathCacheBuilds++;
   const path = new Path2D();
-  const vertexCount = traceGeometry(path, feature.geometry, width, height, pathProjection, coastProfile);
+  const vertexCount = traceGeometry(path, feature.geometry, width, height, profile.pathProjection, coastProfile);
   if (!vertexCount) return null;
   const entry = { key, path, vertexCount };
   entries.set(key, entry);
@@ -470,13 +488,17 @@ function getProjectedPath(feature, width, height, projection, coastProfile = nul
     entries.delete(oldest.key);
     projectedPathCacheLru.delete(oldest);
     projectedPathVertexCount -= oldest.vertexCount;
+    projectedPathCacheEvictions++;
   }
   while (projectedPathCacheLru.size > MAX_PROJECTED_PATHS || projectedPathVertexCount > MAX_PROJECTED_PATH_VERTICES) {
-    const [oldest, oldestFeature] = projectedPathCacheLru.entries().next().value;
-    projectedPathCacheLru.delete(oldest);
-    projectedPathVertexCount -= oldest.vertexCount;
+    const oldest = projectedPathCacheLru.entries().next().value;
+    if (!oldest) break;
+    const [oldestEntry, oldestFeature] = oldest;
+    projectedPathCacheLru.delete(oldestEntry);
+    projectedPathVertexCount -= oldestEntry.vertexCount;
     const oldestEntries = projectedPathCache.get(oldestFeature);
-    if (oldestEntries?.get(oldest.key) === oldest) oldestEntries.delete(oldest.key);
+    if (oldestEntries?.get(oldestEntry.key) === oldestEntry) oldestEntries.delete(oldestEntry.key);
+    projectedPathCacheEvictions++;
   }
   return path;
 }
@@ -488,17 +510,8 @@ const COMBINED_LAND_MASK_CACHE_LIMIT = 12;
 export function buildLandClipPath(collection, width, height, projection, coastProfile) {
   if (typeof Path2D === "undefined") return null;
   const features = collection?.features ?? [];
-  const viewport = projection.viewport ?? {};
-  const zoom = Math.max(1, Number(viewport.zoom ?? 1));
-  const centerStep = 1 / zoom;
-  const centerLongitude = ((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360 - 180;
-  const snappedLongitude = Math.round(centerLongitude / centerStep) * centerStep;
-  const snappedLatitude = Math.round(Number(viewport.centerLatitude ?? 0) / centerStep) * centerStep;
-  const key = width + ":" + height + ":" + projection.type + ":" + zoom.toFixed(4)
-    + ":" + snappedLongitude.toFixed(4) + ":" + snappedLatitude.toFixed(4)
-    + ":" + (coastProfile ? Number(coastProfile.tolerance).toFixed(3) : "full")
-    + ":" + (coastProfile ? Number(coastProfile.minRingArea).toFixed(3) : "all")
-    + ":" + renderObjectId(features);
+  const profile = getProjectedViewportCacheProfile(width, height, projection, coastProfile);
+  const key = profile.key + ":" + renderObjectId(features);
   const cached = combinedLandMaskCache.get(key);
   if (cached) {
     combinedLandMaskCacheHits++;
@@ -507,18 +520,17 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
     return cached;
   }
   combinedLandMaskCacheMisses++;
+  combinedLandMaskCacheBuilds++;
   const combined = new Path2D();
   if (typeof combined.addPath !== "function") return null;
   let appended = 0;
   for (const feature of features) {
-    // Le relief raster ne doit pas déborder sur l'océan antarctique :
-    // le continent possède son propre aplat opaque, indépendant du masque terrain.
     if (!feature?.geometry || isAntarcticLandFeature(feature)) continue;
     const cachedPath = getProjectedPath(feature, width, height, projection, coastProfile);
     if (cachedPath) {
       combined.addPath(cachedPath);
       appended++;
-    } else if (traceGeometry(combined, feature.geometry, width, height, projection, coastProfile)) {
+    } else if (traceGeometry(combined, feature.geometry, width, height, profile.pathProjection, coastProfile)) {
       appended++;
     }
   }
@@ -526,9 +538,11 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
   combinedLandMaskCache.set(key, combined);
   while (combinedLandMaskCache.size > COMBINED_LAND_MASK_CACHE_LIMIT) {
     combinedLandMaskCache.delete(combinedLandMaskCache.keys().next().value);
+    combinedLandMaskCacheEvictions++;
   }
   return combined;
 }
+
 
 function isAntarcticLandFeature(feature) {
   if (!feature || typeof feature !== "object") return false;
@@ -3055,8 +3069,12 @@ export function getProjectedPathCacheStats() {
     maxEstimatedBytes: MAX_PROJECTED_PATH_VERTICES * 32,
     projectedPathCacheHits,
     projectedPathCacheMisses,
+    projectedPathCacheBuilds,
+    projectedPathCacheEvictions,
     combinedLandMaskCacheHits,
     combinedLandMaskCacheMisses,
+    combinedLandMaskCacheBuilds,
+    combinedLandMaskCacheEvictions,
     combinedLandMaskCacheEntries: combinedLandMaskCache.size,
     maxCombinedLandMaskCacheEntries: COMBINED_LAND_MASK_CACHE_LIMIT,
     antarcticClassificationCacheHits,
