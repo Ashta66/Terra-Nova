@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 20 : densité adaptative et finesse des labels
+
+- [x] Extraire le calcul du budget de labels secondaires dans un profil déterministe testable.
+- [x] Conserver les plafonds progressifs de candidats selon les niveaux de zoom.
+- [x] Normaliser les valeurs de densité et protéger les entrées non finies.
+- [x] Ne compter dans le budget que les labels éligibles, nommés et présents dans le viewport.
+- [x] Éviter que les repères hors écran ou masqués par leur seuil de zoom consomment le budget visible.
+- [x] Préserver la priorité illimitée des noms de pays.
+- [x] Conserver un plafond indépendant pour les noms de villes.
+- [x] Différencier progressivement la taille des océans, mers régionales et détroits.
+- [x] Réduire légèrement le contraste et l'épaisseur des mers puis des détroits pour limiter la compétition visuelle.
+- [x] Ajouter des tests sur les profils de densité, les entrées invalides, les tailles et le contraste maritime.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel de la densité aux zooms 1, 3, 5 et 10.
+
+Le budget est désormais consommé par les candidats effectivement visibles dans le viewport. Le classement, les seuils d'apparition et les priorités de placement restent les arbitres des collisions.
+
 ## 24 novembre 2026 — lot 19 : hiérarchie de placement des labels maritimes
 
 - [x] Donner aux océans une priorité de placement supérieure aux labels ordinaires.
@@ -10,7 +26,8 @@
 - [x] Ne pas modifier les seuils de zoom, les budgets de densité ni les géométries.
 - [x] Ajouter des tests sur l'ordre complet et la catégorie inconnue.
 - [x] Documenter la règle de placement et ses limites.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel des labels maritimes aux zooms 2 à 7.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel de la hiérarchie et des collisions aux zooms 2 à 7.
 
 Cette hiérarchie agit uniquement sur l'ordre de placement et la résolution des collisions ; elle ne garantit pas l'affichage de tous les labels lorsqu'ils se chevauchent.
 
