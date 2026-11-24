@@ -13,6 +13,19 @@ function readBounds(hit) {
   return value;
 }
 
+function containsPoint(hit, x, y) {
+  const bounds = hit?.bounds;
+  if (!bounds) return false;
+  const left = Number(bounds.left);
+  const right = Number(bounds.right);
+  const top = Number(bounds.top);
+  const bottom = Number(bounds.bottom);
+  return Number.isFinite(left) && Number.isFinite(right)
+    && Number.isFinite(top) && Number.isFinite(bottom)
+    && left <= right && top <= bottom
+    && x >= left && x <= right && y >= top && y <= bottom;
+}
+
 /** Construit une grille spatiale ; les indices de chaque cellule restent dans l'ordre de dessin. */
 export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
   if (!Array.isArray(hits)) {
@@ -70,19 +83,13 @@ export function findMapLabelHitAtPoint(hits, x, y, index = null) {
       const localIndex = localPosition >= 0 ? local[localPosition] : -1;
       const overflowIndex = overflowPosition >= 0 ? overflow[overflowPosition] : -1;
       const hitIndex = localIndex > overflowIndex ? local[localPosition--] : overflow[overflowPosition--];
-      const bounds = readBounds(hits[hitIndex]);
-      if (!bounds) continue;
-      if (pointX >= bounds.left && pointX <= bounds.right
-        && pointY >= bounds.top && pointY <= bounds.bottom) return hits[hitIndex];
+      if (containsPoint(hits[hitIndex], pointX, pointY)) return hits[hitIndex];
     }
     return null;
   }
 
   for (let hitIndex = hits.length - 1; hitIndex >= 0; hitIndex--) {
-    const bounds = readBounds(hits[hitIndex]);
-    if (!bounds) continue;
-    if (pointX >= bounds.left && pointX <= bounds.right
-      && pointY >= bounds.top && pointY <= bounds.bottom) return hits[hitIndex];
+    if (containsPoint(hits[hitIndex], pointX, pointY)) return hits[hitIndex];
   }
   return null;
 }
