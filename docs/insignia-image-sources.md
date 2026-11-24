@@ -19,3 +19,14 @@ Les armoiries historiques sont des fichiers originaux référencés sur Wikimedi
 | Saint-Empire (après 1433) | Generic Arms of the Holy Roman Emperor (after 1433).svg | https://commons.wikimedia.org/wiki/File:Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg |
 
 Les dates de validité sont appliquées par le résolveur lorsque l’entité et la période sont identifiables. Les drapeaux FlagCDN sont des drapeaux nationaux actuels, pas des reconstitutions de pavillons historiques. En l’absence d’un blason historique référencé, le moteur affiche le drapeau-image associé au code ISO disponible plutôt que de fabriquer un emblème.
+
+
+## Politique de disponibilité des insignes
+
+- Les codes d'image sont validés contre une liste de codes pays ISO 3166-1 alpha-2 connus, avec l'exception régionale `gb-sct` utilisée par FlagCDN.
+- Les valeurs réservées ou placeholders (par exemple `ZZ`, `XX`, `-99`, `00`) ne génèrent jamais d'URL.
+- Un code ISO invalide est ignoré ; un autre champ ISO valide peut encore être utilisé.
+- Les alias historiques explicites ne sont conservés que si leur code de destination est lui-même valide.
+- Si aucune source n'est déterminable, le résolveur renvoie `type: "none"`, une URL vide et aucun texte alternatif : l'interface masque l'élément au lieu d'afficher une icône cassée.
+- Si un blason échoue, le drapeau n'est tenté qu'une fois. Si les deux sources échouent, l'image est masquée et son attribut `src` retiré.
+- Les images distantes de la liste et de la fiche utilisent `referrerPolicy="no-referrer"`. Les erreurs réseau restent gérées côté interface ; la disponibilité réelle dépend des fournisseurs externes.
