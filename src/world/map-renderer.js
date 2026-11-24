@@ -648,7 +648,7 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
   return drawn;
 }
 
-function drawGlacierLayers(context, collection, width, height, projection, maxRank = 4) {
+function drawGlacierFillLayers(context, collection, width, height, projection, maxRank = 4) {
   if (!collection?.features) return 0;
   let drawn = 0;
   for (const feature of collection.features) {
@@ -657,11 +657,28 @@ function drawGlacierLayers(context, collection, width, height, projection, maxRa
     if (style.rank > maxRank) continue;
     drawn += drawPolygonLayer(context, { type: "FeatureCollection", features: [feature] },
       width, height, projection, "#dce8e5", null, 0, style.fillAlpha, false, maxRank);
+  }
+  return drawn;
+}
+
+function drawGlacierOutlineLayers(context, collection, width, height, projection, maxRank = 4) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  for (const feature of collection.features) {
+    if (isAntarcticLandFeature(feature)) continue;
+    const style = getGlacierRenderStyle(feature);
+    if (style.rank > maxRank) continue;
     drawn += drawPolygonLayer(context, { type: "FeatureCollection", features: [feature] },
       width, height, projection, "rgba(0,0,0,0)", "#9ebfc3",
       style.outlineWidth, style.outlineAlpha, false, maxRank);
   }
   return drawn;
+}
+
+function drawGlacierLayers(context, collection, width, height, projection, maxRank = 4) {
+  const filled = drawGlacierFillLayers(context, collection, width, height, projection, maxRank);
+  drawGlacierOutlineLayers(context, collection, width, height, projection, maxRank);
+  return filled;
 }
 
 function drawLakeOutlineLayer(context, collection, width, height, projection, color, simplifyProfile, maxRank) {
@@ -2808,8 +2825,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
         target.restore();
         glacierCount = measureLayer("glaciers", () => {
-          drawGlacierLayers(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, 4);
-          drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.58, 0.54, false, 4);
+          drawGlacierFillLayers(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, 4);
+          drawGlacierOutlineLayers(target, glaciersVisible, width, height, projection, 4);
           return glaciersVisible.features.length;
         });
         lakeCount = measureLayer("lacs", () => {
