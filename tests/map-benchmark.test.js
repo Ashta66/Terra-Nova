@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { compareMapBenchmarks } from "../scripts/compare-map-benchmarks.mjs";
 import { createMapBenchmarkCollector } from "../src/world/map-benchmark.js";
@@ -150,4 +151,12 @@ test("exporte les métriques de couverture et d'attente des tuiles de relief", (
   assert.equal(metrics["terrainTiles:transitionProgress"].median, 0.5);
   assert.equal(metrics["terrainTiles:waitingForTiles"].median, 1);
   assert.equal(metrics["terrainTiles:capacityLimited"].median, 0);
+});
+
+
+test("expose les commandes documentées du benchmark dans la console du navigateur", async () => {
+  const source = await readFile(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(source, /window\\.collectMapBenchmark\\s*=\\s*options\\s*=>\\s*mapBenchmarkCollector\\.start\\(options\\)/);
+  assert.match(source, /window\\.exportMapBenchmark\\s*=\\s*options\\s*=>\\s*mapBenchmarkCollector\\.exportResults\\(options\\)/);
+  assert.match(source, /window\\.clearMapBenchmark\\s*=\\s*\\(\\)\\s*=>\\s*mapBenchmarkCollector\\.clear\\(\\)/);
 });
