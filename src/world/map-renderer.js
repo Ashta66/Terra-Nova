@@ -2501,6 +2501,39 @@ export function getMapLabelLayout(kind, point, textWidth, fontSize, renderScale 
   };
 }
 
+/** Vérifie que la zone interactive englobe l'emprise visuelle et le marqueur. */
+export function isMapLabelLayoutGeometryConsistent(layout) {
+  if (!layout?.box || !layout?.hitBounds) return false;
+  const normalize = bounds => {
+    const value = {
+      left: Number(bounds.left), right: Number(bounds.right),
+      top: Number(bounds.top), bottom: Number(bounds.bottom)
+    };
+    if (!Object.values(value).every(Number.isFinite)
+      || value.left > value.right || value.top > value.bottom) return null;
+    return value;
+  };
+  const box = normalize(layout.box);
+  const hit = normalize(layout.hitBounds);
+  const textX = Number(layout.textX), textY = Number(layout.textY);
+  if (!box || !hit || !Number.isFinite(textX) || !Number.isFinite(textY)) return false;
+  const epsilon = 1e-7;
+  if (hit.left > box.left + epsilon || hit.right < box.right - epsilon
+    || hit.top > box.top + epsilon || hit.bottom < box.bottom - epsilon) return false;
+  if (textX < box.left - epsilon || textX > box.right + epsilon
+    || textY < box.top - epsilon || textY > box.bottom + epsilon) return false;
+  if (layout.marker) {
+    const marker = layout.marker;
+    const x = Number(marker.x), y = Number(marker.y);
+    const radius = Number(marker.radius), lineWidth = Number(marker.lineWidth);
+    if (![x, y, radius, lineWidth].every(Number.isFinite) || radius < 0 || lineWidth < 0) return false;
+    const extent = radius + lineWidth / 2;
+    if (x - extent < hit.left - epsilon || x + extent > hit.right + epsilon
+      || y - extent < hit.top - epsilon || y + extent > hit.bottom + epsilon) return false;
+  }
+  return true;
+}
+
 /** Ajuste une emprise au viewport sans dissocier texte, marqueur et zone interactive. */
 export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
   if (!layout?.box || !layout?.hitBounds) return null;
@@ -2518,6 +2551,7 @@ export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
       || normalized.left > normalized.right || normalized.top > normalized.bottom) return null;
     return normalized;
   };
+  if (!isMapLabelLayoutGeometryConsistent(layout)) return null;
   const box = normalizeBounds(layout.box);
   const hitBounds = normalizeBounds(layout.hitBounds);
   const textX = Number(layout.textX), textY = Number(layout.textY);
