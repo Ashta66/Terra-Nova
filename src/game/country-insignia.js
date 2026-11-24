@@ -14,9 +14,8 @@ const COATS=Object.freeze({
   "Kingdom of Portugal":"Coat_of_arms_of_the_Kingdom_of_Portugal_(Enciclopedie_Diderot).svg",
   "Ottoman Empire":"Osmanli-nisani.svg",
   "Ottoman Empire (1882–1922)":"Osmanli-nisani.svg",
-  "Muscovy":"Coat_of_arms_of_the_Russian_Empire.svg",
   "Russian Empire":"Coat_of_arms_of_the_Russian_Empire.svg",
-  "Russia":"Coat_of_arms_of_the_Russian_Empire.svg",
+  "Russia":"Russia-Coat_of_arms.svg",
   "Holy Roman Empire":"Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg",
   "Polish-Lithuanian Commonwealth":"COA_Polish-Lithuanian_Commonwealth.svg"
 });
@@ -44,11 +43,15 @@ export function resolveCountryInsignia(feature,year=1444){
   const flagUrl=code?(`https://flagcdn.com/w160/${code}.png`):"";
   const coat=COATS[name];
   const y=Number(year);
-  const isDatedCoat=name==="Ottoman Empire"||name==="Russia"||name==="Russian Empire"||name==="Muscovy"
-    ?y>=1882
-    :name==="Portugal"||name==="Kingdom of Portugal"?y>=1700
+  const isDatedCoat=name==="France"||name==="Kingdom of France"?y<=1792||(y>=1814&&y<=1830)
+    :name==="England"||name==="Kingdom of England"?y>=1399&&y<=1603
+    :name==="Ottoman Empire"?y>=1882&&y<=1922
+    :name==="Russian Empire"?y>=1721&&y<=1917
+    :name==="Russia"?y>=1993
+    :name==="Portugal"||name==="Kingdom of Portugal"?y>=1700&&y<=1910
     :name==="Spain"?y>=1504&&y<=1700
     :name==="Venice"?y>=1595&&y<=1797
+    :name==="Holy Roman Empire"?y>=1433&&y<=1806
     :true;
   if(coat&&isDatedCoat){
     return{type:"coat",src:COMMONS+encodeURIComponent(coat),fallback:flagUrl,alt:"Armoiries historiques de "+name,source:"Wikimedia Commons"};
