@@ -1223,13 +1223,16 @@ function getSortedLabelCandidates(collection) {
 export function doMapLabelBoxesOverlap(first, second) {
   if (!first || !second) return false;
   const keys = ["left", "right", "top", "bottom"];
+  const a = {}, b = {};
   for (const key of keys) {
-    if (!Number.isFinite(Number(first[key])) || !Number.isFinite(Number(second[key]))) return false;
+    a[key] = Number(first[key]);
+    b[key] = Number(second[key]);
+    if (!Number.isFinite(a[key]) || !Number.isFinite(b[key])) return false;
   }
-  if (first.left > first.right || first.top > first.bottom
-    || second.left > second.right || second.top > second.bottom) return false;
-  return !(first.right < second.left || first.left > second.right
-    || first.bottom < second.top || first.top > second.bottom);
+  if (a.left > a.right || a.top > a.bottom
+    || b.left > b.right || b.top > b.bottom) return false;
+  return !(a.right < b.left || a.left > b.right
+    || a.bottom < b.top || a.top > b.bottom);
 }
 
 function labelBoxCollides(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SIZE) {
@@ -2502,15 +2505,33 @@ export function getMapLabelLayout(kind, point, textWidth, fontSize, renderScale 
 export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
   if (!layout?.box || !layout?.hitBounds) return null;
   const viewportWidth = Number(width), viewportHeight = Number(height);
-  const safeMargin = Number.isFinite(Number(margin)) ? Math.max(0, Number(margin)) : 8;
+  const rawMargin = Number(margin);
+  const safeMargin = Number.isFinite(rawMargin) ? Math.max(0, rawMargin) : 8;
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)
     || viewportWidth <= safeMargin * 2 || viewportHeight <= safeMargin * 2) return null;
-  const box = layout.box;
-  const hitBounds = layout.hitBounds;
-  if (![box.left, box.right, box.top, box.bottom,
-    hitBounds.left, hitBounds.right, hitBounds.top, hitBounds.bottom].every(Number.isFinite)
-    || box.left > box.right || box.top > box.bottom
-    || hitBounds.left > hitBounds.right || hitBounds.top > hitBounds.bottom) return null;
+  const normalizeBounds = bounds => {
+    const normalized = {
+      left: Number(bounds.left), right: Number(bounds.right),
+      top: Number(bounds.top), bottom: Number(bounds.bottom)
+    };
+    if (!Object.values(normalized).every(Number.isFinite)
+      || normalized.left > normalized.right || normalized.top > normalized.bottom) return null;
+    return normalized;
+  };
+  const box = normalizeBounds(layout.box);
+  const hitBounds = normalizeBounds(layout.hitBounds);
+  const textX = Number(layout.textX), textY = Number(layout.textY);
+  if (!box || !hitBounds || !Number.isFinite(textX) || !Number.isFinite(textY)) return null;
+  let marker = null;
+  if (layout.marker) {
+    marker = {
+      ...layout.marker,
+      x: Number(layout.marker.x), y: Number(layout.marker.y),
+      radius: Number(layout.marker.radius), lineWidth: Number(layout.marker.lineWidth)
+    };
+    if (![marker.x, marker.y, marker.radius, marker.lineWidth].every(Number.isFinite)
+      || marker.radius < 0 || marker.lineWidth < 0) return null;
+  }
   const availableWidth = viewportWidth - safeMargin * 2;
   const availableHeight = viewportHeight - safeMargin * 2;
   if (hitBounds.right - hitBounds.left > availableWidth
@@ -2525,11 +2546,11 @@ export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
   });
   return {
     ...layout,
-    textX: layout.textX + dx,
-    textY: layout.textY + dy,
+    textX: textX + dx,
+    textY: textY + dy,
     box: shiftBounds(box),
-    hitBounds: shiftBounds(layout.hitBounds),
-    marker: layout.marker ? { ...layout.marker, x: layout.marker.x + dx, y: layout.marker.y + dy } : null,
+    hitBounds: shiftBounds(hitBounds),
+    marker: marker ? { ...marker, x: marker.x + dx, y: marker.y + dy } : null,
     viewportOffset: { x: dx, y: dy }
   };
 }
@@ -2571,8 +2592,8 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const layout = fitMapLabelLayoutToViewport(rawLayout, width, height, 8 * renderScale);
     if (!layout) continue;
     const { textX: x, textY: y, box } = layout;
-    if (labelBoxCollides(box, occupiedCells, collisionCellSize)) continue;
-    addLabelBox(box, occupiedCells, collisionCellSize);
+    if (labelBoxCollides(layout.hitBounds, occupiedCells, collisionCellSize)) continue;
+    addLabelBox(layout.hitBounds, occupiedCells, collisionCellSize);
     if (kind === "city") cityLabelsDrawn++;
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
