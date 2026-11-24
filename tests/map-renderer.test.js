@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -159,6 +159,18 @@ test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes
   assert.equal(result.riverCount, 1);
 });
 
+
+test("le style des lacs hiérarchise remplissage et contour selon le rang", () => {
+  const major = getLakeRenderStyle({ properties: { scalerank: 0 } });
+  const secondary = getLakeRenderStyle({ properties: { SCALERANK: 1 } });
+  const minor = getLakeRenderStyle({ properties: { min_zoom: 2 } });
+  const unknown = getLakeRenderStyle({ properties: {} });
+  assert.ok(major.fillAlpha > secondary.fillAlpha && secondary.fillAlpha > minor.fillAlpha);
+  assert.ok(major.outlineAlpha > secondary.outlineAlpha && secondary.outlineAlpha > minor.outlineAlpha);
+  assert.ok(major.outlineWidth > secondary.outlineWidth && secondary.outlineWidth > minor.outlineWidth);
+  assert.equal(unknown.rank, 1);
+  assert.equal(unknown.fillAlpha, secondary.fillAlpha);
+});
 
 test("la couche des lacs conserve au maximum 12 grands lacs, quel que soit le zoom", () => {
   const features = Array.from({ length: 30 }, (_, index) => ({
