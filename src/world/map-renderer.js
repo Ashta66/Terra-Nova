@@ -1162,8 +1162,19 @@ export function isCityPermanentlySubmerged(feature, world) {
 }
 
 const labelKindPriority = new Map([
-  ["continent", 0], ["ocean", 1], ["country", 2], ["province", 3], ["city", 4]
+  ["continent", 0],
+  ["ocean", 1],
+  ["sea", 2],
+  ["strait", 3],
+  ["country", 4],
+  ["province", 5],
+  ["city", 6]
 ]);
+
+/** Priorité de placement des familles de labels cartographiques. */
+export function getMapLabelKindPriority(kind) {
+  return labelKindPriority.get(kind) ?? 7;
+}
 const labelNameCollator = new Intl.Collator("fr", { sensitivity: "base" });
 
 function getSortedLabelCandidates(collection) {
@@ -1177,7 +1188,7 @@ function getSortedLabelCandidates(collection) {
       ranked.push({
         feature, index,
         kind,
-        kindRank: labelKindPriority.get(kind) ?? 5,
+        kindRank: getMapLabelKindPriority(kind),
         cityRank: kind === "city"
           ? Number(properties.scalerank ?? properties.SCALERANK ?? properties.minZoom ?? 99) : 0,
         population: kind === "city" ? Number(properties.POP_MAX ?? properties.pop_max ?? 0) : 0,
