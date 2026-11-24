@@ -2108,8 +2108,14 @@ test("les noms maritimes adoptent une typographie cursive et un contraste mesur√
   const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
   const theme = getCartographicTheme(1700);
   const ocean = getMapLabelStyle("ocean", theme, 12, 1.5);
+  const regionalSea = getMapLabelStyle("sea", theme, 12, 1.5);
+  const strait = getMapLabelStyle("strait", theme, 12, 1.5);
   const country = getMapLabelStyle("country", theme, 14, 1.5);
   assert.match(ocean.font, /^italic /);
+  assert.match(regionalSea.font, /^italic /);
+  assert.match(strait.font, /^italic /);
+  assert.equal(regionalSea.alpha, ocean.alpha);
+  assert.equal(strait.lineWidth, ocean.lineWidth);
   assert.match(ocean.font, /Libre Baskerville/);
   assert.equal(ocean.fill, theme.colors.text);
   assert.ok(ocean.alpha < country.alpha);
