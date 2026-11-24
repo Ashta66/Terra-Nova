@@ -5,7 +5,7 @@
 - [x] Positionner les noms sur des points géographiques représentatifs, distincts des côtes et des grands centres urbains.
 - [x] Réserver leur apparition à une échelle régionale pour préserver la lecture du planisphère.
 - [x] Conserver les deux occurrences du Pacifique sur les côtés opposés de la carte.
-- [x] Réutiliser le style maritime discret défini au lot 16.
+- [x] Réutiliser le style maritime discret défini au lot 16 pour les océans et mers régionales.
 - [x] Garder les données de labels indépendantes des frontières et de la simulation.
 - [x] Ajouter des tests de couverture, d'identifiants et de seuils de zoom.
 - [x] Préserver le format GeoJSON et les métadonnées de provenance.
