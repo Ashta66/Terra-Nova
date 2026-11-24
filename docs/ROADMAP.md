@@ -530,3 +530,17 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - Ne pas modifier l'interpolation temporelle ni les règles historiques pendant les chantiers purement visuels.
 - La refonte artistique doit éviter les interfaces trop claires, trop sobres ou saturées de filets et de lignes décoratives : privilégier des matériaux crédibles, une hiérarchie nette et des détails utiles.
 - Ne pas annoncer de validation locale, de FPS ou de résultat visuel qui n'a pas été mesuré sur l'environnement du joueur.
+
+
+### Lot prioritaire 1 — fiabilisation des insignes de campagne (24 novembre 2026)
+- [x] Valider les codes de drapeaux contre une liste explicite de codes ISO et l'exception FlagCDN `gb-sct`.
+- [x] Ignorer les placeholders et codes réservés, sans fabriquer d'URL d'image.
+- [x] Continuer à chercher un autre champ ISO si le premier est invalide.
+- [x] Valider également les codes issus des alias historiques.
+- [x] Retourner un état explicite `none` lorsqu'aucune image n'est déterminable.
+- [x] Garantir une URL et un texte alternatif vides pour cet état.
+- [x] Conserver le repli blason → drapeau sur une seule tentative, puis masquer l'image si tout échoue.
+- [x] Ajouter `referrerPolicy="no-referrer"` aux images distantes de la liste et de la fiche.
+- [x] Étendre les tests aux placeholders, codes valides, alias régional et champs de repli.
+- [x] Documenter les règles de disponibilité et les limites des fournisseurs externes.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des drapeaux/blasons sur quelques nations et d'un cas sans image.
