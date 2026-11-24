@@ -612,5 +612,17 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Ne modifier ni les données géographiques, ni les projections, ni les règles de simulation.
 - [x] Conserver le rendu Canvas existant lorsque le dégradé radial n'est pas disponible.
 - [x] Ajouter des tests pour la profondeur océanique et le liseré côtier.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des océans et des côtes à plusieurs niveaux de zoom.
+- [x] Validation locale du joueur : `npm test`, puis contrôle visuel des océans et des côtes à plusieurs niveaux de zoom.
 
+
+
+## Lot prioritaire 7 — relief terrestre et chaînes montagneuses (24 novembre 2026)
+- [x] Élargir avec prudence la détection des chaînes de moyenne altitude à partir de la pente et de l'altitude combinées.
+- [x] Renforcer la signature minérale des montagnes sans blanchir les sommets ni modifier les océans.
+- [x] Faire progresser la teinte des reliefs montagneux avec l'altitude, sans aplat uniforme.
+- [x] Distinguer davantage les montagnes, plateaux, vallées, collines et plaines dans la palette existante.
+- [x] Préserver les données ETOPO sources et le calcul du hillshade.
+- [x] Conserver la modulation de palette dans le chemin raster tuilé et le fallback Canvas.
+- [x] Ne pas ajouter de tracés de chaînes artificiels ni de lignes décoratives supplémentaires.
+- [x] Ajouter des tests sur les seuils montagneux, les teintes par altitude et l'absence de mutation de la palette source.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des Andes, Rocheuses, Alpes, Himalaya et hauts plateaux à plusieurs zooms.
