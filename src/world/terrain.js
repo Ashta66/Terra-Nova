@@ -190,7 +190,7 @@ export function classifyLandform(elevation, west, east, north, south, latitude, 
 }
 
 export function classifyVegetationZone(elevation, latitude) {
-  if (!Number.isFinite(elevation) || !Number.isFinite(latitude) || elevation < 0) return "none";
+  if (!Number.isFinite(elevation) || !Number.isFinite(latitude) || elevation < 0 || Math.abs(latitude) > 90) return "none";
   const absoluteLatitude = Math.abs(latitude);
   if (elevation >= 4600 || (absoluteLatitude >= 78 && elevation >= 900)) return "nival";
   if (elevation >= 3000) return "alpine";
