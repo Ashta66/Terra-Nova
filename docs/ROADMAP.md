@@ -587,4 +587,19 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Créer des signatures contemporaines et futuristes sans éclaircir excessivement la carte.
 - [x] Adapter les outils de carte aux petits écrans.
 - [x] Respecter la préférence de mouvement réduit.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des six ères (1492, 1648, 1789, 1914, 2026 et 2100).
+- [x] Validation locale du joueur : `npm test` et contrôle visuel des six ères confirmés.
+
+## Lot prioritaire 5 — matières de surface et profondeur de l'atlas (24 novembre 2026)
+- [x] Renforcer la profondeur du cadre par un vignettage doux et une lumière rasante, sans modifier le canvas.
+- [x] Isoler les textures dans l'overlay décoratif non interactif.
+- [x] Appliquer un parchemin fibrosé à l'ère des explorations.
+- [x] Appliquer une matière vélin à l'ère de Westphalie.
+- [x] Ajouter le grain de presse et une trame de points discrète à l'ère révolutionnaire.
+- [x] Ajouter une texture militaire et des courbes topographiques à l'ère industrielle.
+- [x] Appliquer un verre fumé au présent.
+- [x] Appliquer une matière obsidienne et une trame HUD au futur.
+- [x] Maintenir les repères cartographiques au-dessus des textures et préserver leur lisibilité.
+- [x] Atténuer les matières sur mobile et respecter le mouvement réduit.
+- [x] Ajouter des tests de non-régression dédiés aux six traitements matériels.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des six textures et du relief topographique.
+
