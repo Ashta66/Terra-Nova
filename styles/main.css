@@ -1627,3 +1627,14 @@ body.campaign-started .campaign-launch{display:none}
   body.campaign-launching .campaign-setup,body.campaign-launching .campaign-datebar,body.campaign-launching .game-layout{transition:none!important}
 }
 @media(max-width:600px){.campaign-launch-card{padding:30px 20px}.campaign-launch-meta{gap:12px}.campaign-launch-meta span{padding-left:12px}}
+
+
+/* Finition de la sélection de campagne : états vides, recherche et retour tactile. */
+.country-empty-state{margin:0;padding:18px 12px;color:var(--theme-muted,#91a5a2);font:italic 13px/1.55 var(--theme-display-font,Georgia);text-align:center}
+.country-result{transition:background .16s ease,box-shadow .16s ease,color .16s ease}
+.country-result:focus-visible{position:relative;z-index:2;outline:2px solid var(--theme-accent,#d9b878);outline-offset:-2px;background:color-mix(in srgb,var(--theme-accent,#d9b878) 12%,#14232c)}
+.country-result.is-selected .country-result-name{color:var(--theme-accent,#e5d2a8);text-shadow:0 0 16px color-mix(in srgb,var(--theme-accent,#d9b878) 24%,transparent)}
+.country-result.is-selected .country-rank:before{content:"◆";margin-right:6px;font-size:7px}
+.country-search:focus-visible,.country-filter-row select:focus-visible{outline:2px solid var(--theme-accent,#c3a66e);outline-offset:2px}
+.country-result-count{font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.country-result{transition:none}}
