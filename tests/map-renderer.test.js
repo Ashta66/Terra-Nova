@@ -1426,13 +1426,21 @@ test("les limites administratives nombreuses ne déclenchent aucun tracé Canvas
       geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.4, 1]] }
     }))
   };
-  const { canvas, calls } = createCanvas();
   const emptyLand = { type: "FeatureCollection", features: [] };
-  const result = renderWorldMap(canvas, emptyLand, {
+  const baseline = createCanvas();
+  renderWorldMap(baseline.canvas, emptyLand, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }
+  });
+  const withAdministrativeInput = createCanvas();
+  const result = renderWorldMap(withAdministrativeInput.canvas, emptyLand, {
     width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }, administrativeBoundaries
   });
   assert.equal(result.administrativeBoundaryCount, 0);
-  assert.equal(calls.filter(call => call[0] === "stroke").length, 0);
+  assert.equal(
+    withAdministrativeInput.calls.filter(call => call[0] === "stroke").length,
+    baseline.calls.filter(call => call[0] === "stroke").length,
+    "l'injection de 100 limites administratives ne doit ajouter aucun tracé Canvas"
+  );
 });
 
 
