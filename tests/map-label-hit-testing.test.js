@@ -262,3 +262,88 @@ test("les tailles de cellule infinies ou négatives reviennent au défaut", () =
     assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), item);
   }
 });
+
+
+test("un pointeur extrême avec index actif utilise un repli sûr", () => {
+  const item = hit("Extrême", { left: 1e30, right: 1e30, top: 1e30, bottom: 1e30 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 96);
+  assert.equal(findMapLabelHitAtPoint(hits, 1e30, 1e30, index), item);
+});
+
+test("un pointeur négatif extrême avec index actif conserve le ciblage", () => {
+  const item = hit("Extrême négatif", { left: -1e30, right: -1e30, top: -1e30, bottom: -1e30 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 96);
+  assert.equal(findMapLabelHitAtPoint(hits, -1e30, -1e30, index), item);
+});
+
+test("les indices de bucket hors collection sont ignorés sans exception", () => {
+  const item = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [item];
+  const index = { hits, hitCount: 1, cellSize: 96, cells: new Map([["0:0", [99]]]), overflow: [] };
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), null);
+});
+
+test("les indices de débordement mal formés sont ignorés", () => {
+  const item = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [item];
+  const index = { hits, hitCount: 1, cellSize: 96, cells: new Map(), overflow: [99, -1, NaN] };
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), null);
+});
+
+test("un index valide ne perd pas les labels locaux derrière un bucket vide", () => {
+  const item = hit("Alpha", { left: 100, right: 120, top: 100, bottom: 120 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 32);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), null);
+  assert.equal(findMapLabelHitAtPoint(hits, 110, 110, index), item);
+});
+
+test("la recherche indexée conserve l'ordre après alternance local-débordement-local", () => {
+  const a = hit("A", { left: 0, right: 20, top: 0, bottom: 20 });
+  const huge = hit("Large", { left: -10000, right: 10000, top: -10000, bottom: 10000 });
+  const c = hit("C", { left: 5, right: 25, top: 5, bottom: 25 });
+  const hits = [a, huge, c], index = createMapLabelHitIndex(hits, 16);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), c);
+});
+
+test("une grille à taille fractionnaire conserve l'équivalence linéaire", () => {
+  const hits = [
+    hit("A", { left: -4.5, right: 3.25, top: -8.5, bottom: 2.75 }),
+    hit("B", { left: 3.25, right: 19.5, top: 2.75, bottom: 20.25 })
+  ];
+  const index = createMapLabelHitIndex(hits, 2.5);
+  for (const [x, y] of [[-4.5, -8.5], [3.25, 2.75], [19.5, 20.25], [0, 0], [30, 30]]) {
+    assert.equal(findMapLabelHitAtPoint(hits, x, y, index), findMapLabelHitAtPoint(hits, x, y));
+  }
+});
+
+test("une collection vide produit un index vide interrogeable", () => {
+  const hits = [], index = createMapLabelHitIndex(hits);
+  assert.equal(index.hitCount, 0);
+  assert.equal(findMapLabelHitAtPoint(hits, 0, 0, index), null);
+});
+
+test("la recherche indexée et linéaire restent équivalentes sur un jeu déterministe", () => {
+  let seed = 73421;
+  const random = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const hits = Array.from({ length: 180 }, (_, i) => {
+    const left = Math.round((random() - 0.5) * 2400);
+    const top = Math.round((random() - 0.5) * 1600);
+    const width = 2 + Math.round(random() * 180);
+    const height = 2 + Math.round(random() * 100);
+    return hit(String(i), { left, right: left + width, top, bottom: top + height });
+  });
+  const index = createMapLabelHitIndex(hits, 48);
+  for (let i = 0; i < 600; i++) {
+    const x = (random() - 0.5) * 2800;
+    const y = (random() - 0.5) * 2000;
+    assert.equal(findMapLabelHitAtPoint(hits, x, y, index), findMapLabelHitAtPoint(hits, x, y));
+  }
+});
+
+test("une mutation de longueur invalide l'index même avec des labels superposés", () => {
+  const first = hit("Premier", { left: 0, right: 40, top: 0, bottom: 40 });
+  const hits = [first], index = createMapLabelHitIndex(hits);
+  const second = hit("Second", { left: 0, right: 40, top: 0, bottom: 40 });
+  hits.push(second);
+  assert.equal(findMapLabelHitAtPoint(hits, 20, 20, index), second);
+});
