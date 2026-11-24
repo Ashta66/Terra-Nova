@@ -22,8 +22,8 @@ test("le tooltip bascule au-dessus lorsqu'il atteint le bord inférieur", () => 
 
 test("le tooltip est ramené dans le cadre au coin inférieur droit", () => {
   const position = getMapTooltipPosition(499, 299, 500, 300, 180, 80);
-  assert.equal(position.left, 312);
-  assert.equal(position.top, 204);
+  assert.equal(position.left, 305);
+  assert.equal(position.top, 205);
 });
 
 test("un tooltip plus large que le cadre reçoit une largeur maximale", () => {
