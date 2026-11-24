@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findMapLabelHitAtPoint } from "../src/world/map-label-hit-testing.js";
+import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "../src/world/map-label-hit-testing.js";
 
 const hit = (name, bounds) => ({ name, bounds });
 
@@ -67,4 +67,81 @@ test("les entrées absentes ou non tabulaires retournent null", () => {
 test("les labels sans emprise exploitable sont ignorés sans interrompre la recherche", () => {
   const alpha = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
   assert.equal(findMapLabelHitAtPoint([alpha, { name: "Sans zone" }], 10, 10), alpha);
+});
+
+test("l'index spatial retourne le même label que la recherche linéaire", () => {
+  const hits = [
+    hit("A", { left: 0, right: 20, top: 0, bottom: 20 }),
+    hit("B", { left: 100, right: 130, top: 100, bottom: 130 }),
+    hit("C", { left: 10, right: 30, top: 10, bottom: 30 })
+  ];
+  const index = createMapLabelHitIndex(hits, 32);
+  for (const [x, y] of [[5, 5], [15, 15], [25, 25], [110, 110], [80, 80]]) {
+    assert.equal(findMapLabelHitAtPoint(hits, x, y, index), findMapLabelHitAtPoint(hits, x, y));
+  }
+});
+
+test("l'index gère les cellules et coordonnées négatives", () => {
+  const alpha = hit("Alpha", { left: -120, right: -80, top: -40, bottom: 10 });
+  const hits = [alpha];
+  const index = createMapLabelHitIndex(hits, 32);
+  assert.equal(findMapLabelHitAtPoint(hits, -100, -10, index), alpha);
+  assert.equal(findMapLabelHitAtPoint(hits, -121, -10, index), null);
+});
+
+test("une emprise traversant plusieurs cellules reste ciblable", () => {
+  const alpha = hit("Alpha", { left: 30, right: 140, top: 30, bottom: 140 });
+  const hits = [alpha];
+  const index = createMapLabelHitIndex(hits, 32);
+  assert.equal(findMapLabelHitAtPoint(hits, 130, 130, index), alpha);
+  assert.equal(findMapLabelHitAtPoint(hits, 20, 20, index), null);
+});
+
+test("les zones superposées gardent la priorité du dernier label dans l'index", () => {
+  const bottom = hit("Dessous", { left: 0, right: 100, top: 0, bottom: 100 });
+  const top = hit("Dessus", { left: 40, right: 60, top: 40, bottom: 60 });
+  const hits = [bottom, top];
+  const index = createMapLabelHitIndex(hits, 24);
+  assert.equal(findMapLabelHitAtPoint(hits, 50, 50, index), top);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), bottom);
+});
+
+test("les emprises anormalement grandes passent par la liste de débordement", () => {
+  const huge = hit("Large", { left: -10000, right: 10000, top: -10000, bottom: 10000 });
+  const hits = [huge];
+  const index = createMapLabelHitIndex(hits, 16);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, 9999, 9999, index), huge);
+});
+
+test("les emprises invalides ne sont pas indexées", () => {
+  const invalid = hit("Invalide", { left: 10, right: 0, top: 0, bottom: 10 });
+  const hits = [invalid];
+  const index = createMapLabelHitIndex(hits);
+  assert.equal(index.cells.size, 0);
+  assert.equal(findMapLabelHitAtPoint(hits, 5, 5, index), null);
+});
+
+test("un index associé à une autre collection déclenche la recherche de secours", () => {
+  const original = [hit("Original", { left: 0, right: 20, top: 0, bottom: 20 })];
+  const changed = [hit("Changed", { left: 0, right: 20, top: 0, bottom: 20 })];
+  const index = createMapLabelHitIndex(original);
+  assert.equal(findMapLabelHitAtPoint(changed, 10, 10, index), changed[0]);
+});
+
+test("une taille de cellule invalide revient à une grille sûre", () => {
+  const alpha = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [alpha];
+  const index = createMapLabelHitIndex(hits, 0);
+  assert.equal(index.cellSize, 96);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), alpha);
+});
+
+test("un point dans une cellule vide est rejeté sans parcourir toute la collection", () => {
+  const hits = Array.from({ length: 100 }, (_, i) => hit(String(i), {
+    left: i * 200, right: i * 200 + 20, top: 0, bottom: 20
+  }));
+  const index = createMapLabelHitIndex(hits, 64);
+  assert.equal(findMapLabelHitAtPoint(hits, 50, 50, index), null);
+  assert.equal(index.cells.has("0:0"), true);
 });
