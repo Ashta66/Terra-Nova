@@ -2371,22 +2371,22 @@ export function getMapLabelStyle(kind, theme = {}, fontSize = 12, renderScale = 
   const isDisplay = kind === "country" || kind === "continent";
   const family = isDisplay ? displayFont : bodyFont;
   const weight = kind === "country" ? 700 : kind === "continent" ? 600 : kind === "city" ? 600 : 500;
-  const font = `${weight} ${fontSize}px "${family}", ${isDisplay ? "Georgia, serif" : "Arial, sans-serif"}`;
+  const isOcean = kind === "ocean";
+  const font = `${isOcean ? "italic " : ""}${weight} ${fontSize}px "${family}", ${isDisplay ? "Georgia, serif" : "Arial, sans-serif"}`;
   const surface = colors.surface || "#0c1d27";
   const text = colors.text || "#f0e6cf";
   const accent = colors.accent || "#d9b878";
   const isCountry = kind === "country";
   const isCity = kind === "city";
-  const isOcean = kind === "ocean";
   const isContinent = kind === "continent";
   return {
     font,
-    fill: isCity || isOcean ? accent : text,
+    fill: isCity ? accent : text,
     stroke: surface,
-    alpha: isCountry ? 1 : isCity ? 0.96 : isContinent ? 0.9 : isOcean ? 0.82 : 0.76,
-    lineWidth: (isCountry ? 4.4 : isCity ? 2.8 : isContinent ? 3.2 : 3) * renderScale,
+    alpha: isCountry ? 1 : isCity ? 0.96 : isContinent ? 0.9 : isOcean ? 0.72 : 0.76,
+    lineWidth: (isCountry ? 4.4 : isCity ? 2.8 : isContinent ? 3.2 : isOcean ? 2.2 : 3) * renderScale,
     shadowColor: surface,
-    shadowBlur: (isCountry ? 3.2 : isContinent ? 2 : 0) * renderScale,
+    shadowBlur: (isCountry ? 3.2 : isContinent ? 2 : isOcean ? 1.1 : 0) * renderScale,
     markerFill: accent,
     markerStroke: surface
   };
@@ -2648,16 +2648,40 @@ export function getStaticLayerCacheStats(canvas) {
   };
 }
 
+/** Profil décoratif de profondeur océanique, accordé à la palette historique. */
+export function getOceanDepthProfile(theme = {}) {
+  const era = theme.id || "present";
+  const profiles = {
+    exploration: { centerAlpha: 0.015, middleAlpha: 0.07, edgeAlpha: 0.29, shelfAlpha: 0.045, shelfRadius: 0.52 },
+    westphalia: { centerAlpha: 0.012, middleAlpha: 0.065, edgeAlpha: 0.27, shelfAlpha: 0.04, shelfRadius: 0.5 },
+    revolution: { centerAlpha: 0.01, middleAlpha: 0.055, edgeAlpha: 0.23, shelfAlpha: 0.03, shelfRadius: 0.48 },
+    modern: { centerAlpha: 0.012, middleAlpha: 0.07, edgeAlpha: 0.3, shelfAlpha: 0.05, shelfRadius: 0.54 },
+    present: { centerAlpha: 0.008, middleAlpha: 0.075, edgeAlpha: 0.34, shelfAlpha: 0.055, shelfRadius: 0.56 },
+    future: { centerAlpha: 0.006, middleAlpha: 0.085, edgeAlpha: 0.38, shelfAlpha: 0.065, shelfRadius: 0.58 }
+  };
+  return profiles[era] || profiles.present;
+}
+
 function drawOceanDepth(context, width, height, theme) {
   if (typeof context.createRadialGradient !== "function") return false;
+  const profile = getOceanDepthProfile(theme);
   const centerX = width * 0.5;
   const centerY = height * 0.48;
   const radius = Math.max(width, height) * 0.76;
   const depth = context.createRadialGradient(centerX, centerY, radius * 0.08, centerX, centerY, radius);
-  depth.addColorStop(0, "rgba(0,0,0,0)");
-  depth.addColorStop(0.62, "rgba(0,0,0,0.035)");
-  depth.addColorStop(1, "rgba(0,0,0,0.24)");
-  context.save(); context.fillStyle = depth; context.fillRect(0, 0, width, height); context.restore();
+  depth.addColorStop(0, `rgba(0,0,0,${profile.centerAlpha})`);
+  depth.addColorStop(0.62, `rgba(0,0,0,${profile.middleAlpha})`);
+  depth.addColorStop(1, `rgba(0,0,0,${profile.edgeAlpha})`);
+  context.save();
+  context.fillStyle = depth;
+  context.fillRect(0, 0, width, height);
+  const shelf = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * profile.shelfRadius);
+  shelf.addColorStop(0, "rgba(255,255,255,0)");
+  shelf.addColorStop(0.72, `rgba(255,255,255,${profile.shelfAlpha})`);
+  shelf.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = shelf;
+  context.fillRect(0, 0, width, height);
+  context.restore();
   return true;
 }
 
