@@ -1576,3 +1576,54 @@ body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10
   body:not(.campaign-started) #campaign-setup>.setup-card{padding:12px}
   body:not(.campaign-started) #campaign-setup>.country-dossier-panel{max-height:28vh;padding:10px}
 }
+
+
+/* Séquence de lancement de campagne : sceau d'époque, puis révélation de la carte. */
+.campaign-launch[hidden]{display:none}
+.campaign-launch{
+  position:fixed;inset:0;z-index:120;display:grid;place-items:center;overflow:hidden;
+  padding:24px;background:
+    radial-gradient(ellipse at 50% 46%,color-mix(in srgb,var(--theme-accent,#c8aa70) 17%,transparent),transparent 43%),
+    linear-gradient(135deg,rgba(3,8,12,.94),rgba(8,17,22,.82) 52%,rgba(3,8,12,.96));
+  backdrop-filter:blur(7px) saturate(.72);pointer-events:none;
+  animation:campaign-launch-fade 1.55s cubic-bezier(.2,.72,.22,1) forwards;
+}
+.campaign-launch:before,.campaign-launch:after{
+  content:"";position:absolute;left:50%;top:50%;width:min(78vw,760px);aspect-ratio:1;
+  border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 32%,transparent);
+  border-radius:50%;transform:translate(-50%,-50%) scale(.72);opacity:0;
+  box-shadow:0 0 0 18px color-mix(in srgb,var(--theme-accent,#c8aa70) 4%,transparent),0 0 0 42px color-mix(in srgb,var(--theme-accent,#c8aa70) 3%,transparent);
+  animation:campaign-launch-orbit 1.4s ease-out forwards;
+}
+.campaign-launch:after{width:min(56vw,540px);animation-delay:.08s}
+.campaign-launch-card{
+  position:relative;z-index:1;width:min(560px,92vw);padding:clamp(28px,5vw,52px);
+  border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 58%,#52616a);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-raised,#26343b) 92%,#111),color-mix(in srgb,var(--theme-panel,#111a20) 96%,#03070a));
+  box-shadow:0 35px 110px #000b,inset 0 1px #ffffff18,inset 0 0 44px #0005;
+  text-align:center;color:var(--theme-text,#e9e0cb);
+  animation:campaign-launch-card 1.35s cubic-bezier(.16,.82,.22,1) both;
+}
+.campaign-launch-overline{display:block;color:var(--theme-muted,#a6aaa2);font:700 9px/1.4 var(--theme-body-font,Inter);letter-spacing:.24em}
+.campaign-launch-rule{display:block;width:74px;height:2px;margin:22px auto;background:linear-gradient(90deg,transparent,var(--theme-accent,#c8aa70),transparent);box-shadow:0 0 18px color-mix(in srgb,var(--theme-accent,#c8aa70) 60%,transparent)}
+.campaign-launch-era{display:block;color:var(--theme-accent,#c8aa70);font:600 12px/1.4 var(--theme-display-font,Georgia);letter-spacing:.13em;text-transform:uppercase}
+.campaign-launch-card h2{margin:12px 0 18px;font:600 clamp(27px,5vw,43px)/1.08 var(--theme-display-font,Georgia);letter-spacing:.015em;text-wrap:balance}
+.campaign-launch-meta{display:flex;justify-content:center;align-items:center;gap:18px}
+.campaign-launch-meta strong{font:600 30px/1 var(--theme-display-font,Georgia);color:var(--theme-accent,#c8aa70);font-variant-numeric:tabular-nums}
+.campaign-launch-meta span{padding-left:18px;border-left:1px solid var(--theme-border,#52616a);color:var(--theme-muted,#a6aaa2);font:700 8px/1.4 var(--theme-body-font,Inter);letter-spacing:.16em}
+.campaign-launch-card p{margin:22px 0 0;color:var(--theme-muted,#a6aaa2);font:italic 13px/1.55 var(--theme-body-font,Georgia)}
+.campaign-launch-seal{display:grid;place-items:center;width:38px;height:38px;margin:28px auto 0;border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 55%,transparent);border-radius:50%;color:var(--theme-accent,#c8aa70);font:700 10px var(--theme-display-font,Georgia);letter-spacing:.08em;box-shadow:0 0 0 5px color-mix(in srgb,var(--theme-accent,#c8aa70) 7%,transparent),inset 0 0 12px #0005}
+body.campaign-launching .campaign-setup,body.campaign-launching .campaign-datebar{
+  opacity:0;transform:translateY(12px);transition:opacity .42s ease,transform .55s cubic-bezier(.2,.7,.2,1);pointer-events:none
+}
+body.campaign-launching .game-layout{filter:brightness(.66) saturate(.78);transform:scale(1.012);transition:filter .7s ease,transform 1.1s cubic-bezier(.16,.82,.22,1)}
+body.campaign-started .game-layout{filter:none;transform:none}
+body.campaign-started .campaign-launch{display:none}
+@keyframes campaign-launch-fade{0%{opacity:0}12%{opacity:1}68%{opacity:1}100%{opacity:0}}
+@keyframes campaign-launch-card{0%{opacity:0;transform:translateY(24px) scale(.96);filter:blur(7px)}22%{opacity:1;filter:blur(0)}76%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-9px) scale(1.015)}}
+@keyframes campaign-launch-orbit{0%{opacity:0;transform:translate(-50%,-50%) scale(.72) rotate(-18deg)}28%{opacity:.65}100%{opacity:0;transform:translate(-50%,-50%) scale(1.16) rotate(18deg)}}
+@media(prefers-reduced-motion:reduce){
+  .campaign-launch,.campaign-launch-card,.campaign-launch:before,.campaign-launch:after{animation:none!important}
+  body.campaign-launching .campaign-setup,body.campaign-launching .campaign-datebar,body.campaign-launching .game-layout{transition:none!important}
+}
+@media(max-width:600px){.campaign-launch-card{padding:30px 20px}.campaign-launch-meta{gap:12px}.campaign-launch-meta span{padding-left:12px}}
