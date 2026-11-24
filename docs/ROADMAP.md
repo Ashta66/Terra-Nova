@@ -1,9 +1,25 @@
+## 24 novembre 2026 — lot 14 : typographie cartographique des six ères
+
+- [x] Utiliser la police d'affichage de l'ère pour les noms de pays et de continents.
+- [x] Utiliser la police de lecture de l'ère pour les villes et labels secondaires.
+- [x] Conserver les polices historiques et futuristes déjà chargées dans la page.
+- [x] Adapter la couleur des textes à la palette de l'ère active.
+- [x] Utiliser la surface thématique comme halo sombre pour détacher les noms du relief.
+- [x] Faire ressortir les noms de pays avec une graisse et un contour supérieurs.
+- [x] Maintenir les continents à un niveau intermédiaire de hiérarchie.
+- [x] Réduire l'opacité des labels océaniques et secondaires.
+- [x] Accorder les marqueurs de villes à l'accent coloré de l'époque.
+- [x] Ajouter des tests sur les six ères, la hiérarchie, les contrastes et l'échelle de rendu.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des six ères à plusieurs niveaux de zoom.
+
+Le changement ne touche ni les coordonnées, ni les priorités de collision, ni les règles d'apparition des labels. La lisibilité réelle doit être confirmée sur la carte en contexte.
+
 ## 24 novembre 2026 — lot 13 : budgets et réutilisation des géométries
 
 - [x] Porter le cache des chemins projetés à 4 096 entrées, 10 variantes par feature et 750 000 sommets estimés (24 Mo estimés).
 - [x] Porter le cache LRU des masques terrestres composés à 24 entrées.
 - [x] Ajouter un test de non-régression des plafonds de cache.
-- [ ] Valider localement avec `npm test`.
+- [x] Validation locale du joueur : `npm test` confirmé.
 - [ ] Refaire un benchmark PC zoom 20 (cache chaud, même viewport/DPR, 60–70 secondes) et comparer médiane/p95, évictions, constructions et heap JS.
 - [ ] Vérifier en navigation aller-retour que les vues récemment visitées réutilisent les chemins sans dérive visuelle.
 
