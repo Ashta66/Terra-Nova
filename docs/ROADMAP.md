@@ -653,3 +653,18 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Documenter la limite des données : sans couche de précipitations ou d'occupation des sols, ces teintes sont un proxy climatique régional et non une carte scientifique des forêts, savanes ou déserts.
 - [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des tropiques, zones tempérées, hautes latitudes et reliefs élevés.
 
+---
+
+## Lot prioritaire 9 — hiérarchie visuelle du réseau hydrographique (24 novembre 2026)
+- [x] Introduire un style de cours d'eau dérivé du rang hydrographique Natural Earth.
+- [x] Renforcer la largeur des grands fleuves par rapport aux cours d'eau secondaires.
+- [x] Réduire progressivement l'opacité des rangs moins importants.
+- [x] Garder les rangs absents sur un style secondaire stable et visible.
+- [x] Reconnaître les variantes de propriétés `SCALERANK` et `min_zoom`.
+- [x] Arrondir les extrémités et jonctions du rendu Canvas pour une lecture plus organique.
+- [x] Appliquer la hiérarchie dans le chemin Canvas de repli.
+- [x] Répartir les cours d'eau WebGL par rang avec largeur et alpha cohérents.
+- [x] Conserver les filtres de sélection, les plafonds de détails et le comptage des segments existants.
+- [x] Ajouter des tests sur l'ordre visuel, les alias, les rangs manquants et les largeurs invalides.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des grands fleuves et affluents à faible et fort zoom.
+
