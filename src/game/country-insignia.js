@@ -17,7 +17,6 @@ const COATS=Object.freeze({
   "Russian Empire":"Coat_of_arms_of_the_Russian_Empire.svg",
   "Russia":"Russia-Coat_of_arms.svg",
   "Holy Roman Empire":"Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg",
-  "Polish-Lithuanian Commonwealth":"COA_Polish-Lithuanian_Commonwealth.svg"
 });
 const COUNTRY_CODES=Object.freeze({
   "United States":"us","United Kingdom":"gb","England":"gb","France":"fr","Spain":"es","Castile":"es","Portugal":"pt",
@@ -46,9 +45,9 @@ export function resolveCountryInsignia(feature,year=1444){
   const isDatedCoat=name==="France"||name==="Kingdom of France"?y<=1792||(y>=1814&&y<=1830)
     :name==="England"||name==="Kingdom of England"?y>=1399&&y<=1603
     :name==="Ottoman Empire"?y>=1882&&y<=1922
-    :name==="Russian Empire"?y>=1721&&y<=1917
+    :name==="Russian Empire"?y>=1882&&y<=1917
     :name==="Russia"?y>=1993
-    :name==="Portugal"||name==="Kingdom of Portugal"?y>=1700&&y<=1910
+    :name==="Portugal"||name==="Kingdom of Portugal"?y>=1763&&y<=1910
     :name==="Spain"?y>=1504&&y<=1700
     :name==="Venice"?y>=1595&&y<=1797
     :name==="Holy Roman Empire"?y>=1433&&y<=1806
