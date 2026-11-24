@@ -1826,3 +1826,98 @@ body[data-cartographic-era="westphalia"] .map-tools {
 @media(prefers-reduced-motion:reduce) {
   .map-frame,.map-tools,.map-tool { transition:none!important; }
 }
+
+
+/* Lot artistique 5 — matières de surface et profondeur de l'atlas.
+   Les textures restent dans l'overlay décoratif : aucune altération des pixels
+   du canvas, des couleurs de territoires ou des interactions cartographiques. */
+.map-frame::before {
+  background:
+    radial-gradient(ellipse at 50% 48%,transparent 42%,#02060922 76%,#02060970 100%),
+    linear-gradient(145deg,#ffffff08,transparent 24% 72%,#00000024);
+  box-shadow:inset 0 0 54px #0007,inset 0 1px 0 #ffffff22,inset 0 -1px 0 #0008;
+}
+.map-cartographic-overlay {
+  isolation:isolate;
+}
+.map-cartographic-overlay::before {
+  z-index:1;
+}
+.map-cartographic-overlay::after {
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
+  background-position:center;
+  background-repeat:repeat;
+  background-size:cover;
+  opacity:.18;
+  mix-blend-mode:soft-light;
+  filter:saturate(.72);
+}
+.map-overlay-coordinate,.map-compass,.map-reticle {
+  z-index:2;
+}
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/parchment.svg");
+  opacity:.25;
+  background-size:768px 768px;
+  mix-blend-mode:multiply;
+}
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/vellum.svg");
+  opacity:.2;
+  background-size:640px 640px;
+  mix-blend-mode:soft-light;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/newsprint.svg");
+  opacity:.19;
+  background-size:560px 560px;
+  mix-blend-mode:multiply;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::before {
+  background-image:radial-gradient(circle,color-mix(in srgb,var(--theme-text) 20%,transparent) .65px,transparent .9px);
+  background-size:5px 5px;
+  mask-image:linear-gradient(135deg,#0008,transparent 62%);
+  opacity:.2;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/military.svg");
+  opacity:.16;
+  background-size:620px 620px;
+  mix-blend-mode:soft-light;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  background-image:repeating-radial-gradient(ellipse at 28% 34%,transparent 0 19px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 20px 20.7px,transparent 21px 34px);
+  background-size:100% 100%;
+  mask-image:radial-gradient(ellipse at center,#000 0 42%,transparent 82%);
+  opacity:.22;
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/glass.svg");
+  opacity:.18;
+  background-size:640px 640px;
+  mix-blend-mode:screen;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::after {
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 7px,#72d8df09 8px,transparent 9px),
+    url("../assets/textures/obsidian.svg");
+  opacity:.2;
+  background-size:100% 100%,640px 640px;
+  mix-blend-mode:screen;
+}
+@media(max-width:760px) {
+  .map-cartographic-overlay::after { opacity:.12; }
+  body[data-cartographic-era="exploration"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="westphalia"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="revolution"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="modern"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="present"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="future"] .map-cartographic-overlay::after { opacity:.12; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .map-cartographic-overlay::after { transition:none!important; }
+}
