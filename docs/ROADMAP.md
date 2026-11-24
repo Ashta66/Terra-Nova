@@ -694,3 +694,20 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Préserver le filtrage de détail et l’exclusion de l’Antarctique.
 - [x] Ajouter des tests sur les rangs, alias et propriétés absentes.
 - [x] Validation locale du joueur : npm test et contrôle visuel des glaciers alpins, groenlandais et des hautes latitudes à plusieurs niveaux de zoom confirmés.
+
+## Lot prioritaire 12 — optimisation du masque terrestre au zoom rapproché (24 novembre 2026)
+
+- [x] Mémoriser la classification Antarctique/non-Antarctique par identité de feature.
+- [x] Éviter les nouveaux parcours de coordonnées pour les géométries déjà classées.
+- [x] Mettre en cache la séparation des terres côtières et de l'Antarctique par tableau de features.
+- [x] Réutiliser l'ensemble des terres côtières pour les tests d'appartenance.
+- [x] Mémoriser la classification des remplissages terrestres WebGL par renderer et collection.
+- [x] Mémoriser séparément la compatibilité des contours WebGL.
+- [x] Inclure les options de diagnostic dans la clé de classification pour éviter les caches incohérents.
+- [x] Préserver explicitement l'exclusion de l'Antarctique dans le masque Canvas de repli sans Path2D.
+- [x] Exporter les compteurs de hits, misses et coordonnées parcourues dans les benchmarks.
+- [x] Ajouter des tests de réutilisation, d'invalidation par options et d'exclusion antarctique.
+- [ ] Validation locale du joueur : npm test et contrôle visuel du masque terrestre, des côtes et de l'Antarctique à zoom 1, 5 et 20.
+- [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer surtout `land-mask-path`, `land-feature-classification`, médiane et p95.
+
+**Précaution :** les caches s'appuient sur l'immuabilité des features GeoJSON et des tableaux de features. Si une collection est modifiée en place, elle doit être remplacée par une nouvelle collection afin de déclencher une nouvelle classification. Aucun gain chiffré n'est revendiqué avant le prochain benchmark local.
