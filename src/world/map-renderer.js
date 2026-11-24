@@ -2498,6 +2498,38 @@ export function getMapLabelLayout(kind, point, textWidth, fontSize, renderScale 
   };
 }
 
+/** Ajuste une emprise au viewport sans dissocier texte, marqueur et zone interactive. */
+export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
+  if (!layout?.box || !layout?.hitBounds) return null;
+  const viewportWidth = Number(width), viewportHeight = Number(height);
+  const safeMargin = Number.isFinite(Number(margin)) ? Math.max(0, Number(margin)) : 8;
+  if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)
+    || viewportWidth <= safeMargin * 2 || viewportHeight <= safeMargin * 2) return null;
+  const box = layout.box;
+  if (![box.left, box.right, box.top, box.bottom].every(Number.isFinite)
+    || box.left > box.right || box.top > box.bottom) return null;
+  const availableWidth = viewportWidth - safeMargin * 2;
+  const availableHeight = viewportHeight - safeMargin * 2;
+  if (box.right - box.left > availableWidth || box.bottom - box.top > availableHeight) return null;
+  const dx = box.left < safeMargin ? safeMargin - box.left
+    : box.right > viewportWidth - safeMargin ? viewportWidth - safeMargin - box.right : 0;
+  const dy = box.top < safeMargin ? safeMargin - box.top
+    : box.bottom > viewportHeight - safeMargin ? viewportHeight - safeMargin - box.bottom : 0;
+  const shiftBounds = bounds => ({
+    left: bounds.left + dx, right: bounds.right + dx,
+    top: bounds.top + dy, bottom: bounds.bottom + dy
+  });
+  return {
+    ...layout,
+    textX: layout.textX + dx,
+    textY: layout.textY + dy,
+    box: shiftBounds(box),
+    hitBounds: shiftBounds(layout.hitBounds),
+    marker: layout.marker ? { ...layout.marker, x: layout.marker.x + dx, y: layout.marker.y + dy } : null,
+    viewportOffset: { x: dx, y: dy }
+  };
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null, labelDensity = 1) {
   if (!collection?.features) return [];
   const hits = [];
@@ -2531,7 +2563,9 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const style = getMapLabelStyle(kind, theme, fontSize, renderScale);
     context.font = style.font;
     const textWidth = getCachedLabelTextWidth(context, style.font, displayName);
-    const layout = getMapLabelLayout(kind, point, textWidth, fontSize, renderScale);
+    const rawLayout = getMapLabelLayout(kind, point, textWidth, fontSize, renderScale);
+    const layout = fitMapLabelLayoutToViewport(rawLayout, width, height, 8 * renderScale);
+    if (!layout) continue;
     const { textX: x, textY: y, box } = layout;
     if (labelBoxCollides(box, occupiedCells, collisionCellSize)) continue;
     addLabelBox(box, occupiedCells, collisionCellSize);
