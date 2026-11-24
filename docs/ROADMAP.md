@@ -651,7 +651,7 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Préserver les altérations physiques, la neige d'altitude et le mode diagnostic.
 - [x] Ajouter des tests sur les seuils latitudinaux, l'altitude, les couleurs, la non-mutation et les océans.
 - [x] Documenter la limite des données : sans couche de précipitations ou d'occupation des sols, ces teintes sont un proxy climatique régional et non une carte scientifique des forêts, savanes ou déserts.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des tropiques, zones tempérées, hautes latitudes et reliefs élevés.
+- [x] Validation locale du joueur : npm test confirmé.
 
 ---
 
@@ -666,5 +666,18 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Répartir les cours d'eau WebGL par rang avec largeur et alpha cohérents.
 - [x] Conserver les filtres de sélection, les plafonds de détails et le comptage des segments existants.
 - [x] Ajouter des tests sur l'ordre visuel, les alias, les rangs manquants et les largeurs invalides.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des grands fleuves et affluents à faible et fort zoom.
+- [x] Validation locale du joueur : npm test confirmé.
 
+
+
+## Lot prioritaire 10 — hiérarchie visuelle des lacs (24 novembre 2026)
+- [x] Définir un profil de remplissage et de contour selon le rang cartographique du lac.
+- [x] Donner la priorité visuelle aux grands lacs sans uniformiser les plans d’eau secondaires.
+- [x] Reconnaître les variantes de propriétés de rang déjà présentes dans les données.
+- [x] Garder un style stable et lisible pour les rangs absents.
+- [x] Appliquer les niveaux d’opacité aux remplissages WebGL par groupes de rang.
+- [x] Appliquer les niveaux de contour au rendu Canvas de complément.
+- [x] Préserver le chemin de repli Canvas lorsque WebGL géographique est indisponible.
+- [x] Réutiliser la simplification côtière et les plafonds de détails existants.
+- [x] Ajouter des tests sur l’ordre de remplissage, de contour, les alias et les rangs absents.
+- [ ] Validation locale du joueur : npm test, puis contrôle visuel des grands lacs et des plans d’eau secondaires à plusieurs niveaux de zoom.
