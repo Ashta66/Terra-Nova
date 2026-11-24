@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -1458,6 +1458,45 @@ test("les bascules WebGL des côtes, frontières et rivières invalident le cach
 
 test("le nombre de villes affichées ne dépasse jamais cinq, quel que soit le zoom", () => {
   for (const zoom of [1, 2, 4, 8, 14, 35]) assert.equal(getCityLabelLimit(zoom), 5);
+});
+
+test("la priorité des villes normalise les rangs et populations absents ou invalides", () => {
+  const ranked = getMapLabelCityPriority({ properties: {
+    scalerank: "2", POP_MAX: "850000"
+  } });
+  assert.deepEqual(ranked, { rank: 2, population: 850000 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    MIN_ZOOM: "4", POP_EST: "120000"
+  } }), { rank: 4, population: 120000 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    scalerank: "invalide", POP_MAX: "NaN"
+  } }), { rank: 99, population: 0 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    scalerank: -1, population: -500
+  } }), { rank: 99, population: 0 });
+  assert.deepEqual(getMapLabelCityPriority(null), { rank: 99, population: 0 });
+});
+
+test("le rang cartographique d'une ville prime sur sa population", () => {
+  const { canvas } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Mégapole secondaire", kind: "city", scalerank: 2, POP_MAX: 12000000 }, geometry: { type: "Point", coordinates: [24, 12] } },
+    { type: "Feature", properties: { name: "Capitale prioritaire", kind: "city", scalerank: 0, POP_MAX: 250000 }, geometry: { type: "Point", coordinates: [-24, -12] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.equal(result.labelHits[0]?.name, "Capitale prioritaire");
+});
+
+test("les métadonnées de priorité des villes ne sont jamais modifiées", () => {
+  const feature = { type: "Feature", properties: {
+    name: "Ville témoin", kind: "city", scalerank: "1", POP_MAX: "500000"
+  }, geometry: { type: "Point", coordinates: [0, 0] } };
+  const before = JSON.stringify(feature);
+  getMapLabelCityPriority(feature);
+  assert.equal(JSON.stringify(feature), before);
 });
 
 test("les villes les plus importantes sont prioritaires dans le tri des labels", () => {
