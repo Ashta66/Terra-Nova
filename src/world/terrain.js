@@ -17,6 +17,19 @@ const LANDFORM_TINTS = {
 };
 const MOUNTAIN_ELEVATION_TINT = [190, 181, 169];
 
+// Signature climatique latitudinale volontairement prudente : faute de couche
+// de précipitations/occupation des sols, elle ne prétend pas distinguer forêts,
+// savanes et déserts à l'échelle locale.
+const VEGETATION_ZONE_TINTS = {
+  tropical: [91, 119, 69],
+  subtropical: [145, 130, 88],
+  temperate: [105, 125, 79],
+  boreal: [83, 105, 76],
+  tundra: [133, 128, 108],
+  alpine: [151, 143, 130],
+  nival: [190, 188, 180]
+};
+
 export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   if (!(buffer instanceof ArrayBuffer) && !ArrayBuffer.isView(buffer)) throw new TypeError("Tampon binaire requis.");
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
@@ -176,6 +189,30 @@ export function classifyLandform(elevation, west, east, north, south, latitude, 
   return "lowlands";
 }
 
+export function classifyVegetationZone(elevation, latitude) {
+  if (!Number.isFinite(elevation) || !Number.isFinite(latitude) || elevation < 0) return "none";
+  const absoluteLatitude = Math.abs(latitude);
+  if (elevation >= 4600 || (absoluteLatitude >= 78 && elevation >= 900)) return "nival";
+  if (elevation >= 3000) return "alpine";
+  if (absoluteLatitude >= 66) return "tundra";
+  if (absoluteLatitude >= 52) return "boreal";
+  if (absoluteLatitude >= 35) return "temperate";
+  if (absoluteLatitude >= 23.5) return "subtropical";
+  return "tropical";
+}
+
+export function applyVegetationZoneTint(color, zone) {
+  const tint = VEGETATION_ZONE_TINTS[zone];
+  if (!tint || !Array.isArray(color) || color.length < 3) return color;
+  const strength = zone === "nival" ? 0.035 : zone === "alpine" ? 0.04 : 0.055;
+  const inverse = 1 - strength;
+  return [
+    Math.round(color[0] * inverse + tint[0] * strength),
+    Math.round(color[1] * inverse + tint[1] * strength),
+    Math.round(color[2] * inverse + tint[2] * strength)
+  ];
+}
+
 export function applyLandformTint(color, landform, elevation = 0) {
   const tint = LANDFORM_TINTS[landform];
   if (!tint || !Array.isArray(color) || color.length < 3) return color;
@@ -206,7 +243,7 @@ function terrainDebugElevationColor(elevation) {
   return [channel, channel, channel];
 }
 
-export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands") {
+export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands", latitude = 0) {
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
     // local des fosses/dorsales qui surchargerait la lecture stratégique.
@@ -220,11 +257,12 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
   }
 
   const land = interpolateStops(elevation, LAND_COLOR_STOPS);
-  return applyLandformTint([
+  const landformColor = applyLandformTint([
     Math.round(clamp(land[0] * shade, 0, 255)),
     Math.round(clamp(land[1] * shade, 0, 255)),
     Math.round(clamp(land[2] * shade, 0, 255))
   ], landform, elevation);
+  return applyVegetationZoneTint(landformColor, classifyVegetationZone(elevation, latitude));
 }
 
 export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6, exaggeration = RELIEF_EXAGGERATION) {
@@ -393,7 +431,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=samplePreparedHillshade(grid,lon,lat)??1;
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx)); }
+        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat); }
        }else{
         const w=hasPhysicalChanges?samplePhysicalElevation(grid,lon-dx,lat,physical):sampleElevation(grid,lon-dx,lat);
         const east=hasPhysicalChanges?samplePhysicalElevation(grid,lon+dx,lat,physical):sampleElevation(grid,lon+dx,lat);
@@ -401,7 +439,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx));}
+        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat);}
        }
       }else color=terrainColorForElevation(e,1,"ocean");
       if(debugElevation) color=terrainDebugElevationColor(e);
@@ -546,7 +584,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const gray = Math.round(28 + relief * 214);
         const baseShade = 1 + (shade - 1) * 0.35;
         const snowElevation = zoom < 2.5 ? terrainSnowElevationForPixel(grid, lon, lat, pixelWidthDegrees, pixelHeightDegrees) : e;
-        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform));
+        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform, lat));
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
