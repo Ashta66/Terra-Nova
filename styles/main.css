@@ -1657,3 +1657,73 @@ body.campaign-started .campaign-launch{display:none}
 
 /* Les insignes absents ou dont le chargement échoue doivent réellement disparaître. */
 .country-result-insignia[hidden],.dossier-emblem[hidden]{display:none!important}
+
+/* Robustesse responsive de l'écran de préparation — lot campagne 3 */
+body:not(.campaign-started) .campaign-setup,
+body:not(.campaign-started) .setup-card,
+body:not(.campaign-started) .country-picker,
+body:not(.campaign-started) .country-selected { min-width:0; }
+body:not(.campaign-started) .setup-card { overscroll-behavior:contain; scrollbar-gutter:stable; }
+body:not(.campaign-started) .setup-grid,
+body:not(.campaign-started) .country-filter-row { min-width:0; }
+body:not(.campaign-started) .country-search,
+body:not(.campaign-started) .country-filter-row select,
+body:not(.campaign-started) .setup-grid select { min-width:0; max-width:100%; }
+body:not(.campaign-started) .country-result,
+body:not(.campaign-started) .country-result-heading,
+body:not(.campaign-started) .country-result-meta { min-width:0; }
+body:not(.campaign-started) .country-result-name { overflow-wrap:anywhere; }
+body:not(.campaign-started) .country-result-meta span { min-width:0; overflow-wrap:anywhere; }
+body:not(.campaign-started) .country-dossier,
+body:not(.campaign-started) .country-selected { overscroll-behavior:contain; }
+body:not(.campaign-started) .setup-start { min-height:44px; }
+body:not(.campaign-started) .setup-card :focus-visible {
+  outline:2px solid var(--theme-accent);
+  outline-offset:3px;
+}
+@media (min-width:761px) and (max-width:1100px) {
+  body:not(.campaign-started) .setup-card { width:min(370px,40vw); }
+  body:not(.campaign-started) .campaign-datebar { grid-template-columns:auto minmax(110px,1fr); }
+  body:not(.campaign-started) .campaign-datebar-mark { display:none; }
+}
+@media (max-height:720px) and (min-width:761px) {
+  body:not(.campaign-started) .campaign-setup { padding-top:82px; padding-bottom:10px; }
+  body:not(.campaign-started) .setup-card { max-height:calc(100dvh - 92px); padding:12px 15px; }
+  body:not(.campaign-started) .setup-map-hint { padding:5px 0; }
+  body:not(.campaign-started) .country-results { min-height:78px; }
+  body:not(.campaign-started) .country-selected { max-height:24vh; }
+  body:not(.campaign-started) .country-dossier { max-height:14vh; }
+}
+@media (max-width:760px) {
+  body:not(.campaign-started) .campaign-setup {
+    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  }
+  body:not(.campaign-started) .setup-card {
+    max-height:min(58dvh,calc(100dvh - 150px));
+    padding-bottom:max(12px,env(safe-area-inset-bottom));
+  }
+  body:not(.campaign-started) .campaign-datebar {
+    padding-top:max(7px,env(safe-area-inset-top));
+  }
+  body:not(.campaign-started) .setup-start,
+  body:not(.campaign-started) .country-filter-row select { min-height:40px; }
+  body:not(.campaign-started) .country-selected { max-height:16vh; }
+}
+@media (max-width:760px) and (orientation:landscape) {
+  body:not(.campaign-started) .map-stage { padding-top:112px; }
+  body:not(.campaign-started) .campaign-setup { align-items:flex-end; }
+  body:not(.campaign-started) .setup-card { max-height:62dvh; width:min(520px,76vw); }
+  body:not(.campaign-started) .country-results { max-height:76px; min-height:58px; }
+  body:not(.campaign-started) .country-selected { max-height:13vh; }
+}
+@media (max-width:360px) {
+  body:not(.campaign-started) .campaign-datebar { grid-template-columns:78px minmax(0,1fr); gap:7px; }
+  body:not(.campaign-started) .campaign-datebar-heading { min-width:0; }
+  body:not(.campaign-started) .campaign-datebar-heading em { letter-spacing:.04em; }
+  body:not(.campaign-started) .setup-card h1 { font-size:23px; }
+  body:not(.campaign-started) .country-filter-row { grid-template-columns:minmax(0,1fr); }
+}
+@media (prefers-reduced-motion:reduce) {
+  body:not(.campaign-started) .setup-card,
+  body:not(.campaign-started) .country-results { scroll-behavior:auto; }
+}
