@@ -17,6 +17,5 @@ Les armoiries historiques sont des fichiers originaux référencés sur Wikimedi
 | Empire ottoman (fin XIXe–1922) | Osmanli-nisani.svg | https://commons.wikimedia.org/wiki/File:OttomanCoatOfArms.png |
 | Empire russe (1721–1917) | Coat of arms of the Russian Empire.svg | https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Russian_Empire.svg |
 | Saint-Empire (après 1433) | Generic Arms of the Holy Roman Emperor (after 1433).svg | https://commons.wikimedia.org/wiki/File:Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg |
-| République des Deux Nations | COA Polish-Lithuanian Commonwealth.svg | https://commons.wikimedia.org/wiki/File:COA_Polish-Lithuanian_Commonwealth.svg |
 
 Les dates de validité sont appliquées par le résolveur lorsque l’entité et la période sont identifiables. Les drapeaux FlagCDN sont des drapeaux nationaux actuels, pas des reconstitutions de pavillons historiques. En l’absence d’un blason historique référencé, le moteur affiche le drapeau-image associé au code ISO disponible plutôt que de fabriquer un emblème.
