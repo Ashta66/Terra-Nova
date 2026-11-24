@@ -72,18 +72,18 @@ test("la recherche des nations expose un compteur accessible et un raccourci d'e
 });
 
 test("le blason historique est prioritaire sur le drapeau ISO", () => {
-  assert.match(script, /function countryFlagCode\(feature\)/);
-  assert.match(script, /function countryFlagEmoji\(code\)/);
-  assert.match(script, /hasHeraldicEmblem=Boolean\(dossier\.emblem/);
-  assert.match(script, /const insignia=hasHeraldicEmblem/);
+  assert.match(script, /resolveCountryInsignia\(x\.feature/);
+  assert.match(script, /document\.createElement\("img"\)/);
+  assert.match(script, /insigniaData\.src/);
   assert.match(script, /dossier-emblem--flag/);
   assert.match(script, /dossier-emblem--crest/);
-  assert.match(script, /Blason historique/);
-  assert.match(script, /Drapeau de /);
+  const assets = readFileSync(new URL("../src/game/country-insignia.js", import.meta.url), "utf8");
+  assert.match(assets, /flagcdn\.com\/w160/);
+  assert.match(assets, /commons\.wikimedia\.org\/wiki\/Special:FilePath/);
 });
 test("le catalogue couvre les grandes dynasties et puissances historiques", () => {
   const dossierSource = readFileSync(new URL("../src/game/country-dossier.js", import.meta.url), "utf8");
-  for (const emblem of ["Holy Roman Empire","Byzantine Empire","Mughal Empire","Qing Dynasty","Aztec Empire","Inca Empire","Prussia","Dutch Republic","Papal States"]) {
+  for (const emblem of ["France","England","Castile","Portugal","Ottoman Empire","Russian Empire","Holy Roman Empire"]) {
     assert.ok(dossierSource.includes('"'+emblem+'"'), `emblème manquant : ${emblem}`);
   }
 });
@@ -91,6 +91,7 @@ test("le catalogue couvre les grandes dynasties et puissances historiques", () =
 test("la liste de campagne affiche un insigne à côté de chaque nation", () => {
   assert.match(script, /country-result-heading/);
   assert.match(script, /country-result-insignia/);
+  assert.match(script, /insignia\.src=insigniaData\.src/);
   assert.match(script, /identity\.append\(insignia,name\)/);
   assert.match(script, /btn\.append\(identity,meta\)/);
   assert.match(css, /\.country-result-insignia/);
