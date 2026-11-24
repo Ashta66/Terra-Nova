@@ -1252,7 +1252,24 @@ document.querySelectorAll("[data-campaign-mode]").forEach(button => button.addEv
     option.setAttribute("aria-pressed", String(active));
   });
 }));
+const launchOverlay = $("campaign-launch");
+let campaignLaunchInProgress = false;
+function finishCampaignLaunch() {
+  if (!campaignLaunchInProgress) return;
+  campaignLaunchInProgress = false;
+  document.body.classList.remove("campaign-launching");
+  document.body.classList.add("campaign-started");
+  launchOverlay.hidden = true;
+  launchOverlay.setAttribute("aria-hidden", "true");
+  $("begin-campaign").removeAttribute("aria-busy");
+  $("map-title").focus({ preventScroll: true });
+}
+launchOverlay.addEventListener("animationend", event => {
+  if (event.target === launchOverlay && event.animationName === "campaign-launch-fade") finishCampaignLaunch();
+});
+
 $("begin-campaign").addEventListener("click", () => {
+  if (campaignLaunchInProgress || document.body.classList.contains("campaign-started")) return;
   const year = Number($("start-year").value);
   const mode = $("campaign-mode").value;
   const country = $("player-country").value;
@@ -1265,13 +1282,35 @@ $("begin-campaign").addEventListener("click", () => {
   $("player-country").setCustomValidity("");
   playerCountry = country;
   previewCountry = country;
+  campaignLaunchInProgress = true;
+  const selected = campaignCountries.find(item => item.raw === country);
+  const theme = getCartographicTheme(year);
+  const launchTitles = {
+    exploration: "Chambre des Cartographes",
+    westphalia: "Chancellerie",
+    revolution: "La Gazette",
+    modern: "État-Major",
+    present: "Centre de Veille",
+    future: "Console Orbitale"
+  };
+  $("launch-era").textContent = launchTitles[theme.id] || "Chroniques du monde";
+  $("launch-country").textContent = selected?.label || frenchTerritoryName(country);
+  $("launch-year").textContent = String(year);
+  $("launch-mode").textContent = mode === "sandbox" ? "SANDBOX · EXPLORATION LIBRE" : "GRANDE STRATÉGIE";
+  $("launch-caption").textContent = mode === "sandbox"
+    ? "Le monde s’ouvre. Explorez les siècles à votre rythme."
+    : "Les frontières sont tracées. Votre histoire commence.";
+  launchOverlay.hidden = false;
+  launchOverlay.setAttribute("aria-hidden", "false");
+  $("begin-campaign").setAttribute("aria-busy", "true");
+  document.body.classList.add("campaign-launching");
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) finishCampaignLaunch();
   const month = Number(state.clock.date.slice(5,7));
   const day = Number(state.clock.date.slice(8,10));
   const safeDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
   state.clock.date = new Date(Date.UTC(year, month - 1, safeDay)).toISOString().slice(0,10);
   state.clock.day = 1;
   state.clock.paused = true;
-  document.body.classList.add("campaign-started");
   document.body.classList.toggle("sandbox-mode", mode === "sandbox");
   $("map-title").textContent = frenchTerritoryName(country) + " · " + year;
   $("sandbox-country").value = country;
