@@ -2441,7 +2441,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
   const visibleTerritories = selectVisibleFeatures(options.territories, projection.viewport);
   const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
-  const visibleAdministrativeBoundaries = null;
   const layers = {
     land: visibleLand, glaciers: visibleGlaciers, lakes: visibleLakes,
     rivers: visibleRivers, elevationPoints: visibleElevationPoints,
@@ -2805,11 +2804,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (canRenderBoundariesWebGL) {
     try {
       const politicalPartition = partitionFeatures(visiblePoliticalBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
-      const administrativePartition = { supported: [], unsupported: [] };
       const supportedPolitical = politicalPartition.supported;
       const unsupportedPolitical = politicalPartition.unsupported;
-      const supportedAdministrative = administrativePartition.supported;
-      const unsupportedAdministrative = administrativePartition.unsupported;
       const ratio = backingWidth / width;
       measureLayer("frontieres-webgl", () => boundaryRenderer.renderLayers([
         { key: "political-boundary-halo", type: "boundaries", features: supportedPolitical,
@@ -2822,7 +2818,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       context.drawImage(boundaryRenderer.canvas, 0, 0, backingWidth, backingHeight);
       context.restore();
       politicalBoundaryCount = supportedPolitical.length;
-      administrativeBoundaryCount = supportedAdministrative.length;
       if (unsupportedPolitical.length) {
         politicalBoundaryCount += drawStyledBoundaryLayer(context,
           { ...visiblePoliticalBoundaries, features: unsupportedPolitical }, width, height, projection,
