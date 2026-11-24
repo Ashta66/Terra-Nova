@@ -36,7 +36,7 @@ export function selectHistoricalSnapshot(year, years) {
 
 export function isNonStateHistoricalRegion(feature) {
   const properties = feature?.properties ?? {};
-  const name = ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]
+  const name = ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "ADMIN_0_FR", "FORMAL_FR", "formal_fr", "NAME_1_FR", "name_1_fr", "NAME_ALT_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]
     .map(key => properties[key]).find(value => typeof value === "string" && value.trim()) ?? "";
   return /(?:hunter[- ]gatherers?|foragers?|tribes?|tribal peoples?|cultures?|peoples?|nomads?|pastoralists?|farmers?|aboriginal|indigenous|inhabitants|ethnic groups?|peuples? autochtones?|peuples? indigenes?|peuples? premiers|nations? autochtones?|communautes? autochtones?|populations? tribales?|tribus?|nomades?|pasteurs? nomades?|chasseurs[- ]cueilleurs?|groupes? ethniques?|cultures?)/i.test(name.normalize("NFD").replace(/\p{M}/gu, ""));
 }
