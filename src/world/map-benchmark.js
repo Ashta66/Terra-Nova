@@ -68,6 +68,13 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     add("geometryCache:combinedMaskHits", pathCache.combinedLandMaskCacheHits);
     add("geometryCache:combinedMaskMisses", pathCache.combinedLandMaskCacheMisses);
     add("geometryCache:combinedMaskEntries", pathCache.combinedLandMaskCacheEntries);
+    add("geometryCache:antarcticClassificationHits", pathCache.antarcticClassificationCacheHits);
+    add("geometryCache:antarcticClassificationMisses", pathCache.antarcticClassificationCacheMisses);
+    add("geometryCache:antarcticCoordinatesScanned", pathCache.antarcticClassificationCoordinatesScanned);
+    add("geometryCache:landFeatureGroupHits", pathCache.landFeatureGroupCacheHits);
+    add("geometryCache:landFeatureGroupMisses", pathCache.landFeatureGroupCacheMisses);
+    add("geometryCache:landWebGLClassificationHits", pathCache.landWebGLClassificationCacheHits);
+    add("geometryCache:landWebGLClassificationMisses", pathCache.landWebGLClassificationCacheMisses);
     const lod = result.lodStats ?? {};
     add("lod:generatedLevels", lod.generatedLevels);
     add("lod:cachedLevels", lod.cachedLevels);
