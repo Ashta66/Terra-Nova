@@ -190,3 +190,23 @@ test("expose les commandes documentées du benchmark dans la console du navigate
   assert.match(source, /window\.exportMapBenchmark\s*=\s*options\s*=>\s*mapBenchmarkCollector\.exportResults\(options\)/);
   assert.match(source, /window\.clearMapBenchmark\s*=\s*\(\)\s*=>\s*mapBenchmarkCollector\.clear\(\)/);
 });
+
+
+test("exporte les constructions et évictions des caches de chemins et de masques", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 16;
+  collector.record({ totalRenderMs: 16, projectedPathCacheStats: {
+    projectedPathCacheBuilds: 5,
+    projectedPathCacheEvictions: 2,
+    combinedLandMaskCacheBuilds: 3,
+    combinedLandMaskCacheEvictions: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["geometryCache:projectedPathBuilds"].median, 5);
+  assert.equal(metrics["geometryCache:projectedPathEvictions"].median, 2);
+  assert.equal(metrics["geometryCache:combinedMaskBuilds"].median, 3);
+  assert.equal(metrics["geometryCache:combinedMaskEvictions"].median, 1);
+});
