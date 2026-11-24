@@ -1750,7 +1750,7 @@ function showMapTooltip(label, x, y, selected) {
   }
   tooltip.style.maxWidth = position.maxWidth + "px";
   tooltip.style.maxHeight = position.maxHeight + "px";
-  tooltip.style.overflowY = tooltip.offsetHeight > position.maxHeight ? "auto" : "";
+  tooltip.style.overflowY = tooltip.scrollHeight > position.maxHeight ? "auto" : "";
   tooltip.style.left = position.left + "px";
   tooltip.style.top = position.top + "px";
 }
