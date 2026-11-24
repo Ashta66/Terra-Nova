@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
 
 function createCanvas() {
@@ -392,6 +392,56 @@ test("les classes de relief distinguent montagnes, plateaux, vallées et plaines
   assert.equal(classifyLandform(1200, 1190, 1210, 1200, 1200, 30), "plateaus");
   assert.equal(classifyLandform(400, 700, 700, 700, 700, 40), "valleys");
   assert.equal(classifyLandform(100, 100, 100, 100, 100, 40), "plains");
+});
+
+test("les zones de végétation suivent des bandes latitudinales et l'altitude", () => {
+  assert.equal(classifyVegetationZone(120, 5), "tropical");
+  assert.equal(classifyVegetationZone(120, 28), "subtropical");
+  assert.equal(classifyVegetationZone(120, 45), "temperate");
+  assert.equal(classifyVegetationZone(120, 58), "boreal");
+  assert.equal(classifyVegetationZone(120, 70), "tundra");
+  assert.equal(classifyVegetationZone(3200, 20), "alpine");
+  assert.equal(classifyVegetationZone(4800, 20), "nival");
+});
+
+test("les zones polaires d'altitude élevée reçoivent une signature nivale", () => {
+  assert.equal(classifyVegetationZone(1000, 82), "nival");
+  assert.equal(classifyVegetationZone(1000, -82), "nival");
+  assert.equal(classifyVegetationZone(1000, 72), "tundra");
+});
+
+test("la classification végétale rejette les océans et les coordonnées invalides", () => {
+  assert.equal(classifyVegetationZone(-20, 0), "none");
+  assert.equal(classifyVegetationZone(100, NaN), "none");
+  assert.equal(classifyVegetationZone(Infinity, 40), "none");
+});
+
+test("la teinte de végétation est légère et ne mute pas la couleur d'origine", () => {
+  const base = [120, 125, 110];
+  const tinted = applyVegetationZoneTint(base, "tropical");
+  assert.notDeepEqual(tinted, base);
+  assert.deepEqual(base, [120, 125, 110]);
+  assert.deepEqual(applyVegetationZoneTint(base, "unknown"), base);
+});
+
+test("la palette terrestre varie selon la latitude sans changer la bathymétrie", () => {
+  const tropical = terrainColorForElevation(250, 1, "plains", 5);
+  const temperate = terrainColorForElevation(250, 1, "plains", 45);
+  const boreal = terrainColorForElevation(250, 1, "plains", 60);
+  assert.notDeepEqual(tropical, temperate);
+  assert.notDeepEqual(temperate, boreal);
+  assert.deepEqual(
+    terrainColorForElevation(-2500, 1, "ocean", 5),
+    terrainColorForElevation(-2500, 1, "ocean", 60)
+  );
+});
+
+test("les teintes de végétation restent modestes aux hautes altitudes", () => {
+  const base = [180, 180, 180];
+  const alpine = applyVegetationZoneTint(base, "alpine");
+  const nival = applyVegetationZoneTint(base, "nival");
+  assert.ok(Math.abs(nival[0] - base[0]) <= 7);
+  assert.ok(Math.abs(alpine[1] - base[1]) <= 8);
 });
 
 test("les classes terrestres modulent discrètement la palette sans toucher la bathymétrie", () => {
