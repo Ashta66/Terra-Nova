@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, getMapLabelStyle, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, getMapLabelStyle, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2083,4 +2083,34 @@ test("les coordonnées invalides ne produisent pas de dimensions négatives", ()
   assert.equal(layout.textY, 0.5);
   assert.ok(layout.box.right >= layout.box.left);
   assert.ok(layout.box.bottom >= layout.box.top);
+});
+
+
+test("la profondeur océanique adopte une signature discrète pour chaque ère", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const years = [1500, 1700, 1850, 1950, 2050, 2150];
+  const profiles = years.map(year => getOceanDepthProfile(getCartographicTheme(year)));
+  assert.equal(profiles.length, 6);
+  for (const profile of profiles) {
+    assert.ok(profile.centerAlpha >= 0 && profile.centerAlpha <= 0.02);
+    assert.ok(profile.middleAlpha > profile.centerAlpha);
+    assert.ok(profile.edgeAlpha > profile.middleAlpha);
+    assert.ok(profile.edgeAlpha <= 0.4);
+    assert.ok(profile.shelfAlpha >= 0 && profile.shelfAlpha <= 0.07);
+    assert.ok(profile.shelfRadius >= 0.45 && profile.shelfRadius <= 0.6);
+  }
+  assert.ok(profiles[5].edgeAlpha > profiles[0].edgeAlpha);
+});
+
+test("les noms maritimes adoptent une typographie cursive et un contraste mesuré", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const theme = getCartographicTheme(1700);
+  const ocean = getMapLabelStyle("ocean", theme, 12, 1.5);
+  const country = getMapLabelStyle("country", theme, 14, 1.5);
+  assert.match(ocean.font, /^italic /);
+  assert.match(ocean.font, /Libre Baskerville/);
+  assert.equal(ocean.fill, theme.colors.text);
+  assert.ok(ocean.alpha < country.alpha);
+  assert.ok(ocean.lineWidth < country.lineWidth);
+  assert.ok(ocean.shadowBlur > 0);
 });
