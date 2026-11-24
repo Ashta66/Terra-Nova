@@ -691,6 +691,24 @@ test("les cours d'eau sans rang conservent un style secondaire stable", () => {
   assert.deepEqual(missing, explicit);
 });
 
+test("les alias de rang Natural Earth conservent la même hiérarchie", () => {
+  assert.deepEqual(
+    getRiverRenderStyle({ properties: { SCALERANK: 0 } }),
+    getRiverRenderStyle({ properties: { scalerank: 0 } })
+  );
+  assert.deepEqual(
+    getRiverRenderStyle({ properties: { min_zoom: 1 } }),
+    getRiverRenderStyle({ properties: { scalerank: 1 } })
+  );
+});
+
+test("les rangs hydrographiques élevés restent plus discrets que les fleuves majeurs", () => {
+  const major = getRiverRenderStyle({ properties: { scalerank: 0 } });
+  const minor = getRiverRenderStyle({ properties: { scalerank: 4 } });
+  assert.ok(minor.lineWidth < major.lineWidth);
+  assert.ok(minor.alpha < major.alpha);
+});
+
 test("le style hydrographique accepte une largeur invalide sans produire de trait nul", () => {
   const style = getRiverRenderStyle({ properties: { scalerank: 0 } }, 0);
   assert.ok(style.lineWidth > 0);
