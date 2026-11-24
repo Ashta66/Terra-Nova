@@ -63,3 +63,19 @@ test("les filtres replacent la liste en haut et conservent une sélection lisibl
 test("le mode choisi adapte le libellé de l'action principale", () => {
   assert.match(script, /mode === "sandbox" \? "Explorer le monde " : "Entrer dans l’Histoire "/);
 });
+
+
+test("la recherche des nations expose un compteur accessible et un raccourci d'effacement", () => {
+  assert.match(html, /id="country-result-count" class="country-result-count" role="status" aria-live="polite" aria-atomic="true"/);
+  assert.match(html, /aria-controls="country-results"/);
+  assert.match(html, /aria-describedby="country-result-count"/);
+});
+
+test("le dossier affiche le drapeau ISO de la nation ou son blason historique", () => {
+  assert.match(script, /function countryFlagCode\(feature\)/);
+  assert.match(script, /function countryFlagEmoji\(code\)/);
+  assert.match(script, /dossier-emblem--flag/);
+  assert.match(script, /dossier-emblem--crest/);
+  assert.match(script, /Drapeau de /);
+  assert.match(script, /Blason de /);
+});
