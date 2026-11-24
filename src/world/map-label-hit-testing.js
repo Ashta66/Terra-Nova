@@ -76,6 +76,12 @@ export function findMapLabelHitAtPoint(hits, x, y, index = null) {
   if (indexed) {
     const cellX = Math.floor(pointX / index.cellSize);
     const cellY = Math.floor(pointY / index.cellSize);
+    if (!Number.isSafeInteger(cellX) || !Number.isSafeInteger(cellY)) {
+      for (let hitIndex = hits.length - 1; hitIndex >= 0; hitIndex--) {
+        if (containsPoint(hits[hitIndex], pointX, pointY)) return hits[hitIndex];
+      }
+      return null;
+    }
     const local = index.cells.get(cellX + ":" + cellY) ?? [];
     const overflow = index.overflow;
     let localPosition = local.length - 1;
@@ -88,6 +94,7 @@ export function findMapLabelHitAtPoint(hits, x, y, index = null) {
       const localIndex = localPosition >= 0 ? local[localPosition] : -1;
       const overflowIndex = overflowPosition >= 0 ? overflow[overflowPosition] : -1;
       const hitIndex = localIndex > overflowIndex ? local[localPosition--] : overflow[overflowPosition--];
+      if (!Number.isSafeInteger(hitIndex) || hitIndex < 0 || hitIndex >= hits.length) continue;
       if (containsPoint(hits[hitIndex], pointX, pointY)) return hits[hitIndex];
     }
     return null;
