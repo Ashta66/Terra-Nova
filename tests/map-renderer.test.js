@@ -1970,3 +1970,39 @@ test("le liseré côtier reste distinct des frontières politiques", () => {
   renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories: { type: "FeatureCollection", features: [] } });
   assert.ok(calls.some(call => call[0] === "strokeStyle" && typeof call[1] === "string"));
 });
+
+
+test("les clés Path2D distinguent le mode de longitude et les variations fines de zoom", async () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+    const { canvas } = createCanvas();
+    const collection = { type: "FeatureCollection", features: [{
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[-10, -5], [10, -5], [10, 5], [-10, -5]]] }
+    }] };
+    const before = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5, wrapLongitude: true } });
+    const first = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5, wrapLongitude: false } });
+    const second = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2.00001, centerLongitude: 4, centerLatitude: 5, wrapLongitude: false } });
+    const third = getProjectedPathCacheStats().projectedPathCacheMisses;
+    assert.ok(first > before);
+    assert.ok(second > first, "wrapLongitude modifie la projection et doit invalider le chemin");
+    assert.ok(third > second, "une variation de zoom ne doit pas être masquée par un arrondi de clé");
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
