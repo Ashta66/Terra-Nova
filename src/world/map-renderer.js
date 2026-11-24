@@ -1919,7 +1919,26 @@ const FRENCH_POLITICAL_ENTITY_NAMES = Object.freeze({
   "mapuche confederation": "Confédération mapuche", "tupinamba confederation": "Confédération tupinamba",
   "kingdom of araucania and patagonia": "Royaume d’Araucanie et de Patagonie",
   "kingdom of raiatea": "Royaume de Raiatea", "kingdom of bora bora": "Royaume de Bora-Bora",
-  "kingdom of rarotonga": "Royaume de Rarotonga", "maori kingdoms": "Royaumes māoris"
+  "kingdom of rarotonga": "Royaume de Rarotonga", "maori kingdoms": "Royaumes māoris",
+  "burmese kingdoms": "Royaumes birmans",
+  "emirate of the white sheep turks": "Émirat des Moutons blancs",
+  "hafsid caliphate": "Califat hafside", "khanate of sibir": "Khanat de Sibir",
+  "kō hawaiʻi paeʻāina": "Royaume d’Hawaï",
+  "mamluke sultanate": "Sultanat mamelouk", "mamluke sultanate": "Sultanat mamelouk",
+  "oirat confederation": "Confédération oïrate", "sinhalese kingdoms": "Royaumes cinghalais",
+  "sultanate of delhi": "Sultanat de Delhi", "delhi sultanate": "Sultanat de Delhi",
+  "swiss confederation": "Confédération suisse", "timurid emirates": "Émirats timourides",
+  "tuʻi tonga empire": "Empire Tuʻi Tonga",
+  "wabanaki (dawnland confederacy)": "Confédération wabanaki",
+  "wattasid caliphate": "Dynastie wattasside", "zayyanid caliphate": "Califat zianide",
+  "bukara khanate": "Khanat de Boukhara", "ming chinese empire": "Empire chinois des Ming",
+  "quazaq khanate": "Khanat kazakh", "republic of the seven zenden": "République des Sept Zenden",
+  "tsardom of muscovy": "Tsarat de Moscovie", "central asian khanates": "Khanats d’Asie centrale",
+  "manchu empire": "Empire mandchou", "middag kingdom": "Royaume de Middag",
+  "hindu kingdoms": "Royaumes hindous", "kong empire": "Empire kong",
+  "rattanakosin kingdom": "Royaume de Rattanakosin", "fulani empire": "Empire peul",
+  "grand duchy of hesse": "Grand-duché de Hesse", "republic of krakow": "République de Cracovie",
+  "tanzania united republic of": "République-Unie de Tanzanie"
 });
 
 const FRENCH_MAP_PLACE_NAMES = Object.freeze({
