@@ -1177,6 +1177,19 @@ export function getMapLabelKindPriority(kind) {
 }
 const labelNameCollator = new Intl.Collator("fr", { sensitivity: "base" });
 
+/** Normalise le rang et la population d'une ville pour un tri stable. */
+export function getMapLabelCityPriority(feature) {
+  const properties = feature?.properties ?? {};
+  const rawRank = Number(properties.scalerank ?? properties.SCALERANK
+    ?? properties.minZoom ?? properties.MIN_ZOOM ?? 99);
+  const rawPopulation = Number(properties.POP_MAX ?? properties.pop_max
+    ?? properties.POP_EST ?? properties.pop_est ?? properties.population ?? 0);
+  return {
+    rank: Number.isFinite(rawRank) && rawRank >= 0 ? rawRank : 99,
+    population: Number.isFinite(rawPopulation) && rawPopulation > 0 ? rawPopulation : 0
+  };
+}
+
 function getSortedLabelCandidates(collection) {
   let candidates = sortedLabelCollections.get(collection);
   if (!candidates) {
@@ -1185,13 +1198,13 @@ function getSortedLabelCandidates(collection) {
       const feature = collection.features[index];
       const properties = feature.properties ?? {};
       const kind = properties.kind;
+      const cityPriority = kind === "city" ? getMapLabelCityPriority(feature) : null;
       ranked.push({
         feature, index,
         kind,
         kindRank: getMapLabelKindPriority(kind),
-        cityRank: kind === "city"
-          ? Number(properties.scalerank ?? properties.SCALERANK ?? properties.minZoom ?? 99) : 0,
-        population: kind === "city" ? Number(properties.POP_MAX ?? properties.pop_max ?? 0) : 0,
+        cityRank: cityPriority?.rank ?? 0,
+        population: cityPriority?.population ?? 0,
         name: localizeMapLabel(properties.name, kind, properties)
       });
     }
