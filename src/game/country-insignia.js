@@ -5,6 +5,10 @@ const COATS=Object.freeze({
   "England":"Royal_Arms_of_England_(1399-1603).svg",
   "Kingdom of England":"Royal_Arms_of_England_(1399-1603).svg",
   "Castile":"Blason_Castille.svg",
+  "Spain":"Lesser_Royal_Arms_of_the_Spanish_Monarch_(c.1504-1700).svg",
+  "Venice":"Coat_of_arms_of_Republic_of_Venice.svg",
+  "Japan":"Imperial_Seal_of_Japan.svg",
+  "Poland":"COA_Kingdom_of_Poland_with_crest.svg",
   "Kingdom of Castile":"Blason_Castille.svg",
   "Portugal":"Coat_of_arms_of_the_Kingdom_of_Portugal_(Enciclopedie_Diderot).svg",
   "Kingdom of Portugal":"Coat_of_arms_of_the_Kingdom_of_Portugal_(Enciclopedie_Diderot).svg",
@@ -39,9 +43,12 @@ export function resolveCountryInsignia(feature,year=1444){
   const code=readCountryCode(feature);
   const flagUrl=code?(`https://flagcdn.com/w160/${code}.png`):"";
   const coat=COATS[name];
+  const y=Number(year);
   const isDatedCoat=name==="Ottoman Empire"||name==="Russia"||name==="Russian Empire"||name==="Muscovy"
-    ?Number(year)>=1882
-    :name==="Portugal"||name==="Kingdom of Portugal"?Number(year)>=1700
+    ?y>=1882
+    :name==="Portugal"||name==="Kingdom of Portugal"?y>=1700
+    :name==="Spain"?y>=1504&&y<=1700
+    :name==="Venice"?y>=1595&&y<=1797
     :true;
   if(coat&&isDatedCoat){
     return{type:"coat",src:COMMONS+encodeURIComponent(coat),fallback:flagUrl,alt:"Armoiries historiques de "+name,source:"Wikimedia Commons"};
