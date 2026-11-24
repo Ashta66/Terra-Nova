@@ -2256,3 +2256,14 @@ test("un label déjà dans la zone sûre conserve exactement son placement", () 
   assert.deepEqual(fitted.box, original.box);
   assert.deepEqual(fitted.hitBounds, original.hitBounds);
 });
+
+
+test("la zone interactive complète reste dans la marge sûre du viewport", () => {
+  const original = getMapLabelLayout("city", { x: 3, y: 3 }, 24, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 160, 90, 10);
+  assert.ok(fitted);
+  assert.ok(fitted.hitBounds.left >= 10);
+  assert.ok(fitted.hitBounds.top >= 10);
+  assert.ok(fitted.hitBounds.right <= 150);
+  assert.ok(fitted.hitBounds.bottom <= 80);
+});
