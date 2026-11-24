@@ -13,6 +13,7 @@ import { buildCountryDossier } from "./game/country-dossier.js";
 import { resolveCountryInsignia } from "./game/country-insignia.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
+import { findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
@@ -1685,12 +1686,7 @@ const MAP_LABEL_KIND_NAMES = Object.freeze({
   country: "Pays / territoire", province: "Province ou région"
 });
 function findMapLabelHit(x, y) {
-  for (let i = mapLabelHits.length - 1; i >= 0; i--) {
-    const label = mapLabelHits[i];
-    const bounds = label.bounds;
-    if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return label;
-  }
-  return null;
+  return findMapLabelHitAtPoint(mapLabelHits, x, y);
 }
 function normalizeCampaignCountryName(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
