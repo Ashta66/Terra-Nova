@@ -15,10 +15,12 @@ function readBounds(hit) {
 
 /** Construit un index de grille sur les emprises visibles, en conservant leur indice de dessin. */
 export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
-  const size = Number(cellSize);
-  if (!Array.isArray(hits) || !Number.isFinite(size) || size <= 0) {
-    return { hits: Array.isArray(hits) ? hits : [], cellSize: DEFAULT_CELL_SIZE, cells: new Map(), overflow: [] };
+  if (!Array.isArray(hits)) {
+    return { hits: [], cellSize: DEFAULT_CELL_SIZE, cells: new Map(), overflow: [] };
   }
+  const requestedSize = Number(cellSize);
+  const size = Number.isFinite(requestedSize) && requestedSize > 0
+    ? requestedSize : DEFAULT_CELL_SIZE;
   const cells = new Map();
   const overflow = [];
   hits.forEach((hit, index) => {
