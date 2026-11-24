@@ -183,3 +183,82 @@ test("un index incomplet ou mal formé déclenche une recherche linéaire sûre"
   assert.equal(findMapLabelHitAtPoint(hits, 10, 10, { hits, cells: {}, cellSize: 96, overflow: [] }), alpha);
   assert.equal(findMapLabelHitAtPoint(hits, 10, 10, { hits, cells: new Map(), cellSize: 0, overflow: [] }), alpha);
 });
+
+
+test("les coordonnées extrêmes positives sont déportées sans boucle de cellules", () => {
+  const item = hit("Extrême", { left: 1e30, right: 1e30, top: 1e30, bottom: 1e30 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 1);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, 1e30, 1e30, index), item);
+});
+
+test("les coordonnées extrêmes négatives sont déportées sans perte de ciblage", () => {
+  const item = hit("Extrême négatif", { left: -1e30, right: -1e30, top: -1e30, bottom: -1e30 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 1);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, -1e30, -1e30, index), item);
+});
+
+test("les cellules hors entiers sûrs utilisent le débordement", () => {
+  const item = hit("Cellule non sûre", {
+    left: Number.MAX_SAFE_INTEGER * 100, right: Number.MAX_SAFE_INTEGER * 100,
+    top: 0, bottom: 0
+  });
+  const hits = [item], index = createMapLabelHitIndex(hits, 1);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, item.bounds.left, 0, index), item);
+});
+
+test("une emprise très large mais finie ne provoque pas une explosion de cellules", () => {
+  const item = hit("Très large", { left: -1e8, right: 1e8, top: -1e8, bottom: 1e8 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 1);
+  assert.equal(index.cells.size, 0);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, 0, 0, index), item);
+});
+
+test("une cellule de taille sous-normale reste sûre", () => {
+  const item = hit("Sous-normal", { left: 1, right: 1, top: 1, bottom: 1 });
+  const hits = [item], index = createMapLabelHitIndex(hits, Number.MIN_VALUE);
+  assert.equal(index.overflow.length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, 1, 1, index), item);
+});
+
+test("un index est invalidé si la collection change de longueur", () => {
+  const first = hit("Premier", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [first], index = createMapLabelHitIndex(hits);
+  const added = hit("Ajouté", { left: 0, right: 20, top: 0, bottom: 20 });
+  hits.push(added);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), added);
+});
+
+test("un index reste sûr après retrait d'un label de la collection", () => {
+  const first = hit("Premier", { left: 0, right: 20, top: 0, bottom: 20 });
+  const last = hit("Dernier", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [first, last], index = createMapLabelHitIndex(hits);
+  hits.pop();
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), first);
+});
+
+test("les emprises ponctuelles aux intersections de cellules restent indexées", () => {
+  const item = hit("Point", { left: 32, right: 32, top: 64, bottom: 64 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 32);
+  assert.equal(findMapLabelHitAtPoint(hits, 32, 64, index), item);
+});
+
+test("un index valide garde l'ordre de dessin avec plusieurs candidats locaux", () => {
+  const a = hit("A", { left: 0, right: 30, top: 0, bottom: 30 });
+  const b = hit("B", { left: 1, right: 29, top: 1, bottom: 29 });
+  const c = hit("C", { left: 2, right: 28, top: 2, bottom: 28 });
+  const hits = [a, b, c], index = createMapLabelHitIndex(hits, 64);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), c);
+});
+
+test("les tailles de cellule infinies ou négatives reviennent au défaut", () => {
+  const item = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  for (const size of [Infinity, -1, NaN]) {
+    const hits = [item], index = createMapLabelHitIndex(hits, size);
+    assert.equal(index.cellSize, 96);
+    assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), item);
+  }
+});
