@@ -9,6 +9,10 @@ Les armoiries historiques sont des fichiers originaux référencés sur Wikimedi
 | Royaume de France | Arms of the Kingdom of France (Ancien).svg | https://commons.wikimedia.org/wiki/File:Arms_of_the_Kingdom_of_France_(Ancien).svg |
 | Angleterre (1399–1603) | Royal Arms of England (1399-1603).svg | https://commons.wikimedia.org/wiki/File:Royal_Arms_of_England_(1399-1603).svg |
 | Castille | Blason Castille.svg | https://commons.wikimedia.org/wiki/File:Blason_Castille.svg |
+| Espagne (1504–1700) | Lesser Royal Arms of the Spanish Monarch | https://commons.wikimedia.org/wiki/Category:SVG_historical_coats_of_arms_of_Spain |
+| Venise (1595–1797) | Coat of arms of Republic of Venice.svg | https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_Republic_of_Venice.svg |
+| Japon | Imperial Seal of Japan.svg | https://commons.wikimedia.org/wiki/Category:SVG_imperial_crest_of_Japan |
+| Pologne | COA Kingdom of Poland with crest.svg | https://commons.wikimedia.org/wiki/File:COA_Kingdom_of_Poland_with_crest.svg |
 | Portugal (modèle héraldique de 1763) | Coat of arms of the Kingdom of Portugal (Enciclopedie Diderot).svg | https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Kingdom_of_Portugal_(Enciclopedie_Diderot).svg |
 | Empire ottoman (fin XIXe–1922) | Osmanli-nisani.svg | https://commons.wikimedia.org/wiki/File:OttomanCoatOfArms.png |
 | Empire russe | Coat of arms of the Russian Empire.svg | https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Russian_Empire.svg |
