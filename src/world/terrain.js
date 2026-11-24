@@ -12,9 +12,10 @@ const LAND_COLOR_STOPS = [
   [3200, [213, 216, 215]], [4000, [238, 241, 242]], [5000, [250, 251, 252]]
 ];
 const LANDFORM_TINTS = {
-  mountains: [190, 174, 157], plateaus: [183, 158, 121],
+  mountains: [164, 153, 140], plateaus: [183, 158, 121],
   valleys: [91, 116, 80], plains: [137, 151, 103], hills: [163, 143, 113]
 };
+const MOUNTAIN_ELEVATION_TINT = [190, 181, 169];
 
 export function createTerrainGrid(buffer, width = 2160, height = 1080) {
   if (!(buffer instanceof ArrayBuffer) && !ArrayBuffer.isView(buffer)) throw new TypeError("Tampon binaire requis.");
@@ -165,23 +166,34 @@ export function classifyLandform(elevation, west, east, north, south, latitude, 
 
   // Classes heuristiques dérivées du MNT : elles décrivent la forme locale,
   // pas une cartographie géomorphologique scientifique indépendante.
-  if (elevation >= 1800 && slope >= 0.08) return "mountains";
-  if (elevation >= 700 && slope < 0.055) return "plateaus";
+  // Les chaînes de moyenne altitude sont reconnues par leur pente et leur
+  // altitude combinées ; le seuil évite de classer chaque colline en montagne.
+  if (elevation >= 1100 && slope >= 0.06) return "mountains";
+  if (elevation >= 700 && slope < 0.065) return "plateaus";
   if (relativeHeight <= -90 && elevation < 1800) return "valleys";
   if (slope < 0.025 && elevation < 450) return "plains";
   if (slope >= 0.055 || elevation >= 1200) return "hills";
   return "lowlands";
 }
 
-function applyLandformTint(color, landform) {
+export function applyLandformTint(color, landform, elevation = 0) {
   const tint = LANDFORM_TINTS[landform];
-  if (!tint) return color;
-  const strength = landform === "mountains" ? 0.04 : 0.035;
+  if (!tint || !Array.isArray(color) || color.length < 3) return color;
+  // Les montagnes gagnent une matière minérale progressivement plus marquée
+  // avec l'altitude, sans transformer les sommets en aplats blancs.
+  const mountainStrength = landform === "mountains"
+    ? 0.055 + clamp((Number(elevation) - 1100) / 3900, 0, 1) * 0.075
+    : 0;
+  const strength = mountainStrength || ({
+    plateaus: 0.045, valleys: 0.04, plains: 0.025, hills: 0.055
+  }[landform] ?? 0.035);
+  const target = landform === "mountains" && elevation >= 2800
+    ? MOUNTAIN_ELEVATION_TINT : tint;
   const inverse = 1 - strength;
   return [
-    Math.round(color[0] * inverse + tint[0] * strength),
-    Math.round(color[1] * inverse + tint[1] * strength),
-    Math.round(color[2] * inverse + tint[2] * strength)
+    Math.round(color[0] * inverse + target[0] * strength),
+    Math.round(color[1] * inverse + target[1] * strength),
+    Math.round(color[2] * inverse + target[2] * strength)
   ];
 }
 
@@ -212,7 +224,7 @@ export function terrainColorForElevation(elevation, shade = 1, landform = "lowla
     Math.round(clamp(land[0] * shade, 0, 255)),
     Math.round(clamp(land[1] * shade, 0, 255)),
     Math.round(clamp(land[2] * shade, 0, 255))
-  ], landform);
+  ], landform, elevation);
 }
 
 export function calculateHillshade(west, east, north, south, latitude, cellSizeDegrees = 1 / 6, exaggeration = RELIEF_EXAGGERATION) {
