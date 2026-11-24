@@ -41,7 +41,7 @@ test("la révélation préserve la carte et masque progressivement les panneaux 
 
 
 test("la préparation de campagne garde le dossier synchronisé avec l'année choisie", () => {
-  assert.match(script, /startYearSlider\.setAttribute\("aria-valuetext", String\(year\)\)/);
+  assert.match(script, /startYearSlider\.setAttribute\("aria-valuetext",\s*"Année "\s*\+\s*year\)/);
   assert.match(script, /if \(selectedPreview\) renderCountryDossier\(selectedPreview\)/);
   assert.match(script, /item\.raw === previewCountry\)\?\.label \|\| "Le monde"/);
 });
@@ -104,8 +104,8 @@ test("les insignes masqués après échec de chargement ne sont pas réaffichés
 test("un insigne est masqué si le fichier principal et le drapeau de secours échouent", () => {
   assert.match(script, /insignia\.dataset\.fallbackAttempted!=="true"/);
   assert.match(script, /emblem\.dataset\.fallbackAttempted!=="true"/);
-  assert.match(script, /insignia\.hidden=true;insignia\.removeAttribute\("src"\)/);
-  assert.match(script, /emblem\.hidden=true;emblem\.removeAttribute\("src"\)/);
+  assert.match(script, /insignia\.hidden\s*=\s*true;\s*insignia\.removeAttribute\("src"\)/);
+  assert.match(script, /emblem\.hidden\s*=\s*true;\s*emblem\.removeAttribute\("src"\)/);
   assert.doesNotMatch(script, /insignia\.onerror=null/);
   assert.doesNotMatch(script, /emblem\.onerror=null/);
 });
