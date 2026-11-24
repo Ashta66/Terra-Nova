@@ -680,4 +680,17 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Préserver le chemin de repli Canvas lorsque WebGL géographique est indisponible.
 - [x] Réutiliser la simplification côtière et les plafonds de détails existants.
 - [x] Ajouter des tests sur l’ordre de remplissage, de contour, les alias et les rangs absents.
-- [ ] Validation locale du joueur : npm test, puis contrôle visuel des grands lacs et des plans d’eau secondaires à plusieurs niveaux de zoom.
+- [x] Validation locale du joueur : npm test et contrôle visuel des grands lacs et plans d’eau secondaires confirmés.
+
+ 
+## Lot prioritaire 11 — lecture de la cryosphère et hiérarchie des glaciers (24 novembre 2026)
+- [x] Définir un profil de remplissage et de contour pour les glaciers selon leur rang cartographique.
+- [x] Mettre en avant les principaux ensembles glaciaires sans uniformiser toutes les surfaces.
+- [x] Reconnaître les alias de rang présents dans les propriétés Natural Earth.
+- [x] Appliquer des contours plus nets aux ensembles majeurs et plus discrets aux glaciers secondaires.
+- [x] Regrouper les remplissages WebGL par rang pour éviter un style uniforme.
+- [x] Appliquer la hiérarchie au rendu Canvas de complément et au repli intégral.
+- [x] Conserver la teinte froide des glaces sans introduire de blanc éblouissant.
+- [x] Préserver le filtrage de détail et l’exclusion de l’Antarctique.
+- [x] Ajouter des tests sur les rangs, alias et propriétés absentes.
+- [ ] Validation locale du joueur : npm test, puis contrôle visuel des glaciers alpins, groenlandais et des hautes latitudes à plusieurs niveaux de zoom.
