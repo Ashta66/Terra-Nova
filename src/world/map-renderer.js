@@ -2400,6 +2400,19 @@ export function getStaticLayerCacheStats(canvas) {
   };
 }
 
+function drawOceanDepth(context, width, height, theme) {
+  if (typeof context.createRadialGradient !== "function") return false;
+  const centerX = width * 0.5;
+  const centerY = height * 0.48;
+  const radius = Math.max(width, height) * 0.76;
+  const depth = context.createRadialGradient(centerX, centerY, radius * 0.08, centerX, centerY, radius);
+  depth.addColorStop(0, "rgba(0,0,0,0)");
+  depth.addColorStop(0.62, "rgba(0,0,0,0.035)");
+  depth.addColorStop(1, "rgba(0,0,0,0.24)");
+  context.save(); context.fillStyle = depth; context.fillRect(0, 0, width, height); context.restore();
+  return true;
+}
+
 export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (!canvas || typeof canvas.getContext !== "function") throw new TypeError("Canvas cartographique requis.");
   if (!featureCollection || featureCollection.type !== "FeatureCollection" || !Array.isArray(featureCollection.features)) {
@@ -2457,6 +2470,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const drawStaticLayers = target => {
     target.fillStyle = theme.colors.ocean;
     target.fillRect(0, 0, width, height);
+    drawOceanDepth(target, width, height, theme);
     target.save();
     target.strokeStyle = theme.colors.grid;
     target.globalAlpha = 0.10;
@@ -2633,6 +2647,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
     });
+    // Liseré discret : sépare visuellement la côte de l'océan sans concurrencer les frontières.
+    measureLayer("liseré-côtier", () => drawPolygonLayer(target, landCoastCollection,
+      width, height, projection, "rgba(0,0,0,0)",
+      theme.colors.accent, 0.42, 0.24, true, Infinity, coastProfile));
     captureTerrainLayerStage(target, "02-after-land");
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
