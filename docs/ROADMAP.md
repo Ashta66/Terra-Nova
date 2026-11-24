@@ -874,3 +874,13 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer médiane/p95, reconstructions, évictions et pics mémoire.
 
 Précaution : le centre reste volontairement quantifié à une cellule de 1 / zoom degré. Les nouvelles clés éliminent les collisions de paramètres non équivalents, mais ne suppriment pas ce compromis de quantification déjà présent. Les compteurs de construction et d'éviction sont cumulatifs depuis l'initialisation du module.
+
+## Lot 22 — robustesse des collisions de labels (24 novembre 2026)
+- [x] Extraire une fonction publique et testable de chevauchement entre deux emprises.
+- [x] Valider les coordonnées et l'ordre des limites avant le calcul.
+- [x] Définir le contact exact entre deux boîtes comme collision afin d'éviter les glyphes accolés.
+- [x] Réutiliser cette règle dans le placement des labels sans changer leur ordre de priorité.
+- [x] Ajouter des tests sur chevauchement, séparation, contact et emprises invalides.
+- [ ] Validation locale : `npm test` et contrôle visuel aux zooms 1, 3, 5 et 10.
+- [ ] CI GitHub Actions du lot à confirmer.
+
