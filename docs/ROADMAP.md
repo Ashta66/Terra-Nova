@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 27 : index spatial du ciblage des labels
+
+- [x] Construire une grille spatiale sur les emprises interactives visibles.
+- [x] Conserver l'indice de dessin original afin de préserver la priorité du dernier label composé.
+- [x] Limiter les candidats du survol à la cellule du pointeur.
+- [x] Gérer les coordonnées et cellules négatives.
+- [x] Répartir les emprises qui traversent plusieurs cellules.
+- [x] Placer les emprises anormalement grandes dans une liste de débordement bornée.
+- [x] Ignorer les emprises invalides lors de la construction de l'index.
+- [x] Revenir à la recherche linéaire si l'index ne correspond pas à la collection interrogée.
+- [x] Reconstruire l'index avec les zones visibles à chaque composition de scène.
+- [x] Ajouter neuf tests couvrant équivalence, bords, chevauchements et cas atypiques.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+L'index accélère la recherche spatiale sans modifier les emprises ni la priorité de sélection existantes.
 ## 24 novembre 2026 — lot 26 : fiabilité du ciblage des labels
 
 - [x] Extraire la résolution du label sous le pointeur dans un module dédié et testable.
