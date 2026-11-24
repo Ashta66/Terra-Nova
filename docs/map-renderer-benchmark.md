@@ -72,6 +72,21 @@ L'export contient les statistiques min, médiane, p95, max et moyenne pour le te
 
 **Lecture des métriques géométriques :** `land-mask-path` mesure la préparation du masque terrestre utilisé pour découper le relief. Lorsque `Path2D` est disponible, les chemins projetés des terres sont réutilisés pour le remplissage et le masque composé est conservé dans un petit cache LRU pour les cellules de viewport identiques. Une baisse de cette métrique indique moins de préparation CPU ; elle ne mesure pas le temps d'exécution GPU.
 
+## Diagnostics et réutilisation du masque terrestre
+
+Le classement Antarctique/non-Antarctique est mémorisé par identité de feature. Les collections GeoJSON statiques étant immuables, les appels suivants évitent de reparcourir leurs coordonnées, y compris les anneaux très détaillés sans bbox. Le découpage entre terres côtières et Antarctique est lui aussi conservé par identité du tableau `features`, avec un ensemble de membership réutilisable pour les chemins de repli.
+
+La classification WebGL des remplissages et des contours est mémorisée par renderer, collection visible et options de diagnostic qui désactivent certaines couches. Les clés de cache tiennent compte de ces options afin qu'un changement de diagnostic ne réutilise pas une classification incompatible. Les caches sont des WeakMap : ils ne prolongent pas artificiellement la durée de vie des collections et des renderers.
+
+L'export de benchmark expose désormais :
+- `geometryCache:antarcticClassificationHits`, `antarcticClassificationMisses` et `antarcticCoordinatesScanned` ;
+- `geometryCache:landFeatureGroupHits` et `landFeatureGroupMisses` ;
+- `geometryCache:landWebGLClassificationHits` et `landWebGLClassificationMisses`.
+
+Un taux de hits élevé accompagné d'un nombre de coordonnées scannées stable confirme la réutilisation des classifications ; il ne prouve pas à lui seul un gain de temps. Comparer `land-mask-path` et `land-feature-classification` avant/après, à zoom, viewport, DPR, renderer et cache identiques.
+
+Le chemin de repli Canvas sans `Path2D` applique explicitement la même exclusion de l'Antarctique que le chemin Path2D. L'aplat neige antarctique reste autonome et inchangé.
+
 ## Généralisation géographique adaptative
 
 Les profils de simplification des côtes et du masque terrestre sont exprimés en pixels projetés. La tolérance et l'aire minimale des anneaux diminuent lorsque le zoom augmente : les vues mondiales éliminent davantage de détails coûteux, tandis que les vues rapprochées restaurent progressivement les petites formes côtières et les îles. Le masque physique reste volontairement plus simplifié que les contours d'habillage, sans inverser cette progression.
