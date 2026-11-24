@@ -17,6 +17,7 @@ import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-labe
 import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { zoomEquirectangularViewportAtPoint, panEquirectangularViewport } from "./world/projection.js";
+import { shouldStartMapPointerGesture, shouldHandleMapPointerGesture, getMapPointerGestureEndState } from "./world/map-pointer-gesture.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
@@ -157,6 +158,7 @@ function getCombinedLabelCollection(base, territories) {
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
+let activeMapPointerId = null;
 let mapCanvas = null;
 function viewSize() {
   const frame = mapCanvas?.parentElement;
@@ -1620,16 +1622,22 @@ $("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
+  if (!shouldStartMapPointerGesture(event, activeMapPointerId)) return;
+  activeMapPointerId = event.pointerId;
   hideMapTooltip();
   mapCanvas.style.cursor = "grabbing";
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapInteractionActive = true;
   cancelMapPrefetch();
   mapCanvas.classList.add("is-dragging");
-  mapCanvas.setPointerCapture?.(event.pointerId);
+  try {
+    if (mapCanvas.setPointerCapture && event.pointerId != null) mapCanvas.setPointerCapture(event.pointerId);
+  } catch (error) {
+    // Le geste reste utilisable si le navigateur refuse exceptionnellement la capture.
+  }
 });
 mapCanvas.addEventListener("pointermove", (event) => {
+  if (mapDrag && !shouldHandleMapPointerGesture(event, activeMapPointerId)) return;
   if (!mapDrag) {
     const rect = mapCanvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -1882,14 +1890,20 @@ function scheduleInteractionRender() {
     renderMap();
   }, INTERACTION_SETTLE_DELAY_MS);
 }
-function stopMapDrag() {
-  if (!mapDrag) return;
-  lastDragMoved = mapDrag.moved;
+function stopMapDrag(event) {
+  if (!mapDrag || (event && !shouldHandleMapPointerGesture(event, activeMapPointerId))) return;
+  const pointerId = activeMapPointerId;
+  const endState = getMapPointerGestureEndState(mapDrag, event?.type ?? "pointerup");
+  lastDragMoved = endState.moved || endState.cancelled;
   mapDrag = null;
+  activeMapPointerId = null;
   mapCanvas.classList.remove("is-dragging");
-  mapCanvas.style.cursor = "grab";
-  if (lastDragMoved) scheduleInteractionRender();
+  mapCanvas.style.cursor = activeGeoEventMode ? "crosshair" : "grab";
+  if (endState.moved) scheduleInteractionRender();
   else mapInteractionActive = false;
+  if (pointerId != null && mapCanvas.hasPointerCapture?.(pointerId)) {
+    try { mapCanvas.releasePointerCapture(pointerId); } catch (error) { /* capture déjà libérée */ }
+  }
 }
 mapCanvas.addEventListener("click", (event) => {
   if (lastDragMoved) { lastDragMoved = false; return; }
@@ -1929,10 +1943,13 @@ mapCanvas.addEventListener("pointerup", stopMapDrag);
 mapCanvas.addEventListener("pointercancel", stopMapDrag);
 mapCanvas.addEventListener("lostpointercapture", stopMapDrag);
 window.addEventListener("blur", () => {
-  if (mapDrag) stopMapDrag();
+  if (mapDrag) stopMapDrag({ pointerId: activeMapPointerId, type: "blur" });
   hideMapTooltip();
 });
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && mapDrag) stopMapDrag({ pointerId: activeMapPointerId, type: "pointercancel" });
+});
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
   hideMapTooltip();
