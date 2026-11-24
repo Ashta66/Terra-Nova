@@ -65,8 +65,12 @@ export function createMapBenchmarkCollector({ environment = globalThis } = {}) {
     add("geometryCache:maxEstimatedBytes", pathCache.maxEstimatedBytes);
     add("geometryCache:projectedPathHits", pathCache.projectedPathCacheHits);
     add("geometryCache:projectedPathMisses", pathCache.projectedPathCacheMisses);
+    add("geometryCache:projectedPathBuilds", pathCache.projectedPathCacheBuilds);
+    add("geometryCache:projectedPathEvictions", pathCache.projectedPathCacheEvictions);
     add("geometryCache:combinedMaskHits", pathCache.combinedLandMaskCacheHits);
     add("geometryCache:combinedMaskMisses", pathCache.combinedLandMaskCacheMisses);
+    add("geometryCache:combinedMaskBuilds", pathCache.combinedLandMaskCacheBuilds);
+    add("geometryCache:combinedMaskEvictions", pathCache.combinedLandMaskCacheEvictions);
     add("geometryCache:combinedMaskEntries", pathCache.combinedLandMaskCacheEntries);
     add("geometryCache:antarcticClassificationHits", pathCache.antarcticClassificationCacheHits);
     add("geometryCache:antarcticClassificationMisses", pathCache.antarcticClassificationCacheMisses);
