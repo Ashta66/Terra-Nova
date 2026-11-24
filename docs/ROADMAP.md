@@ -1,3 +1,21 @@
+## 24 novembre 2026 — lot 34 : cohérence de la navigation cartographique
+
+- [x] Extraire le calcul du zoom ancré dans une fonction pure.
+- [x] Conserver la coordonnée géographique sous le pointeur lors du zoom.
+- [x] Respecter les bornes de zoom minimale et maximale.
+- [x] Centraliser le déplacement horizontal dans une fonction pure.
+- [x] Centraliser le déplacement vertical dans une fonction pure.
+- [x] Utiliser les dimensions réelles du cadre pour convertir les mouvements écran.
+- [x] Normaliser les zooms non finis et les centres géographiques invalides.
+- [x] Ignorer les facteurs de zoom, deltas et dimensions de cadre invalides.
+- [x] Préserver les métadonnées du viewport pendant sa normalisation.
+- [x] Intégrer les fonctions communes aux interactions molette et glisser.
+- [x] Ajouter dix tests de navigation et de robustesse dans `projection.test.js`.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les interactions de zoom et de déplacement partagent désormais les mêmes conversions géographiques et les mêmes garde-fous. Le zoom conserve son point d'ancrage tant que les limites du monde ne nécessitent pas de recentrage.
+
 ## 24 novembre 2026 — lot 33 : cycle de vie des infobulles et capture du pointeur
 
 - [x] Extraire un descripteur pur pour les contenus des infobulles.
@@ -12,7 +30,7 @@
 - [x] Masquer l'infobulle au redimensionnement avant de recalculer la carte.
 - [x] Ajouter dix tests sur les descripteurs et les contenus partiels.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Le déplacement du pointeur sur un label inchangé ne reconstruit plus son DOM. Les interruptions de capture et de focus terminent proprement le glisser sans déclencher plusieurs nettoyages.
 
