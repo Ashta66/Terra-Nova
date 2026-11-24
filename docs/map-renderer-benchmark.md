@@ -43,15 +43,17 @@ Les tests vérifient les calculs, les métadonnées divergentes, les métriques 
 
 ## Collecteur navigateur (branche d'intégration)
 
-Le collecteur est maintenant raccordé aux résultats réels du renderer de la branche d'intégration. Il reste inactif tant qu'il n'est pas démarré depuis la console du navigateur.
+Le collecteur est raccordé aux résultats réels du renderer et ses trois commandes sont exposées sur `window` par `src/main.js`. Il reste inactif tant qu'il n'est pas démarré depuis la console du navigateur.
 
-Démarrer une mesure (préciser le scénario et l'état du cache pour pouvoir comparer deux exports) :
+Après avoir ouvert l'application, attendu le chargement de la carte et vérifié que la console utilise le contexte de la page (pas celui d'une extension ou d'un iframe), démarrer une mesure :
 
 ```js
 window.collectMapBenchmark({ scenario: "zoom-4-pan", cache: "warm" });
 ```
 
-Effectuer ensuite les manipulations voulues (zoom, déplacement ou vue statique), puis exporter :
+La commande renvoie un objet indiquant que la collecte est active. Effectuer ensuite les manipulations voulues. Les données sont ajoutées à chaque rendu cartographique terminé ; une session sans nouveau rendu ne produira donc aucun échantillon.
+
+Exporter et copier le rapport :
 
 ```js
 const report = window.exportMapBenchmark();
@@ -63,6 +65,8 @@ Réinitialiser une session :
 ```js
 window.clearMapBenchmark();
 ```
+
+Si `window.collectMapBenchmark` vaut `undefined`, faire un rechargement forcé (Ctrl+F5), vérifier que `src/main.js` est bien chargé sans erreur dans l'onglet Network/Console, puis réessayer dans le contexte principal de la page. Si le problème persiste, transmettre la première erreur JavaScript apparue au chargement.
 
 L'export contient les statistiques min, médiane, p95, max et moyenne pour le temps total de rendu, les temps par couche, la cadence entre rendus (FPS dérivés), les compteurs de géométrie et, lorsque le navigateur l'expose, la mémoire JS. Les métadonnées incluent dimensions du viewport, DPR, zoom, renderer terrain/géographique, agent utilisateur, scénario et état de cache déclaré.
 
