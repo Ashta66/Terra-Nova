@@ -14,6 +14,7 @@ import { resolveCountryInsignia } from "./game/country-insignia.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
+import { getMapTooltipPosition, formatMapTooltipCoordinates } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
@@ -1623,6 +1624,8 @@ $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
+  hideMapTooltip();
+  mapCanvas.style.cursor = "grabbing";
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapInteractionActive = true;
   cancelMapPrefetch();
@@ -1709,9 +1712,14 @@ function findCampaignCountryForMapHit(hit) {
 }
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
+  const frame = mapCanvas?.parentElement;
+  if (!tooltip || !frame || !label || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+    hideMapTooltip();
+    return;
+  }
   tooltip.replaceChildren();
   const title = document.createElement("strong");
-  title.textContent = label.name;
+  title.textContent = String(label.name ?? "Lieu sans nom");
   const subtitle = document.createElement("span");
   const campaignPreview = !document.body.classList.contains("campaign-started")
     && label.kind === "country" ? findCampaignCountryForMapHit(label) : null;
@@ -1723,19 +1731,32 @@ function showMapTooltip(label, x, y, selected) {
     subtitle.textContent = selected ? "Nation sélectionnée" : "Nation jouable · Cliquez pour choisir";
     tooltip.append(title, subtitle, detail);
   } else {
+    const coordinates = formatMapTooltipCoordinates(label.coordinates);
     subtitle.textContent = selected
-      ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
+      ? `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · ${coordinates ?? "Coordonnées indisponibles"}`
       : `${MAP_LABEL_KIND_NAMES[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
     tooltip.append(title, subtitle);
   }
-  tooltip.hidden = false;
-  tooltip.classList.toggle("is-selected", selected);
+  tooltip.classList.toggle("is-selected", Boolean(selected));
   tooltip.classList.toggle("is-campaign-country", Boolean(campaignPreview));
-  tooltip.style.left = `${Math.min(Math.max(8, x + 14), mapCanvas.parentElement.clientWidth - 220)}px`;
-  tooltip.style.top = `${Math.max(8, y + 14)}px`;
+  tooltip.hidden = false;
+  const position = getMapTooltipPosition(
+    x, y, frame.clientWidth, frame.clientHeight,
+    tooltip.offsetWidth, tooltip.offsetHeight
+  );
+  if (!position) {
+    hideMapTooltip();
+    return;
+  }
+  tooltip.style.maxWidth = position.maxWidth + "px";
+  tooltip.style.maxHeight = position.maxHeight + "px";
+  tooltip.style.overflowY = tooltip.offsetHeight > position.maxHeight ? "auto" : "";
+  tooltip.style.left = position.left + "px";
+  tooltip.style.top = position.top + "px";
 }
 function hideMapTooltip() {
-  $("map-tooltip").hidden = true;
+  const tooltip = $("map-tooltip");
+  if (tooltip) tooltip.hidden = true;
 }
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
@@ -1865,6 +1886,7 @@ function stopMapDrag() {
   if (mapDrag) lastDragMoved = mapDrag.moved;
   mapDrag = null;
   mapCanvas.classList.remove("is-dragging");
+  mapCanvas.style.cursor = "grab";
   if (lastDragMoved) scheduleInteractionRender();
   else mapInteractionActive = false;
 }
@@ -1907,6 +1929,7 @@ mapCanvas.addEventListener("pointercancel", stopMapDrag);
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
+  hideMapTooltip();
   const rect = mapCanvas.getBoundingClientRect();
   const anchorX = event.clientX - rect.left;
   const anchorY = event.clientY - rect.top;
