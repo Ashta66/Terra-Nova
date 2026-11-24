@@ -47,6 +47,19 @@ test("les libellés cartographiques locaux sont francisés", async () => {
   const names = collection.features.map(feature => feature.properties.name);
   assert.ok(names.includes("Amérique du Nord"));
   assert.ok(names.includes("Océan Atlantique"));
+  const regionalSeas = [
+    "Mer Méditerranée", "Mer des Caraïbes", "Mer du Nord", "Mer Baltique",
+    "Mer Rouge", "Mer Noire", "Mer d'Arabie", "Mer de Chine méridionale",
+    "Mer du Japon", "Mer de Béring"
+  ];
+  for (const name of regionalSeas) assert.ok(names.includes(name), `label maritime manquant : ${name}`);
+  const seaFeatures = collection.features.filter(feature => feature.properties.kind === "sea");
+  assert.equal(seaFeatures.length, regionalSeas.length);
+  for (const feature of seaFeatures) {
+    assert.ok(feature.properties.minZoom >= 3 && feature.properties.minZoom <= 5);
+    assert.equal(feature.properties.source, "curated-cartographic-anchor");
+    assert.equal(feature.geometry.type, "Point");
+  }
   assert.ok(names.includes("Pékin"));
   assert.ok(names.includes("Le Caire"));
   assert.ok(!names.some(name => /^(North America|South America|Africa|Asia|Oceania|Antarctica|Atlantic Ocean|Pacific Ocean|Indian Ocean|Arctic Ocean)$/.test(name)));
