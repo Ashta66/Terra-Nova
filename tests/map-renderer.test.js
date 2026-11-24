@@ -956,6 +956,16 @@ test("la localisation couvre les champs formels, les libellés cartographiques e
   assert.equal(localizeMapLabel("Samarkand", "city"), "Samarcande");
   assert.equal(localizeMapLabel("Venice", "city"), "Venise");
   assert.equal(localizeMapLabel("Genoa", "city"), "Gênes");
+  assert.equal(localizeMapLabel("London", "city"), "Londres");
+  assert.equal(localizeMapLabel("New York", "city"), "New York");
+  assert.equal(localizeMapLabel("Alexandria", "city"), "Alexandrie");
+  assert.equal(localizeMapLabel("Cape Town", "city"), "Le Cap");
+  assert.equal(localizeMapLabel("Ho Chi Minh City", "city"), "Hô Chi Minh-Ville");
+  assert.equal(localizeMapLabel("Shanghai", "city"), "Shanghai");
+  assert.equal(localizeMapLabel("Buenos Aires", "city"), "Buenos Aires");
+  assert.equal(localizeMapLabel("Johannesburg", "city"), "Johannesbourg");
+  assert.equal(localizeMapLabel("Delhi", "city"), "Delhi");
+  assert.equal(localizeMapLabel("Montreal", "city"), "Montréal");
   assert.equal(localizeMapLabel("Atlantique", "ocean"), "Atlantique");
   assert.equal(localizeMapLabel("", "city"), "");
 });
