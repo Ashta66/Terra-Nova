@@ -42,8 +42,12 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
     const maxX = Math.floor(bounds.right / size);
     const minY = Math.floor(bounds.top / size);
     const maxY = Math.floor(bounds.bottom / size);
-    const cellCount = (maxX - minX + 1) * (maxY - minY + 1);
-    if (!Number.isSafeInteger(cellCount) || cellCount > MAX_CELLS_PER_HIT) {
+    const coordinatesAreSafe = [minX, maxX, minY, maxY].every(Number.isSafeInteger);
+    const columns = maxX - minX + 1;
+    const rows = maxY - minY + 1;
+    const cellCount = columns * rows;
+    if (!coordinatesAreSafe || !Number.isSafeInteger(cellCount)
+      || columns <= 0 || rows <= 0 || cellCount > MAX_CELLS_PER_HIT) {
       overflow.push(index);
       return;
     }
@@ -56,7 +60,7 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
       }
     }
   });
-  return { hits, cellSize: size, cells, overflow };
+  return { hits, hitCount: hits.length, cellSize: size, cells, overflow };
 }
 
 /** Résout le label supérieur sans créer de collection temporaire pendant le survol. */
@@ -65,7 +69,8 @@ export function findMapLabelHitAtPoint(hits, x, y, index = null) {
   const pointY = Number(y);
   if (!Array.isArray(hits) || !Number.isFinite(pointX) || !Number.isFinite(pointY)) return null;
 
-  const indexed = index?.hits === hits && index.cells instanceof Map
+  const indexed = index?.hits === hits && index.hitCount === hits.length
+    && index.cells instanceof Map
     && Number.isFinite(index.cellSize) && index.cellSize > 0
     && Array.isArray(index.overflow);
   if (indexed) {
