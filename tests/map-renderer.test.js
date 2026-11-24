@@ -143,6 +143,40 @@ test("la classification WebGL des terres est réutilisée pour une collection st
   assert.equal(firstCoastChecks, collection.features.length);
 });
 
+test("le masque Canvas de repli exclut aussi l'Antarctique sans Path2D", () => {
+  const previousPath2D = globalThis.Path2D;
+  const previousAntarcticBase = globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+  delete globalThis.Path2D;
+  globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = true;
+  const countMaskMoves = collection => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1, terrainEnabled: true,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 }
+    });
+    const clipIndex = calls.findIndex(call => call[0] === "clip");
+    return calls.slice(0, clipIndex).filter(call => call[0] === "moveTo").length;
+  };
+  const antarctica = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [-180, -70], [-90, -65], [0, -64], [90, -65], [180, -70],
+      [180, -89], [0, -89], [-180, -89], [-180, -70]
+    ]] }
+  };
+  try {
+    const ordinary = { type: "FeatureCollection", features: [land.features[0]] };
+    const mixed = { type: "FeatureCollection", features: [land.features[0], antarctica] };
+    assert.equal(countMaskMoves(mixed), countMaskMoves(ordinary),
+      "la géométrie antarctique ne doit pas être ajoutée au chemin de clip Canvas");
+  } finally {
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
+    if (previousAntarcticBase === undefined) delete globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+    else globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = previousAntarcticBase;
+  }
+});
+
 test("aucune couche de banquise antarctique indépendante n'est dessinée", () => {
   const { canvas, calls } = createCanvas();
   renderWorldMap(canvas, land, {
