@@ -601,5 +601,16 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Maintenir les repères cartographiques au-dessus des textures et préserver leur lisibilité.
 - [x] Atténuer les matières sur mobile et respecter le mouvement réduit.
 - [x] Ajouter des tests de non-régression dédiés aux six traitements matériels.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des six textures et du relief topographique.
+- [x] Validation locale du joueur : `npm test` et contrôle visuel des six textures et du relief topographique confirmés.
+## Lot prioritaire 6 — profondeur des océans et lecture des côtes (24 novembre 2026)
+- [x] Ajouter un dégradé radial de profondeur aux océans, sans éclaircir excessivement la surface.
+- [x] Conserver le rendu océanique de chaque thème comme couleur de base.
+- [x] Ajouter un liseré côtier très discret pour détacher les continents de la mer.
+- [x] Maintenir le trait de côte distinct des frontières politiques.
+- [x] Réutiliser les profils de simplification et les chemins géographiques déjà calculés.
+- [x] Garder l'Antarctique hors du liseré côtier terrestre standard.
+- [x] Ne modifier ni les données géographiques, ni les projections, ni les règles de simulation.
+- [x] Conserver le rendu Canvas existant lorsque le dégradé radial n'est pas disponible.
+- [x] Ajouter des tests pour la profondeur océanique et le liseré côtier.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des océans et des côtes à plusieurs niveaux de zoom.
 
