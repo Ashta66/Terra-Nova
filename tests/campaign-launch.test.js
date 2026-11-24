@@ -100,3 +100,12 @@ test("la liste de campagne affiche un insigne à côté de chaque nation", () =>
 test("les insignes masqués après échec de chargement ne sont pas réaffichés par le CSS", () => {
   assert.match(css, /\.country-result-insignia\[hidden\],\.dossier-emblem\[hidden\]\{display:none!important\}/);
 });
+
+test("un insigne est masqué si le fichier principal et le drapeau de secours échouent", () => {
+  assert.match(script, /insignia\.dataset\.fallbackAttempted!=="true"/);
+  assert.match(script, /emblem\.dataset\.fallbackAttempted!=="true"/);
+  assert.match(script, /insignia\.hidden=true;insignia\.removeAttribute\("src"\)/);
+  assert.match(script, /emblem\.hidden=true;emblem\.removeAttribute\("src"\)/);
+  assert.doesNotMatch(script, /insignia\.onerror=null/);
+  assert.doesNotMatch(script, /emblem\.onerror=null/);
+});
