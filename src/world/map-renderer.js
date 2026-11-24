@@ -2392,6 +2392,46 @@ export function getMapLabelStyle(kind, theme = {}, fontSize = 12, renderScale = 
   };
 }
 
+/** Calcule une emprise unique pour collision, interaction et placement du marqueur. */
+export function getMapLabelLayout(kind, point, textWidth, fontSize, renderScale = 1) {
+  const scale = Math.max(0.1, Number(renderScale) || 1);
+  const width = Math.max(0, Number(textWidth) || 0);
+  const size = Math.max(1, Number(fontSize) || 1);
+  const x = Number(point?.x) || 0;
+  const pointY = Number(point?.y) || 0;
+  const isCountry = kind === "country";
+  const isCity = kind === "city";
+  const horizontalPadding = (isCountry ? 7 : isCity ? 6 : 4) * scale;
+  const verticalPadding = (isCountry ? 6 : isCity ? 5 : 3) * scale;
+  const labelY = pointY + (isCity ? 5 : 0) * scale;
+  const textLeft = x - width / 2;
+  const box = {
+    left: textLeft - horizontalPadding,
+    right: textLeft + width + horizontalPadding,
+    top: labelY - size - verticalPadding,
+    bottom: labelY + (isCity ? 7 : 4) * scale
+  };
+  const hitPadding = (isCity ? 3 : 1.5) * scale;
+  const hitBounds = {
+    left: box.left - hitPadding,
+    right: box.right + hitPadding,
+    top: box.top - hitPadding,
+    bottom: box.bottom + hitPadding
+  };
+  return {
+    textX: textLeft,
+    textY: labelY,
+    box,
+    hitBounds,
+    marker: isCity ? {
+      x,
+      y: pointY - 1 * scale,
+      radius: 2.2 * scale,
+      lineWidth: 1.2 * scale
+    } : null
+  };
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null, labelDensity = 1) {
   if (!collection?.features) return [];
   const hits = [];
@@ -2429,9 +2469,8 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const style = getMapLabelStyle(kind, theme, fontSize, renderScale);
     context.font = style.font;
     const textWidth = getCachedLabelTextWidth(context, style.font, displayName);
-    const x = point.x - textWidth / 2;
-    const y = point.y + (kind === "city" ? 5 * renderScale : 0);
-    const box = { left: x - (kind === "country" ? 7 : 4) * renderScale, right: x + textWidth + (kind === "country" ? 7 : 4) * renderScale, top: y - fontSize - (kind === "country" ? 6 : 3) * renderScale, bottom: y + (kind === "city" ? 7 : 4) * renderScale };
+    const layout = getMapLabelLayout(kind, point, textWidth, fontSize, renderScale);
+    const { textX: x, textY: y, box } = layout;
     if (labelBoxCollides(box, occupiedCells, collisionCellSize)) continue;
     addLabelBox(box, occupiedCells, collisionCellSize);
     if (kind === "city") cityLabelsDrawn++;
@@ -2446,16 +2485,17 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     context.shadowBlur = style.shadowBlur;
     context.strokeText(displayName, x, y);
     context.fillText(displayName, x, y);
-    if (kind === "city") {
+    if (layout.marker) {
+      context.shadowBlur = 0;
       context.beginPath();
-      context.arc(point.x, point.y - 1 * renderScale, 2.2 * renderScale, 0, Math.PI * 2);
+      context.arc(layout.marker.x, layout.marker.y, layout.marker.radius, 0, Math.PI * 2);
       context.fillStyle = permanentlySubmerged ? "#7f898e" : style.markerFill;
       context.fill();
       context.strokeStyle = style.markerStroke;
-      context.lineWidth = 1.2 * renderScale;
+      context.lineWidth = layout.marker.lineWidth;
       context.stroke();
     }
-    hits.push({ name: displayName, kind, x: point.x, y: point.y, bounds: { left: x - 5 * renderScale, right: x + textWidth + 5 * renderScale, top: y - fontSize - 5 * renderScale, bottom: y + 6 * renderScale }, coordinates: feature.geometry.coordinates });
+    hits.push({ name: displayName, kind, x: point.x, y: point.y, bounds: layout.hitBounds, coordinates: feature.geometry.coordinates });
   }
   context.restore();
   return hits;
