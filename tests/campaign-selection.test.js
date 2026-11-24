@@ -14,7 +14,7 @@ test("les sélecteurs de campagne et sandbox restent synchronisés",()=>{
  assert.match(script,/if\(!selectCampaignCountry\(raw\)\)return/);
 });
 test("une sélection valide efface une erreur de validation précédente",()=>{
- assert.match(script,/\$\("player-country"\)\.setCustomValidity\(" "\)/);
+ assert.match(script,/\$\("player-country"\)\.setCustomValidity\(""\)/);
 });
 test("la sélection met à jour le dossier et son titre de carte",()=>{
  assert.match(script,/renderCountryDossier\(x\)/);
@@ -36,7 +36,7 @@ test("le listbox annonce le nombre de résultats et un état vide accessible",()
  assert.match(script,/empty\.setAttribute\("role","status"\)/);
 });
 test("les insignes de la liste se recalculent lorsque la date est validée",()=>{
- assert.match(script,/startYearSlider\.addEventListener\("change",\(\)=>renderCountryPicker\(\)\)/);
+ assert.match(script,/startYearSlider\.addEventListener\("change",\s*\(\)\s*=>\s*renderCountryPicker\(\)\)/);
 });
 test("le curseur de date annonce son année dès son initialisation et pendant son déplacement",()=>{
  assert.match(script,/startYearSlider\.setAttribute\("aria-valuetext","Année "\+startYearSlider\.value\)/);
