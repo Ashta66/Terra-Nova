@@ -625,4 +625,15 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Conserver la modulation de palette dans le chemin raster tuilé et le fallback Canvas.
 - [x] Ne pas ajouter de tracés de chaînes artificiels ni de lignes décoratives supplémentaires.
 - [x] Ajouter des tests sur les seuils montagneux, les teintes par altitude et l'absence de mutation de la palette source.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des Andes, Rocheuses, Alpes, Himalaya et hauts plateaux à plusieurs zooms.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+
+## Chantier transversal — carte stratégique sans subdivisions administratives (24 novembre 2026)
+- [x] Ne plus télécharger les frontières administratives mondiales 1:110m ni régionales 1:10m lors de l'initialisation de la carte.
+- [x] Ne plus télécharger les polygones destinés aux noms de provinces et régions pour le rendu stratégique.
+- [x] Ne plus générer d'étiquettes de provinces/régions sur la carte stratégique.
+- [x] Retirer les tracés administratifs du chemin Canvas et du chemin WebGL.
+- [x] Conserver les frontières nationales et les territoires politiques historiques.
+- [x] Garder les fonctions et données de chargement administratives disponibles pour une éventuelle carte régionale dédiée.
+- [x] Ajouter des tests garantissant zéro trait administratif et zéro label infranational sur la carte stratégique.
+- [ ] Validation locale : `npm test` et contrôle visuel à faible et fort zoom, en particulier Europe occidentale et France.
