@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2104,6 +2104,34 @@ test("la profondeur océanique adopte une signature discrète pour chaque ère",
   assert.ok(profiles[5].edgeAlpha > profiles[0].edgeAlpha);
 });
 
+test("le budget des labels secondaires s'adapte au zoom et à la densité", () => {
+  const world = getMapLabelCandidateProfile(1, 1);
+  const regional = getMapLabelCandidateProfile(4, 1);
+  const close = getMapLabelCandidateProfile(10, 1);
+  const sparse = getMapLabelCandidateProfile(1, 0.5);
+  const dense = getMapLabelCandidateProfile(1, 1.1);
+  assert.equal(world.candidateLimit, 48);
+  assert.equal(regional.candidateLimit, 180);
+  assert.equal(close.candidateLimit, Infinity);
+  assert.equal(sparse.candidateLimit, 24);
+  assert.equal(dense.candidateLimit, 52);
+  assert.equal(world.cityLabelLimit, 5);
+  assert.equal(sparse.cityLabelLimit, 3);
+  assert.equal(dense.cityLabelLimit, 6);
+  assert.equal(getMapLabelCandidateProfile(1, 0).density, 1);
+  assert.equal(getMapLabelCandidateProfile(NaN, 1).candidateLimit, 48);
+});
+
+test("la taille maritime suit une hiérarchie lisible des océans aux détroits", () => {
+  const ocean = getMapLabelFontSize("ocean", 4);
+  const sea = getMapLabelFontSize("sea", 4);
+  const strait = getMapLabelFontSize("strait", 4);
+  assert.ok(ocean > sea);
+  assert.ok(sea > strait);
+  assert.ok(getMapLabelFontSize("sea", 4, 2) > sea);
+  assert.ok(Number.isFinite(getMapLabelFontSize("strait", NaN, NaN)));
+});
+
 test("la priorité de placement protège les repères maritimes des labels secondaires", () => {
   assert.ok(getMapLabelKindPriority("continent") < getMapLabelKindPriority("ocean"));
   assert.ok(getMapLabelKindPriority("ocean") < getMapLabelKindPriority("sea"));
@@ -2130,5 +2158,8 @@ test("les noms maritimes adoptent une typographie cursive et un contraste mesur�
   assert.equal(ocean.fill, theme.colors.text);
   assert.ok(ocean.alpha < country.alpha);
   assert.ok(ocean.lineWidth < country.lineWidth);
+  assert.ok(regionalSea.alpha < ocean.alpha);
+  assert.ok(strait.alpha < regionalSea.alpha);
+  assert.ok(strait.lineWidth < regionalSea.lineWidth);
   assert.ok(ocean.shadowBlur > 0);
 });
