@@ -9,6 +9,7 @@
 - [x] Réutiliser le style maritime commun sans accentuer artificiellement ces labels.
 - [x] Préserver les repères océaniques et régionaux déjà présents.
 - [x] Ajouter des tests de présence, catégorie, coordonnées et seuils d'apparition.
+- [x] CI GitHub Actions : syntaxe et tests réussis (run 45362993858).
 - [x] Documenter le rôle cartographique indicatif des nouvelles entrées.
 - [ ] Validation locale du joueur : `npm test` et contrôle visuel aux zooms 4 à 7.
 
