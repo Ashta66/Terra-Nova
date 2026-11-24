@@ -313,7 +313,8 @@ test("les infobulles cartographiques exposent les données stratégiques des nat
   assert.match(tooltip, /campaignPreview\.rank/);
   assert.match(tooltip, /campaignPreview\.region/);
   assert.match(tooltip, /"Difficulté " \+ campaignPreview\.difficulty \+ "\/5"/);
-  assert.match(tooltip, /detail: isCampaignCountry/);
+  assert.match(tooltip, /\bdetail,/);
+  assert.match(tooltip, /campaign: isCampaignCountry/);
   assert.match(css, /\.map-tooltip\.is-campaign-country/);
 });
 
