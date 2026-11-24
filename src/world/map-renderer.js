@@ -1066,7 +1066,7 @@ function polygonInteriorLabelPoint(feature) {
 }
 
 export function territoryName(properties = {}) {
-  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "FORMAL_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "FORMAL_EN", "NAME_0", "ADMIN_0", "SOVEREIGNT", "NAME_LONG"]) {
+  for (const key of ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "ADMIN_0_FR", "FORMAL_FR", "formal_fr", "NAME_1_FR", "name_1_fr", "NAME_ALT_FR", "ABBREV_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "NAME_1", "name_1", "FORMAL_EN", "NAME_0", "ADMIN_0", "SOVEREIGNT", "NAME_LONG"]) {
     const value = properties[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
@@ -1533,7 +1533,27 @@ const FRENCH_HISTORICAL_NAMES = {
   "victoria": "Victoria",
   "tasmania": "Tasmanie",
   "western australia": "Australie-Occidentale",
-  "south australia": "Australie-Méridionale"
+  "south australia": "Australie-Méridionale",
+  "north carolina": "Caroline du Nord", "south carolina": "Caroline du Sud",
+  "north dakota": "Dakota du Nord", "south dakota": "Dakota du Sud",
+  "west virginia": "Virginie-Occidentale", "new hampshire": "New Hampshire",
+  "new jersey": "New Jersey", "new mexico": "Nouveau-Mexique",
+  "new york": "New York", "rhode island": "Rhode Island",
+  "district of columbia": "District de Columbia", "pennsylvania": "Pennsylvanie",
+  "california": "Californie", "florida": "Floride", "hawaii": "Hawaï",
+  "louisiana": "Louisiane", "virginia": "Virginie", "alberta": "Alberta",
+  "british columbia": "Colombie-Britannique", "manitoba": "Manitoba",
+  "new brunswick": "Nouveau-Brunswick", "newfoundland": "Terre-Neuve",
+  "nova scotia": "Nouvelle-Écosse", "ontario": "Ontario", "quebec": "Québec",
+  "saskatchewan": "Saskatchewan", "prince edward island": "Île-du-Prince-Édouard",
+  "northwest territories": "Territoires du Nord-Ouest", "western cape": "Cap-Occidental",
+  "eastern cape": "Cap-Oriental", "gujarat": "Gujarat", "punjab": "Pendjab",
+  "west bengal": "Bengale-Occidental", "tamil nadu": "Tamil Nadu",
+  "andhra pradesh": "Andhra Pradesh", "kerala": "Kérala",
+  "hainan": "Hainan", "sichuan": "Sichuan", "yunnan": "Yunnan",
+  "guangdong": "Guangdong", "shandong": "Shandong", "zhejiang": "Zhejiang",
+  "hokkaido": "Hokkaidō", "honshu": "Honshū", "kyushu": "Kyūshū",
+  "north island": "Île du Nord", "south island": "Île du Sud"
 };
 
 const FRENCH_MAP_PLACE_NAMES = Object.freeze({
@@ -1598,7 +1618,7 @@ const frenchRegionNames = typeof Intl !== "undefined" && Intl.DisplayNames
 const ISO3_TO_ISO2 = {"AFG":"AF","ALB":"AL","DZA":"DZ","AND":"AD","AGO":"AO","ATG":"AG","ARG":"AR","ARM":"AM","AUS":"AU","AUT":"AT","AZE":"AZ","BHS":"BS","BHR":"BH","BGD":"BD","BRB":"BB","BLR":"BY","BEL":"BE","BLZ":"BZ","BEN":"BJ","BTN":"BT","BOL":"BO","BIH":"BA","BWA":"BW","BRA":"BR","BRN":"BN","BGR":"BG","BFA":"BF","BDI":"BI","CPV":"CV","KHM":"KH","CMR":"CM","CAN":"CA","CAF":"CF","TCD":"TD","CHL":"CL","CHN":"CN","COL":"CO","COM":"KM","COG":"CG","COD":"CD","CRI":"CR","CIV":"CI","HRV":"HR","CUB":"CU","CYP":"CY","CZE":"CZ","DNK":"DK","DJI":"DJ","DMA":"DM","DOM":"DO","ECU":"EC","EGY":"EG","SLV":"SV","GNQ":"GQ","ERI":"ER","EST":"EE","SWZ":"SZ","ETH":"ET","FJI":"FJ","FIN":"FI","FRA":"FR","GAB":"GA","GMB":"GM","GEO":"GE","DEU":"DE","GHA":"GH","GRC":"GR","GRD":"GD","GTM":"GT","GIN":"GN","GNB":"GW","GUY":"GY","HTI":"HT","HND":"HN","HUN":"HU","ISL":"IS","IND":"IN","IDN":"ID","IRN":"IR","IRQ":"IQ","IRL":"IE","ISR":"IL","ITA":"IT","JAM":"JM","JPN":"JP","JOR":"JO","KAZ":"KZ","KEN":"KE","KIR":"KI","PRK":"KP","KOR":"KR","KWT":"KW","KGZ":"KG","LAO":"LA","LVA":"LV","LBN":"LB","LSO":"LS","LBR":"LR","LBY":"LY","LIE":"LI","LTU":"LT","LUX":"LU","MDG":"MG","MWI":"MW","MYS":"MY","MDV":"MV","MLI":"ML","MLT":"MT","MHL":"MH","MRT":"MR","MUS":"MU","MEX":"MX","FSM":"FM","MDA":"MD","MCO":"MC","MNG":"MN","MNE":"ME","MAR":"MA","MOZ":"MZ","MMR":"MM","NAM":"NA","NRU":"NR","NPL":"NP","NLD":"NL","NZL":"NZ","NIC":"NI","NER":"NE","NGA":"NG","MKD":"MK","NOR":"NO","OMN":"OM","PAK":"PK","PLW":"PW","PAN":"PA","PNG":"PG","PRY":"PY","PER":"PE","PHL":"PH","POL":"PL","PRT":"PT","QAT":"QA","ROU":"RO","RUS":"RU","RWA":"RW","KNA":"KN","LCA":"LC","VCT":"VC","WSM":"WS","SMR":"SM","STP":"ST","SAU":"SA","SEN":"SN","SRB":"RS","SYC":"SC","SLE":"SL","SGP":"SG","SVK":"SK","SVN":"SI","SLB":"SB","SOM":"SO","ZAF":"ZA","SSD":"SS","ESP":"ES","LKA":"LK","SDN":"SD","SUR":"SR","SWE":"SE","CHE":"CH","SYR":"SY","TWN":"TW","TJK":"TJ","TZA":"TZ","THA":"TH","TLS":"TL","TGO":"TG","TON":"TO","TTO":"TT","TUN":"TN","TUR":"TR","TKM":"TM","TUV":"TV","UGA":"UG","UKR":"UA","ARE":"AE","GBR":"GB","USA":"US","URY":"UY","UZB":"UZ","VUT":"VU","VAT":"VA","VEN":"VE","VNM":"VN","YEM":"YE","ZMB":"ZM","ZWE":"ZW","XKX":"XK"};
 
 export function frenchTerritoryName(value, properties = {}) {
-  const frenchSource = ["NAME_FR", "name_fr", "name_french", "ADMIN_FR"]
+  const frenchSource = ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "ADMIN_0_FR", "FORMAL_FR", "formal_fr", "NAME_1_FR", "name_1_fr", "NAME_ALT_FR", "ABBREV_FR"]
     .map(key => properties?.[key]).find(candidate => typeof candidate === "string" && candidate.trim());
   const raw = String(frenchSource ?? value ?? territoryName(properties) ?? "").trim();
   if (!raw) return "";
@@ -1607,11 +1627,12 @@ export function frenchTerritoryName(value, properties = {}) {
   if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
   if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
   if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
-  const administrativeForm = key.match(/^(kingdom|empire|duchy|principality|republic|sultanate|khanate|emirate|county|province|colony|territory) of (.+)$/);
+  const administrativeForm = key.match(/^(kingdom|empire|duchy|principality|republic|sultanate|khanate|emirate|county|province|colony|territory|state|region|department|district|governorate|prefecture) of (.+)$/);
   if (administrativeForm) {
     const prefixes = { kingdom: "Royaume", empire: "Empire", duchy: "Duché", principality: "Principauté",
       republic: "République", sultanate: "Sultanat", khanate: "Khanat", emirate: "Émirat",
-      county: "Comté", province: "Province", colony: "Colonie", territory: "Territoire" };
+      county: "Comté", province: "Province", colony: "Colonie", territory: "Territoire",
+      state: "État", region: "Région", department: "Département", district: "District", governorate: "Gouvernorat", prefecture: "Préfecture" };
     const place = FRENCH_HISTORICAL_NAMES[administrativeForm[2]];
     if (place) {
       const form = administrativeForm[1];
