@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 18 : golfes, baies et détroits
+
+- [x] Étendre la nomenclature aux grands golfes et baies stratégiques.
+- [x] Ajouter les golfes du Mexique, de Guinée, Persique, d'Aden, d'Alaska et de Californie.
+- [x] Ajouter la baie du Bengale et les mers Adriatique, Égée, de Corail et des Philippines.
+- [x] Ajouter des passages maritimes majeurs : Manche, Gibraltar, Malacca et Mozambique.
+- [x] Définir des seuils de zoom progressifs, plus élevés pour les passages étroits.
+- [x] Conserver des ancres ponctuelles indicatives et distinctes des données hydrographiques.
+- [x] Réutiliser le style maritime commun sans accentuer artificiellement ces labels.
+- [x] Préserver les repères océaniques et régionaux déjà présents.
+- [x] Ajouter des tests de présence, catégorie, coordonnées et seuils d'apparition.
+- [x] Documenter le rôle cartographique indicatif des nouvelles entrées.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel aux zooms 4 à 7.
+
+Les ancres des golfes, baies et passages sont des points d'étiquetage, non des géométries de navigation ou des limites maritimes.
+
 ## 24 novembre 2026 — lot 17 : nomenclature des mers et bassins régionaux
 
 - [x] Étendre les toponymes maritimes au-delà des seuls océans.
@@ -10,7 +26,8 @@
 - [x] Ajouter des tests de couverture, d'identifiants et de seuils de zoom.
 - [x] Préserver le format GeoJSON et les métadonnées de provenance.
 - [x] Documenter le caractère indicatif des points d'ancrage.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel des collisions aux zooms 1, 3 et 5.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des collisions aux zooms 1, 3 et 5.
 
 Les points sont des ancres typographiques indicatives et non des limites hydrographiques. Les labels régionaux apparaissent progressivement afin de ne pas encombrer la vue mondiale.
 
