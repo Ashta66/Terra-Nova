@@ -2506,15 +2506,19 @@ export function fitMapLabelLayoutToViewport(layout, width, height, margin = 8) {
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)
     || viewportWidth <= safeMargin * 2 || viewportHeight <= safeMargin * 2) return null;
   const box = layout.box;
-  if (![box.left, box.right, box.top, box.bottom].every(Number.isFinite)
-    || box.left > box.right || box.top > box.bottom) return null;
+  const hitBounds = layout.hitBounds;
+  if (![box.left, box.right, box.top, box.bottom,
+    hitBounds.left, hitBounds.right, hitBounds.top, hitBounds.bottom].every(Number.isFinite)
+    || box.left > box.right || box.top > box.bottom
+    || hitBounds.left > hitBounds.right || hitBounds.top > hitBounds.bottom) return null;
   const availableWidth = viewportWidth - safeMargin * 2;
   const availableHeight = viewportHeight - safeMargin * 2;
-  if (box.right - box.left > availableWidth || box.bottom - box.top > availableHeight) return null;
-  const dx = box.left < safeMargin ? safeMargin - box.left
-    : box.right > viewportWidth - safeMargin ? viewportWidth - safeMargin - box.right : 0;
-  const dy = box.top < safeMargin ? safeMargin - box.top
-    : box.bottom > viewportHeight - safeMargin ? viewportHeight - safeMargin - box.bottom : 0;
+  if (hitBounds.right - hitBounds.left > availableWidth
+    || hitBounds.bottom - hitBounds.top > availableHeight) return null;
+  const dx = hitBounds.left < safeMargin ? safeMargin - hitBounds.left
+    : hitBounds.right > viewportWidth - safeMargin ? viewportWidth - safeMargin - hitBounds.right : 0;
+  const dy = hitBounds.top < safeMargin ? safeMargin - hitBounds.top
+    : hitBounds.bottom > viewportHeight - safeMargin ? viewportHeight - safeMargin - hitBounds.bottom : 0;
   const shiftBounds = bounds => ({
     left: bounds.left + dx, right: bounds.right + dx,
     top: bounds.top + dy, bottom: bounds.bottom + dy
