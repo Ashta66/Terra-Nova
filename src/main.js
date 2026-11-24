@@ -33,6 +33,14 @@ import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy
 import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
+
+// Expose le collecteur pour les sessions de mesure manuelles depuis DevTools.
+// Les échantillons ne sont enregistrés qu'à la fin d'un rendu cartographique.
+if (typeof window !== "undefined") {
+  window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
+  window.exportMapBenchmark = options => mapBenchmarkCollector.exportResults(options);
+  window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
+}
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
   : null;
