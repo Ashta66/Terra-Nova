@@ -73,6 +73,76 @@ test("le masque du relief exclut la géométrie antarctique", () => {
   }
 });
 
+test("la classification antarctique est mémorisée entre deux cellules de viewport", async () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+    const ring = Array.from({ length: 2400 }, (_, index) => {
+      const longitude = -180 + (index % 1200) * (360 / 1199);
+      const latitude = index < 1200 ? -70 : -89;
+      return [longitude, latitude];
+    });
+    ring.push(ring[0]);
+    const ordinaryLand = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+    };
+    const antarctica = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [ring] }
+    };
+    const collection = { type: "FeatureCollection", features: [ordinaryLand, antarctica] };
+    const before = getProjectedPathCacheStats();
+    buildLandClipPath(collection, 640, 320,
+      { type: "equirectangular", viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 } });
+    const first = getProjectedPathCacheStats();
+    buildLandClipPath(collection, 640, 320,
+      { type: "equirectangular", viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 } });
+    const second = getProjectedPathCacheStats();
+    assert.equal(first.antarcticClassificationCacheMisses - before.antarcticClassificationCacheMisses, 2);
+    assert.equal(second.antarcticClassificationCacheMisses, first.antarcticClassificationCacheMisses);
+    assert.ok(second.antarcticClassificationCacheHits > first.antarcticClassificationCacheHits);
+    assert.equal(second.antarcticClassificationCoordinatesScanned, first.antarcticClassificationCoordinatesScanned);
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
+
+test("la classification WebGL des terres est réutilisée pour une collection stable", () => {
+  const { canvas } = createCanvas();
+  const collection = { type: "FeatureCollection", features: [
+    land.features[0],
+    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[20, 0], [30, 0], [30, 10], [20, 0]]] } }
+  ] };
+  let fillChecks = 0, coastChecks = 0;
+  const geographicWebGLRenderer = {
+    canvas: {},
+    supports: () => { fillChecks++; return true; },
+    supportsBoundary: () => { coastChecks++; return true; },
+    renderLayers: () => ({})
+  };
+  const options = {
+    width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    geographicWebGLRenderer
+  };
+  renderWorldMap(canvas, collection, options);
+  const firstFillChecks = fillChecks, firstCoastChecks = coastChecks;
+  renderWorldMap(canvas, collection, options);
+  assert.equal(fillChecks, firstFillChecks);
+  assert.equal(coastChecks, firstCoastChecks);
+  assert.equal(firstFillChecks, collection.features.length);
+  assert.equal(firstCoastChecks, collection.features.length);
+});
+
 test("aucune couche de banquise antarctique indépendante n'est dessinée", () => {
   const { canvas, calls } = createCanvas();
   renderWorldMap(canvas, land, {
