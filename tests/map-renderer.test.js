@@ -1954,9 +1954,11 @@ test("la simplification Douglas-Peucker conserve les extrémités et ferme les a
 
 test("le fond océanique reçoit une profondeur radiale douce", () => {
   const { canvas, calls } = createCanvas();
-  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
-  assert.ok(calls.some(call => call[0] === "createRadialGradient"));
-  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[1] === 1 && call[2] === "rgba(0,0,0,0.24)"));
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  const profile = getOceanDepthProfile(result.theme);
+  assert.ok(calls.filter(call => call[0] === "createRadialGradient").length >= 2);
+  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[1] === 1 && call[2] === `rgba(0,0,0,${profile.edgeAlpha})`));
+  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[2] === `rgba(255,255,255,${profile.shelfAlpha})`));
 });
 test("le moteur ajoute un liseré côtier discret après le remplissage terrestre", () => {
   const { canvas, calls } = createCanvas();
