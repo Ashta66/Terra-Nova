@@ -595,6 +595,246 @@
           58
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe du Mexique",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -90,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe de Guinée",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0,
+          2
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe Persique",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52,
+          27
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe d'Aden",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48,
+          12
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe d'Alaska",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -148,
+          58
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Golfe de Californie",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -111,
+          27
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Baie du Bengale",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88,
+          14
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Adriatique",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          17,
+          42
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Égée",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25,
+          38.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer de Corail",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          155,
+          -18
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer des Philippines",
+        "kind": "sea",
+        "minZoom": 5,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          130,
+          18
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "La Manche",
+        "kind": "strait",
+        "minZoom": 6,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2,
+          50.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Détroit de Gibraltar",
+        "kind": "strait",
+        "minZoom": 6,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.5,
+          36
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Détroit de Malacca",
+        "kind": "strait",
+        "minZoom": 6,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          100.5,
+          3
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Canal du Mozambique",
+        "kind": "strait",
+        "minZoom": 6,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43,
+          -17
+        ]
+      }
     }
   ]
 }
