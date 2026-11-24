@@ -1598,7 +1598,7 @@ export function buildTerritoryLabels(territories, provinces = null) {
     if (!name || !point || !point.every(Number.isFinite)) continue;
     features.push({
       type: "Feature",
-      properties: { name, kind: "country", minZoom: 1.25, priority: 90 },
+      properties: { name, kind: "country", minZoom: 1, priority: 90 },
       geometry: { type: "Point", coordinates: point }
     });
   }
