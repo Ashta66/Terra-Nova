@@ -1644,3 +1644,13 @@ body.campaign-started .campaign-launch{display:none}
 .dossier-emblem{overflow:hidden;flex:0 0 48px;width:48px;height:34px;min-height:34px;border:1px solid color-mix(in srgb,var(--theme-accent,#c5a66a) 72%,#fff);border-radius:3px;background:linear-gradient(145deg,#34474a,#18272d);box-shadow:0 3px 10px #0008,inset 0 1px #ffffff35;font-size:25px;line-height:1}
 .dossier-emblem--flag{font-family:"Apple Color Emoji","Segoe UI Emoji",sans-serif;font-size:27px;background:#101820;filter:drop-shadow(0 1px 1px #0008)}
 .dossier-emblem--crest{border-radius:48% 48% 42% 42%;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);background:radial-gradient(circle at 50% 30%,#52645b,#1b2b30 72%);color:var(--theme-accent,#e5d2a8);text-shadow:0 1px 5px #000}
+
+
+/* Insignes visibles dans la liste de sélection des nations. */
+.country-result-heading{display:flex;align-items:center;gap:9px;min-width:0}
+.country-result-insignia{display:grid;place-items:center;flex:0 0 34px;width:34px;height:29px;overflow:hidden;border:1px solid color-mix(in srgb,var(--theme-accent,#c5a66a) 68%,#fff);border-radius:4px;background:linear-gradient(145deg,#35494b,#17262c);box-shadow:0 2px 7px #0008,inset 0 1px #ffffff30;color:#f0d79e;font:23px/1 "Apple Color Emoji","Segoe UI Emoji",serif;text-shadow:0 1px 4px #000}
+.country-result-insignia.is-crest{clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);border-radius:7px 7px 12px 12px;background:radial-gradient(circle at 50% 28%,#52645b,#1b2b30 76%)}
+.country-result-insignia.is-flag{font-size:24px;background:#101820}
+.country-result-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.country-result:hover .country-result-insignia,.country-result.is-selected .country-result-insignia{border-color:var(--theme-accent,#d9b878);box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent,#d9b878) 28%,transparent),0 3px 10px #0009}
+@media(max-width:600px){.country-result-insignia{flex-basis:30px;width:30px;height:26px;font-size:20px}.country-result-heading{gap:7px}}
