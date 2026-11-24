@@ -1271,7 +1271,7 @@ function selectCampaignCountry(raw,{restoreFocus=false}={}){
  if(!document.body.classList.contains("campaign-started"))$("map-title").textContent=x.label+" · "+state.clock.date.slice(0,4);
  renderCountryDossier(x);
  renderCountryPicker();
- if(restoreFocus)$("country-results").querySelector('[data-country="'+CSS.escape(x.raw)+'"]')?.focus();
+ if(restoreFocus)[...$("country-results").querySelectorAll(".country-result")].find(button=>button.dataset.country===x.raw)?.focus();
  if(!mapWarmupPromise)void startMapWarmup();
  scheduleMapIndexWarmup();
  renderMap();
@@ -1342,6 +1342,7 @@ function updateStartYearSliderProgress() {
 }
 updateStartYearSliderProgress();
 startYearSlider.setAttribute("aria-valuetext","Année "+startYearSlider.value);
+startYearSlider.addEventListener("change", () => renderCountryPicker());
 startYearSlider.addEventListener("input", event => {
   const year = Number(event.target.value);
   updateStartYearSliderProgress();
@@ -1350,7 +1351,6 @@ startYearSlider.addEventListener("input", event => {
   state.clock.day = 1;
   $("map-title").textContent = (campaignCountries.find(item => item.raw === previewCountry)?.label || "Le monde") + " · " + year;
   startYearSlider.setAttribute("aria-valuetext", "Année "+year);
-  renderCountryPicker();
   const selectedPreview = campaignCountries.find(item => item.raw === previewCountry);
   if (selectedPreview) renderCountryDossier(selectedPreview);
   render();
