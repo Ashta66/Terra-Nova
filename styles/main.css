@@ -1654,3 +1654,6 @@ body.campaign-started .campaign-launch{display:none}
 .country-result-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .country-result:hover .country-result-insignia,.country-result.is-selected .country-result-insignia{border-color:var(--theme-accent,#d9b878);box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent,#d9b878) 28%,transparent),0 3px 10px #0009}
 @media(max-width:600px){.country-result-insignia{flex-basis:32px;width:32px;height:27px}.country-result-insignia.is-crest{height:34px}.country-result-heading{gap:7px}}
+
+/* Les insignes absents ou dont le chargement échoue doivent réellement disparaître. */
+.country-result-insignia[hidden],.dossier-emblem[hidden]{display:none!important}
