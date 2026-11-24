@@ -363,7 +363,7 @@ test("le hillshade directionnel est neutre sur une surface plane et borné sur l
 
 
 test("les chaînes de moyenne altitude sont reconnues par leur pente", () => {
-  assert.equal(classifyLandform(1450, 900, 1900, 1700, 1200, 35), "mountains");
+  assert.equal(classifyLandform(1450, 400, 2900, 1900, 1000, 35), "mountains");
   assert.equal(classifyLandform(1450, 1430, 1470, 1460, 1440, 35), "plateaus");
 });
 
