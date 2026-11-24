@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, getMapLabelStyle, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2102,6 +2102,16 @@ test("la profondeur océanique adopte une signature discrète pour chaque ère",
     assert.ok(profile.shelfRadius >= 0.45 && profile.shelfRadius <= 0.6);
   }
   assert.ok(profiles[5].edgeAlpha > profiles[0].edgeAlpha);
+});
+
+test("la priorité de placement protège les repères maritimes des labels secondaires", () => {
+  assert.ok(getMapLabelKindPriority("continent") < getMapLabelKindPriority("ocean"));
+  assert.ok(getMapLabelKindPriority("ocean") < getMapLabelKindPriority("sea"));
+  assert.ok(getMapLabelKindPriority("sea") < getMapLabelKindPriority("strait"));
+  assert.ok(getMapLabelKindPriority("strait") < getMapLabelKindPriority("country"));
+  assert.ok(getMapLabelKindPriority("country") < getMapLabelKindPriority("province"));
+  assert.ok(getMapLabelKindPriority("province") < getMapLabelKindPriority("city"));
+  assert.equal(getMapLabelKindPriority("unknown"), 7);
 });
 
 test("les noms maritimes adoptent une typographie cursive et un contraste mesuré", async () => {
