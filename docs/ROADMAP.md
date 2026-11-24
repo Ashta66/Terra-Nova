@@ -1,3 +1,21 @@
+## 24 novembre 2026 — lot 32 : stabilité et placement des infobulles cartographiques
+
+- [x] Extraire le calcul de position des infobulles dans un module pur et testable.
+- [x] Positionner l'infobulle à proximité du pointeur lorsque l'espace est disponible.
+- [x] Inverser horizontalement le placement près du bord droit.
+- [x] Inverser verticalement le placement près du bord inférieur.
+- [x] Contraindre la position aux marges du cadre cartographique.
+- [x] Limiter la largeur et la hauteur aux dimensions réellement disponibles.
+- [x] Refuser les dimensions et coordonnées de placement non finies ou négatives.
+- [x] Valider et formater les coordonnées géographiques avant affichage.
+- [x] Afficher un libellé de remplacement lorsque les coordonnées sont absentes ou invalides.
+- [x] Masquer l'infobulle pendant le début d'un glisser ou un zoom à la molette et rétablir le curseur au relâchement.
+- [x] Ajouter dix tests de placement, de limites et de robustesse des coordonnées.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les infobulles restent désormais dans le cadre de la carte, s'adaptent aux bords et ne supposent plus que chaque label possède des coordonnées valides.
+
 ## 24 novembre 2026 — lot 31 : publication atomique des interactions cartographiques
 
 - [x] Construire les nouvelles zones de labels dans une collection temporaire dédiée.
@@ -11,7 +29,7 @@
 - [x] Revenir à la recherche linéaire lorsqu'un bucket spatial est mal formé.
 - [x] Ajouter dix tests sur la cohérence des snapshots, les buckets et les emprises dégénérées.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 La composition ne modifie plus en place la collection consultée par le pointeur : chaque rendu publie un couple cohérent « zones interactives + index spatial ».
 
