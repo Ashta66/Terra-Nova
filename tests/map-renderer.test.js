@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2201,4 +2201,22 @@ test("les noms maritimes adoptent une typographie cursive et un contraste mesur�
   assert.ok(strait.alpha < regionalSea.alpha);
   assert.ok(strait.lineWidth < regionalSea.lineWidth);
   assert.ok(ocean.shadowBlur > 0);
+});
+
+
+test("les collisions de labels distinguent chevauchement, contact et séparation", () => {
+  const base = { left: 10, right: 30, top: 10, bottom: 20 };
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 20, right: 40, top: 15, bottom: 25 }), true);
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 30.01, right: 40, top: 10, bottom: 20 }), false);
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 30, right: 40, top: 10, bottom: 20 }), true,
+    "un contact exact reste bloquant pour éviter les glyphes collés");
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 10, right: 30, top: 20.01, bottom: 30 }), false);
+});
+
+test("les emprises invalides ne créent pas de collision cartographique", () => {
+  const valid = { left: 0, right: 10, top: 0, bottom: 10 };
+  assert.equal(doMapLabelBoxesOverlap(valid, null), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 12, right: 8, top: 0, bottom: 10 }), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: NaN, bottom: 10 }), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: 2, bottom: Infinity }), false);
 });
