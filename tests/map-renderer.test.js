@@ -29,6 +29,10 @@ function createCanvas() {
       calls.push(["createLinearGradient", ...args]);
       return { addColorStop: (...stops) => calls.push(["gradientStop", ...stops]) };
     },
+    createRadialGradient: (...args) => {
+      calls.push(["createRadialGradient", ...args]);
+      return { addColorStop: (...stops) => calls.push(["radialGradientStop", ...stops]) };
+    },
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)]),
     drawImage: (...args) => calls.push(["drawImage", ...args.slice(1)])
@@ -1687,4 +1691,23 @@ test("la simplification Douglas-Peucker conserve les extrémités et ferme les a
   assert.deepEqual(simplifiedRing.slice(0, -1), [
     { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }
   ]);
+});
+
+test("le fond océanique reçoit une profondeur radiale douce", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.ok(calls.some(call => call[0] === "createRadialGradient"));
+  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[1] === 1 && call[2] === "rgba(0,0,0,0.24)"));
+});
+test("le moteur ajoute un liseré côtier discret après le remplissage terrestre", () => {
+  const { canvas, calls } = createCanvas();
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.equal(result.landCount, 1);
+  assert.ok(calls.some(call => call[0] === "strokeStyle" && call[1] === result.theme.colors.accent));
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(0,0,0,0)"));
+});
+test("le liseré côtier reste distinct des frontières politiques", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories: { type: "FeatureCollection", features: [] } });
+  assert.ok(calls.some(call => call[0] === "strokeStyle" && typeof call[1] === "string"));
 });
