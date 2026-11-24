@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 16 : profondeur océanique et toponymie maritime
+
+- [x] Définir un profil de profondeur océanique par ère historique.
+- [x] Renforcer progressivement la profondeur périphérique sans assombrir brutalement le centre.
+- [x] Ajouter une lumière diffuse évoquant les plateaux continentaux, sans prétendre représenter une bathymétrie réelle.
+- [x] Conserver un profil discret pour les ères anciennes et une profondeur plus marquée pour le futur.
+- [x] Borner les opacités et rayons pour éviter les aplats trop contrastés.
+- [x] Adapter la typographie des noms maritimes avec une variante italique.
+- [x] Utiliser la couleur de texte thématique pour garder un contraste stable selon l'époque.
+- [x] Réduire l'emphase des mers et océans par rapport aux pays.
+- [x] Préserver les dimensions de rendu et le cache statique existants.
+- [x] Ajouter des tests sur les six profils et la hiérarchie typographique maritime.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des océans sur les six ères, aux zooms monde et régional.
+
+La lumière ajoutée est un traitement graphique d'ambiance, pas une donnée scientifique de profondeur. Aucune géométrie, donnée hydrographique ou règle de simulation n'est modifiée.
+
 ## 24 novembre 2026 — lot 15 : précision des emprises et interactions des labels
 
 - [x] Centraliser le calcul de position des textes, marges de collision et emprises interactives.
@@ -10,7 +26,8 @@
 - [x] Borner les mesures invalides pour éviter les rectangles NaN ou infinis.
 - [x] Préserver les priorités et l'ordre de collision existants.
 - [x] Ajouter des tests pour pays, villes, continents, échelles et valeurs invalides.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel des clics/infobulles sur les labels.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des clics/infobulles sur les labels.
 
 Le lot ne modifie ni les données géographiques, ni les priorités de sélection, ni les règles d'apparition des noms. La qualité de ciblage doit être confirmée dans le navigateur.
 
