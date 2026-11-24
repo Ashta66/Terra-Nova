@@ -308,8 +308,12 @@ test("les infobulles cartographiques exposent les données stratégiques des nat
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
   assert.match(js, /function normalizeCampaignCountryName\(value\)/);
   assert.match(js, /function findCampaignCountryForMapHit\(hit\)/);
-  assert.match(js, /campaignPreview\.rank \+ " · " \+ campaignPreview\.region/);
-  assert.match(js, /"Difficulté " \+ campaignPreview\.difficulty \+ "\/5"/);
+  const tooltip = readFileSync(new URL("../src/world/map-tooltip-layout.js", import.meta.url), "utf8");
+  assert.match(js, /getMapTooltipDescriptor\(label, selected, campaignPreview, MAP_LABEL_KIND_NAMES\)/);
+  assert.match(tooltip, /campaignPreview\.rank/);
+  assert.match(tooltip, /campaignPreview\.region/);
+  assert.match(tooltip, /"Difficulté " \+ campaignPreview\.difficulty \+ "\/5"/);
+  assert.match(tooltip, /detail: isCampaignCountry/);
   assert.match(css, /\.map-tooltip\.is-campaign-country/);
 });
 
