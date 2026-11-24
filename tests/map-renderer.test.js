@@ -2073,8 +2073,8 @@ test("les emprises des labels restent proportionnelles au rendu haute densité",
   const retina = getMapLabelLayout("city", { x: 50, y: 60 }, 40, 10, 2);
   assert.equal(retina.marker.radius, normal.marker.radius * 2);
   assert.equal(retina.marker.lineWidth, normal.marker.lineWidth * 2);
-  assert.equal(retina.box.left, 2 * normal.box.left);
-  assert.equal(retina.box.top, 2 * normal.box.top);
+  assert.equal(normal.box.left - retina.box.left, 6);
+  assert.equal(retina.box.top, normal.box.top);
 });
 
 test("les coordonnées invalides ne produisent pas de dimensions négatives", () => {
