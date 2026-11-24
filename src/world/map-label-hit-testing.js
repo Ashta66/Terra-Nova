@@ -82,7 +82,14 @@ export function findMapLabelHitAtPoint(hits, x, y, index = null) {
       }
       return null;
     }
-    const local = index.cells.get(cellX + ":" + cellY) ?? [];
+    const localBucket = index.cells.get(cellX + ":" + cellY);
+    if (localBucket !== undefined && !Array.isArray(localBucket)) {
+      for (let hitIndex = hits.length - 1; hitIndex >= 0; hitIndex--) {
+        if (containsPoint(hits[hitIndex], pointX, pointY)) return hits[hitIndex];
+      }
+      return null;
+    }
+    const local = localBucket ?? [];
     const overflow = index.overflow;
     let localPosition = local.length - 1;
     let overflowPosition = overflow.length - 1;
