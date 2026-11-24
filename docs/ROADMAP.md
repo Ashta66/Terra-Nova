@@ -1,3 +1,34 @@
+## 24 novembre 2026 — lot 24 : intégrité des emprises et collisions interactives
+
+- [x] Normaliser les coordonnées numériques avant les comparaisons d'emprises, y compris lorsqu'elles sont fournies sous forme de chaînes.
+- [x] Conserver les coordonnées négatives valides et rejeter les rectangles inversés ou non finis.
+- [x] Valider les coordonnées du texte et du marqueur avant tout ajustement au viewport.
+- [x] Normaliser les bornes et les métriques du marqueur avant de calculer les décalages.
+- [x] Utiliser les zones interactives complètes pour détecter les collisions, pas seulement les rectangles typographiques.
+- [x] Inscrire ces mêmes zones interactives dans la grille spatiale afin que placement et ciblage restent cohérents.
+- [x] Préserver ensemble texte, marqueur, emprise visuelle et zone de clic lors du repositionnement.
+- [x] Ajouter des tests sur les chaînes numériques, coordonnées négatives, valeurs invalides et collisions de labels rendus.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Ce lot privilégie la cohérence des interactions : deux labels ne peuvent plus se superposer uniquement parce que leurs glyphes sont séparés alors que leurs zones de clic se recouvrent.
+
+## 24 novembre 2026 — lot 23 : placement sûr dans le viewport
+
+- [x] Ajuster ensemble texte, marqueur, emprise et zone interactive aux marges du viewport.
+- [x] Rejeter les labels trop grands ou les viewports invalides.
+- [x] Garantir que la zone interactive complète reste dans la marge sûre.
+- [x] Ajouter des tests sur les bords gauche, inférieur, les emprises excessives et le placement sans décalage.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+## 24 novembre 2026 — lot 22 : robustesse des collisions de labels
+
+- [x] Centraliser le chevauchement des rectangles dans un helper déterministe.
+- [x] Considérer le contact exact entre deux emprises comme une collision.
+- [x] Rejeter les emprises absentes, inversées ou non finies.
+- [x] Ajouter des tests de chevauchement, séparation, contact et géométries invalides.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
 ## 24 novembre 2026 — lot 21 : robustesse du classement des villes
 
 - [x] Extraire la normalisation du rang cartographique des villes dans un helper déterministe.
