@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, fitMapLabelLayoutToViewport, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2339,4 +2339,44 @@ test("les collisions utilisent les zones interactives complètes des labels", as
     }
   }
   assert.ok(calls.some(call => call[0] === "fillText"));
+});
+
+
+test("la zone interactive englobe intégralement le texte et l'emprise visuelle", () => {
+  const layout = getMapLabelLayout("city", { x: 80, y: 60 }, 42, 12, 1);
+  assert.equal(isMapLabelLayoutGeometryConsistent(layout), true);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, left: layout.box.left + 1 }
+  }), false);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, bottom: layout.box.bottom - 1 }
+  }), false);
+});
+
+test("la zone interactive englobe le cercle complet du marqueur et son contour", () => {
+  const layout = getMapLabelLayout("city", { x: 80, y: 60 }, 42, 12, 1);
+  assert.equal(isMapLabelLayoutGeometryConsistent(layout), true);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, left: layout.marker.x - 1 }
+  }), false);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    marker: { ...layout.marker, radius: 100 }
+  }), false);
+});
+
+test("le placement viewport rejette les géométries internes incohérentes", () => {
+  const layout = getMapLabelLayout("city", { x: 50, y: 50 }, 36, 11, 1);
+  assert.ok(fitMapLabelLayoutToViewport(layout, 160, 100));
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, right: layout.box.right - 0.5 }
+  }, 160, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...layout,
+    textY: layout.box.bottom + 2
+  }, 160, 100), null);
 });
