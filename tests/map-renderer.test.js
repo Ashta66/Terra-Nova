@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelStyle, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2013,4 +2013,39 @@ test("les clés Path2D respectent la projection effective et les variations fine
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
   }
+});
+
+
+test("les labels cartographiques adoptent les polices et couleurs de l'ère active", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const exploration = getCartographicTheme(1500);
+  const future = getCartographicTheme(2150);
+  const explorationCountry = getMapLabelStyle("country", exploration, 14, 1);
+  const futureCountry = getMapLabelStyle("country", future, 14, 1);
+  const explorationCity = getMapLabelStyle("city", exploration, 10, 1);
+
+  assert.match(explorationCountry.font, /Cinzel/);
+  assert.match(futureCountry.font, /Orbitron/);
+  assert.equal(explorationCountry.fill, exploration.colors.text);
+  assert.equal(futureCountry.fill, future.colors.text);
+  assert.equal(explorationCountry.stroke, exploration.colors.surface);
+  assert.equal(explorationCity.fill, exploration.colors.accent);
+  assert.equal(explorationCity.markerFill, exploration.colors.accent);
+  assert.ok(explorationCountry.lineWidth > explorationCity.lineWidth);
+});
+
+test("la hiérarchie des labels garde les pays dominants et les océans secondaires", () => {
+  const theme = {
+    typography: { display: "Cormorant Garamond", body: "Libre Baskerville" },
+    colors: { text: "#eee8d8", accent: "#8b3944", surface: "#282a2b" }
+  };
+  const country = getMapLabelStyle("country", theme, 14, 1.5);
+  const continent = getMapLabelStyle("continent", theme, 13, 1.5);
+  const ocean = getMapLabelStyle("ocean", theme, 10, 1.5);
+  assert.match(country.font, /Cormorant Garamond/);
+  assert.match(ocean.font, /Libre Baskerville/);
+  assert.ok(country.alpha > continent.alpha);
+  assert.ok(continent.alpha > ocean.alpha);
+  assert.equal(country.shadowBlur, 4.8);
+  assert.equal(ocean.shadowBlur, 0);
 });
