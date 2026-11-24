@@ -13,14 +13,13 @@ function readBounds(hit) {
   return value;
 }
 
-/** Construit un index de grille sur les emprises visibles, en conservant leur indice de dessin. */
+/** Construit une grille spatiale ; les indices de chaque cellule restent dans l'ordre de dessin. */
 export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
   if (!Array.isArray(hits)) {
     return { hits: [], cellSize: DEFAULT_CELL_SIZE, cells: new Map(), overflow: [] };
   }
   const requestedSize = Number(cellSize);
-  const size = Number.isFinite(requestedSize) && requestedSize > 0
-    ? requestedSize : DEFAULT_CELL_SIZE;
+  const size = Number.isFinite(requestedSize) && requestedSize > 0 ? requestedSize : DEFAULT_CELL_SIZE;
   const cells = new Map();
   const overflow = [];
   hits.forEach((hit, index) => {
@@ -47,29 +46,43 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
   return { hits, cellSize: size, cells, overflow };
 }
 
-/** Résout le label supérieur sous le pointeur ; l'index réduit les candidats sans changer l'ordre visuel. */
+/** Résout le label supérieur sans créer de collection temporaire pendant le survol. */
 export function findMapLabelHitAtPoint(hits, x, y, index = null) {
   const pointX = Number(x);
   const pointY = Number(y);
   if (!Array.isArray(hits) || !Number.isFinite(pointX) || !Number.isFinite(pointY)) return null;
-  let candidates = null;
-  if (index?.hits === hits && index.cells instanceof Map && Number.isFinite(index.cellSize) && index.cellSize > 0) {
+
+  const indexed = index?.hits === hits && index.cells instanceof Map
+    && Number.isFinite(index.cellSize) && index.cellSize > 0
+    && Array.isArray(index.overflow);
+  if (indexed) {
     const cellX = Math.floor(pointX / index.cellSize);
     const cellY = Math.floor(pointY / index.cellSize);
     const local = index.cells.get(cellX + ":" + cellY) ?? [];
-    if (local.length || index.overflow.length) {
-      candidates = [...new Set(local.concat(index.overflow))].sort((a, b) => b - a);
-    } else {
-      return null;
+    const overflow = index.overflow;
+    let localPosition = local.length - 1;
+    let overflowPosition = overflow.length - 1;
+    if (localPosition < 0 && overflowPosition < 0) return null;
+
+    // Les deux listes sont ordonnées par indice croissant et disjointes.
+    // Leur fusion inverse préserve le dernier label dessiné sans Set ni tri.
+    while (localPosition >= 0 || overflowPosition >= 0) {
+      const localIndex = localPosition >= 0 ? local[localPosition] : -1;
+      const overflowIndex = overflowPosition >= 0 ? overflow[overflowPosition] : -1;
+      const hitIndex = localIndex > overflowIndex ? local[localPosition--] : overflow[overflowPosition--];
+      const bounds = readBounds(hits[hitIndex]);
+      if (!bounds) continue;
+      if (pointX >= bounds.left && pointX <= bounds.right
+        && pointY >= bounds.top && pointY <= bounds.bottom) return hits[hitIndex];
     }
+    return null;
   }
-  const visit = candidates ?? Array.from({ length: hits.length }, (_, i) => hits.length - 1 - i);
-  for (const hitIndex of visit) {
-    const hit = hits[hitIndex];
-    const bounds = readBounds(hit);
+
+  for (let hitIndex = hits.length - 1; hitIndex >= 0; hitIndex--) {
+    const bounds = readBounds(hits[hitIndex]);
     if (!bounds) continue;
     if (pointX >= bounds.left && pointX <= bounds.right
-      && pointY >= bounds.top && pointY <= bounds.bottom) return hit;
+      && pointY >= bounds.top && pointY <= bounds.bottom) return hits[hitIndex];
   }
   return null;
 }
