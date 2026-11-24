@@ -1,3 +1,21 @@
+## 24 novembre 2026 — lot 33 : cycle de vie des infobulles et capture du pointeur
+
+- [x] Extraire un descripteur pur pour les contenus des infobulles.
+- [x] Stabiliser la clé du descripteur pour reconnaître un contenu inchangé.
+- [x] Éviter de reconstruire les nœuds DOM lorsque le pointeur se déplace sur un même label.
+- [x] Mettre à jour le contenu lorsque le label, la sélection ou les métadonnées changent.
+- [x] Nettoyer les titres vides et fournir un nom de remplacement.
+- [x] Tolérer les métadonnées de campagne partielles sans injecter de HTML.
+- [x] Garantir un texte de remplacement pour les coordonnées absentes ou invalides.
+- [x] Rendre l'arrêt du glisser idempotent face aux événements de capture répétés.
+- [x] Gérer la perte de capture du pointeur et la perte de focus de la fenêtre.
+- [x] Masquer l'infobulle au redimensionnement avant de recalculer la carte.
+- [x] Ajouter dix tests sur les descripteurs et les contenus partiels.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le déplacement du pointeur sur un label inchangé ne reconstruit plus son DOM. Les interruptions de capture et de focus terminent proprement le glisser sans déclencher plusieurs nettoyages.
+
 ## 24 novembre 2026 — lot 32 : stabilité et placement des infobulles cartographiques
 
 - [x] Extraire le calcul de position des infobulles dans un module pur et testable.
@@ -12,7 +30,7 @@
 - [x] Masquer l'infobulle pendant le début d'un glisser ou un zoom à la molette et rétablir le curseur au relâchement.
 - [x] Ajouter dix tests de placement, de limites et de robustesse des coordonnées.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Les infobulles restent désormais dans le cadre de la carte, s'adaptent aux bords et ne supposent plus que chaque label possède des coordonnées valides.
 
