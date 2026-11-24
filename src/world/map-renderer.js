@@ -2452,7 +2452,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const visibleLabels = selectVisibleFeatures(options.labels, projection.viewport);
   const visibleTerritories = selectVisibleFeatures(options.territories, projection.viewport);
   const visiblePoliticalBoundaries = selectVisibleFeatures(options.politicalBoundaries, projection.viewport);
-  const visibleAdministrativeBoundaries = selectVisibleFeatures(options.administrativeBoundaries, projection.viewport);
+  const visibleAdministrativeBoundaries = null;
   const layers = {
     land: visibleLand, glaciers: visibleGlaciers, lakes: visibleLakes,
     rivers: visibleRivers, elevationPoints: visibleElevationPoints,
@@ -2816,7 +2816,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   if (canRenderBoundariesWebGL) {
     try {
       const politicalPartition = partitionFeatures(visiblePoliticalBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
-      const administrativePartition = partitionFeatures(visibleAdministrativeBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
+      const administrativePartition = { supported: [], unsupported: [] };
       const supportedPolitical = politicalPartition.supported;
       const unsupportedPolitical = politicalPartition.unsupported;
       const supportedAdministrative = administrativePartition.supported;
@@ -2827,8 +2827,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           color: parseWebGLColor("#ead7aa"), lineWidth: (options.interactive ? 1.65 : 2.35) * ratio },
         { key: "political-boundary-core", type: "boundaries", features: supportedPolitical,
           color: parseWebGLColor("#293945"), lineWidth: (options.interactive ? 0.75 : 1.05) * ratio },
-        { key: "administrative-boundary-lines", type: "boundaries", features: supportedAdministrative,
-          color: parseWebGLColor("#91b7c4"), lineWidth: (options.interactive ? 0.48 : 0.65) * ratio }
       ], backingWidth, backingHeight, projection.viewport));
       context.save();
       context.setTransform(1, 0, 0, 1, 0, 0);
@@ -2844,11 +2842,6 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           { ...visiblePoliticalBoundaries, features: unsupportedPolitical }, width, height, projection,
           "#293945", options.interactive ? 0.75 : 1.05, [], true);
       }
-      if (unsupportedAdministrative.length) {
-        administrativeBoundaryCount += drawStyledBoundaryLayer(context,
-          { ...visibleAdministrativeBoundaries, features: unsupportedAdministrative }, width, height, projection,
-          "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true);
-      }
       boundariesWebGLRendered = true;
     } catch (error) {
       console.info("Frontières WebGL indisponibles ; fallback Canvas conservé.", error);
@@ -2858,8 +2851,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     politicalBoundaryCount = measureLayer("frontieres-politiques", () =>
       drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#ead7aa", options.interactive ? 1.65 : 2.35, [], true)
       + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
-    administrativeBoundaryCount = measureLayer("frontieres-administratives", () =>
-      drawStyledBoundaryLayer(context, visibleAdministrativeBoundaries, width, height, projection, "#91b7c4", options.interactive ? 0.48 : 0.65, [2.2, 2.4], false, true));
+    administrativeBoundaryCount = 0;
   }
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld, options.qualityProfile?.labelDensity ?? 1));
 
