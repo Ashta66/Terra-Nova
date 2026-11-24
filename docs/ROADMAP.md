@@ -1,3 +1,20 @@
+## 24 novembre 2026 — lot 35 : robustesse des gestes pointeur
+
+- [x] Extraire les règles de démarrage et de propriété d'un geste pointeur.
+- [x] Refuser les clics droits souris comme initiateurs de déplacement.
+- [x] Refuser les pointeurs secondaires et les gestes concurrents.
+- [x] Associer le déplacement au seul identifiant du pointeur propriétaire.
+- [x] Encadrer la capture du pointeur pour tolérer les refus du navigateur.
+- [x] Libérer explicitement la capture lorsque le geste se termine.
+- [x] Gérer pointerup, pointercancel, perte de focus et touche Échap.
+- [x] Restaurer le curseur selon le mode d'interaction courant.
+- [x] Éviter la suppression d'un clic ultérieur après une annulation.
+- [x] Ajouter neuf tests ciblés dans `map-pointer-gesture.test.js`.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les gestes tactiles et souris ont maintenant un propriétaire explicite. Les événements d'un autre pointeur ne peuvent plus déplacer ou terminer le geste actif ; les annulations et pertes de focus nettoient l'état sans laisser de suppression de clic résiduelle.
+
 ## 24 novembre 2026 — lot 34 : cohérence de la navigation cartographique
 
 - [x] Extraire le calcul du zoom ancré dans une fonction pure.
@@ -12,7 +29,7 @@
 - [x] Intégrer les fonctions communes aux interactions molette et glisser.
 - [x] Ajouter dix tests de navigation et de robustesse dans `projection.test.js`.
 - [x] CI GitHub Actions : succès (run 45463864038).
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Les interactions de zoom et de déplacement partagent désormais les mêmes conversions géographiques et les mêmes garde-fous. Le zoom conserve son point d'ancrage tant que les limites du monde ne nécessitent pas de recentrage.
 
