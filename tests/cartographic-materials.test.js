@@ -7,7 +7,7 @@ const css=readFileSync(new URL("../styles/main.css",import.meta.url),"utf8");
 test("la profondeur du cadre combine vignettage et lumière rasante",()=>{
  assert.match(css,/\.map-frame::before \{[\s\S]*?radial-gradient\(ellipse at 50% 48%[\s\S]*?inset 0 0 54px/);
 });
-test("la texture est isolée dans l'overlay décoratif",()=>{
+test("la texture reste dans la couche décorative de l'overlay",()=>{
  assert.match(css,/\.map-cartographic-overlay::after \{[\s\S]*?pointer-events:none[\s\S]*?mix-blend-mode:soft-light/);
 });
 test("les repères restent au-dessus des textures",()=>{
