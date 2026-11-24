@@ -1,3 +1,20 @@
+## 24 novembre 2026 — lot 29 : bornes extrêmes et cycle de vie de l'index spatial
+
+- [x] Vérifier que les coordonnées de cellule restent des entiers sûrs avant toute boucle d'indexation.
+- [x] Déporter les coordonnées trop grandes ou trop petites vers la liste de débordement.
+- [x] Borner le nombre de cellules par emprise avant de créer les buckets.
+- [x] Rejeter les dimensions de grille nulles, négatives ou non sûres.
+- [x] Éviter les boucles à incrément non progressif aux magnitudes numériques extrêmes.
+- [x] Mémoriser la longueur de la collection lors de la construction de l'index.
+- [x] Revenir automatiquement à la recherche linéaire si la collection change de longueur.
+- [x] Préserver le ciblage des emprises ponctuelles et des coordonnées négatives.
+- [x] Tester les tailles de cellule invalides et sous-normales.
+- [x] Ajouter dix tests de régression sur les limites numériques et la mutation de collection.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les coordonnées extrêmes ne peuvent plus provoquer une boucle d'indexation non terminante ou une explosion du nombre de cellules. Les cas atypiques restent ciblables via le chemin de débordement.
+
 ## 24 novembre 2026 — lot 28 : consultation sans allocation de l'index spatial
 
 - [x] Supprimer la création d'un tableau de candidats à chaque mouvement du pointeur.
@@ -11,7 +28,7 @@
 - [x] Tester les limites exactes des cellules et les index mal formés.
 - [x] Ajouter cinq tests de régression ciblés.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 La consultation de l'index ne construit plus de collection temporaire et ne trie plus les candidats à chaque événement de pointeur.
 ## 24 novembre 2026 — lot 27 : index spatial du ciblage des labels
