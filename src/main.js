@@ -1150,7 +1150,98 @@ function countryRegion(feature) {
 }
 function countryDifficulty(raw,region,feature){if(COUNTRY_EASY.has(raw))return 1;if(COUNTRY_HARD.has(raw))return 5;if(COUNTRY_MAJOR.has(raw))return 2;if(COUNTRY_REGIONAL.has(raw))return 3;const p=feature.properties??{},pop=Number(p.POP_EST??p.pop_est??0),area=Number(p.AREA??p.area??0);if(pop>30000000||area>1800000)return 2;if(pop>8000000||area>450000)return 3;return region==="Océanie"||region==="Amérique du Sud"?4:3;}
 function countryRank(raw,difficulty,feature){if(COUNTRY_MAJOR.has(raw))return"Puissance majeure";if(COUNTRY_REGIONAL.has(raw))return"Puissance régionale";const p=feature.properties??{};if(Number(p.POP_EST??p.pop_est??0)>30000000||Number(p.AREA??p.area??0)>1800000)return"Grande nation";return difficulty>=4?"Défi historique":"Nation émergente";}
-function renderCountryPicker(){const list=$("country-results"),count=$("country-result-count");if(!list)return;const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr"),items=campaignCountries.filter(x=>(!q||x.searchLabel.includes(q)||x.searchRaw.includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));count.textContent=items.length+" / "+campaignCountries.length+" nation"+(campaignCountries.length>1?"s":"")+" · "+(items.length?"résultat"+(items.length>1?"s":""):"aucun résultat");list.replaceChildren();if(!items.length){const empty=document.createElement("p");empty.className="country-empty-state";empty.textContent=q?"Aucune nation ne correspond à cette recherche.":"Aucune nation ne correspond à ces filtres.";list.append(empty);return;}const groups=new Map();for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x)}for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){const group=groups.get(region);if(!group?.length)continue;const head=document.createElement("div");head.className="country-region-heading";head.textContent=region+" · "+group.length;list.append(head);group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));for(const x of group){const isSelected=x.raw===$("player-country").value;const btn=document.createElement("button");btn.type="button";btn.className="country-result"+(isSelected?" is-selected":"");btn.setAttribute("role","option");btn.setAttribute("aria-selected",String(isSelected));btn.setAttribute("aria-pressed",String(isSelected));btn.dataset.country=x.raw;btn.dataset.region=x.region;btn.dataset.difficulty=String(x.difficulty);btn.title=x.label+" · "+x.region+" · Difficulté "+x.difficulty+"/5";const identity=document.createElement("span");identity.className="country-result-heading";const insigniaData=resolveCountryInsignia(x.feature,Number(state.clock.date.slice(0,4)));const insignia=document.createElement("img");insignia.className="country-result-insignia"+(insigniaData.type==="coat"?" is-crest":" is-flag");insignia.alt="";insignia.setAttribute("aria-hidden","true");insignia.loading="lazy";insignia.decoding="async";insignia.referrerPolicy="no-referrer";if(insigniaData.src)insignia.src=insigniaData.src;else insignia.hidden=true;insignia.onerror=()=>{if(insigniaData.fallback&&insigniaData.fallback!==insigniaData.src&&insignia.dataset.fallbackAttempted!=="true"){insignia.dataset.fallbackAttempted="true";insignia.className="country-result-insignia is-flag";insignia.src=insigniaData.fallback;return;}insignia.hidden=true;insignia.removeAttribute("src");};const name=document.createElement("span");name.className="country-result-name";name.textContent=x.label;identity.append(insignia,name);const meta=document.createElement("span");meta.className="country-result-meta";const rank=document.createElement("span");rank.className="country-rank";rank.textContent=x.rank;const diff=document.createElement("span");diff.className="country-difficulty";diff.textContent="Difficulté "+x.difficulty+"/5";meta.append(rank,diff);btn.append(identity,meta);btn.addEventListener("click",()=>selectCampaignCountry(x.raw));btn.addEventListener("keydown",event=>{const buttons=[...list.querySelectorAll(".country-result")];const index=buttons.indexOf(btn);let target=null;if(event.key==="ArrowDown")target=buttons[Math.min(buttons.length-1,index+1)];else if(event.key==="ArrowUp")target=buttons[Math.max(0,index-1)];else if(event.key==="Home")target=buttons[0];else if(event.key==="End")target=buttons.at(-1);if(target){event.preventDefault();target.focus();}});list.append(btn)}}}
+function renderCountryPicker(){
+ const list=$("country-results"),count=$("country-result-count");
+ if(!list||!count)return;
+ const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr");
+ const items=campaignCountries.filter(x=>(!q||x.searchLabel.includes(q)||x.searchRaw.includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));
+ const selectedRaw=$("player-country").value;
+ const activeRaw=items.some(x=>x.raw===selectedRaw)?selectedRaw:items[0]?.raw;
+ count.textContent=items.length+" / "+campaignCountries.length+" nation"+(campaignCountries.length>1?"s":"")+" · "+(items.length?"résultat"+(items.length>1?"s":""):"aucun résultat");
+ list.setAttribute("aria-label","Nations jouables · "+items.length+" résultat"+(items.length>1?"s":""));
+ list.setAttribute("aria-busy","false");
+ list.replaceChildren();
+ if(!items.length){
+  const empty=document.createElement("p");
+  empty.className="country-empty-state";
+  empty.setAttribute("role","status");
+  empty.textContent=q?"Aucune nation ne correspond à cette recherche.":"Aucune nation ne correspond à ces filtres.";
+  list.append(empty);
+  return;
+ }
+ const groups=new Map();
+ for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x);}
+ for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){
+  const group=groups.get(region);
+  if(!group?.length)continue;
+  const head=document.createElement("div");
+  head.className="country-region-heading";
+  head.textContent=region+" · "+group.length;
+  list.append(head);
+  group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));
+  for(const x of group){
+   const isSelected=x.raw===selectedRaw;
+   const btn=document.createElement("button");
+   btn.type="button";
+   btn.className="country-result"+(isSelected?" is-selected":"");
+   btn.setAttribute("role","option");
+   btn.setAttribute("aria-selected",String(isSelected));
+   btn.setAttribute("aria-pressed",String(isSelected));
+   btn.tabIndex=x.raw===activeRaw?0:-1;
+   btn.dataset.country=x.raw;
+   btn.dataset.region=x.region;
+   btn.dataset.difficulty=String(x.difficulty);
+   btn.title=x.label+" · "+x.region+" · Difficulté "+x.difficulty+"/5";
+   const identity=document.createElement("span");
+   identity.className="country-result-heading";
+   const insigniaData=resolveCountryInsignia(x.feature,Number(state.clock.date.slice(0,4)));
+   const insignia=document.createElement("img");
+   insignia.className="country-result-insignia"+(insigniaData.type==="coat"?" is-crest":" is-flag");
+   insignia.alt="";
+   insignia.setAttribute("aria-hidden","true");
+   insignia.loading="lazy";
+   insignia.decoding="async";
+   insignia.referrerPolicy="no-referrer";
+   if(insigniaData.src)insignia.src=insigniaData.src;else insignia.hidden=true;
+   insignia.onerror=()=>{
+    if(insigniaData.fallback&&insigniaData.fallback!==insigniaData.src&&insignia.dataset.fallbackAttempted!=="true"){
+     insignia.dataset.fallbackAttempted="true";
+     insignia.className="country-result-insignia is-flag";
+     insignia.src=insigniaData.fallback;
+     return;
+    }
+    insignia.hidden=true;
+    insignia.removeAttribute("src");
+   };
+   const name=document.createElement("span");
+   name.className="country-result-name";
+   name.textContent=x.label;
+   identity.append(insignia,name);
+   const meta=document.createElement("span");
+   meta.className="country-result-meta";
+   const rank=document.createElement("span");
+   rank.className="country-rank";
+   rank.textContent=x.rank;
+   const diff=document.createElement("span");
+   diff.className="country-difficulty";
+   diff.textContent="Difficulté "+x.difficulty+"/5";
+   meta.append(rank,diff);
+   btn.append(identity,meta);
+   btn.addEventListener("click",event=>selectCampaignCountry(x.raw,{restoreFocus:event.detail===0}));
+   btn.addEventListener("keydown",event=>{
+    const buttons=[...list.querySelectorAll(".country-result")];
+    const index=buttons.indexOf(btn);
+    let target=null;
+    if(event.key==="ArrowDown")target=buttons[(index+1)%buttons.length];
+    else if(event.key==="ArrowUp")target=buttons[(index-1+buttons.length)%buttons.length];
+    else if(event.key==="Home")target=buttons[0];
+    else if(event.key==="End")target=buttons.at(-1);
+    if(target){event.preventDefault();target.focus();}
+   });
+   list.append(btn);
+  }
+ }
+}
 function renderCountryDossier(item){
  const root=$("country-dossier");if(!root)return;root.replaceChildren();if(!item){root.hidden=true;return;}root.hidden=false;
  const dossier=buildCountryDossier(item.feature,Number(state.clock.date.slice(0,4)),{rank:item.rank,difficulty:item.difficulty,region:item.region});
@@ -1167,7 +1258,25 @@ function renderCountryDossier(item){
  dossier.objectives.forEach((objective,index)=>{const row=document.createElement("div");row.className="dossier-objective";const number=document.createElement("span");number.textContent=String(index+1).padStart(2,"0");const text=document.createElement("p");text.textContent=objective;row.append(number,text);objectives.append(row);});root.append(objectives);
  const note=document.createElement("p");note.className="dossier-data-note";note.textContent=dossier.dataNote;root.append(note);
 }
-function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";if(x&&!document.body.classList.contains("campaign-started"))$("map-title").textContent=x.label+" · "+state.clock.date.slice(0,4);renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
+function selectCampaignCountry(raw,{restoreFocus=false}={}){
+ const x=campaignCountries.find(item=>item.raw===raw);
+ if(!x)return false;
+ $("player-country").value=x.raw;
+ const sandboxSelect=$("sandbox-country");
+ if(sandboxSelect)sandboxSelect.value=x.raw;
+ $("player-country").setCustomValidity("");
+ previewCountry=x.raw;
+ $("country-selected-name").textContent=x.label;
+ $("country-selected-detail").textContent=x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region;
+ if(!document.body.classList.contains("campaign-started"))$("map-title").textContent=x.label+" · "+state.clock.date.slice(0,4);
+ renderCountryDossier(x);
+ renderCountryPicker();
+ if(restoreFocus)$("country-results").querySelector('[data-country="'+CSS.escape(x.raw)+'"]')?.focus();
+ if(!mapWarmupPromise)void startMapWarmup();
+ scheduleMapIndexWarmup();
+ renderMap();
+ return true;
+}
 function populateCampaignCountries() {
   const select = $("player-country");
   if (!select || !territoryFeatures?.features) return;
@@ -1218,12 +1327,10 @@ $("player-country").addEventListener("change", event => {
   renderMap();
 });
 $("sandbox-country").addEventListener("change", event => {
-  if (!event.target.value) return;
-  playerCountry = event.target.value;
-  previewCountry = playerCountry;
-  $("map-title").textContent = frenchTerritoryName(event.target.value) + " · " + state.clock.date.slice(0,4);
-  $("save-status").textContent = "Sandbox : nation active — " + frenchTerritoryName(event.target.value);
-  renderMap();
+  const raw=event.target.value;
+  if(!selectCampaignCountry(raw))return;
+  playerCountry=raw;
+  $("save-status").textContent="Sandbox : nation active — "+frenchTerritoryName(raw);
 });
 const startYearSlider = $("start-year");
 function updateStartYearSliderProgress() {
@@ -1234,6 +1341,7 @@ function updateStartYearSliderProgress() {
   startYearSlider.style.setProperty("--start-year-progress", `${Math.max(0, Math.min(100, progress))}%`);
 }
 updateStartYearSliderProgress();
+startYearSlider.setAttribute("aria-valuetext","Année "+startYearSlider.value);
 startYearSlider.addEventListener("input", event => {
   const year = Number(event.target.value);
   updateStartYearSliderProgress();
@@ -1241,7 +1349,8 @@ startYearSlider.addEventListener("input", event => {
   state.clock.date = year + "-01-01";
   state.clock.day = 1;
   $("map-title").textContent = (campaignCountries.find(item => item.raw === previewCountry)?.label || "Le monde") + " · " + year;
-  startYearSlider.setAttribute("aria-valuetext", String(year));
+  startYearSlider.setAttribute("aria-valuetext", "Année "+year);
+  renderCountryPicker();
   const selectedPreview = campaignCountries.find(item => item.raw === previewCountry);
   if (selectedPreview) renderCountryDossier(selectedPreview);
   render();
