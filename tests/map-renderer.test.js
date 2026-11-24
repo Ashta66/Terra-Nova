@@ -1972,6 +1972,14 @@ test("le liseré côtier reste distinct des frontières politiques", () => {
 });
 
 
+test("les budgets des caches de géométrie restent bornés et dimensionnés pour les retours de vue", async () => {
+  const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+  const stats = getProjectedPathCacheStats();
+  assert.equal(stats.maxCachedPaths, 4096);
+  assert.equal(stats.maxCachedVertices, 750_000);
+  assert.equal(stats.maxCombinedLandMaskCacheEntries, 24);
+});
+
 test("les clés Path2D respectent la projection effective et les variations fines de zoom", async () => {
   const previous = globalThis.Path2D;
   class FakePath2D {
