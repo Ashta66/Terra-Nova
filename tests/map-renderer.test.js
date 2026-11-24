@@ -129,18 +129,32 @@ test("la classification WebGL des terres est réutilisée pour une collection st
     supportsBoundary: () => { coastChecks++; return true; },
     renderLayers: () => ({})
   };
+  const previousDisableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = false;
   const options = {
     width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
     viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
     geographicWebGLRenderer
   };
-  renderWorldMap(canvas, collection, options);
-  const firstFillChecks = fillChecks, firstCoastChecks = coastChecks;
-  renderWorldMap(canvas, collection, options);
-  assert.equal(fillChecks, firstFillChecks);
-  assert.equal(coastChecks, firstCoastChecks);
-  assert.equal(firstFillChecks, collection.features.length);
-  assert.equal(firstCoastChecks, collection.features.length);
+  try {
+    renderWorldMap(canvas, collection, options);
+    const firstFillChecks = fillChecks, firstCoastChecks = coastChecks;
+    renderWorldMap(canvas, collection, options);
+    assert.equal(fillChecks, firstFillChecks);
+    assert.equal(coastChecks, firstCoastChecks);
+    assert.equal(firstFillChecks, collection.features.length);
+    assert.equal(firstCoastChecks, collection.features.length);
+
+    globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = true;
+    renderWorldMap(canvas, collection, options);
+    assert.equal(fillChecks, firstFillChecks,
+      "le drapeau de diagnostic doit invalider la classification sans rappeler supports()");
+    assert.equal(coastChecks, firstCoastChecks + collection.features.length,
+      "la classification des contours doit être recalculée avec la nouvelle clé d'options");
+  } finally {
+    if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
+  }
 });
 
 test("le masque Canvas de repli exclut aussi l'Antarctique sans Path2D", () => {
