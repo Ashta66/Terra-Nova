@@ -636,7 +636,7 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Conserver les frontières nationales et les territoires politiques historiques.
 - [x] Garder les fonctions et données de chargement administratives disponibles pour une éventuelle carte régionale dédiée.
 - [x] Ajouter des tests garantissant zéro trait administratif et zéro label infranational sur la carte stratégique.
-- [ ] Validation locale : `npm test` et contrôle visuel à faible et fort zoom, en particulier Europe occidentale et France.
+- [x] Validation locale : `npm test` et contrôle visuel à faible et fort zoom, en particulier Europe occidentale et France, confirmés par le joueur.
 
 ---
 
