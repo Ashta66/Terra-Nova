@@ -14,3 +14,17 @@ test("les champs manquants restent explicitement non documentés",()=>{const d=b
 
 test("une nation contemporaine sans armoiries connues reçoit un fichier de drapeau",()=>{const d=buildCountryDossier({properties:{NAME:"Pays inconnu",ISO_A2:"ZZ"}},2026);assert.equal(d.insignia.type,"flag");assert.equal(d.insignia.src,"https://flagcdn.com/w160/zz.png");});
 test("les puissances historiques utilisent de vrais fichiers d’armoiries",()=>{for(const [name,fragment,year] of [["France","Arms_of_the_Kingdom_of_France",1500],["Castile","Blason_Castille",1500],["England","Royal_Arms_of_England",1500],["Ottoman Empire","Osmanli-nisani",1900],["Russian Empire","Coat_of_arms_of_the_Russian_Empire",1900],["Holy Roman Empire","Generic_Arms_of_the_Holy_Roman_Emperor",1500]]){const d=buildCountryDossier({properties:{NAME:name,ISO_A2:"GB"}},year);assert.equal(d.insignia.type,"coat");assert.ok(d.insignia.src.includes(fragment));}});
+
+test("aucun insigne n'est généré sans drapeau ISO ni armoiries disponibles",()=>{
+ const d=buildCountryDossier({properties:{NAME:"Entité inconnue"}},2026);
+ assert.equal(d.insignia.type,"flag");
+ assert.equal(d.insignia.src,"");
+ assert.equal(d.insignia.fallback,undefined);
+});
+test("une armoirie conserve un repli uniquement si un vrai drapeau image existe",()=>{
+ const known=buildCountryDossier({properties:{NAME:"France",ISO_A2:"FR"}},1500);
+ assert.equal(known.insignia.type,"coat");
+ assert.equal(known.insignia.fallback,"https://flagcdn.com/w160/fr.png");
+ const unknown=buildCountryDossier({properties:{NAME:"Entité inconnue"}},1500);
+ assert.equal(unknown.insignia.fallback,undefined);
+});
