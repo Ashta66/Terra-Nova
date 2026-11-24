@@ -715,13 +715,14 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 
 ## Lot prioritaire 13 — cohérence du cache géométrique au zoom rapproché (24 novembre 2026)
 - [x] Centraliser le profil de projection utilisé pour les clés des chemins et des masques composés.
-- [x] Cléer les chemins selon les paramètres de projection réellement effectifs, sans invalider sur un drapeau de longitude neutralisé par le projecteur.
+- [x] Construire les clés selon les paramètres de projection réellement effectifs, sans invalider sur un drapeau de longitude neutralisé par le projecteur.
 - [x] Conserver la précision effective du zoom dans les clés pour éviter les collisions dues à l'arrondi à quatre décimales.
 - [x] Réutiliser le même profil de vue pour construire le masque composé et ses chemins enfants.
 - [x] Réduire les tableaux temporaires du parcours des géométries polygonales et linéaires.
 - [x] Ajouter des compteurs de constructions et d'évictions pour les deux niveaux de cache.
 - [x] Exporter ces compteurs dans le collecteur de benchmark.
 - [x] Ajouter des tests de non-régression sur les variations de projection et les nouvelles métriques.
+- [x] CI GitHub Actions sur le code du lot : 501 tests réussis, 0 échec (run 45358956818 ; les commits suivants de cette séquence ne modifient que la documentation).
 - [ ] Validation locale du joueur : npm test et contrôle visuel du masque, des côtes et de l'Antarctique aux zooms 1, 5 et 20.
 - [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer médiane/p95, reconstructions, évictions et pics mémoire.
 
