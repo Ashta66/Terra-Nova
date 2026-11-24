@@ -411,6 +411,16 @@ let projectedPathCacheHits = 0;
 let projectedPathCacheMisses = 0;
 let combinedLandMaskCacheHits = 0;
 let combinedLandMaskCacheMisses = 0;
+const antarcticLandClassificationCache = new WeakMap();
+let antarcticClassificationCacheHits = 0;
+let antarcticClassificationCacheMisses = 0;
+let antarcticClassificationCoordinatesScanned = 0;
+const landFeatureGroupCache = new WeakMap();
+let landFeatureGroupCacheHits = 0;
+let landFeatureGroupCacheMisses = 0;
+const landWebGLClassificationCache = new WeakMap();
+let landWebGLClassificationCacheHits = 0;
+let landWebGLClassificationCacheMisses = 0;
 
 function touchProjectedPath(entry, feature) {
   projectedPathCacheLru.delete(entry);
@@ -521,37 +531,116 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
 }
 
 function isAntarcticLandFeature(feature) {
-  const bbox = feature?.bbox ?? feature?.geometry?.bbox;
+  if (!feature || typeof feature !== "object") return false;
+  if (antarcticLandClassificationCache.has(feature)) {
+    antarcticClassificationCacheHits++;
+    return antarcticLandClassificationCache.get(feature);
+  }
+  antarcticClassificationCacheMisses++;
+  const bbox = feature.bbox ?? feature.geometry?.bbox;
+  let isAntarctic = false;
   if (Array.isArray(bbox) && bbox.length >= 4) {
-    return Number(bbox[1]) <= -70 && Number(bbox[3]) <= -60
+    isAntarctic = Number(bbox[1]) <= -70 && Number(bbox[3]) <= -60
       && Number(bbox[2]) - Number(bbox[0]) >= 300;
-  }
-
-  // Parcours itératif : certains GeoJSON côtiers contiennent des anneaux
-  // de centaines de milliers de sommets. Éviter la récursion et les spreads
-  // Math.min/Math.max, qui dépassent la limite d'arguments du moteur JS.
-  const pending = [feature?.geometry?.coordinates];
-  let minLatitude = Infinity, maxLatitude = -Infinity;
-  let minLongitude = Infinity, maxLongitude = -Infinity;
-  let coordinateCount = 0;
-  while (pending.length) {
-    const value = pending.pop();
-    if (!Array.isArray(value)) continue;
-    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
-      const longitude = value[0], latitude = value[1];
-      minLongitude = Math.min(minLongitude, longitude);
-      maxLongitude = Math.max(maxLongitude, longitude);
-      minLatitude = Math.min(minLatitude, latitude);
-      maxLatitude = Math.max(maxLatitude, latitude);
-      coordinateCount++;
-      continue;
+  } else {
+    // Parcours itératif : certains GeoJSON côtiers contiennent des anneaux
+    // de centaines de milliers de sommets. Le résultat est mémorisé par
+    // identité de feature, car les collections géographiques sont immuables.
+    const pending = [feature.geometry?.coordinates];
+    let minLatitude = Infinity, maxLatitude = -Infinity;
+    let minLongitude = Infinity, maxLongitude = -Infinity;
+    let coordinateCount = 0;
+    let scanned = 0;
+    while (pending.length) {
+      const value = pending.pop();
+      if (!Array.isArray(value)) continue;
+      if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+        const longitude = value[0], latitude = value[1];
+        minLongitude = Math.min(minLongitude, longitude);
+        maxLongitude = Math.max(maxLongitude, longitude);
+        minLatitude = Math.min(minLatitude, latitude);
+        maxLatitude = Math.max(maxLatitude, latitude);
+        coordinateCount++;
+        scanned++;
+        continue;
+      }
+      for (let index = 0; index < value.length; index++) pending.push(value[index]);
     }
-    for (let index = 0; index < value.length; index++) pending.push(value[index]);
+    antarcticClassificationCoordinatesScanned += scanned;
+    isAntarctic = coordinateCount > 0 && minLatitude <= -70 && maxLatitude <= -60
+      && maxLongitude - minLongitude >= 300;
   }
-  return coordinateCount > 0 && minLatitude <= -70 && maxLatitude <= -60
-    && maxLongitude - minLongitude >= 300;
+  antarcticLandClassificationCache.set(feature, isAntarctic);
+  return isAntarctic;
 }
 
+function getLandFeatureGroups(features) {
+  if (!Array.isArray(features)) return {
+    landCoastFeatures: [], antarcticFeatures: [], landCoastFeatureSet: new Set()
+  };
+  const cached = landFeatureGroupCache.get(features);
+  if (cached) {
+    landFeatureGroupCacheHits++;
+    return cached;
+  }
+  landFeatureGroupCacheMisses++;
+  const landCoastFeatures = [];
+  const antarcticFeatures = [];
+  const landCoastFeatureSet = new Set();
+  for (const feature of features) {
+    if (isAntarcticLandFeature(feature)) {
+      antarcticFeatures.push(feature);
+      continue;
+    }
+    landCoastFeatures.push(feature);
+    landCoastFeatureSet.add(feature);
+  }
+  const groups = { landCoastFeatures, antarcticFeatures, landCoastFeatureSet };
+  landFeatureGroupCache.set(features, groups);
+  return groups;
+}
+
+function getLandWebGLClassification(features, renderer, hasLandCoastFeature) {
+  let collections = landWebGLClassificationCache.get(renderer);
+  if (!collections) {
+    collections = new WeakMap();
+    landWebGLClassificationCache.set(renderer, collections);
+  }
+  let profiles = collections.get(features);
+  if (!profiles) {
+    profiles = new Map();
+    collections.set(features, profiles);
+  }
+  const disableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true;
+  const disableCoast = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true;
+  const key = (disableFill ? "1" : "0") + (disableCoast ? "1" : "0");
+  const cached = profiles.get(key);
+  if (cached) {
+    landWebGLClassificationCacheHits++;
+    return cached;
+  }
+  landWebGLClassificationCacheMisses++;
+  const supportedLand = [];
+  const unsupportedLand = [];
+  const unsupportedLandFallback = [];
+  const supportedCoasts = [];
+  const unsupportedCoasts = [];
+  for (const feature of features) {
+    if (!isAntarcticLandFeature(feature)) {
+      if (disableFill || !renderer.supports(feature)) {
+        unsupportedLand.push(feature);
+        if (hasLandCoastFeature(feature)) unsupportedLandFallback.push(feature);
+      } else supportedLand.push(feature);
+    }
+    if (hasLandCoastFeature(feature)) {
+      (disableCoast || !renderer.supportsBoundary(feature)
+        ? unsupportedCoasts : supportedCoasts).push(feature);
+    }
+  }
+  const classification = { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts };
+  profiles.set(key, classification);
+  return classification;
+}
 function drawAntarcticLandBase(context, features, width, height, projection) {
   const viewport = projection.viewport ?? {};
   const zoom = Math.max(1, Number(viewport.zoom ?? 1));
@@ -2568,17 +2657,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const coastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     // Le continent antarctique est déjà rempli par sa couche blanche dédiée :
     // ne pas retracer son anneau GeoJSON comme une côte visible.
-    const landCoastFeatures = [];
-    const antarcticFeatures = [];
-    const landCoastFeatureSet = new Set();
-    for (const feature of visibleLand?.features ?? []) {
-      if (isAntarcticLandFeature(feature)) {
-        antarcticFeatures.push(feature);
-        continue;
-      }
-      landCoastFeatures.push(feature);
-      landCoastFeatureSet.add(feature);
-    }
+    const landFeatureGroups = getLandFeatureGroups(visibleLand?.features ?? []);
+    const { landCoastFeatures, antarcticFeatures, landCoastFeatureSet } = landFeatureGroups;
     const hasLandCoastFeature = feature => landCoastFeatureSet.has(feature);
     const landCoastCollection = { ...visibleLand, features: landCoastFeatures };
     let landClipPath = null;
@@ -2657,30 +2737,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
       try {
-        const classification = measureLayer("land-feature-classification", () => {
-          const supportedLand = [];
-          const unsupportedLand = [];
-          const unsupportedLandFallback = [];
-          const supportedCoasts = [];
-          const unsupportedCoasts = [];
-          for (const feature of visibleLand.features) {
-            if (!isAntarcticLandFeature(feature)) {
-              if (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL === true || !geographicRenderer.supports(feature)) {
-                unsupportedLand.push(feature);
-                if (hasLandCoastFeature(feature)) unsupportedLandFallback.push(feature);
-              } else supportedLand.push(feature);
-            }
-            if (hasLandCoastFeature(feature)) {
-              (
-                globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST === true
-                  || !geographicRenderer.supportsBoundary(feature)
-                  ? unsupportedCoasts
-                  : supportedCoasts
-              ).push(feature);
-            }
-          }
-          return { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts };
-        });
+        const classification = measureLayer("land-feature-classification", () =>
+          getLandWebGLClassification(visibleLand.features, geographicRenderer, hasLandCoastFeature));
         const { supportedLand, unsupportedLand, unsupportedLandFallback, supportedCoasts, unsupportedCoasts } = classification;
         let drawn = 0;
         if (unsupportedLandFallback.length) {
@@ -2998,6 +3056,13 @@ export function getProjectedPathCacheStats() {
     combinedLandMaskCacheHits,
     combinedLandMaskCacheMisses,
     combinedLandMaskCacheEntries: combinedLandMaskCache.size,
-    maxCombinedLandMaskCacheEntries: COMBINED_LAND_MASK_CACHE_LIMIT
+    maxCombinedLandMaskCacheEntries: COMBINED_LAND_MASK_CACHE_LIMIT,
+    antarcticClassificationCacheHits,
+    antarcticClassificationCacheMisses,
+    antarcticClassificationCoordinatesScanned,
+    landFeatureGroupCacheHits,
+    landFeatureGroupCacheMisses,
+    landWebGLClassificationCacheHits,
+    landWebGLClassificationCacheMisses
   };
 }
