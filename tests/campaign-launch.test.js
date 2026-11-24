@@ -87,3 +87,11 @@ test("le catalogue couvre les grandes dynasties et puissances historiques", () =
     assert.ok(dossierSource.includes('"'+emblem+'"'), `emblème manquant : ${emblem}`);
   }
 });
+
+test("la liste de campagne affiche un insigne à côté de chaque nation", () => {
+  assert.match(script, /country-result-heading/);
+  assert.match(script, /country-result-insignia/);
+  assert.match(script, /identity\.append\(insignia,name\)/);
+  assert.match(script, /btn\.append\(identity,meta\)/);
+  assert.match(css, /\.country-result-insignia/);
+});
