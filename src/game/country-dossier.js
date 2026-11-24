@@ -13,7 +13,21 @@ const CAPITALS=Object.freeze({
  "Ayutthaya":["Ayutthaya","Bangkok"],"Majapahit":["Trowulan","—"],"Vijayanagara":["Vijayanagara","—"],"Delhi Sultanate":["Delhi","Delhi"],
  "Morocco":["Fès","Rabat"],"Tunis":["Tunis","Tunis"],"Kongo":["Mbanza-Kongo","Mbanza-Kongo"]
 });
-const EMBLEMS=Object.freeze({"France":"⚜","England":"🦁","Castile":"🏰","Portugal":"✚","Ottoman Empire":"☾","Ming":"🐉","Ming Dynasty":"🐉","Muscovy":"🛡","Poland":"🦅","Lithuania":"⚔","Venice":"🦁","Burgundy":"⚜","Japan":"☀","Korea":"☯","Mali Empire":"☀","Ethiopia":"✚"});
+const EMBLEMS=Object.freeze({
+ "France":"⚜","England":"🦁","United Kingdom":"🦁","Castile":"🏰","Spain":"🏰","Portugal":"✚","Ottoman Empire":"☾","Turkey":"☾",
+ "Ming":"🐉","Ming Dynasty":"🐉","Qing":"🐉","Qing Dynasty":"🐉","China":"🐉","Muscovy":"🛡","Russia":"🦅","Russian Empire":"🦅",
+ "Poland":"🦅","Polish-Lithuanian Commonwealth":"🦅","Lithuania":"⚔","Grand Duchy of Lithuania":"⚔","Venice":"🦁","Genoa":"✠",
+ "Burgundy":"⚜","Aragon":"🦇","Navarre":"🦅","Scotland":"🦁","Ireland":"☘","Denmark":"🐦","Sweden":"👑","Norway":"🦁",
+ "Hungary":"🦅","Bohemia":"🦁","Austria":"🦅","Habsburg Monarchy":"🦅","Prussia":"🦅","German Empire":"🦅",
+ "Holy Roman Empire":"🦅","Byzantine Empire":"☦","Eastern Roman Empire":"☦","Mamluk Sultanate":"🦅","Ayyubid Sultanate":"🦅",
+ "Timurid Empire":"☀","Mughal Empire":"☪","Delhi Sultanate":"☪","Maratha Confederacy":"☀","Japan":"☀","Tokugawa":"☀",
+ "Tokugawa Shogunate":"☀","Korea":"☯","Joseon":"☯","Goryeo":"☯","Ayutthaya":"🐘","Sukhothai":"🐘","Majapahit":"☀",
+ "Vijayanagara":"☀","Mali Empire":"☀","Songhai":"☀","Ghana Empire":"☀","Ethiopia":"✚","Aksum":"✚","Morocco":"⭐",
+ "Saadi Sultanate":"⭐","Tunis":"☪","Hafsid Sultanate":"☪","Kongo":"✝","Zulu":"🛡","Great Zimbabwe":"🐘",
+ "Aztec Empire":"🦅","Mexica":"🦅","Inca Empire":"☀","Tawantinsuyu":"☀","Maya":"🐍","Haudenosaunee":"🌿",
+ "United States":"🦅","Brazil":"🌿","Mexico":"🦅","Netherlands":"🦁","Dutch Republic":"🦁","Switzerland":"✝",
+ "Papal States":"🗝","Papal State":"🗝","Savoy":"⚜","Sardinia-Piedmont":"⚜","Sicily":"🦅","Two Sicilies":"🦅"
+});
 const finite=value=>Number.isFinite(Number(value))&&value!==null&&value!==""?Number(value):null;
 function formatPopulation(value){if(value>=1e9)return(value/1e9).toFixed(2).replace(".",",")+" Md";if(value>=1e6)return(value/1e6).toFixed(1).replace(".",",")+" M";if(value>=1e3)return Math.round(value/1e3).toLocaleString("fr-FR")+" k";return Math.round(value).toLocaleString("fr-FR");}
 function formatArea(value){return Math.round(value).toLocaleString("fr-FR")+" km²";}
