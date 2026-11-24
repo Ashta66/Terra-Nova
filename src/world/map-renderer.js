@@ -1219,6 +1219,19 @@ function getSortedLabelCandidates(collection) {
   return candidates;
 }
 
+/** Détecte un chevauchement réel entre deux emprises cartographiques finies. */
+export function doMapLabelBoxesOverlap(first, second) {
+  if (!first || !second) return false;
+  const keys = ["left", "right", "top", "bottom"];
+  for (const key of keys) {
+    if (!Number.isFinite(Number(first[key])) || !Number.isFinite(Number(second[key]))) return false;
+  }
+  if (first.left > first.right || first.top > first.bottom
+    || second.left > second.right || second.top > second.bottom) return false;
+  return !(first.right < second.left || first.left > second.right
+    || first.bottom < second.top || first.top > second.bottom);
+}
+
 function labelBoxCollides(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SIZE) {
   const minX = Math.floor(box.left / cellSize);
   const maxX = Math.floor(box.right / cellSize);
@@ -1227,7 +1240,7 @@ function labelBoxCollides(box, occupiedCells, cellSize = LABEL_COLLISION_CELL_SI
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       for (const other of occupiedCells.get(`${x}:${y}`) ?? []) {
-        if (!(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom)) return true;
+        if (doMapLabelBoxesOverlap(box, other)) return true;
       }
     }
   }
