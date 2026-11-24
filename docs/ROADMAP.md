@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 28 : consultation sans allocation de l'index spatial
+
+- [x] Supprimer la création d'un tableau de candidats à chaque mouvement du pointeur.
+- [x] Supprimer le `Set` temporaire et le tri des candidats pendant le survol.
+- [x] Fusionner à rebours les indices de cellule et de débordement déjà ordonnés.
+- [x] Préserver strictement la priorité du dernier label dessiné.
+- [x] Éviter la création d'objets de bornes temporaires pendant les tests de collision au pointeur.
+- [x] Garder une recherche linéaire sans allocation de collection temporaire en l'absence d'index valide.
+- [x] Conserver le comportement des labels géants placés dans la liste de débordement.
+- [x] Couvrir les deux ordres de priorité entre labels locaux et labels de débordement.
+- [x] Tester les limites exactes des cellules et les index mal formés.
+- [x] Ajouter cinq tests de régression ciblés.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+La consultation de l'index ne construit plus de collection temporaire et ne trie plus les candidats à chaque événement de pointeur.
 ## 24 novembre 2026 — lot 27 : index spatial du ciblage des labels
 
 - [x] Construire une grille spatiale sur les emprises interactives visibles.
