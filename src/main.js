@@ -16,7 +16,7 @@ import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryNam
 import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
 import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
-import { constrainEquirectangularViewport } from "./world/projection.js";
+import { constrainEquirectangularViewport, zoomEquirectangularViewportAtPoint, panEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
@@ -284,17 +284,13 @@ function zoomMap(factor, anchorX, anchorY, shouldRender = true, rectOverride = n
   const rect = rectOverride ?? canvas.getBoundingClientRect();
   const x = anchorX ?? rect.width / 2;
   const y = anchorY ?? rect.height / 2;
-  const ratioX = rect.width ? x / rect.width - 0.5 : 0;
-  const ratioY = rect.height ? y / rect.height - 0.5 : 0;
-  const oldZoom = mapViewport.zoom;
-  const newZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, oldZoom * factor));
-  if (newZoom === oldZoom) return;
-  const longitudeAtAnchor = mapViewport.centerLongitude + ratioX * 360 / oldZoom;
-  const latitudeAtAnchor = mapViewport.centerLatitude - ratioY * 180 / oldZoom;
-  mapViewport.zoom = newZoom;
-  mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
-  mapViewport.centerLatitude = latitudeAtAnchor + ratioY * 180 / newZoom;
-  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
+  const nextViewport = zoomEquirectangularViewportAtPoint(
+    mapViewport, factor, x, y, rect.width, rect.height, MAX_MAP_ZOOM
+  );
+  if (nextViewport.zoom === mapViewport.zoom
+    && nextViewport.centerLongitude === mapViewport.centerLongitude
+    && nextViewport.centerLatitude === mapViewport.centerLatitude) return;
+  Object.assign(mapViewport, nextViewport);
   if (shouldRender) renderMap();
   updateMapControls();
 }
@@ -1648,9 +1644,10 @@ mapCanvas.addEventListener("pointermove", (event) => {
   const dx = event.clientX - mapDrag.x;
   const dy = event.clientY - mapDrag.y;
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
-  mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
-  mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
-  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
+  Object.assign(mapViewport, panEquirectangularViewport(
+    { ...mapViewport, centerLongitude: mapDrag.centerLongitude, centerLatitude: mapDrag.centerLatitude },
+    dx, dy, rect.width, rect.height, MAX_MAP_ZOOM
+  ));
   requestCompose();
   scheduleInteractionRender();
 });
