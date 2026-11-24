@@ -1037,6 +1037,16 @@ test("les noms historiques sont francisés et les enclaves anglaises sont explic
  assert.equal(frenchTerritoryName("Mapuche Confederation"), "Confédération mapuche");
  assert.equal(frenchTerritoryName("Kingdom of Araucania and Patagonia"), "Royaume d’Araucanie et de Patagonie");
  assert.equal(frenchTerritoryName("Duchy of Burgundy"),"Duché de Bourgogne");
+ assert.equal(frenchTerritoryName("Khanate of Sibir"), "Khanat de Sibir");
+ assert.equal(frenchTerritoryName("Hafsid Caliphate"), "Califat hafside");
+ assert.equal(frenchTerritoryName("Mamluke Sultanate"), "Sultanat mamelouk");
+ assert.equal(frenchTerritoryName("Oirat Confederation"), "Confédération oïrate");
+ assert.equal(frenchTerritoryName("Sultanate of Delhi"), "Sultanat de Delhi");
+ assert.equal(frenchTerritoryName("Tsardom of Muscovy"), "Tsarat de Moscovie");
+ assert.equal(frenchTerritoryName("Bukara Khanate"), "Khanat de Boukhara");
+ assert.equal(frenchTerritoryName("Ming Chinese Empire"), "Empire chinois des Ming");
+ assert.equal(frenchTerritoryName("Grand Duchy of Hesse"), "Grand-duché de Hesse");
+ assert.equal(frenchTerritoryName("Republic of Kraków"), "République de Cracovie");
  assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
  assert.equal(frenchTerritoryName("Republic of Annam",{NAME:"Republic of Annam"}),"République de l’Annam");
  assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
