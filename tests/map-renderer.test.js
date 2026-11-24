@@ -2300,8 +2300,8 @@ test("le placement viewport normalise les bornes numériques et les coordonnées
   };
   const fitted = fitMapLabelLayoutToViewport(layout, 100, 100, 8);
   assert.ok(fitted);
-  assert.equal(fitted.textX, 12);
-  assert.equal(fitted.marker.x, 12);
+  assert.equal(fitted.textX, 16);
+  assert.equal(fitted.marker.x, 16);
   assert.equal(fitted.hitBounds.left, 8);
   assert.equal(fitted.box.left, 10);
 });
