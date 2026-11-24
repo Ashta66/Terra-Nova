@@ -347,3 +347,83 @@ test("une mutation de longueur invalide l'index même avec des labels superposé
   hits.push(second);
   assert.equal(findMapLabelHitAtPoint(hits, 20, 20, index), second);
 });
+
+
+test("un bucket local mal formé déclenche le repli linéaire", () => {
+  const item = hit("Alpha", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [item];
+  const index = { hits, hitCount: 1, cellSize: 96, cells: new Map([["0:0", { 0: 0, length: 1 }]]), overflow: [] };
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), item);
+});
+
+test("un bucket absent ne masque pas un label placé dans une autre cellule", () => {
+  const item = hit("Alpha", { left: 100, right: 120, top: 100, bottom: 120 });
+  const hits = [item], index = createMapLabelHitIndex(hits, 32);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), null);
+  assert.equal(findMapLabelHitAtPoint(hits, 110, 110, index), item);
+});
+
+test("une nouvelle collection de même longueur invalide le snapshot précédent", () => {
+  const oldHit = hit("Ancien", { left: 0, right: 20, top: 0, bottom: 20 });
+  const newHit = hit("Nouveau", { left: 0, right: 20, top: 0, bottom: 20 });
+  const oldHits = [oldHit], newHits = [newHit];
+  const oldIndex = createMapLabelHitIndex(oldHits);
+  assert.equal(oldHits.length, newHits.length);
+  assert.equal(findMapLabelHitAtPoint(newHits, 10, 10, oldIndex), newHit);
+});
+
+test("la construction ignore une emprise source devenue invalide", () => {
+  const valid = hit("Valide", { left: 0, right: 20, top: 0, bottom: 20 });
+  const invalid = hit("Invalide", { left: 30, right: 10, top: 0, bottom: 20 });
+  const hits = [valid, invalid], index = createMapLabelHitIndex(hits);
+  assert.equal(index.cells.get("0:0").length, 1);
+  assert.equal(findMapLabelHitAtPoint(hits, 15, 15, index), valid);
+});
+
+test("les indices invalides ne bloquent pas les candidats plus anciens", () => {
+  const older = hit("Ancien", { left: 0, right: 20, top: 0, bottom: 20 });
+  const newer = hit("Récent", { left: 0, right: 20, top: 0, bottom: 20 });
+  const hits = [older, newer];
+  const index = { hits, hitCount: 2, cellSize: 96, cells: new Map([["0:0", [0, 99]]]), overflow: [] };
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), older);
+});
+
+test("une collection reconstruite à l'identique conserve la priorité supérieure", () => {
+  const oldHits = [hit("Ancien", { left: 0, right: 20, top: 0, bottom: 20 })];
+  const index = createMapLabelHitIndex(oldHits);
+  const nextHits = [
+    hit("Dessous", { left: 0, right: 20, top: 0, bottom: 20 }),
+    hit("Dessus", { left: 0, right: 20, top: 0, bottom: 20 })
+  ];
+  assert.equal(findMapLabelHitAtPoint(nextHits, 10, 10, index), nextHits[1]);
+});
+
+test("les bornes non finies ne sont pas publiées dans un index", () => {
+  const invalid = hit("Infini", { left: 0, right: Infinity, top: 0, bottom: 20 });
+  const hits = [invalid], index = createMapLabelHitIndex(hits);
+  assert.equal(index.cells.size, 0);
+  assert.equal(index.overflow.length, 0);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), null);
+});
+
+test("les rectangles dégénérés restent ciblables sur leur ligne", () => {
+  const item = hit("Ligne", { left: 0, right: 20, top: 10, bottom: 10 });
+  const hits = [item], index = createMapLabelHitIndex(hits);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), item);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10.01, index), null);
+});
+
+test("les rectangles dégénérés restent ciblables sur leur colonne", () => {
+  const item = hit("Colonne", { left: 10, right: 10, top: 0, bottom: 20 });
+  const hits = [item], index = createMapLabelHitIndex(hits);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), item);
+  assert.equal(findMapLabelHitAtPoint(hits, 10.01, 10, index), null);
+});
+
+test("le snapshot indexé conserve la référence exacte de la collection publiée", () => {
+  const hits = [hit("Publié", { left: 0, right: 20, top: 0, bottom: 20 })];
+  const index = createMapLabelHitIndex(hits);
+  assert.equal(index.hits, hits);
+  assert.equal(index.hitCount, hits.length);
+  assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), hits[0]);
+});
