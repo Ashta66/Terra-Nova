@@ -2,7 +2,7 @@ const COMMONS="https://commons.wikimedia.org/wiki/Special:FilePath/";
 const COATS=Object.freeze({
   "France":"Arms_of_the_Kingdom_of_France_(Ancien).svg",
   "Kingdom of France":"Arms_of_the_Kingdom_of_France_(Ancien).svg",
-  "England":"Royal_arms_of_England.svg",
+  "England":"Royal_Arms_of_England_(1399-1603).svg",
   "Kingdom of England":"Royal_arms_of_England.svg",
   "Castile":"Blason_Castille.svg",
   "Kingdom of Castile":"Blason_Castille.svg",
@@ -13,7 +13,7 @@ const COATS=Object.freeze({
   "Muscovy":"Coat_of_arms_of_the_Russian_Empire.svg",
   "Russian Empire":"Coat_of_arms_of_the_Russian_Empire.svg",
   "Russia":"Coat_of_arms_of_the_Russian_Empire.svg",
-  "Holy Roman Empire":"Coat_of_Arms_of_the_Holy_Roman_Emperor_(c.1400-c.1433).svg",
+  "Holy Roman Empire":"Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg",
   "Polish-Lithuanian Commonwealth":"COA_Polish-Lithuanian_Commonwealth.svg"
 });
 const COUNTRY_CODES=Object.freeze({
