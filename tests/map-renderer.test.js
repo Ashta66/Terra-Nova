@@ -241,6 +241,22 @@ test("le moteur ignore les géométries nulles sans interrompre le rendu", () =>
   assert.equal(result.landCount, 0);
 });
 
+test("les noms des pays sont visibles au zoom minimal de lancement", () => {
+  const { canvas } = createCanvas();
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    properties: { NAME: "France", ADMIN: "France" },
+    geometry: { type: "Polygon", coordinates: [[[-5, 42], [8, 42], [8, 51], [-5, 51], [-5, 42]]] }
+  }] };
+  const labels = buildTerritoryLabels(territories);
+  assert.equal(labels.features[0].properties.minZoom, 1);
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 46 }
+  });
+  assert.ok(result.labelHits.some(label => label.name === "FRANCE"));
+});
+
 test("les noms des pays restent visibles au dézoom même avec de nombreux labels secondaires", () => {
   const { canvas } = createCanvas();
   const secondary = Array.from({ length: 60 }, (_, index) => ({
