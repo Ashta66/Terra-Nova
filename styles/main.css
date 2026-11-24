@@ -1585,7 +1585,7 @@ body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10
   padding:24px;background:
     radial-gradient(ellipse at 50% 46%,color-mix(in srgb,var(--theme-accent,#c8aa70) 17%,transparent),transparent 43%),
     linear-gradient(135deg,rgba(3,8,12,.94),rgba(8,17,22,.82) 52%,rgba(3,8,12,.96));
-  backdrop-filter:blur(7px) saturate(.72);pointer-events:none;
+  backdrop-filter:blur(7px) saturate(.72);pointer-events:auto;
   animation:campaign-launch-fade 1.55s cubic-bezier(.2,.72,.22,1) forwards;
 }
 .campaign-launch:before,.campaign-launch:after{
