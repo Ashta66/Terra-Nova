@@ -2672,7 +2672,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         } else {
           target.beginPath();
           for (const feature of visibleLand.features) {
-            if (feature?.geometry) traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+            if (feature?.geometry && !isAntarcticLandFeature(feature)) {
+              traceGeometry(target, feature.geometry, width, height, projection, coastProfile);
+            }
           }
           target.clip("evenodd");
         }
