@@ -501,3 +501,32 @@ Les tests automatisés prouvent les invariants du code, pas l'absence d'artefact
 - [x] CI GitHub Actions verte sur le lot initial d'optimisations.
 - [ ] Confirmer la CI du dernier commit après les tests complémentaires.
 - [ ] Validation visuelle utilisateur obligatoire avant de sortir la PR #46 du brouillon.
+
+
+## Point d'étape et priorités de reprise — 24 novembre 2026
+
+Ce point sert de repère durable pour les prochaines sessions de développement.
+
+### État validé
+- Socle technique, optimisations de simulation/rendu et principaux correctifs cartographiques : validés par les tests du joueur.
+- Carte mondiale et préparation de campagne : structure fonctionnelle avancée, sélection des nations, fiche stratégique, choix Stratégie/Sandbox et séquence de lancement intégrés.
+- Francisation des noms de pays : largement avancée ; les identifiants internes restent inchangés.
+- Insignes : affichage des drapeaux/blasons et masquage après échec des deux sources corrigés ; le dernier correctif a été confirmé par le joueur.
+- Les validations locales et visuelles restent à effectuer par le joueur après chaque lot ; les tests automatisés ne valent pas validation visuelle.
+- PR #46 reste en brouillon et ne doit pas être fusionnée sans accord explicite.
+
+### Ordre prioritaire de reprise
+1. **Fiabilisation de la préparation de campagne** : sources d'insignes réellement disponibles, sélection, fiche pays, dates, accessibilité et états vides.
+2. **Finition fonctionnelle de la campagne** : cohérence des données affichées, navigation clavier, responsive et robustesse des interactions.
+3. **Refonte artistique de la carte et de l'interface** : matériaux riches et tactiles, textures organiques, contraste maîtrisé, six identités historiques distinctes.
+4. **HUD en partie** : chronologie, panneaux d'information, événements et contrôles de simulation.
+5. **Systèmes de grande stratégie** : populations, ressources, économie, diplomatie, IA, exploration et conflits.
+6. **Simulation historique** : événements, conséquences systémiques, monde divergent et outils d'édition.
+7. **Stabilité et diffusion** : sauvegardes longues, compatibilité, performances mesurées, accessibilité et préparation de version.
+
+### Contraintes de réalisation
+- Avancer par lots d'environ dix améliorations cohérentes, avec tests de non-régression.
+- Après chaque lot, attendre le retour « tests ok » avant de poursuivre.
+- Ne pas modifier l'interpolation temporelle ni les règles historiques pendant les chantiers purement visuels.
+- La refonte artistique doit éviter les interfaces trop claires, trop sobres ou saturées de filets et de lignes décoratives : privilégier des matériaux crédibles, une hiérarchie nette et des détails utiles.
+- Ne pas annoncer de validation locale, de FPS ou de résultat visuel qui n'a pas été mesuré sur l'environnement du joueur.
