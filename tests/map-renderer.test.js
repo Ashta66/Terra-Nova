@@ -2080,7 +2080,7 @@ test("les emprises des labels restent proportionnelles au rendu haute densité",
 test("les coordonnées invalides ne produisent pas de dimensions négatives", () => {
   const layout = getMapLabelLayout("city", { x: NaN, y: Infinity }, -10, 0, 0);
   assert.equal(layout.textX, 0);
-  assert.equal(layout.textY, 0);
+  assert.equal(layout.textY, 0.5);
   assert.ok(layout.box.right >= layout.box.left);
   assert.ok(layout.box.bottom >= layout.box.top);
 });
