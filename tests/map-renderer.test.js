@@ -835,7 +835,7 @@ test("les contours côtiers seuls ne sont pas confondus avec des frontières pol
   assert.equal(result.features.length, 0);
 });
 
-test("les frontières politiques et administratives sont rendues comme deux couches distinctes", () => {
+test("les frontières nationales sont rendues sans tracer les limites administratives", () => {
   const { canvas, calls } = createCanvas();
   const politicalBoundaries = { type: "FeatureCollection", features: [
     { type: "Feature", properties: { BORDERPRECISION: 3 }, geometry: { type: "LineString", coordinates: [[0, 0], [5, 5]] } }
@@ -848,9 +848,9 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     politicalBoundaries, administrativeBoundaries
   });
   assert.equal(result.politicalBoundaryCount, 2);
-  assert.equal(result.administrativeBoundaryCount, 1);
+  assert.equal(result.administrativeBoundaryCount, 0);
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 0));
-  assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
+  assert.ok(!calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
 });
 
 test("les frontières historiques ne conservent que les segments partagés entre territoires", () => {
@@ -878,15 +878,14 @@ test("les noms des pays sont générés depuis les polygones territoriaux", () =
   assert.ok(Math.abs(labels.features[0].geometry.coordinates[1] - 2) < 0.01);
 });
 
-test("les provinces reçoivent des labels à partir de leurs lignes administratives", () => {
+test("les étiquettes infranationales ne sont pas générées pour la carte stratégique", () => {
   const provinces = { type: "FeatureCollection", features: [{
     type: "Feature", properties: { name: "Province test" },
     geometry: { type: "Polygon", coordinates: [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]] }
   }] };
-  const labels = buildTerritoryLabels(null, provinces);
-  assert.equal(labels.features.length, 1);
-  assert.equal(labels.features[0].properties.kind, "province");
-  assert.equal(labels.features[0].properties.name, "Province test");
+  const labels = buildTerritoryLabels(null);
+  assert.equal(labels.features.length, 0);
+  assert.equal(provinces.features.length, 1, "les données régionales restent disponibles hors du rendu stratégique");
 });
 
 
@@ -1419,29 +1418,20 @@ test("les repères d'altitude sont triés une seule fois par collection et conse
     "le tri en cache ne doit jamais réordonner la collection source");
 });
 
-test("les frontières administratives Canvas sont regroupées par style de tirets", () => {
-  const makeBoundaries = count => ({
+test("les limites administratives nombreuses ne déclenchent aucun tracé Canvas", () => {
+  const administrativeBoundaries = {
     type: "FeatureCollection",
-    features: Array.from({ length: count }, (_, index) => ({
-      type: "Feature",
-      properties: { BORDERPRECISION: index % 2 === 0 ? 2 : 3, scalerank: 0 },
+    features: Array.from({ length: 100 }, (_, index) => ({
+      type: "Feature", properties: { scalerank: 0 },
       geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.4, 1]] }
     }))
-  });
-  const render = administrativeBoundaries => {
-    const { canvas, calls } = createCanvas();
-    const result = renderWorldMap(canvas, land, {
-      width: 640, height: 320, pixelRatio: 1,
-      viewport: { zoom: 9 },
-      administrativeBoundaries
-    });
-    return { result, strokeCount: calls.filter(call => call[0] === "stroke").length };
   };
-  const baseline = render(makeBoundaries(0));
-  const batched = render(makeBoundaries(10));
-  assert.equal(batched.result.administrativeBoundaryCount, 10);
-  assert.equal(batched.strokeCount - baseline.strokeCount, 1,
-    "les frontières administratives partagent un motif de tirets et doivent produire un seul stroke Canvas");
+  const { canvas, calls } = createCanvas();
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }, administrativeBoundaries
+  });
+  assert.equal(result.administrativeBoundaryCount, 0);
+  assert.equal(calls.filter(call => call[0] === "stroke").length, 0);
 });
 
 
