@@ -1,3 +1,19 @@
+## 24 novembre 2026 — lot 17 : nomenclature des mers et bassins régionaux
+
+- [x] Étendre les toponymes maritimes au-delà des seuls océans.
+- [x] Ajouter des labels dédiés à la Méditerranée, aux mers des Caraïbes, du Nord, Baltique, Rouge, Noire, d'Arabie, de Chine méridionale, du Japon et de Béring.
+- [x] Positionner les noms sur des points géographiques représentatifs, distincts des côtes et des grands centres urbains.
+- [x] Réserver leur apparition à une échelle régionale pour préserver la lecture du planisphère.
+- [x] Conserver les deux occurrences du Pacifique sur les côtés opposés de la carte.
+- [x] Réutiliser le style maritime discret défini au lot 16.
+- [x] Garder les données de labels indépendantes des frontières et de la simulation.
+- [x] Ajouter des tests de couverture, d'identifiants et de seuils de zoom.
+- [x] Préserver le format GeoJSON et les métadonnées de provenance.
+- [x] Documenter le caractère indicatif des points d'ancrage.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des collisions aux zooms 1, 3 et 5.
+
+Les points sont des ancres typographiques indicatives et non des limites hydrographiques. Les labels régionaux apparaissent progressivement afin de ne pas encombrer la vue mondiale.
+
 ## 24 novembre 2026 — lot 16 : profondeur océanique et toponymie maritime
 
 - [x] Définir un profil de profondeur océanique par ère historique.
@@ -10,7 +26,8 @@
 - [x] Réduire l'emphase des mers et océans par rapport aux pays.
 - [x] Préserver les dimensions de rendu et le cache statique existants.
 - [x] Ajouter des tests sur les six profils et la hiérarchie typographique maritime.
-- [ ] Validation locale du joueur : `npm test` et contrôle visuel des océans sur les six ères, aux zooms monde et régional.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des océans sur les six ères, aux zooms monde et régional.
 
 La lumière ajoutée est un traitement graphique d'ambiance, pas une donnée scientifique de profondeur. Aucune géométrie, donnée hydrographique ou règle de simulation n'est modifiée.
 
