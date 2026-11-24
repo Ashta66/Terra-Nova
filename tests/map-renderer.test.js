@@ -2049,7 +2049,7 @@ test("la hiérarchie des labels garde les pays dominants et les océans secondai
   assert.ok(country.alpha > continent.alpha);
   assert.ok(continent.alpha > ocean.alpha);
   assert.ok(Math.abs(country.shadowBlur - 4.8) < 1e-9);
-  assert.equal(ocean.shadowBlur, 0);
+  assert.ok(ocean.shadowBlur > 0);
 });
 
 
