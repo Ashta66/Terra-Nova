@@ -16,7 +16,7 @@ import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryNam
 import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
 import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
-import { constrainEquirectangularViewport, zoomEquirectangularViewportAtPoint, panEquirectangularViewport } from "./world/projection.js";
+import { zoomEquirectangularViewportAtPoint, panEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
 import { createTerrainTileStore } from "./world/terrain-tiles.js";
