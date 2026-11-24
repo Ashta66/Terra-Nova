@@ -1,3 +1,14 @@
+## 24 novembre 2026 — lot 13 : budgets et réutilisation des géométries
+
+- [x] Porter le cache des chemins projetés à 4 096 entrées, 10 variantes par feature et 750 000 sommets estimés (24 Mo estimés).
+- [x] Porter le cache LRU des masques terrestres composés à 24 entrées.
+- [x] Ajouter un test de non-régression des plafonds de cache.
+- [ ] Valider localement avec `npm test`.
+- [ ] Refaire un benchmark PC zoom 20 (cache chaud, même viewport/DPR, 60–70 secondes) et comparer médiane/p95, évictions, constructions et heap JS.
+- [ ] Vérifier en navigation aller-retour que les vues récemment visitées réutilisent les chemins sans dérive visuelle.
+
+Les budgets restent plafonnés ; les 24 Mo des chemins sont une estimation logicielle et non une mesure native Path2D. Un panoramique continu peut toujours créer de nouvelles clés de projection. Aucun gain de performance n'est présumé avant le prochain relevé.
+
 ## 21 novembre 2026 — intégration du moteur cartographique (PR #46)
 
 Cette tranche d'intégration est développée sur `integration/unified-map-engine-main` et proposée à `main` via PR #46, maintenue en brouillon.
