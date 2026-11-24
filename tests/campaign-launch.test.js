@@ -96,3 +96,7 @@ test("la liste de campagne affiche un insigne à côté de chaque nation", () =>
   assert.match(script, /btn\.append\(identity,meta\)/);
   assert.match(css, /\.country-result-insignia/);
 });
+
+test("les insignes masqués après échec de chargement ne sont pas réaffichés par le CSS", () => {
+  assert.match(css, /\.country-result-insignia\[hidden\],\.dossier-emblem\[hidden\]\{display:none!important\}/);
+});
