@@ -1121,5 +1121,5 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [x] Autoriser un rendu à programmer proprement une frame suivante.
 - [x] Rendre la destruction du scheduler idempotente et définitive.
 - [x] Ajouter des tests de course, d'identifiant réutilisé, de réentrance et de destruction.
-- [ ] CI GitHub Actions à confirmer.
+- [x] CI GitHub Actions : 627 tests réussis, 0 échec (run 45476588771).
 - [ ] Validation locale du joueur : `npm test`.
