@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapTooltipPosition, formatMapTooltipCoordinates } from "../src/world/map-tooltip-layout.js";
+import { getMapTooltipPosition, formatMapTooltipCoordinates, getMapTooltipDescriptor } from "../src/world/map-tooltip-layout.js";
 
 test("le tooltip se place à droite et sous le pointeur dans l'espace libre", () => {
   assert.deepEqual(getMapTooltipPosition(20, 20, 500, 300, 120, 40), {
