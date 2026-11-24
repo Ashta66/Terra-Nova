@@ -543,7 +543,7 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Ajouter `referrerPolicy="no-referrer"` aux images distantes de la liste et de la fiche.
 - [x] Étendre les tests aux placeholders, codes valides, alias régional et champs de repli.
 - [x] Documenter les règles de disponibilité et les limites des fournisseurs externes.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des drapeaux/blasons sur quelques nations et d'un cas sans image.
+- [x] Validation locale du joueur : `npm test` confirmé ; le contrôle visuel des cas d’insigne reste à faire séparément.
 
 
 ### Lot prioritaire 2 — cohérence fonctionnelle de la sélection de campagne (24 novembre 2026)
