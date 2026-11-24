@@ -2371,7 +2371,7 @@ export function getMapLabelStyle(kind, theme = {}, fontSize = 12, renderScale = 
   const isDisplay = kind === "country" || kind === "continent";
   const family = isDisplay ? displayFont : bodyFont;
   const weight = kind === "country" ? 700 : kind === "continent" ? 600 : kind === "city" ? 600 : 500;
-  const isOcean = kind === "ocean" || kind === "sea";
+  const isOcean = kind === "ocean" || kind === "sea" || kind === "strait";
   const font = `${isOcean ? "italic " : ""}${weight} ${fontSize}px "${family}", ${isDisplay ? "Georgia, serif" : "Arial, sans-serif"}`;
   const surface = colors.surface || "#0c1d27";
   const text = colors.text || "#f0e6cf";
