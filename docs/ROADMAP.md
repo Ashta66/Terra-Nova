@@ -11,7 +11,7 @@
 - [x] Préserver les métadonnées du viewport pendant sa normalisation.
 - [x] Intégrer les fonctions communes aux interactions molette et glisser.
 - [x] Ajouter dix tests de navigation et de robustesse dans `projection.test.js`.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : succès (run 45463864038).
 - [ ] Validation locale du joueur : `npm test` à confirmer.
 
 Les interactions de zoom et de déplacement partagent désormais les mêmes conversions géographiques et les mêmes garde-fous. Le zoom conserve son point d'ancrage tant que les limites du monde ne nécessitent pas de recentrage.
