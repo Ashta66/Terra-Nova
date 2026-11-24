@@ -38,3 +38,28 @@ test("la révélation préserve la carte et masque progressivement les panneaux 
   assert.match(css, /@keyframes campaign-launch-card/);
   assert.match(html, /id="map-title" tabindex="-1"/);
 });
+
+
+test("la préparation de campagne garde le dossier synchronisé avec l'année choisie", () => {
+  assert.match(script, /startYearSlider\.setAttribute\("aria-valuetext", String\(year\)\)/);
+  assert.match(script, /if \(selectedPreview\) renderCountryDossier\(selectedPreview\)/);
+  assert.match(script, /item\.raw === previewCountry\)\?\.label \|\| "Le monde"/);
+});
+
+test("la recherche de nations annonce les résultats vides et permet d'effacer avec Échap", () => {
+  assert.match(html, /id="country-result-count" class="country-result-count" role="status" aria-live="polite"/);
+  assert.match(html, /aria-controls="country-results"/);
+  assert.match(script, /Aucune nation ne correspond à cette recherche/);
+  assert.match(script, /event\.key==="Escape"/);
+  assert.match(css, /\.country-empty-state/);
+});
+
+test("les filtres replacent la liste en haut et conservent une sélection lisible", () => {
+  assert.match(script, /country-results"\)\.scrollTop=0/);
+  assert.match(css, /\.country-result\.is-selected \.country-result-name/);
+  assert.match(css, /\.country-result:focus-visible/);
+});
+
+test("le mode choisi adapte le libellé de l'action principale", () => {
+  assert.match(script, /mode === "sandbox" \? "Explorer le monde " : "Entrer dans l’Histoire "/);
+});
