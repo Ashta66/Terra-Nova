@@ -903,8 +903,7 @@ function renderMapFrame() {
     }
   }
   const year = Number(String(state.clock.date).slice(0, 4));
-  const administrativeDetail = mapViewport.zoom >= 7 ? "regional" : "world";
-  const boundaryRequestKey = year + ":" + administrativeDetail;
+  const boundaryRequestKey = String(year);
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
     boundaryRequestedKey = boundaryRequestKey;
     boundaryLoadPromise = Promise.all([
