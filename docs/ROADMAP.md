@@ -1,3 +1,17 @@
+## 24 novembre 2026 — lot 25 : cohérence interne des géométries de labels
+
+- [x] Extraire un validateur déterministe de cohérence entre emprise visuelle, ancre de texte et zone interactive.
+- [x] Vérifier que la zone interactive englobe entièrement l'emprise visuelle.
+- [x] Vérifier que l'ancre typographique reste dans l'emprise déclarée.
+- [x] Inclure le rayon et l'épaisseur du contour du marqueur dans le contrôle d'inclusion.
+- [x] Rejeter les marqueurs non finis, négatifs ou sortant de leur zone interactive.
+- [x] Appliquer le validateur avant tout ajustement au viewport pour éviter de propager une géométrie incohérente.
+- [x] Préserver le placement des labels valides sans modification.
+- [x] Ajouter des tests sur les inclusions, les débordements du marqueur et les géométries incohérentes.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le contrôle porte sur la cohérence des données géométriques, pas sur le contenu historique ni sur les règles d'apparition des labels.
 ## 24 novembre 2026 — lot 24 : intégrité des emprises et collisions interactives
 
 - [x] Normaliser les coordonnées numériques avant les comparaisons d'emprises, y compris lorsqu'elles sont fournies sous forme de chaînes.
