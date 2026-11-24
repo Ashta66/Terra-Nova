@@ -12,12 +12,12 @@ test("la fiche expose la superficie et le statut politique sans inventer de donn
 test("la lecture stratégique évolue selon la période historique",()=>{const early=buildCountryDossier({properties:{NAME:"État"}},1500);const modern=buildCountryDossier({properties:{NAME:"État"}},2026);assert.match(early.historicalLens,/dynastique/);assert.match(modern.historicalLens,/technologies/);assert.equal(early.year,1500);});
 test("les champs manquants restent explicitement non documentés",()=>{const d=buildCountryDossier({properties:{NAME:"État"}},2026);assert.equal(d.metrics[4].value,"Non documentée");assert.match(d.territory,/pas renseignée|n’est pas renseignée/i);});
 
-test("une nation contemporaine sans armoiries connues reçoit un fichier de drapeau",()=>{const d=buildCountryDossier({properties:{NAME:"Pays inconnu",ISO_A2:"ZZ"}},2026);assert.equal(d.insignia.type,"flag");assert.equal(d.insignia.src,"https://flagcdn.com/w160/zz.png");});
+test("une nation contemporaine sans armoiries connues reçoit un fichier de drapeau",()=>{const d=buildCountryDossier({properties:{NAME:"Pays inconnu",ISO_A2:"ZZ"}},2026);assert.equal(d.insignia.type,"none");assert.equal(d.insignia.src,"");});
 test("les puissances historiques utilisent de vrais fichiers d’armoiries",()=>{for(const [name,fragment,year] of [["France","Arms_of_the_Kingdom_of_France",1500],["Castile","Blason_Castille",1500],["England","Royal_Arms_of_England",1500],["Ottoman Empire","Osmanli-nisani",1900],["Russian Empire","Coat_of_arms_of_the_Russian_Empire",1900],["Holy Roman Empire","Generic_Arms_of_the_Holy_Roman_Emperor",1500]]){const d=buildCountryDossier({properties:{NAME:name,ISO_A2:"GB"}},year);assert.equal(d.insignia.type,"coat");assert.ok(d.insignia.src.includes(fragment));}});
 
 test("aucun insigne n'est généré sans drapeau ISO ni armoiries disponibles",()=>{
  const d=buildCountryDossier({properties:{NAME:"Entité inconnue"}},2026);
- assert.equal(d.insignia.type,"flag");
+ assert.equal(d.insignia.type,"none");
  assert.equal(d.insignia.src,"");
  assert.equal(d.insignia.fallback,undefined);
 });
@@ -27,4 +27,24 @@ test("une armoirie conserve un repli uniquement si un vrai drapeau image existe"
  assert.equal(known.insignia.fallback,"https://flagcdn.com/w160/fr.png");
  const unknown=buildCountryDossier({properties:{NAME:"Entité inconnue"}},1500);
  assert.equal(unknown.insignia.fallback,undefined);
+});
+
+test("les codes ISO réservés ou fictifs ne produisent aucune URL d'image",()=>{
+ for(const code of ["ZZ","XX","-99","00","UN"]){
+  const d=buildCountryDossier({properties:{NAME:"Entité sans drapeau",ISO_A2:code}},2026);
+  assert.equal(d.insignia.type,"none",code);
+  assert.equal(d.insignia.src,"",code);
+  assert.equal(d.insignia.alt,"",code);
+ }
+});
+test("les codes ISO valides et le code régional écossais restent pris en charge",()=>{
+ for(const [name,code] of [["Pays test","FR"],["Scotland","gb-sct"]]){
+  const d=buildCountryDossier({properties:{NAME:name,ISO_A2:code}},2026);
+  assert.equal(d.insignia.type,"flag");
+  assert.equal(d.insignia.src,"https://flagcdn.com/w160/"+code.toLowerCase()+".png");
+ }
+});
+test("un code ISO invalide ne masque pas un code de repli valide",()=>{
+ const d=buildCountryDossier({properties:{NAME:"France",ISO_A2:"ZZ",ISO_A2_EH:"FR"}},2026);
+ assert.equal(d.insignia.src,"https://flagcdn.com/w160/fr.png");
 });
