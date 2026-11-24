@@ -715,7 +715,7 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 
 ## Lot prioritaire 13 — cohérence du cache géométrique au zoom rapproché (24 novembre 2026)
 - [x] Centraliser le profil de projection utilisé pour les clés des chemins et des masques composés.
-- [x] Distinguer explicitement le mode wrapLongitude dans les clés de cache.
+- [x] Cléer les chemins selon les paramètres de projection réellement effectifs, sans invalider sur un drapeau de longitude neutralisé par le projecteur.
 - [x] Conserver la précision effective du zoom dans les clés pour éviter les collisions dues à l'arrondi à quatre décimales.
 - [x] Réutiliser le même profil de vue pour construire le masque composé et ses chemins enfants.
 - [x] Réduire les tableaux temporaires du parcours des géométries polygonales et linéaires.
