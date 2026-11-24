@@ -2364,13 +2364,37 @@ export function getCityLabelLimit(_zoom = 1) {
   return 5;
 }
 
+/** Calcule un budget stable de labels secondaires selon le zoom et la densité demandée. */
+export function getMapLabelCandidateProfile(zoom = 1, labelDensity = 1) {
+  const rawZoom = Number(zoom);
+  const level = Number.isFinite(rawZoom) ? Math.max(1, Math.min(20, rawZoom)) : 1;
+  const rawDensity = Number(labelDensity);
+  const density = Number.isFinite(rawDensity) && rawDensity > 0
+    ? Math.max(0.5, Math.min(1.1, rawDensity)) : 1;
+  const baseCandidateLimit = level < 1.5 ? 48 : level < 3 ? 90 : level < 6 ? 180 : Infinity;
+  return {
+    density,
+    candidateLimit: Number.isFinite(baseCandidateLimit)
+      ? Math.max(24, Math.floor(baseCandidateLimit * density)) : Infinity,
+    cityLabelLimit: Math.max(2, Math.round(getCityLabelLimit(level) * density))
+  };
+}
+
 /** Taille des labels interpolée sans seuil brutal, en pixels de rendu. */
-export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {  const level = Math.max(1, Math.min(20, Number(zoom) || 1));
+export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {
+  const rawZoom = Number(zoom);
+  const level = Number.isFinite(rawZoom) ? Math.max(1, Math.min(20, rawZoom)) : 1;
   const smooth = value => value * value * (3 - 2 * value);
   const blend = (value, start, end) => smooth(Math.max(0, Math.min(1, (value - start) / (end - start))));
-  const base = kind === "continent" ? 13 : kind === "country" ? 13 : kind === "province" ? 9 : 10;
+  const base = kind === "continent" || kind === "country" ? 13
+    : kind === "ocean" ? 11.5
+      : kind === "sea" ? 10.2
+        : kind === "strait" ? 9.2
+          : kind === "province" ? 9 : 10;
   const progressive = kind === "country" ? 2 * blend(level, 1.5, 4) : 0.8 * blend(Math.log(level), 0, Math.log(20));
-  return (base + progressive) * Math.max(0.1, Number(renderScale) || 1);
+  const rawScale = Number(renderScale);
+  const scale = Number.isFinite(rawScale) ? Math.max(0.1, rawScale) : 1;
+  return (base + progressive) * scale;
 }
 
 /** Résout la signature typographique et le contraste d'un label selon l'ère active. */
@@ -2456,21 +2480,15 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
   const collisionCellSize = LABEL_COLLISION_CELL_SIZE * renderScale;
   // L'ordre de priorité est calculé une seule fois par collection ; le seuil de zoom
   // reste évalué à chaque rendu pour que les labels apparaissent au bon moment.
-  const density = Math.max(0.5, Math.min(1.1, Number(labelDensity) || 1));
-  const baseCandidateLimit = zoom < 1.5 ? 48 : zoom < 3 ? 90 : zoom < 6 ? 180 : Infinity;
-  const candidateLimit = Number.isFinite(baseCandidateLimit)
-    ? Math.max(24, Math.floor(baseCandidateLimit * density)) : Infinity;
+  const densityProfile = getMapLabelCandidateProfile(zoom, labelDensity);
   const candidates = getSortedLabelCandidates(collection);
-  const cityLabelLimit = Math.max(2, Math.round(getCityLabelLimit(zoom) * density));
+  const cityLabelLimit = densityProfile.cityLabelLimit;
   let cityLabelsDrawn = 0;
   context.save();
-  let secondaryCandidatesVisited = 0;
+  let visibleSecondaryCandidates = 0;
   for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
     const feature = candidates[candidateIndex];
     const kind = feature.properties?.kind ?? "place";
-    // Les noms des pays restent prioritaires à l'échelle mondiale : le budget
-    // de densité ne doit limiter que les labels secondaires (continents, villes…).
-    if (kind !== "country" && secondaryCandidatesVisited++ >= candidateLimit) continue;
     if (Number(feature.properties?.minZoom ?? 1) > zoom) continue;
     if (zoom < 3 && kind === "province") continue;
     if (kind === "city" && cityLabelsDrawn >= cityLabelLimit) continue;
@@ -2479,6 +2497,8 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     if (!point || point.x < 12 * renderScale || point.x > width - 12 * renderScale || point.y < 12 * renderScale || point.y > height - 12 * renderScale) continue;
     const name = localizeMapLabel(feature.properties?.name, kind, feature.properties ?? {});
     if (!name) continue;
+    // Les candidats hors écran ou non éligibles ne consomment pas le budget visible.
+    if (kind !== "country" && visibleSecondaryCandidates++ >= densityProfile.candidateLimit) continue;
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = getMapLabelFontSize(kind, zoom, renderScale);
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
