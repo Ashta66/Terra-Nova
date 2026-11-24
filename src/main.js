@@ -24,7 +24,7 @@ import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
-import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
+import { loadPoliticalBoundaries } from "./world/historical-boundaries.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
 import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
@@ -48,7 +48,6 @@ let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
-let administrativeBoundaryFeatures = null;
 let territoryFeatures = null;
 let territoryLabelFeatures = null;
 let previewCountry = "";
@@ -909,18 +908,12 @@ function renderMapFrame() {
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
     boundaryRequestedKey = boundaryRequestKey;
     boundaryLoadPromise = Promise.all([
-      loadPoliticalBoundaries(year),
-      loadAdministrativeBoundaries(year, mapViewport.zoom),
-      loadAdministrativeRegions(year).catch(error => {
-        console.warn("Noms des provinces indisponibles :", error);
-        return null;
-      })
-    ]).then(([political, administrative, administrativeRegions]) => {
+      loadPoliticalBoundaries(year)
+    ]).then(([political]) => {
       politicalBoundaryFeatures = simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
       territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
       populateCampaignCountries();
-      administrativeBoundaryFeatures = simplifyGeoJsonCollection(administrative,0.0045);
-      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
+      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures);
       boundarySourceLabel = political?.sourceYear
         ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
         : "indisponible";
@@ -969,7 +962,7 @@ function renderMapFrame() {
     physicalWorld: state.physicalWorld,
     selectedCountry: playerCountry || previewCountry,
     politicalBoundaries: politicalBoundaryFeatures,
-    administrativeBoundaries: administrativeBoundaryFeatures,
+    administrativeBoundaries: null,
     terrain: terrainGrid,
     terrainTileStore,
     onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
