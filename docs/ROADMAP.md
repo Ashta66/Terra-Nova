@@ -10,7 +10,7 @@
 - [x] Restaurer le curseur selon le mode d'interaction courant.
 - [x] Éviter la suppression d'un clic ultérieur après une annulation.
 - [x] Ajouter neuf tests ciblés dans `map-pointer-gesture.test.js`.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : succès (run 45464349758).
 - [ ] Validation locale du joueur : `npm test` à confirmer.
 
 Les gestes tactiles et souris ont maintenant un propriétaire explicite. Les événements d'un autre pointeur ne peuvent plus déplacer ou terminer le geste actif ; les annulations et pertes de focus nettoient l'état sans laisser de suppression de clic résiduelle.
