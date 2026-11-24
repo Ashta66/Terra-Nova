@@ -1908,8 +1908,8 @@ export function frenchTerritoryName(value, properties = {}) {
   const owner = String(properties.SUBJECTO ?? properties.SOVEREIGNT ?? "").trim().toLowerCase();
   if (/^(aquitaine|duchy of aquitaine)$/.test(key) && /england|britain/.test(owner)) return "Aquitaine anglaise";
   if (/^(guyenne|gascony)$/.test(key) && /england|britain/.test(owner)) return key === "guyenne" ? "Guyenne anglaise" : "Gascogne anglaise";
-  if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
   if (FRENCH_POLITICAL_ENTITY_NAMES[key]) return FRENCH_POLITICAL_ENTITY_NAMES[key];
+  if (FRENCH_HISTORICAL_NAMES[key]) return FRENCH_HISTORICAL_NAMES[key];
   const administrativeForm = key.match(/^(kingdom|empire|duchy|principality|republic|sultanate|khanate|emirate|county|province|colony|territory|state|region|department|district|governorate|prefecture) of (.+)$/);
   if (administrativeForm) {
     const prefixes = { kingdom: "Royaume", empire: "Empire", duchy: "Duché", principality: "Principauté",
