@@ -693,4 +693,4 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Conserver la teinte froide des glaces sans introduire de blanc éblouissant.
 - [x] Préserver le filtrage de détail et l’exclusion de l’Antarctique.
 - [x] Ajouter des tests sur les rangs, alias et propriétés absentes.
-- [ ] Validation locale du joueur : npm test, puis contrôle visuel des glaciers alpins, groenlandais et des hautes latitudes à plusieurs niveaux de zoom.
+- [x] Validation locale du joueur : npm test et contrôle visuel des glaciers alpins, groenlandais et des hautes latitudes à plusieurs niveaux de zoom confirmés.
