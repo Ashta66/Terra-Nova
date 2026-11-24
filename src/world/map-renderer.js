@@ -117,6 +117,18 @@ function lakeGeographicArea(feature) {
   return area;
 }
 
+/** Rang normalisé des polygones glaciaires ; les données sans rang restent secondaires. */
+export function getGlacierRenderStyle(feature) {
+  const raw = feature?.properties?.scalerank ?? feature?.properties?.SCALERANK
+    ?? feature?.properties?.min_zoom ?? feature?.properties?.MIN_ZOOM;
+  const parsed = Number(raw);
+  const rank = Number.isFinite(parsed) ? parsed : 1;
+  if (rank <= 0) return { rank: 0, fillAlpha: 0.94, outlineAlpha: 0.86, outlineWidth: 0.9 };
+  if (rank === 1) return { rank: 1, fillAlpha: 0.84, outlineAlpha: 0.68, outlineWidth: 0.72 };
+  if (rank === 2) return { rank: 2, fillAlpha: 0.72, outlineAlpha: 0.5, outlineWidth: 0.58 };
+  return { rank, fillAlpha: 0.58, outlineAlpha: 0.36, outlineWidth: 0.46 };
+}
+
 /** Hiérarchie visuelle des lacs selon leur rang cartographique. */
 export function getLakeRenderStyle(feature) {
   const raw = feature?.properties?.scalerank ?? feature?.properties?.SCALERANK
@@ -633,6 +645,22 @@ function drawPolygonLayer(context, collection, width, height, projection, fill, 
     drawn++;
   }
   context.restore();
+  return drawn;
+}
+
+function drawGlacierLayers(context, collection, width, height, projection, maxRank = 4) {
+  if (!collection?.features) return 0;
+  let drawn = 0;
+  for (const feature of collection.features) {
+    if (isAntarcticLandFeature(feature)) continue;
+    const style = getGlacierRenderStyle(feature);
+    if (style.rank > maxRank) continue;
+    drawn += drawPolygonLayer(context, { type: "FeatureCollection", features: [feature] },
+      width, height, projection, "#dce8e5", null, 0, style.fillAlpha, false, maxRank);
+    drawn += drawPolygonLayer(context, { type: "FeatureCollection", features: [feature] },
+      width, height, projection, "rgba(0,0,0,0)", "#9ebfc3",
+      style.outlineWidth, style.outlineAlpha, false, maxRank);
+  }
   return drawn;
 }
 
@@ -2742,7 +2770,14 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         const supportedRivers = riverPartition.supported;
         const unsupportedRivers = riverPartition.unsupported;
         const ratio = backingWidth / width;
-        const glacierColor = parseWebGLColor("#dce8e5"); glacierColor[3] = 0.88;
+        const glacierLayers = [];
+        for (const rank of [0, 1, 2, 3, 4]) {
+          const ranked = supportedGlaciers.filter(feature => getGlacierRenderStyle(feature).rank === rank);
+          if (!ranked.length) continue;
+          const color = parseWebGLColor("#dce8e5");
+          color[3] *= getGlacierRenderStyle({ properties: { scalerank: rank } }).fillAlpha;
+          glacierLayers.push({ key: "glacier-fills-rank-" + rank, type: "polygons", features: ranked, color });
+        }
         const lakeLayers = [];
         for (const rank of [0, 1, 2, 3, 4]) {
           const ranked = supportedLakes.filter(feature => getLakeRenderStyle(feature).rank === rank);
@@ -2764,7 +2799,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           });
         }
         measureLayer("details-geographiques-webgl", () => geographicRenderer.renderLayers([
-          { key: "glacier-fills", type: "polygons", features: supportedGlaciers, color: glacierColor },
+          ...glacierLayers,
           ...lakeLayers,
           ...riverLayers
         ], backingWidth, backingHeight, projection.viewport));
@@ -2773,8 +2808,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
         target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
         target.restore();
         glacierCount = measureLayer("glaciers", () => {
-          drawPolygonLayer(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, "#dce8e5", null, 0, 0.88, false, 4);
-          drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.7, 0.88, false, 4);
+          drawGlacierLayers(target, { ...glaciersVisible, features: unsupportedGlaciers }, width, height, projection, 4);
+          drawPolygonLayer(target, glaciersVisible, width, height, projection, "rgba(0,0,0,0)", "#9ebfc3", 0.58, 0.54, false, 4);
           return glaciersVisible.features.length;
         });
         lakeCount = measureLayer("lacs", () => {
@@ -2791,8 +2826,8 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       }
     }
     if (!geographicDetailGpu) {
-      glacierCount = measureLayer("glaciers", () => glaciersVisible.features.length
-        ? drawPolygonLayer(target, glaciersVisible, width, height, projection, "#dce8e5", "#9ebfc3", 0.7, 0.88, false, 4) : 0);
+      glacierCount = measureLayer("glaciers", () =>
+        drawGlacierLayers(target, glaciersVisible, width, height, projection, 4));
       lakeCount = measureLayer("lacs", () => {
         let count = 0;
         for (const feature of majorLakes.features) {
