@@ -557,4 +557,18 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Annoncer le nombre de résultats et rendre l'état vide perceptible aux lecteurs d'écran.
 - [x] Actualiser les insignes historiques lorsque la nouvelle date est validée, sans reconstruire toute la liste à chaque mouvement du curseur.
 - [x] Annoncer l'année initiale et l'année courante du curseur, et signaler vocalement la nation sélectionnée.
-- [ ] Validation locale du joueur : `npm test`, puis contrôle clavier (Tab, flèches, Début/Fin, Entrée) et changement de nation en sandbox.
+- [x] Validation locale du joueur : `npm test`, puis contrôle clavier (Tab, flèches, Début/Fin, Entrée) et changement de nation en sandbox.
+
+
+### Lot prioritaire 3 — finition responsive et robustesse de la campagne (24 novembre 2026)
+- [x] Empêcher les débordements horizontaux dans les panneaux, listes, noms et métadonnées de nations.
+- [x] Isoler le défilement du panneau et des dossiers pour éviter la propagation involontaire.
+- [x] Garantir que les champs de recherche et filtres rétrécissent dans les petits conteneurs.
+- [x] Conserver une cible tactile confortable pour le lancement.
+- [x] Renforcer l'indication de focus clavier dans la fiche.
+- [x] Adapter la fiche et la frise aux largeurs intermédiaires (761–1100 px).
+- [x] Compacter la préparation sur les écrans desktop de faible hauteur.
+- [x] Respecter les zones sûres mobiles et borner la hauteur du panneau.
+- [x] Prévoir un agencement distinct pour les téléphones en paysage.
+- [x] Traiter les très petits écrans et respecter la préférence de mouvement réduit.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel en fenêtre desktop réduite, téléphone portrait/paysage et écran de faible hauteur.
