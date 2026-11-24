@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, selectMajorLakeFeatures, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
 
 function createCanvas() {
@@ -361,6 +361,30 @@ test("le hillshade directionnel est neutre sur une surface plane et borné sur l
   assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
 });
 
+
+test("les chaînes de moyenne altitude sont reconnues par leur pente", () => {
+  assert.equal(classifyLandform(1450, 900, 1900, 1700, 1200, 35), "mountains");
+  assert.equal(classifyLandform(1450, 1430, 1470, 1460, 1440, 35), "plateaus");
+});
+
+test("la teinte minérale des montagnes progresse avec l'altitude", () => {
+  const base = [120, 125, 110];
+  const foothills = applyLandformTint(base, "mountains", 1200);
+  const highRange = applyLandformTint(base, "mountains", 4200);
+  const plains = applyLandformTint(base, "plains", 1200);
+  assert.notDeepEqual(foothills, base);
+  assert.notDeepEqual(highRange, foothills);
+  assert.notDeepEqual(highRange, plains);
+  assert.deepEqual(base, [120, 125, 110], "la palette source ne doit pas être mutée");
+});
+
+test("les terrains non montagneux conservent une modulation mesurée", () => {
+  const base = [120, 125, 110];
+  const plateau = applyLandformTint(base, "plateaus", 1600);
+  const plain = applyLandformTint(base, "plains", 100);
+  assert.notDeepEqual(plateau, plain);
+  assert.ok(plateau.every(channel => channel >= 0 && channel <= 255));
+});
 
 test("les classes de relief distinguent montagnes, plateaux, vallées et plaines", () => {
   assert.equal(classifyLandform(-2500, -2600, -2400, -2550, -2450, 35), "ocean");
