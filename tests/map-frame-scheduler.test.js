@@ -64,3 +64,76 @@ test("le scheduler exige un callback de rendu et un ordonnanceur de frame", () =
   assert.throws(() => createMapFrameScheduler(null, () => 1), /rendu/);
   assert.throws(() => createMapFrameScheduler(() => {}, null), /requestAnimationFrame/);
 });
+
+
+test("un callback annulé devenu exécutable ne rend rien et ne libère pas la frame suivante", () => {
+  const callbacks = [];
+  const cancelled = [];
+  let renders = 0;
+  const schedule = createMapFrameScheduler(() => renders++, callback => {
+    callbacks.push(callback);
+    return callbacks.length;
+  }, id => cancelled.push(id));
+
+  schedule();
+  assert.equal(schedule.cancel(), true);
+  schedule();
+  callbacks[0]();
+  assert.equal(schedule.pending(), true);
+  assert.equal(renders, 0);
+  callbacks[1]();
+  assert.equal(schedule.pending(), false);
+  assert.equal(renders, 1);
+  assert.deepEqual(cancelled, [1]);
+});
+
+test("un rendu peut programmer explicitement la frame suivante sans être écrasé", () => {
+  const queue = createFrameQueue();
+  let renders = 0;
+  let schedule;
+  schedule = createMapFrameScheduler(() => {
+    renders++;
+    if (renders === 1) assert.equal(schedule(), true);
+  }, queue.request, queue.cancel);
+
+  schedule();
+  queue.flush(1);
+  assert.equal(schedule.pending(), true);
+  assert.equal(queue.callbacks.size, 1);
+  queue.flush(2);
+  assert.equal(renders, 2);
+  assert.equal(schedule.pending(), false);
+});
+
+test("dispose est idempotent et un callback tardif reste inoffensif", () => {
+  const callbacks = [];
+  let renders = 0;
+  const schedule = createMapFrameScheduler(() => renders++, callback => {
+    callbacks.push(callback);
+    return callbacks.length;
+  });
+  schedule();
+  schedule.dispose();
+  schedule.dispose();
+  callbacks[0]();
+  assert.equal(renders, 0);
+  assert.equal(schedule(), false);
+  assert.equal(schedule.pending(), false);
+});
+
+test("une frame annulée ne peut pas effacer un nouvel identifiant réutilisé", () => {
+  const callbacks = [];
+  let renders = 0;
+  const schedule = createMapFrameScheduler(() => renders++, callback => {
+    callbacks.push(callback);
+    return 7;
+  }, () => {});
+  schedule();
+  schedule.cancel();
+  schedule();
+  callbacks[0]();
+  assert.equal(schedule.pending(), true);
+  callbacks[1]();
+  assert.equal(renders, 1);
+  assert.equal(schedule.pending(), false);
+});
