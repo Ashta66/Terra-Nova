@@ -187,3 +187,17 @@ Pour la prochaine collecte, lancer un scénario distinct au zoom mondial 3–5, 
 Les caches de chemins projetés partagent maintenant une seule construction de profil de vue entre le cache par feature et le masque composé. La clé conserve la précision du zoom réellement projeté et conserve uniquement les paramètres de projection réellement effectifs. Le projecteur déplie déjà les longitudes de façon continue pour les projections non orthographiques ; le drapeau wrapLongitude n'est donc pas ajouté à la clé lorsqu'il n'a aucun effet sur le chemin calculé. Les centres restent quantifiés dans la même cellule spatiale qu'auparavant ; ce choix conserve son compromis de précision visuelle et n'est pas présenté comme une projection pixel-perfect.
 
 Le parcours de Polygon, MultiPolygon, LineString et MultiLineString n'alloue plus de tableaux enveloppes ni de copies de rings intérieurs uniquement pour uniformiser les types. Les compteurs de benchmark distinguent désormais les constructions et évictions des caches de chemins et de masques. Les compteurs sont cumulatifs depuis le chargement du module : comparer leurs deltas sur des fenêtres de mesure identiques, et non leurs valeurs absolues entre sessions.
+
+
+### Lot 13 — stabilisation des budgets de cache (24 novembre 2026)
+
+Le benchmark PC zoom 20 a montré des évictions répétées alors que le budget de sommets n'était pas saturé : le plafond par nombre de chemins et le plafond de variantes par feature limitaient davantage la réutilisation que la mémoire estimée. Les budgets sont donc ajustés de façon mesurée :
+
+- chemins projetés : 4 096 entrées au maximum ;
+- variantes conservées par feature : 10 ;
+- budget de sommets projetés : 750 000, soit 24 Mo estimés à 32 octets par sommet ;
+- masques composés : 24 entrées LRU.
+
+Ces limites restent bornées. Les 24 Mo sont une estimation logicielle, pas une mesure native des objets Path2D ; la taille des masques composés n'est pas exposée par l'API et leur plafond reste volontairement modéré. Le collecteur exporte déjà les plafonds, entrées, sommets, constructions et évictions : comparer les deltas de compteurs sur une session identique, ainsi que le heap JS, les pics de construction WebGL et la médiane/p95 de `land-mask-path`.
+
+Le cache plus grand ne garantit pas une baisse des reconstructions pendant un panoramique continu : une nouvelle cellule de projection produit toujours une nouvelle géométrie. Il doit surtout réduire les reconstructions lors des retours sur des vues récemment visitées et limiter les évictions prématurées. Aucune amélioration chiffrée n'est revendiquée avant le prochain benchmark navigateur.
