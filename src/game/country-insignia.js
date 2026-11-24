@@ -18,6 +18,7 @@ const COATS=Object.freeze({
   "Russia":"Russia-Coat_of_arms.svg",
   "Holy Roman Empire":"Generic_Arms_of_the_Holy_Roman_Emperor_(after_1433).svg",
 });
+const VALID_FLAG_CODES=new Set(("ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bl bm bn bo bq br bs bt bv bw by bz ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm do dz ec ee eg eh er es et fi fj fk fm fo fr ga gb gd ge gf gg gh gi gl gm gn gp gq gr gs gt gu gw gy hk hm hn hr ht hu id ie il im in io iq ir is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li lk lr ls lt lu lv ly ma mc md me mf mg mh mk ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa pe pf pg ph pk pl pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sj sk sl sm sn so sr ss st sv sx sy sz tc td tf tg th tj tk tl tm tn to tr tt tv tw tz ua ug um us uy uz va vc ve vg vi vn vu wf ws ye yt za zm zw xk gb-sct").split(" "));
 const COUNTRY_CODES=Object.freeze({
   "United States":"us","United Kingdom":"gb","England":"gb","France":"fr","Spain":"es","Castile":"es","Portugal":"pt",
   "Ottoman Empire":"tr","Turkey":"tr","Russia":"ru","Muscovy":"ru","China":"cn","Ming":"cn","Ming Dynasty":"cn","Qing":"cn",
@@ -30,10 +31,10 @@ function readCountryCode(feature){
   const p=feature?.properties??{};
   for(const value of [p.ISO_A2,p.ISO_A2_EH,p.iso_a2,p.WB_A2,p.ADM0_A3,p.SOV_A3]){
     const code=String(value??"").trim().toLowerCase();
-    if(/^[a-z]{2}$/.test(code)&&code!=="-99")return code;
+    if(VALID_FLAG_CODES.has(code))return code;
   }
   const name=String(p.NAME??p.ADMIN??p.name??p.NAME_EN??"");
-  return COUNTRY_CODES[name]??"";
+  const mapped=COUNTRY_CODES[name]??"";return VALID_FLAG_CODES.has(mapped)?mapped:"";
 }
 export function resolveCountryInsignia(feature,year=1444){
   const p=feature?.properties??{};
@@ -55,5 +56,6 @@ export function resolveCountryInsignia(feature,year=1444){
   if(coat&&isDatedCoat){
     return{type:"coat",src:COMMONS+encodeURIComponent(coat),fallback:flagUrl,alt:"Armoiries historiques de "+name,source:"Wikimedia Commons"};
   }
-  return{type:"flag",src:flagUrl,alt:"Drapeau de "+name,source:"FlagCDN"};
+  if(flagUrl)return{type:"flag",src:flagUrl,alt:"Drapeau de "+name,source:"FlagCDN"};
+  return{type:"none",src:"",alt:"",source:""};
 }
