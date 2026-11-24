@@ -1,3 +1,20 @@
+## 24 novembre 2026 — lot 31 : publication atomique des interactions cartographiques
+
+- [x] Construire les nouvelles zones de labels dans une collection temporaire dédiée.
+- [x] Construire l'index spatial à partir de cette collection complète avant publication.
+- [x] Publier ensemble la nouvelle collection et son index correspondant.
+- [x] Ne plus vider puis repeupler en place la collection consultée par les événements de pointeur.
+- [x] Éviter de publier des géométries transformées lorsque les facteurs d'échelle sont invalides.
+- [x] Rejeter les emprises transformées non finies ou inversées avant leur insertion.
+- [x] Conserver un snapshot vide pendant le glisser, sans exposer les anciennes zones cliquables.
+- [x] Détecter une collection reconstruite de même longueur grâce à l'identité du snapshot.
+- [x] Revenir à la recherche linéaire lorsqu'un bucket spatial est mal formé.
+- [x] Ajouter dix tests sur la cohérence des snapshots, les buckets et les emprises dégénérées.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+La composition ne modifie plus en place la collection consultée par le pointeur : chaque rendu publie un couple cohérent « zones interactives + index spatial ».
+
 ## 24 novembre 2026 — lot 30 : cohérence de recherche et garde-fous de l'index
 
 - [x] Détecter les coordonnées de pointeur dont l'indice de cellule sort de la plage des entiers sûrs.
@@ -11,7 +28,7 @@
 - [x] Ajouter des tests sur les coordonnées extrêmes positives et négatives avec index actif.
 - [x] Ajouter dix tests de régression sur les index mal formés, les limites et l'équivalence.
 - [ ] CI GitHub Actions : à confirmer.
-- [ ] Validation locale du joueur : `npm test` à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
 
 Le ciblage indexé garde un chemin de repli déterministe pour les coordonnées non représentables et ignore les références d'index invalides sans interrompre les interactions.
 
