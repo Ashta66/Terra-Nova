@@ -2394,11 +2394,16 @@ export function getMapLabelStyle(kind, theme = {}, fontSize = 12, renderScale = 
 
 /** Calcule une emprise unique pour collision, interaction et placement du marqueur. */
 export function getMapLabelLayout(kind, point, textWidth, fontSize, renderScale = 1) {
-  const scale = Math.max(0.1, Number(renderScale) || 1);
-  const width = Math.max(0, Number(textWidth) || 0);
-  const size = Math.max(1, Number(fontSize) || 1);
-  const x = Number(point?.x) || 0;
-  const pointY = Number(point?.y) || 0;
+  const rawScale = Number(renderScale);
+  const rawWidth = Number(textWidth);
+  const rawSize = Number(fontSize);
+  const rawX = Number(point?.x);
+  const rawY = Number(point?.y);
+  const scale = Number.isFinite(rawScale) ? Math.max(0.1, rawScale) : 1;
+  const width = Number.isFinite(rawWidth) ? Math.max(0, rawWidth) : 0;
+  const size = Number.isFinite(rawSize) ? Math.max(1, rawSize) : 1;
+  const x = Number.isFinite(rawX) ? rawX : 0;
+  const pointY = Number.isFinite(rawY) ? rawY : 0;
   const isCountry = kind === "country";
   const isCity = kind === "city";
   const horizontalPadding = (isCountry ? 7 : isCity ? 6 : 4) * scale;
