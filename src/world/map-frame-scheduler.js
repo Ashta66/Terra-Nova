@@ -5,7 +5,7 @@
  */
 export function createMapFrameScheduler(render, requestFrame = globalThis.requestAnimationFrame, cancelFrame = globalThis.cancelAnimationFrame) {
   if (typeof render !== "function" || typeof requestFrame !== "function") {
-    throw new TypeError("A render callback and requestAnimationFrame are required.");
+    throw new TypeError("Un callback de rendu et requestAnimationFrame sont requis.");
   }
   let frame = null;
   let generation = 0;
