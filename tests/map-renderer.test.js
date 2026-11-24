@@ -2327,9 +2327,10 @@ test("les collisions utilisent les zones interactives complètes des labels", as
   const hits = renderWorldMap(canvas, land, {
     width: 640, height: 320, pixelRatio: 1,
     viewport: { zoom: 8, centerLongitude: 0, centerLatitude: 0 },
-    mapLabels: labels, theme: getCartographicTheme(2026)
+    labels, theme: getCartographicTheme(2026)
   });
-  const cityHits = (hits.labelHits ?? []).filter(hit => hit.kind === "city");
+  const cityHits = hits.labelHits.filter(hit => hit.kind === "city");
+  assert.ok(cityHits.length >= 1);
   if (cityHits.length > 1) {
     for (let i = 0; i < cityHits.length; i++) {
       for (let j = i + 1; j < cityHits.length; j++) {
@@ -2337,5 +2338,5 @@ test("les collisions utilisent les zones interactives complètes des labels", as
       }
     }
   }
-  assert.ok(calls.length > 0);
+  assert.ok(calls.some(call => call[0] === "fillText"));
 });
