@@ -1638,3 +1638,9 @@ body.campaign-started .campaign-launch{display:none}
 .country-search:focus-visible,.country-filter-row select:focus-visible{outline:2px solid var(--theme-accent,#c3a66e);outline-offset:2px}
 .country-result-count{font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){.country-result{transition:none}}
+
+
+/* Drapeau ou blason de la nation : insigne lisible au premier regard. */
+.dossier-emblem{overflow:hidden;flex:0 0 48px;width:48px;height:34px;min-height:34px;border:1px solid color-mix(in srgb,var(--theme-accent,#c5a66a) 72%,#fff);border-radius:3px;background:linear-gradient(145deg,#34474a,#18272d);box-shadow:0 3px 10px #0008,inset 0 1px #ffffff35;font-size:25px;line-height:1}
+.dossier-emblem--flag{font-family:"Apple Color Emoji","Segoe UI Emoji",sans-serif;font-size:27px;background:#101820;filter:drop-shadow(0 1px 1px #0008)}
+.dossier-emblem--crest{border-radius:48% 48% 42% 42%;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);background:radial-gradient(circle at 50% 30%,#52645b,#1b2b30 72%);color:var(--theme-accent,#e5d2a8);text-shadow:0 1px 5px #000}
