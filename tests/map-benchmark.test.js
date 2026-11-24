@@ -75,6 +75,36 @@ test("refuse une statistique ou un export invalide", () => {
 });
 
 
+test("exporte les compteurs de réutilisation du masque et des classifications terrestres", () => {
+  let now = 0;
+  const environment = {
+    performance: { now: () => now },
+    navigator: { userAgent: "test" },
+    screen: {},
+    visualViewport: {}
+  };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 16;
+  collector.record({ totalRenderMs: 16, projectedPathCacheStats: {
+    antarcticClassificationCacheHits: 12,
+    antarcticClassificationCacheMisses: 3,
+    antarcticClassificationCoordinatesScanned: 2400,
+    landFeatureGroupCacheHits: 8,
+    landFeatureGroupCacheMisses: 1,
+    landWebGLClassificationCacheHits: 7,
+    landWebGLClassificationCacheMisses: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["geometryCache:antarcticClassificationHits"].median, 12);
+  assert.equal(metrics["geometryCache:antarcticClassificationMisses"].median, 3);
+  assert.equal(metrics["geometryCache:antarcticCoordinatesScanned"].median, 2400);
+  assert.equal(metrics["geometryCache:landFeatureGroupHits"].median, 8);
+  assert.equal(metrics["geometryCache:landFeatureGroupMisses"].median, 1);
+  assert.equal(metrics["geometryCache:landWebGLClassificationHits"].median, 7);
+  assert.equal(metrics["geometryCache:landWebGLClassificationMisses"].median, 1);
+});
+
 test("exporte les métadonnées permettant de distinguer un navigateur PC d'une émulation mobile", () => {
   let now = 0;
   const environment = {
