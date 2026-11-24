@@ -637,3 +637,19 @@ Ce point sert de repère durable pour les prochaines sessions de développement.
 - [x] Garder les fonctions et données de chargement administratives disponibles pour une éventuelle carte régionale dédiée.
 - [x] Ajouter des tests garantissant zéro trait administratif et zéro label infranational sur la carte stratégique.
 - [ ] Validation locale : `npm test` et contrôle visuel à faible et fort zoom, en particulier Europe occidentale et France.
+
+---
+
+## Lot prioritaire 8 — signatures climatiques et végétales du relief (24 novembre 2026)
+- [x] Ajouter une classification latitudinale prudente des grandes zones de végétation.
+- [x] Distinguer les bandes tropicale, subtropicale, tempérée, boréale et toundra.
+- [x] Distinguer les domaines alpins et nival par l'altitude, sans blanchir uniformément les montagnes.
+- [x] Exclure les océans et les coordonnées invalides de la classification végétale.
+- [x] Appliquer une modulation colorimétrique discrète, sans remplacer l'hypsométrie ni le hillshade.
+- [x] Préserver intégralement la palette bathymétrique.
+- [x] Intégrer la signature végétale dans le rendu raster tuilé et le fallback raster compact.
+- [x] Préserver les altérations physiques, la neige d'altitude et le mode diagnostic.
+- [x] Ajouter des tests sur les seuils latitudinaux, l'altitude, les couleurs, la non-mutation et les océans.
+- [x] Documenter la limite des données : sans couche de précipitations ou d'occupation des sols, ces teintes sont un proxy climatique régional et non une carte scientifique des forêts, savanes ou déserts.
+- [ ] Validation locale du joueur : `npm test`, puis contrôle visuel des tropiques, zones tempérées, hautes latitudes et reliefs élevés.
+
