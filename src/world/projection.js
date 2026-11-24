@@ -59,13 +59,51 @@ export function projectCoordinate(coordinate, width, height, projection = "equir
 // La longitude est cyclique : elle peut dépasser ±180° pendant le déplacement.
 // Au zoom mondial, recentrer conserve une seule vue de la planète.
 export function constrainEquirectangularViewport(viewport = {}, maxZoom = 20) {
-  const zoom = clamp(Number(viewport.zoom ?? 1), 1, maxZoom);
-  const centerLongitude = zoom <= 1.001 ? 0 : Number(viewport.centerLongitude ?? 0);
+  const requestedMaxZoom = Number(maxZoom);
+  const safeMaxZoom = Number.isFinite(requestedMaxZoom) && requestedMaxZoom >= 1 ? requestedMaxZoom : 20;
+  const requestedZoom = Number(viewport.zoom ?? 1);
+  const zoom = clamp(Number.isFinite(requestedZoom) ? requestedZoom : 1, 1, safeMaxZoom);
+  const requestedLongitude = Number(viewport.centerLongitude ?? 0);
+  const requestedLatitude = Number(viewport.centerLatitude ?? 0);
+  const centerLongitude = zoom <= 1.001 ? 0 : Number.isFinite(requestedLongitude) ? requestedLongitude : 0;
   const maxLatitude = Math.max(0, 90 - 90 / zoom);
   return {
     ...viewport,
     zoom,
-    centerLongitude: Number.isFinite(centerLongitude) ? centerLongitude : 0,
-    centerLatitude: clamp(Number(viewport.centerLatitude ?? 0), -maxLatitude, maxLatitude)
+    centerLongitude,
+    centerLatitude: clamp(Number.isFinite(requestedLatitude) ? requestedLatitude : 0, -maxLatitude, maxLatitude)
   };
+}
+
+/** Zoom centré sur un point écran : la coordonnée sous le pointeur reste stable. */
+export function zoomEquirectangularViewportAtPoint(viewport = {}, factor, anchorX, anchorY, width, height, maxZoom = 20) {
+  const values = [factor, anchorX, anchorY, width, height].map(Number);
+  if (!values.every(Number.isFinite) || values[0] <= 0 || values[3] <= 0 || values[4] <= 0) return viewport;
+  const [scale, x, y, frameWidth, frameHeight] = values;
+  const current = constrainEquirectangularViewport(viewport, maxZoom);
+  const nextZoom = clamp(current.zoom * scale, 1, Number.isFinite(Number(maxZoom)) && Number(maxZoom) >= 1 ? Number(maxZoom) : 20);
+  if (nextZoom === current.zoom) return current;
+  const ratioX = x / frameWidth - 0.5;
+  const ratioY = y / frameHeight - 0.5;
+  const longitudeAtAnchor = current.centerLongitude + ratioX * 360 / current.zoom;
+  const latitudeAtAnchor = current.centerLatitude - ratioY * 180 / current.zoom;
+  return constrainEquirectangularViewport({
+    ...current,
+    zoom: nextZoom,
+    centerLongitude: longitudeAtAnchor - ratioX * 360 / nextZoom,
+    centerLatitude: latitudeAtAnchor + ratioY * 180 / nextZoom
+  }, maxZoom);
+}
+
+/** Déplacement écran converti en déplacement géographique, avec garde-fous. */
+export function panEquirectangularViewport(viewport = {}, deltaX, deltaY, width, height, maxZoom = 20) {
+  const values = [deltaX, deltaY, width, height].map(Number);
+  if (!values.every(Number.isFinite) || values[2] <= 0 || values[3] <= 0) return viewport;
+  const [dx, dy, frameWidth, frameHeight] = values;
+  const current = constrainEquirectangularViewport(viewport, maxZoom);
+  return constrainEquirectangularViewport({
+    ...current,
+    centerLongitude: current.centerLongitude - dx / frameWidth * 360 / current.zoom,
+    centerLatitude: current.centerLatitude + dy / frameHeight * 180 / current.zoom
+  }, maxZoom);
 }
