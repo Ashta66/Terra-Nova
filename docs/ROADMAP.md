@@ -1109,3 +1109,17 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et contrôle visuel aux quatre bords de la carte, en particulier sur petits écrans.
 - [ ] CI GitHub Actions du lot à confirmer.
 
+
+
+## Lot 36 — cycle de vie sûr des frames de composition (24 novembre 2026)
+
+- [x] Identifier le risque de callback RAF obsolète après une annulation, notamment si le navigateur a déjà dépilé le callback.
+- [x] Ajouter un jeton de génération pour invalider explicitement les callbacks annulés.
+- [x] Empêcher un callback obsolète de déclencher un rendu.
+- [x] Empêcher un ancien callback de remettre à zéro l'identifiant d'une frame plus récente.
+- [x] Préserver le regroupement des demandes concurrentes dans une seule frame.
+- [x] Autoriser un rendu à programmer proprement une frame suivante.
+- [x] Rendre la destruction du scheduler idempotente et définitive.
+- [x] Ajouter des tests de course, d'identifiant réutilisé, de réentrance et de destruction.
+- [ ] CI GitHub Actions à confirmer.
+- [ ] Validation locale du joueur : `npm test`.
