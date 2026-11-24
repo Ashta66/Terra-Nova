@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, fitMapLabelLayoutToViewport, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2219,4 +2219,40 @@ test("les emprises invalides ne créent pas de collision cartographique", () => 
   assert.equal(doMapLabelBoxesOverlap(valid, { left: 12, right: 8, top: 0, bottom: 10 }), false);
   assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: NaN, bottom: 10 }), false);
   assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: 2, bottom: Infinity }), false);
+});
+
+
+test("les labels proches des bords sont recentrés sans dissocier leur géométrie", () => {
+  const original = getMapLabelLayout("city", { x: 4, y: 50 }, 30, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.ok(fitted);
+  assert.ok(fitted.box.left >= 8);
+  assert.ok(fitted.box.right <= 192);
+  assert.equal(fitted.textX, original.textX + fitted.viewportOffset.x);
+  assert.equal(fitted.marker.x, original.marker.x + fitted.viewportOffset.x);
+  assert.equal(fitted.hitBounds.left, original.hitBounds.left + fitted.viewportOffset.x);
+});
+
+test("les labels en bord inférieur déplacent ensemble texte, marqueur et emprise", () => {
+  const original = getMapLabelLayout("city", { x: 100, y: 99 }, 30, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.ok(fitted);
+  assert.ok(fitted.box.bottom <= 92);
+  assert.equal(fitted.marker.y, original.marker.y + fitted.viewportOffset.y);
+  assert.equal(fitted.textY, original.textY + fitted.viewportOffset.y);
+});
+
+test("les labels trop grands ou les viewports invalides sont écartés proprement", () => {
+  const oversized = getMapLabelLayout("country", { x: 50, y: 50 }, 300, 14, 1);
+  assert.equal(fitMapLabelLayoutToViewport(oversized, 200, 100, 8), null);
+  assert.equal(fitMapLabelLayoutToViewport(oversized, NaN, 100, 8), null);
+  assert.equal(fitMapLabelLayoutToViewport(null, 200, 100, 8), null);
+});
+
+test("un label déjà dans la zone sûre conserve exactement son placement", () => {
+  const original = getMapLabelLayout("continent", { x: 100, y: 50 }, 40, 12, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.deepEqual(fitted.viewportOffset, { x: 0, y: 0 });
+  assert.deepEqual(fitted.box, original.box);
+  assert.deepEqual(fitted.hitBounds, original.hitBounds);
 });
