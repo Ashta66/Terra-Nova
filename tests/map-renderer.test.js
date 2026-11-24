@@ -1972,7 +1972,7 @@ test("le liseré côtier reste distinct des frontières politiques", () => {
 });
 
 
-test("les clés Path2D distinguent le mode de longitude et les variations fines de zoom", async () => {
+test("les clés Path2D respectent la projection effective et les variations fines de zoom", async () => {
   const previous = globalThis.Path2D;
   class FakePath2D {
     addPath() {}
@@ -1999,7 +1999,7 @@ test("les clés Path2D distinguent le mode de longitude et les variations fines 
       viewport: { zoom: 2.00001, centerLongitude: 4, centerLatitude: 5, wrapLongitude: false } });
     const third = getProjectedPathCacheStats().projectedPathCacheMisses;
     assert.ok(first > before);
-    assert.ok(second > first, "wrapLongitude modifie la projection et doit invalider le chemin");
+    assert.equal(second, first, "le projecteur déplie déjà les longitudes : ce drapeau ne change pas le chemin effectif");
     assert.ok(third > second, "une variation de zoom ne doit pas être masquée par un arrondi de clé");
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
