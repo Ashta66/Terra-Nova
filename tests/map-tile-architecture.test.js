@@ -35,7 +35,7 @@ test("visual frame scheduler coalesces calls and supports cancellation", () => {
   assert.equal(schedule(), true); assert.equal(schedule(), false);
   const [id, callback] = [...callbacks.entries()][0]; callbacks.delete(id); callback();
   assert.equal(renders, 1); schedule();
-  assert.equal([...callbacks.values()][0], firstCallback);
+  assert.notEqual([...callbacks.values()][0], firstCallback); // chaque frame porte son jeton de génération.
   assert.equal(schedule.cancel(), true); assert.equal(callbacks.size, 0);
 });
 test("weighted tile cache evicts least recently used entries within byte budget", () => {
