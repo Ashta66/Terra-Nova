@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelStyle, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, getMapLabelStyle, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2048,4 +2048,39 @@ test("la hiérarchie des labels garde les pays dominants et les océans secondai
   assert.ok(continent.alpha > ocean.alpha);
   assert.ok(Math.abs(country.shadowBlur - 4.8) < 1e-9);
   assert.equal(ocean.shadowBlur, 0);
+});
+
+
+test("les emprises des labels unifient collision et zone interactive", () => {
+  const country = getMapLabelLayout("country", { x: 100, y: 80 }, 60, 14, 1);
+  const city = getMapLabelLayout("city", { x: 100, y: 80 }, 30, 10, 1);
+  const continent = getMapLabelLayout("continent", { x: 100, y: 80 }, 80, 13, 1);
+
+  assert.equal(country.textX, 70);
+  assert.equal(country.textY, 80);
+  assert.equal(country.box.left, 63);
+  assert.equal(country.box.right, 137);
+  assert.equal(country.hitBounds.left, country.box.left - 1.5);
+  assert.equal(city.textY, 85);
+  assert.ok(city.hitBounds.left < city.box.left);
+  assert.ok(city.marker);
+  assert.equal(continent.marker, null);
+  assert.ok(continent.box.left < country.box.left);
+});
+
+test("les emprises des labels restent proportionnelles au rendu haute densité", () => {
+  const normal = getMapLabelLayout("city", { x: 50, y: 60 }, 40, 10, 1);
+  const retina = getMapLabelLayout("city", { x: 50, y: 60 }, 40, 10, 2);
+  assert.equal(retina.marker.radius, normal.marker.radius * 2);
+  assert.equal(retina.marker.lineWidth, normal.marker.lineWidth * 2);
+  assert.equal(retina.box.left, 2 * normal.box.left);
+  assert.equal(retina.box.top, 2 * normal.box.top);
+});
+
+test("les coordonnées invalides ne produisent pas de dimensions négatives", () => {
+  const layout = getMapLabelLayout("city", { x: NaN, y: Infinity }, -10, 0, 0);
+  assert.equal(layout.textX, 0);
+  assert.equal(layout.textY, 0);
+  assert.ok(layout.box.right >= layout.box.left);
+  assert.ok(layout.box.bottom >= layout.box.top);
 });
