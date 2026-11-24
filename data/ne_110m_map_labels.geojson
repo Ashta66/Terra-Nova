@@ -435,6 +435,166 @@
           44.41
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Méditerranée",
+        "kind": "sea",
+        "minZoom": 3,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18,
+          36
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer des Caraïbes",
+        "kind": "sea",
+        "minZoom": 3,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75,
+          17
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer du Nord",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3,
+          57
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Baltique",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20,
+          57
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Rouge",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38,
+          20
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer Noire",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          34,
+          43
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer d'Arabie",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          64,
+          15
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer de Chine méridionale",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114,
+          12
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer du Japon",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          137,
+          41
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mer de Béring",
+        "kind": "sea",
+        "minZoom": 4,
+        "source": "curated-cartographic-anchor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          175,
+          58
+        ]
+      }
     }
   ]
 }
