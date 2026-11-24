@@ -13,7 +13,7 @@ import { buildCountryDossier } from "./game/country-dossier.js";
 import { resolveCountryInsignia } from "./game/country-insignia.js";
 import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
-import { findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
+import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
 import { constrainEquirectangularViewport } from "./world/projection.js";
 import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
@@ -80,6 +80,7 @@ let regionalLabelFeatures = null;
 let regionalRiverLoadAttempted = false;
 let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
+let mapLabelHitIndex = null;
 let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
@@ -1686,7 +1687,7 @@ const MAP_LABEL_KIND_NAMES = Object.freeze({
   country: "Pays / territoire", province: "Province ou région"
 });
 function findMapLabelHit(x, y) {
-  return findMapLabelHitAtPoint(mapLabelHits, x, y);
+  return findMapLabelHitAtPoint(mapLabelHits, x, y, mapLabelHitIndex);
 }
 function normalizeCampaignCountryName(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -1809,6 +1810,7 @@ function composeScene() {
       }
     }
   }
+  mapLabelHitIndex = createMapLabelHitIndex(mapLabelHits);
   // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
   // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.
   // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.
