@@ -2362,6 +2362,36 @@ export function getMapLabelFontSize(kind, zoom = 1, renderScale = 1) {  const le
   return (base + progressive) * Math.max(0.1, Number(renderScale) || 1);
 }
 
+/** Résout la signature typographique et le contraste d'un label selon l'ère active. */
+export function getMapLabelStyle(kind, theme = {}, fontSize = 12, renderScale = 1) {
+  const typography = theme.typography ?? {};
+  const colors = theme.colors ?? {};
+  const displayFont = typography.display || "Georgia";
+  const bodyFont = typography.body || "Arial";
+  const isDisplay = kind === "country" || kind === "continent";
+  const family = isDisplay ? displayFont : bodyFont;
+  const weight = kind === "country" ? 700 : kind === "continent" ? 600 : kind === "city" ? 600 : 500;
+  const font = `${weight} ${fontSize}px "${family}", ${isDisplay ? "Georgia, serif" : "Arial, sans-serif"}`;
+  const surface = colors.surface || "#0c1d27";
+  const text = colors.text || "#f0e6cf";
+  const accent = colors.accent || "#d9b878";
+  const isCountry = kind === "country";
+  const isCity = kind === "city";
+  const isOcean = kind === "ocean";
+  const isContinent = kind === "continent";
+  return {
+    font,
+    fill: isCity || isOcean ? accent : text,
+    stroke: surface,
+    alpha: isCountry ? 1 : isCity ? 0.96 : isContinent ? 0.9 : isOcean ? 0.82 : 0.76,
+    lineWidth: (isCountry ? 4.4 : isCity ? 2.8 : isContinent ? 3.2 : 3) * renderScale,
+    shadowColor: surface,
+    shadowBlur: (isCountry ? 3.2 : isContinent ? 2 : 0) * renderScale,
+    markerFill: accent,
+    markerStroke: surface
+  };
+}
+
 function drawMapLabels(context, collection, width, height, projection, theme, zoom, physicalWorld = null, labelDensity = 1) {
   if (!collection?.features) return [];
   const hits = [];
@@ -2396,9 +2426,9 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     const permanentlySubmerged = kind === "city" && isCityPermanentlySubmerged(feature, physicalWorld);
     const fontSize = getMapLabelFontSize(kind, zoom, renderScale);
     const displayName = kind === "country" ? name.toLocaleUpperCase("fr-FR") : name;
-    const font = kind === "city" ? `700 ${fontSize}px Arial, sans-serif` : kind === "province" ? `600 ${fontSize}px Arial, sans-serif` : `700 ${fontSize}px Georgia, serif`;
-    context.font = font;
-    const textWidth = getCachedLabelTextWidth(context, font, displayName);
+    const style = getMapLabelStyle(kind, theme, fontSize, renderScale);
+    context.font = style.font;
+    const textWidth = getCachedLabelTextWidth(context, style.font, displayName);
     const x = point.x - textWidth / 2;
     const y = point.y + (kind === "city" ? 5 * renderScale : 0);
     const box = { left: x - (kind === "country" ? 7 : 4) * renderScale, right: x + textWidth + (kind === "country" ? 7 : 4) * renderScale, top: y - fontSize - (kind === "country" ? 6 : 3) * renderScale, bottom: y + (kind === "city" ? 7 : 4) * renderScale };
@@ -2407,23 +2437,21 @@ function drawMapLabels(context, collection, width, height, projection, theme, zo
     if (kind === "city") cityLabelsDrawn++;
     context.textAlign = "left";
     context.textBaseline = "alphabetic";
-    context.lineWidth = (kind === "country" ? 4.8 : kind === "city" ? 3.2 : 3.4) * renderScale;
+    context.lineWidth = style.lineWidth;
     context.lineJoin = "round";
-    context.strokeStyle = kind === "country" ? "rgba(17,35,47,0.96)" : "rgba(12,29,39,0.94)";
-    context.fillStyle = permanentlySubmerged ? "#92999d" : kind === "country" ? "#fff0c8" : kind === "city" ? "#ffffff" : kind === "ocean" ? "#a9c6cf" : theme.colors.text;
-    context.globalAlpha = kind === "city" || kind === "country" ? 1 : kind === "province" ? 0.86 : 0.78;
-    if (kind === "country") {
-      context.shadowColor = "rgba(0,0,0,0.65)";
-      context.shadowBlur = 4 * renderScale;
-    }
+    context.strokeStyle = style.stroke;
+    context.fillStyle = permanentlySubmerged ? "#92999d" : style.fill;
+    context.globalAlpha = style.alpha;
+    context.shadowColor = style.shadowColor;
+    context.shadowBlur = style.shadowBlur;
     context.strokeText(displayName, x, y);
     context.fillText(displayName, x, y);
     if (kind === "city") {
       context.beginPath();
       context.arc(point.x, point.y - 1 * renderScale, 2.2 * renderScale, 0, Math.PI * 2);
-      context.fillStyle = permanentlySubmerged ? "#7f898e" : "#f5d58e";
+      context.fillStyle = permanentlySubmerged ? "#7f898e" : style.markerFill;
       context.fill();
-      context.strokeStyle = "rgba(12,29,39,0.95)";
+      context.strokeStyle = style.markerStroke;
       context.lineWidth = 1.2 * renderScale;
       context.stroke();
     }
