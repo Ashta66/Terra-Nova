@@ -3,7 +3,7 @@ const COATS=Object.freeze({
   "France":"Arms_of_the_Kingdom_of_France_(Ancien).svg",
   "Kingdom of France":"Arms_of_the_Kingdom_of_France_(Ancien).svg",
   "England":"Royal_Arms_of_England_(1399-1603).svg",
-  "Kingdom of England":"Royal_arms_of_England.svg",
+  "Kingdom of England":"Royal_Arms_of_England_(1399-1603).svg",
   "Castile":"Blason_Castille.svg",
   "Kingdom of Castile":"Blason_Castille.svg",
   "Portugal":"Coat_of_arms_of_the_Kingdom_of_Portugal_(Enciclopedie_Diderot).svg",
