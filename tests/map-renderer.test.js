@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates, summarizeCoastlineAlignment } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2929,4 +2929,26 @@ test("la classification côtière accepte des seuils explicites et valide le rap
   assert.equal(result.thresholds.minCoverageRatio, 0.85);
   assert.equal(result.candidates[0].eligibleForReview, true);
   assert.throws(() => classifyCoastlineReconstructionCandidates(null), /rapport de couverture/);
+});
+
+
+test("le résumé d'alignement agrège et classe les pays par couverture", () => {
+  const coverage = { ringStats: [
+    { featureIndex: 4, name: "Pays B", ringIndex: 0, sourceSegmentCount: 10, coveredSegmentCount: 5 },
+    { featureIndex: 4, name: "Pays B", ringIndex: 1, sourceSegmentCount: 10, coveredSegmentCount: 10 },
+    { featureIndex: 2, name: "Pays A", ringIndex: 0, sourceSegmentCount: 8, coveredSegmentCount: 2 }
+  ] };
+  const classification = { candidates: [
+    { featureIndex: 4, ringIndex: 0, eligibleForReview: false, reasons: ["coverage-below-threshold"] },
+    { featureIndex: 4, ringIndex: 1, eligibleForReview: true, reasons: [] },
+    { featureIndex: 2, ringIndex: 0, eligibleForReview: false, reasons: ["branched-nodes"] }
+  ] };
+  const result = summarizeCoastlineAlignment(coverage, classification);
+  assert.equal(result.featureCount, 2);
+  assert.equal(result.ringCount, 3);
+  assert.equal(result.eligibleRingCount, 1);
+  assert.equal(result.countries[0].name, "Pays A");
+  assert.equal(result.countries[0].coverageRatio, 0.25);
+  assert.deepEqual(result.countries[1].reasons, { "coverage-below-threshold": 1 });
+  assert.throws(() => summarizeCoastlineAlignment(null, classification), /rapports/);
 });
