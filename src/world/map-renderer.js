@@ -3351,6 +3351,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const finalLandCoastCollection = { ...visibleLand, features: finalLandCoastFeatures };
   if (finalLandCoastCollection.features.length) {
     const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
+    const finalCoastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     measureLayer("liseré-côtier-final", () => {
       context.save();
       context.shadowColor = theme.colors.coast;
@@ -3358,7 +3359,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       const drawn = drawPolygonLayer(context, finalLandCoastCollection,
         width, height, projection, "rgba(0,0,0,0)",
         theme.colors.accent, coastlineMaterial.lineWidth, coastlineMaterial.alpha,
-        true, Infinity, coastProfile);
+        true, Infinity, finalCoastProfile);
       context.restore();
       return drawn;
     });
