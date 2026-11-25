@@ -1706,3 +1706,19 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale et comparaison visuelle à plusieurs niveaux de zoom.
 
 **Portée :** ajustement du calcul d'éclairage du relief terrestre uniquement. Aucune géométrie, donnée physique ou règle de simulation n'est modifiée.
+
+
+## Lot artistique 12 — matière du contact terre-mer (25 novembre 2026)
+
+- [x] Auditer le liseré côtier existant et les chemins Canvas/WebGL qui le précèdent.
+- [x] Renforcer légèrement la présence du contact terre-mer sur les palettes sombres.
+- [x] Ajouter un halo diffus à l'unique arête côtière, sans tracer de seconde ligne.
+- [x] Conserver le code couleur d'accent de l'époque active.
+- [x] Garder le halo dans la couche statique et respecter l'échelle de rendu.
+- [x] Préserver les simplifications côtières, les chemins mis en cache et les replis Canvas/WebGL.
+- [x] Ne modifier aucune géométrie, coordonnée, altitude, profondeur ou donnée physique.
+- [x] Ne modifier ni les frontières politiques ni l'ordre des couches.
+- [x] Ajouter un test sur l'épaisseur, l'opacité et la discrétion du halo.
+- [ ] Validation locale : `npm test` et contrôle visuel des côtes aux zooms mondial, régional et rapproché.
+
+**Portée :** finition de la restitution visuelle du littoral uniquement. Aucun changement géographique ou comportemental.
