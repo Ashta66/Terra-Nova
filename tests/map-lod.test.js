@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
 import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
@@ -218,4 +218,27 @@ test("les réponses GeoJSON mal formées sont ignorées sans fuite de requête e
   assert.equal(await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => null })), null);
   const recovered = await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => regional }));
   assert.equal(recovered, regional);
+});
+
+
+test("le LOD terrestre régional exige une couche territoriale régionale correspondante", () => {
+  const selected = selectAlignedLandDetailLevel(8, world, regional, null, 6);
+  assert.equal(selected.level, "world-110m");
+  assert.equal(selected.features, world);
+  assert.equal(selected.isFallback, true);
+});
+
+test("les terres et territoires régionaux peuvent basculer ensemble", () => {
+  const regionalTerritories = { type: "FeatureCollection", features: [{ id: "regional-country" }] };
+  const selected = selectAlignedLandDetailLevel(8, world, regional, regionalTerritories, 6);
+  assert.equal(selected.level, "regional-10m");
+  assert.equal(selected.features, regional);
+  assert.equal(selected.isFallback, false);
+});
+
+test("le niveau mondial reste sélectionné sous le seuil même avec deux couches régionales", () => {
+  const regionalTerritories = { type: "FeatureCollection", features: [{ id: "regional-country" }] };
+  const selected = selectAlignedLandDetailLevel(5.99, world, regional, regionalTerritories, 6);
+  assert.equal(selected.level, "world-110m");
+  assert.equal(selected.features, world);
 });
