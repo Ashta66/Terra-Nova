@@ -1862,3 +1862,9 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - Le relief réutilise maintenant le même `landAlignmentClipPath` que les couches politiques ; en l'absence de ce masque préconstruit, il le construit avec une tolérance nulle.
 - Le liseré côtier final est tracé avec ce même niveau de fidélité (tolérance nulle), sur la géométrie terrestre LOD déjà sélectionnée. Aucune donnée géographique source ni géométrie historique n'est modifiée.
 - Validation visuelle et tests locaux en attente.
+
+### Correctif lot 55.1 — profil partagé et cache Path2D
+- Le masque continental et le liseré final réutilisent désormais le profil LOD côtier commun au fond terrestre.
+- Le passage temporaire à une tolérance nulle créait une troisième variante de chemin Path2D et faisait échouer le test de réutilisation du cache. Cette variante distincte est supprimée.
+- Le masque reste commun aux couches concernées dans le même repère projeté ; aucune donnée géographique n'est modifiée.
+- Validation locale en attente.
