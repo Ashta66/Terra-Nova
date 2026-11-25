@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getCoastlineMaterialProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getCoastlineMaterialProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, drawWithinLandMask, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -1606,6 +1606,29 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
   assert.deepEqual(collection.features.map(feature => feature.properties.name),
     ["petit affluent", "grand fleuve", "fleuve majeur", "fleuve secondaire"],
     "le classement mis en cache ne doit pas réordonner la source");
+});
+
+test("les couches politiques sont exécutées à l'intérieur du masque continental", () => {
+  const calls = [];
+  const context = {
+    save: () => calls.push("save"),
+    clip: (path, rule) => calls.push(["clip", path, rule]),
+    restore: () => calls.push("restore")
+  };
+  const mask = { id: "land-mask" };
+  const result = drawWithinLandMask(context, mask, () => {
+    calls.push("draw");
+    return 7;
+  });
+  assert.equal(result, 7);
+  assert.deepEqual(calls, ["save", ["clip", mask, "evenodd"], "draw", "restore"]);
+});
+
+test("le rendu politique reste compatible quand aucun masque Path2D n'est disponible", () => {
+  const calls = [];
+  const context = { save: () => calls.push("save"), restore: () => calls.push("restore") };
+  assert.equal(drawWithinLandMask(context, null, () => { calls.push("draw"); return 3; }), 3);
+  assert.deepEqual(calls, ["draw"]);
 });
 
 test("les côtes physiques gagnent en détail à mesure que le zoom augmente", () => {
