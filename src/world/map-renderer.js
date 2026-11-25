@@ -3351,7 +3351,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const finalLandCoastCollection = { ...visibleLand, features: finalLandCoastFeatures };
   if (finalLandCoastCollection.features.length) {
     const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
-    const finalCoastProfile = getCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    const finalCoastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
     measureLayer("liseré-côtier-final", () => {
       context.save();
       context.shadowColor = theme.colors.coast;
