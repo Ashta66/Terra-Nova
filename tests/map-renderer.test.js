@@ -1693,12 +1693,13 @@ test("les aplats territoriaux sont réellement découpés par le masque terrestr
         geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
       }]
     };
-    renderWorldMap(canvas, land, {
+    const result = renderWorldMap(canvas, land, {
       width: 640, height: 320, pixelRatio: 1,
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
       territories
     });
-    const territoryFillIndex = calls.findIndex(call =>
+    assert.equal(result.territoryCount, 1, "le territoire de test doit effectivement être rendu");
+    const territoryFillIndex = calls.findLastIndex(call =>
       call[0] === "fill" && call[1] instanceof TerritoryPath2D && call[2] === "evenodd"
     );
     const maskClipIndex = territoryFillIndex < 0 ? -1 : calls.findLastIndex((call, index) =>
