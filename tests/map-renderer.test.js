@@ -183,6 +183,7 @@ test("le remplissage terrestre WebGL est composé sous le masque côtier canoniq
     renderWorldMap(canvas, land, {
       width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      territories: land,
       geographicWebGLRenderer
     });
     const landFillCalls = renderCalls.filter(layers => layers.some(layer => layer.key === "land-fill"));
