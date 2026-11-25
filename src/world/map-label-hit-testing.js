@@ -4,13 +4,16 @@ const MAX_CELLS_PER_HIT = 256;
 function readBounds(hit) {
   const bounds = hit?.bounds;
   if (!bounds) return null;
-  const value = {
-    left: Number(bounds.left), right: Number(bounds.right),
-    top: Number(bounds.top), bottom: Number(bounds.bottom)
-  };
-  if (!Object.values(value).every(Number.isFinite)
-    || value.left > value.right || value.top > value.bottom) return null;
-  return value;
+  const left = Number(bounds.left);
+  const right = Number(bounds.right);
+  const top = Number(bounds.top);
+  const bottom = Number(bounds.bottom);
+  // Éviter l'objet temporaire d'Object.values et son tableau sur la
+  // construction de l'index, appelée à chaque publication de labels.
+  if (!Number.isFinite(left) || !Number.isFinite(right)
+    || !Number.isFinite(top) || !Number.isFinite(bottom)
+    || left > right || top > bottom) return null;
+  return { left, right, top, bottom };
 }
 
 function containsPoint(hit, x, y) {
@@ -35,7 +38,8 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
   const size = Number.isFinite(requestedSize) && requestedSize > 0 ? requestedSize : DEFAULT_CELL_SIZE;
   const cells = new Map();
   const overflow = [];
-  hits.forEach((hit, index) => {
+  for (let index = 0; index < hits.length; index++) {
+    const hit = hits[index];
     const bounds = readBounds(hit);
     if (!bounds) return;
     const minX = Math.floor(bounds.left / size);
@@ -49,7 +53,7 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
     if (!coordinatesAreSafe || !Number.isSafeInteger(cellCount)
       || columns <= 0 || rows <= 0 || cellCount > MAX_CELLS_PER_HIT) {
       overflow.push(index);
-      return;
+      continue;
     }
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
@@ -59,7 +63,7 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
         bucket.push(index);
       }
     }
-  });
+  }
   return { hits, hitCount: hits.length, cellSize: size, cells, overflow };
 }
 
