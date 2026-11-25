@@ -3098,21 +3098,22 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           renderTimings["land-canvas-fallback"] = 0;
         }
         const ratio = backingWidth / width;
+        // Le remplissage GPU est limité au même masque côtier que le relief.
+        // Les contours GPU bruts sont volontairement omis : ils ne suivent pas
+        // le profil LOD du masque et créent une seconde côte divergente.
         landWebGLStats = measureLayer("land-webgl-pipeline", () => geographicRenderer.renderLayers([
-          { key: "land-fill", type: "polygons", features: supportedLand, color: parseWebGLColor(landFill) },
-          { key: "land-coast", type: "boundaries", features: supportedCoasts,
-            color: parseWebGLColor(theme.colors.coast), lineWidth: 0.85 * ratio }
+          { key: "land-fill", type: "polygons", features: supportedLand, color: parseWebGLColor(landFill) }
         ], backingWidth, backingHeight, projection.viewport));
         renderTimings["land-webgl-geometry-build"] = landWebGLStats.geometryBuildMs ?? 0;
         renderTimings["land-webgl-buffer-upload"] = landWebGLStats.bufferUploadMs ?? 0;
         renderTimings["land-webgl-cache-build"] = landWebGLStats.cacheBuildMs ?? 0;
         renderTimings["land-webgl-draw-submit"] = landWebGLStats.drawSubmitMs ?? 0;
-        measureLayer("land-webgl-compose", () => {
+        measureLayer("land-webgl-compose", () => drawWithinLandMask(target, landAlignmentClipPath, () => {
           target.save();
           target.setTransform(1, 0, 0, 1, 0, 0);
           target.drawImage(geographicRenderer.canvas, 0, 0, backingWidth, backingHeight);
           target.restore();
-        });
+        }));
         if (unsupportedCoasts.length) {
           measureLayer("land-coast-canvas-fallback", () => drawPolygonLayer(target,
             { ...visibleLand, features: unsupportedCoasts }, width, height, projection,
