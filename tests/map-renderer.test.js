@@ -2952,3 +2952,20 @@ test("le résumé d'alignement agrège et classe les pays par couverture", () =>
   assert.deepEqual(result.countries[1].reasons, { "coverage-below-threshold": 1 });
   assert.throws(() => summarizeCoastlineAlignment(null, classification), /rapports/);
 });
+
+test("l'audit des couches chargées produit un rapport complet sans modifier les sources", async () => {
+  const { auditLoadedCoastlineAlignment } = await import("../src/world/coastline-alignment.js");
+  const land = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] } }] };
+  const territories = { type: "FeatureCollection", features: [{ type: "Feature", properties: { ADMIN: "Pays chargé" }, geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] } }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = auditLoadedCoastlineAlignment(land, territories, { toleranceKm: 0.1 });
+  assert.equal(report.landFeatureCount, 1);
+  assert.equal(report.territoryFeatureCount, 1);
+  assert.equal(report.candidateSegmentCount, 4);
+  assert.equal(report.coverage.coverageRatio, 1);
+  assert.equal(report.summary.countries[0].name, "Pays chargé");
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+  assert.throws(() => auditLoadedCoastlineAlignment(null, territories), /doivent être chargées/);
+});
