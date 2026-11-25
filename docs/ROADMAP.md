@@ -1,3 +1,48 @@
+## 25 novembre 2026 — lot 47 : projection préconfigurée et sélection LOD
+
+### Projection des grandes géométries
+- [x] Ajouter un projecteur scalaire préconfiguré pour les parcours intensifs de coordonnées.
+- [x] Résoudre le type de projection une seule fois à la création du projecteur.
+- [x] Pré-calculer le facteur horizontal et les constantes de cadrage dépendant du zoom.
+- [x] Pré-calculer l'origine verticale équirectangulaire.
+- [x] Pré-calculer la latitude centrale et l'ordonnée Mercator de référence.
+- [x] Pré-calculer le sinus et le cosinus de la latitude centrale orthographique.
+- [x] Pré-calculer le rayon orthographique selon les dimensions du canevas.
+- [x] Éviter la création d'un tableau [longitude, latitude] pour chaque sommet projeté.
+- [x] Conserver l'enveloppement des longitudes et l'option wrapLongitude=false.
+- [x] Conserver le masquage de l'hémisphère arrière en orthographique.
+- [x] Refuser immédiatement les types de projection inconnus.
+- [x] Réutiliser un contexte de projection pour tous les anneaux d'un Polygon/MultiPolygon.
+- [x] Réutiliser un contexte de projection pour les lignes d'une même géométrie.
+- [x] Réinitialiser le suivi de continuité à chaque anneau ou ligne.
+- [x] Conserver le déroulement continu des longitudes au passage de l'antiméridien.
+- [x] Conserver la validation des coordonnées avant leur projection.
+- [x] Ne modifier ni les tolérances de simplification ni les seuils de surface des anneaux.
+
+### Profils de viewport et niveaux de détail
+- [x] Mettre en cache les profils de projection viewport partagés par les chemins d'une même vue.
+- [x] Réutiliser le profil et son objet de projection lorsque la clé de vue est identique.
+- [x] Rafraîchir l'ordre LRU lors d'une réutilisation.
+- [x] Borner le cache de profils à 64 entrées.
+- [x] Exposer les compteurs de hits, misses et la taille du cache.
+- [x] Remplacer le parcours linéaire des seuils LOD par une recherche binaire.
+- [x] Accélérer également la recherche du palier LOD adjacent lors d'un zoom arrière.
+- [x] Préserver exactement le comportement aux seuils, les tolérances et le fallback du niveau de base.
+
+### Tests
+- [x] Comparer le projecteur préconfiguré à l'API historique en équirectangulaire.
+- [x] Comparer le projecteur préconfiguré à l'API historique en Mercator.
+- [x] Comparer le projecteur préconfiguré à l'API historique en orthographique.
+- [x] Tester le mode de longitude non enveloppée.
+- [x] Tester le rejet des projections inconnues.
+- [x] Tester les seuils LOD exacts avec une configuration non triée.
+- [x] Tester les zooms invalides sans génération parasite.
+- [x] Tester le bornage et la réutilisation du cache de profils viewport.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les calculs de configuration répétés par sommet et par anneau, ainsi que les recherches de niveaux LOD. Les coordonnées projetées, la continuité des tracés, la topologie, les règles historiques et les profils de simplification restent inchangés.
+
 ## 25 novembre 2026 — lot 46 : files de tuiles et invalidation géographique
 
 ### File de travaux des workers
