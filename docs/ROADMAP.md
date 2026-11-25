@@ -1,3 +1,40 @@
+## 25 novembre 2026 — lot 41 : stabilité mémoire et charge adaptative des tuiles
+
+### Profil matériel et charge
+- [x] Détecter la mémoire matérielle exposée par le navigateur sans rendre cette API obligatoire.
+- [x] Utiliser le nombre de cœurs comme signal secondaire lorsque la mémoire n'est pas exposée.
+- [x] Définir un profil contraint pour les appareils de faible capacité.
+- [x] Définir un profil équilibré pour les appareils intermédiaires.
+- [x] Conserver le budget historique sur les appareils standards.
+- [x] Autoriser un profil généreux mais plafonné sur les appareils haut de gamme.
+- [x] Limiter à une seule tâche worker simultanée les profils contraints et équilibrés.
+- [x] Adapter le nombre de tuiles planifiées au profil matériel.
+- [x] Préserver le comportement par défaut lorsque les capacités sont inconnues.
+- [x] Éviter toute dépendance à une API propriétaire ou à une mesure mémoire non standard.
+
+### Cache et pression mémoire
+- [x] Rendre le budget mémoire du cache ajustable à chaud.
+- [x] Rendre le nombre maximal d'entrées ajustable à chaud.
+- [x] Évacuer les entrées LRU jusqu'au respect simultané des deux limites.
+- [x] Mesurer le pic historique d'octets retenus.
+- [x] Compter les évictions cumulées.
+- [x] Distinguer les causes capacité, remplacement, suppression et vidage.
+- [x] Compter les insertions rejetées.
+- [x] Comptabiliser les appels de fermeture de ressources sans prétendre mesurer la mémoire GPU réelle.
+- [x] Exposer un instantané de statistiques sans exposer la Map interne.
+- [x] Rendre le cache définitivement inactif après dispose et fermer les ressources tardives rejetées.
+
+### Robustesse et non-régression
+- [x] Préserver l'ordre LRU lors des consultations.
+- [x] Préserver les ressources déjà détenues lorsqu'une même instance est réinsérée.
+- [x] Maintenir le nettoyage même si une méthode close ou un observateur échoue.
+- [x] Tester les limites dynamiques, les pics, les causes d'éviction, les rejets et le dispose.
+- [x] Tester les profils matériels, les capacités manquantes et les combinaisons mémoire/CPU.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les profils sont des plafonds conservateurs fondés sur les capacités déclarées par le navigateur, pas une mesure de mémoire disponible en temps réel. Le lot n'annonce aucun gain FPS ni consommation GPU mesurée. Les règles de simulation et l'interpolation historique ne sont pas modifiées.
+
 ## 25 novembre 2026 — lot 40 : cycle de vie mémoire des tuiles physiques
 
 - [x] Refuser les bitmaps de taille nulle, inconnue, négative ou non finie afin de ne pas sous-estimer le budget.
