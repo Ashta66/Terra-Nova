@@ -2969,3 +2969,41 @@ test("l'audit des couches chargées produit un rapport complet sans modifier les
   assert.deepEqual(territories, originalTerritories);
   assert.throws(() => auditLoadedCoastlineAlignment(null, territories), /doivent être chargées/);
 });
+
+
+test("la métrique côtière exclut les frontières terrestres intérieures du dénominateur", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { ADMIN: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] } },
+    { type: "Feature", properties: { ADMIN: "Est" }, geometry: { type: "Polygon", coordinates: [[[1,0],[2,0],[2,1],[1,1],[1,0]]] } }
+  ] };
+  const report = measureCoastlineProximity(land, territories, 0.1, 5);
+  assert.equal(report.territorySegmentCount, 8);
+  assert.equal(report.matchedSegmentCount, 6);
+  assert.equal(report.coastalSegmentCount, 6);
+  assert.equal(report.coastalMatchedSegmentCount, 6);
+  assert.equal(report.coastalUnmatchedSegmentCount, 0);
+  assert.equal(report.coastalProximityRatio, 1);
+  assert.equal(report.featureStats.reduce((sum, item) => sum + item.coastalSegmentCount, 0), 6);
+});
+
+test("l'audit chargé expose une métrique côtière distincte de la couverture topologique", async () => {
+  const { auditLoadedCoastlineAlignment } = await import("../src/world/coastline-alignment.js");
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { ADMIN: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] } },
+    { type: "Feature", properties: { ADMIN: "Est" }, geometry: { type: "Polygon", coordinates: [[[1,0],[2,0],[2,1],[1,1],[1,0]]] } }
+  ] };
+  const report = auditLoadedCoastlineAlignment(land, territories, { toleranceKm: 0.1, coastalSearchRadiusKm: 5, dataset: "fixture" });
+  assert.equal(report.dataset, "fixture");
+  assert.equal(report.coastalAlignment.coastalSegmentCount, 6);
+  assert.equal(report.coastalAlignment.matchedSegmentCount, 6);
+  assert.equal(report.coastalAlignment.proximityRatio, 1);
+  assert.equal(report.coverage.sourceSegmentCount, 8);
+});
