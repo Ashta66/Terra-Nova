@@ -520,3 +520,53 @@ export function measureCoastlineCandidateCoverage(candidates, nodeToleranceKm = 
     ringStats
   };
 }
+
+
+/**
+ * Classe les anneaux candidats selon des critères explicites. "eligible"
+ * signifie uniquement qu'un anneau fermé mérite une étude complémentaire ;
+ * cela n'autorise jamais son remplacement automatique dans les données.
+ */
+export function classifyCoastlineReconstructionCandidates(coverageReport, options = {}) {
+  if (!coverageReport || !Array.isArray(coverageReport.ringStats)
+    || !coverageReport.topology || !Array.isArray(coverageReport.topology.ringStats)) {
+    throw new TypeError("Un rapport de couverture côtière complet est requis.");
+  }
+  const minCoverageRatio = Number.isFinite(Number(options.minCoverageRatio))
+    ? Math.max(0, Math.min(1, Number(options.minCoverageRatio))) : 0.98;
+  const minChainSegments = Number.isInteger(options.minChainSegments)
+    ? Math.max(3, options.minChainSegments) : 3;
+  const topologyByRing = new Map(coverageReport.topology.ringStats.map(stat =>
+    [stat.featureIndex + ":" + stat.ringIndex, stat]));
+  const candidates = coverageReport.ringStats.map(ring => {
+    const key = ring.featureIndex + ":" + ring.ringIndex;
+    const topology = topologyByRing.get(key);
+    const reasons = [];
+    if (ring.coverageRatio < minCoverageRatio) reasons.push("coverage-below-threshold");
+    if (ring.closedChainCount !== 1) reasons.push("not-exactly-one-closed-chain");
+    if (ring.longestChainSegmentCount < minChainSegments) reasons.push("chain-too-short");
+    if (!topology) reasons.push("topology-report-missing");
+    else {
+      if (topology.duplicateSegmentIndices.length) reasons.push("duplicate-segments");
+      if (topology.continuityBreaks.length) reasons.push("continuity-breaks");
+      if (topology.branchNodeCount) reasons.push("branched-nodes");
+    }
+    return {
+      featureIndex: ring.featureIndex,
+      name: ring.name ?? null,
+      ringIndex: ring.ringIndex,
+      coverageRatio: ring.coverageRatio,
+      closedChainCount: ring.closedChainCount,
+      longestChainSegmentCount: ring.longestChainSegmentCount,
+      eligibleForReview: reasons.length === 0,
+      reasons
+    };
+  });
+  return {
+    thresholds: { minCoverageRatio, minChainSegments },
+    candidateRingCount: candidates.length,
+    eligibleRingCount: candidates.filter(candidate => candidate.eligibleForReview).length,
+    rejectedRingCount: candidates.filter(candidate => !candidate.eligibleForReview).length,
+    candidates
+  };
+}
