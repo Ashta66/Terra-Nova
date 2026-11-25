@@ -1,3 +1,45 @@
+## 25 novembre 2026 — lot 45 : index spatial et généralisation géométrique
+
+### Index spatial — fusion et requêtes viewport
+- [x] Fusionner les listes d'entités globales et locales déjà triées.
+- [x] Remplacer le tri complet des entités d'une cellule par une fusion linéaire.
+- [x] Conserver l'ordre source sans modifier les FeatureCollections.
+- [x] Retirer le marquage temporaire devenu inutile pour la construction d'une cellule.
+- [x] Conserver un marquage dédié à la déduplication des requêtes multi-cellules.
+- [x] Isoler le compteur de génération des marques de requête.
+- [x] Préserver la remise à zéro des marques en cas de débordement Uint32.
+- [x] Préallouer le tableau des clés de cellules visibles à sa taille exacte.
+- [x] Calculer une seule fois la largeur de chaque intervalle longitudinal.
+- [x] Conserver le parcours ligne par ligne de la grille.
+- [x] Préserver le découpage en deux intervalles autour de l'antiméridien.
+- [x] Préserver le cache LRU des cellules et des requêtes viewport.
+- [x] Conserver les budgets maximaux de 256 cellules et 64 requêtes.
+- [x] Réutiliser le Set des clés actives du rendu pour le nettoyage LRU WebGL.
+- [x] Parcourir directement les clés LRU sans créer de copie de tableau.
+
+### Généralisation GeoJSON — allocations
+- [x] Ajouter un comptage direct des sommets des Polygon.
+- [x] Ajouter un comptage direct des sommets des MultiPolygon.
+- [x] Ajouter un comptage direct des sommets des LineString et MultiLineString.
+- [x] Parcourir récursivement les GeometryCollection pour compter les sommets.
+- [x] Supprimer les collections temporaires de chemins pour le comptage avant simplification.
+- [x] Supprimer les collections temporaires de chemins pour le comptage après simplification.
+- [x] Remplacer le filtre callback de simplification par une boucle d'écriture explicite.
+- [x] Ignorer les conteneurs de coordonnées mal formés dans les compteurs.
+- [x] Préserver les références de coordonnées et les géométries sources non modifiées.
+- [x] Conserver les statistiques de sommets retirés et de features modifiées.
+
+### Vérification
+- [x] Tester la fusion des entités globales et locales dans l'ordre source.
+- [x] Tester la réutilisation des cellules et des requêtes identiques.
+- [x] Tester la sélection multi-cellules autour de l'antiméridien.
+- [x] Tester les limites LRU après des déplacements répétés.
+- [x] Tester les compteurs de géométries composites.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Ce lot réduit les tris, les allocations intermédiaires et les copies de clés sur les chemins de sélection géographique. Il ne change ni les coordonnées, ni les seuils de simplification, ni la topologie des frontières, ni les règles historiques.
+
 ## 25 novembre 2026 — lot 44 : fluidité du rendu et réduction des coûts par frame
 
 ### Cache polygonal géographique
