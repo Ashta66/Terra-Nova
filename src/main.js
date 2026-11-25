@@ -142,7 +142,11 @@ const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
 const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
 const MAP_TILE_HORIZONTAL_OFFSETS = [-1, 0, 1];
-const mapTileCache = createMapTileCache({ maxBytes: 64 * 1024 * 1024, maxEntries: 192 });
+const mapTileCache = createMapTileCache({
+  maxBytes: 64 * 1024 * 1024,
+  maxEntries: 192,
+  onEvict: key => mapTileFadeStarts.delete(key)
+});
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
