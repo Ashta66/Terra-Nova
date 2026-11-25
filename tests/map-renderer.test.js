@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2803,4 +2803,42 @@ test("les chaînes côtières rejoignent correctement les segments contigus auto
   assert.deepEqual(result.chains[0].segmentIndices, [3, 4, 0]);
   assert.equal(result.chains[0].isClosed, false);
   assert.deepEqual(result.chains[0].coordinates, [[0,1],[-1,0],[0,0],[1,0]]);
+});
+
+
+test("l'audit topologique reconnaît une boucle côtière sans ambiguïté", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[1,1]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.isUnambiguous, true);
+  assert.equal(audit.ringCount, 1);
+  assert.equal(audit.branchNodeCount, 0);
+  assert.deepEqual(audit.ringStats[0].endpointDegrees, [2,2,2,2]);
+});
+
+test("l'audit topologique signale les ruptures et les doublons de segments", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[2,0],[3,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[2,0]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.duplicateSegmentCount, 1);
+  assert.ok(audit.continuityBreakCount >= 1);
+  assert.equal(audit.isUnambiguous, false);
+});
+
+test("l'audit topologique détecte un nœud ramifié", () => {
+  const candidates = [
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[2,0]] },
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 2, coordinates: [[1,0],[1,1]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.branchNodeCount, 1);
+  assert.equal(audit.isUnambiguous, false);
 });
