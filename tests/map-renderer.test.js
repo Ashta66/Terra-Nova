@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getCoastlineMaterialProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
 
 function createCanvas() {
@@ -2524,6 +2524,24 @@ test("les plaines et plateaux gagnent un modelé chromatique progressif avec l'a
     assert.ok(distance(color) <= 14, "le modelé reste subtil et ne transforme pas les surfaces en aplats saturés");
   }
   assert.deepEqual(base, [120, 125, 110], "la couleur source reste immuable");
+});
+
+test("la transition littorale ne nuance que les basses terres réellement voisines de la mer", () => {
+  const base = [112, 119, 83];
+  const coast = applyCoastalTransitionTint(base, 20, true);
+  const raisedCoast = applyCoastalTransitionTint(base, 220, true);
+  assert.notDeepEqual(coast, base, "les basses terres adjacentes à la mer reçoivent une nuance minérale");
+  assert.ok(coast[0] > base[0] && coast[2] > base[2],
+    "la transition réchauffe discrètement la matière sans devenir sable vif");
+  assert.ok(raisedCoast[0] > base[0] && raisedCoast[0] - base[0] < coast[0] - base[0],
+    "la nuance s'efface progressivement avec l'altitude");
+  assert.deepEqual(applyCoastalTransitionTint(base, 20, false), base,
+    "les basses terres intérieures restent inchangées");
+  assert.deepEqual(applyCoastalTransitionTint(base, 350, true), base,
+    "les reliefs élevés ne reçoivent pas la signature de basse côte");
+  assert.deepEqual(applyCoastalTransitionTint(base, -20, true), base,
+    "la bathymétrie n'est jamais modifiée");
+  assert.deepEqual(base, [112, 119, 83], "la couleur source reste immuable");
 });
 
 test("le renforcement des formes terrestres ne modifie pas les couleurs bathymétriques", () => {
