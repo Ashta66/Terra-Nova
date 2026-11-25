@@ -1627,14 +1627,21 @@ test("les côtes physiques gagnent en détail à mesure que le zoom augmente", (
 });
 
 
-test("le contact terre-mer gagne en matière sans multiplier les traits", () => {
-  const profile = getCoastlineMaterialProfile();
-  assert.deepEqual(profile, { lineWidth: 0.62, alpha: 0.32, shadowBlur: 1.35 });
-  assert.ok(profile.lineWidth > 0.42, "le liseré doit rester lisible sur les palettes sombres");
-  assert.ok(profile.alpha > 0.24 && profile.alpha < 0.4,
-    "le liseré doit rester secondaire face aux frontières politiques");
-  assert.ok(profile.shadowBlur > 0 && profile.shadowBlur <= 1.5,
-    "le halo doit être diffus, sans produire une seconde ligne");
+test("la matière côtière se renforce avec le zoom sans multiplier les traits", () => {
+  const overview = getCoastlineMaterialProfile(1);
+  const detail = getCoastlineMaterialProfile(13);
+  assert.deepEqual(overview, { lineWidth: 0.62, alpha: 0.32, shadowBlur: 1.35 });
+  assert.ok(detail.lineWidth > overview.lineWidth && detail.lineWidth <= 0.7,
+    "le contact côtier gagne légèrement en présence au zoom rapproché");
+  assert.ok(detail.alpha > overview.alpha && detail.alpha <= 0.36,
+    "la matière reste discrète face aux frontières politiques");
+  assert.ok(detail.shadowBlur > overview.shadowBlur && detail.shadowBlur <= 1.66,
+    "le halo s'étend modérément sans produire une seconde ligne");
+  for (const zoom of [1, 2, 4, 8, 13, 40]) {
+    const profile = getCoastlineMaterialProfile(zoom);
+    assert.ok(Number.isFinite(profile.lineWidth) && Number.isFinite(profile.alpha)
+      && Number.isFinite(profile.shadowBlur));
+  }
 });
 
 test("les rives des lacs utilisent le même profil de simplification que les côtes marines", () => {
