@@ -241,8 +241,8 @@ test("dispose atlas est idempotent et ne supprime la texture qu'une fois", () =>
   assert.equal(calls.deleted, 1);
 });
 test("la file atlas est bornée et évince une précharge au profit d'une tuile visible", () => {
-  const { gl, tile } = createAtlasHarness();
-  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 2 });
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { maxPending: 2 });
   const original = globalThis.setTimeout;
   globalThis.setTimeout = callback => { globalThis.__atlasScheduled = callback; return 17; };
   try {
