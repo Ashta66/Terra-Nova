@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getCoastlineMaterialProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
 
 function createCanvas() {
@@ -2541,6 +2541,26 @@ test("la transition littorale ne nuance que les basses terres réellement voisin
     "les reliefs élevés ne reçoivent pas la signature de basse côte");
   assert.deepEqual(applyCoastalTransitionTint(base, -20, true), base,
     "la bathymétrie n'est jamais modifiée");
+  assert.deepEqual(base, [112, 119, 83], "la couleur source reste immuable");
+});
+
+test("la transition des piémonts suit progressivement la pente et l'altitude ETOPO", () => {
+  const base = [112, 119, 83];
+  const foothill = applyFoothillTransitionTint(base, 900, -834, 834, 0, 0, 0, 1 / 6);
+  const higherFoothill = applyFoothillTransitionTint(base, 1400, -834, 834, 0, 0, 0, 1 / 6);
+  assert.notDeepEqual(foothill, base, "les pentes intermédiaires reçoivent une matière de piémont");
+  assert.ok(foothill[0] > base[0] && foothill[2] > base[2],
+    "la nuance reste minérale et chaude, sans créer de relief artificiel");
+  assert.ok(higherFoothill[0] > base[0] && higherFoothill[0] - base[0] < foothill[0] - base[0],
+    "la transition s'efface en remontant vers les reliefs élevés");
+  assert.deepEqual(applyFoothillTransitionTint(base, 900, 0, 0, 0, 0, 0), base,
+    "les surfaces planes restent inchangées");
+  assert.deepEqual(applyFoothillTransitionTint(base, 900, -2780, 2780, 0, 0, 0), base,
+    "les pentes abruptes ne reçoivent pas la nuance de piémont");
+  assert.deepEqual(applyFoothillTransitionTint(base, 2300, -834, 834, 0, 0, 0), base,
+    "les hautes montagnes conservent leur signature minérale propre");
+  assert.deepEqual(applyFoothillTransitionTint(base, -20, -834, 834, 0, 0, 0), base,
+    "la bathymétrie reste strictement inchangée");
   assert.deepEqual(base, [112, 119, 83], "la couleur source reste immuable");
 });
 
