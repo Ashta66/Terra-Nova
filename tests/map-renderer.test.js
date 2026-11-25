@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2759,4 +2759,48 @@ test("l'extraction côtière écarte les segments éloignés du masque terrestre
   const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
   assert.equal(result.candidateCount, 3);
   assert.deepEqual(result.candidates.map(candidate => candidate.segmentIndex), [1, 2, 3]);
+});
+
+
+test("les segments côtiers candidats contigus forment une chaîne fermée sans pont artificiel", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays fermé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const candidates = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  const result = chainCoastlineAlignmentCandidates(candidates.candidates);
+  assert.equal(result.chainCount, 1);
+  assert.equal(result.closedChainCount, 1);
+  assert.equal(result.openChainCount, 0);
+  assert.deepEqual(result.chains[0].segmentIndices, [0, 1, 2, 3]);
+  assert.deepEqual(result.chains[0].coordinates[0], result.chains[0].coordinates.at(-1));
+});
+
+test("les chaînes côtières restent séparées lorsqu'un segment intermédiaire manque", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = chainCoastlineAlignmentCandidates(candidates);
+  assert.equal(result.chainCount, 2);
+  assert.equal(result.closedChainCount, 0);
+  assert.deepEqual(result.chains.map(chain => chain.segmentIndices), [[0], [2, 3]]);
+});
+
+test("les chaînes côtières rejoignent correctement les segments contigus autour de la fermeture", () => {
+  const candidates = [
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[-1,0]] },
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 4, coordinates: [[-1,0],[0,0]] }
+  ];
+  const result = chainCoastlineAlignmentCandidates(candidates);
+  assert.equal(result.chainCount, 1);
+  assert.deepEqual(result.chains[0].segmentIndices, [3, 4, 0]);
+  assert.equal(result.chains[0].isClosed, false);
+  assert.deepEqual(result.chains[0].coordinates, [[0,1],[-1,0],[0,0],[1,0]]);
 });
