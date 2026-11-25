@@ -287,7 +287,7 @@ export function applyFoothillTransitionTint(color, elevation, west, east, north,
     return t * t * (3 - 2 * t);
   };
   const slopeBand = smoothstep(0.018, 0.055, slope) * (1 - smoothstep(0.07, 0.12, slope));
-  const altitudeBand = smoothstep(250, 650, elevation) * (1 - smoothstep(1500, 2100, elevation));
+  const altitudeBand = smoothstep(250, 650, elevation) * (1 - smoothstep(1100, 1900, elevation));
   const strength = 0.055 * slopeBand * altitudeBand;
   if (strength < 0.001) return color;
   const tint = [151, 135, 111], inverse = 1 - strength;
