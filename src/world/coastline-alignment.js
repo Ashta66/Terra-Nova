@@ -170,13 +170,19 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     const latitudeScale = Math.max(0.05, Math.cos(Number(point[1]) * Math.PI / 180));
     const radiusX = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * latitudeScale * cellSize)) + 1);
     const radiusY = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * cellSize)) + 1);
+    const longitudeWorldCells = Math.round(360 / cellSize);
     let nearest = Infinity;
     const seen = new Set();
-    for (let ix = bx - radiusX; ix <= bx + radiusX; ix++) for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
-      for (const segment of bins.get(ix + ":" + iy) ?? []) {
-        if (seen.has(segment)) continue;
-        seen.add(segment);
-        nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+    for (const worldOffset of [-longitudeWorldCells, 0, longitudeWorldCells]) {
+      const centerX = bx + worldOffset;
+      for (let ix = centerX - radiusX; ix <= centerX + radiusX; ix++) {
+        for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
+          for (const segment of bins.get(ix + ":" + iy) ?? []) {
+            if (seen.has(segment)) continue;
+            seen.add(segment);
+            nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+          }
+        }
       }
     }
     for (const segment of overflowSegments) {
