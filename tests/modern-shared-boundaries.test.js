@@ -21,3 +21,11 @@ test("only edges shared by distinct features are returned",()=>{
  ]});
  assert.deepEqual(result.features,[]);
 });
+
+test("repeated edges within one feature do not count as international boundaries",()=>{
+ const ring=[[0,0],[1,0],[1,1],[0,1],[0,0]];
+ const result=territoriesToSharedBoundaries({type:"FeatureCollection",features:[
+  {type:"Feature",properties:{},geometry:{type:"Polygon",coordinates:[ring,ring]}}
+ ]});
+ assert.deepEqual(result.features,[]);
+});
