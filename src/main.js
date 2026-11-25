@@ -5,7 +5,7 @@ import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
 import { reconcileMapTileWorkQueue, takeNextMapTileWork } from "./world/map-tile-work-queue.js";
-import { isMapTileWorkerReplyCurrent, releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
+import { releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
