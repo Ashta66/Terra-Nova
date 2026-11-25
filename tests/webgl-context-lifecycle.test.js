@@ -106,3 +106,57 @@ test("une surface très étroite reste bornée même avec un DPR extrême", () =
   assert.ok(size.width * size.height <= 100000);
   assert.ok(size.pixelRatio <= 4);
 });
+
+test("les surfaces dont l'aire déborde les nombres finis sont rejetées", () => {
+  assert.equal(getCanvasBackingSize(Number.MAX_VALUE, Number.MAX_VALUE, 2).valid, false);
+});
+test("une restauration sans perte préalable est ignorée", () => {
+  const canvas = fakeCanvas();
+  const lifecycle = createWebGLContextLifecycle(canvas);
+  canvas.dispatch("webglcontextrestored");
+  assert.equal(lifecycle.generation, 0);
+  assert.equal(lifecycle.canRender(), true);
+});
+test("les événements après dispose ne réactivent pas le contexte", () => {
+  const canvas = fakeCanvas();
+  const lifecycle = createWebGLContextLifecycle(canvas);
+  lifecycle.dispose();
+  canvas.dispatch("webglcontextrestored");
+  assert.equal(lifecycle.canRender(), false);
+  assert.equal(lifecycle.generation, 1);
+});
+test("la restauration après dispose ne déclenche pas le callback", () => {
+  const canvas = fakeCanvas();
+  let restored = 0;
+  const lifecycle = createWebGLContextLifecycle(canvas, { onRestored: () => restored++ });
+  canvas.dispatch("webglcontextlost", { preventDefault() {} });
+  lifecycle.dispose();
+  canvas.dispatch("webglcontextrestored");
+  assert.equal(restored, 0);
+});
+test("les callbacks reçoivent la génération courante", () => {
+  const canvas = fakeCanvas();
+  const generations = [];
+  createWebGLContextLifecycle(canvas, {
+    onLost: ({ generation }) => generations.push(generation),
+    onRestored: ({ generation }) => generations.push(generation)
+  });
+  canvas.dispatch("webglcontextlost", { preventDefault() {} });
+  canvas.dispatch("webglcontextrestored");
+  assert.deepEqual(generations, [1, 2]);
+});
+test("un DPR inférieur à un est conservé pour les profils basse résolution", () => {
+  const size = getCanvasBackingSize(800, 400, 0.75);
+  assert.equal(size.pixelRatio, 0.75);
+  assert.equal(size.width, 600);
+  assert.equal(size.height, 300);
+});
+test("un DPR extrême est ramené à la limite configurée", () => {
+  const size = getCanvasBackingSize(100, 100, 100, { maxPixelRatio: 1.5 });
+  assert.equal(size.pixelRatio, 1.5);
+  assert.equal(size.width, 150);
+});
+test("un budget pixels fractionnaire reste respecté", () => {
+  const size = getCanvasBackingSize(100, 100, 2, { maxPixels: 2500.5 });
+  assert.ok(size.width * size.height <= 2500.5);
+});
