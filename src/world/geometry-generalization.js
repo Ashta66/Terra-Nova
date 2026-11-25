@@ -13,20 +13,20 @@ function countGeometryVertices(geometry) {
   if (!geometry) return 0;
   if (geometry.type === "Polygon") {
     let total = 0;
-    for (const ring of geometry.coordinates ?? []) total += ring?.length ?? 0;
+    for (const ring of geometry.coordinates ?? []) if (Array.isArray(ring)) total += ring.length;
     return total;
   }
   if (geometry.type === "MultiPolygon") {
     let total = 0;
     for (const polygon of geometry.coordinates ?? []) {
-      for (const ring of polygon ?? []) total += ring?.length ?? 0;
+      for (const ring of polygon ?? []) if (Array.isArray(ring)) total += ring.length;
     }
     return total;
   }
-  if (geometry.type === "LineString") return geometry.coordinates?.length ?? 0;
+  if (geometry.type === "LineString") return Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
   if (geometry.type === "MultiLineString") {
     let total = 0;
-    for (const line of geometry.coordinates ?? []) total += line?.length ?? 0;
+    for (const line of geometry.coordinates ?? []) if (Array.isArray(line)) total += line.length;
     return total;
   }
   if (geometry.type === "GeometryCollection") {
