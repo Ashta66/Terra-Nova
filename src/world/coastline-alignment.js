@@ -116,7 +116,15 @@ function percentile(values, fraction) {
   return sorted[index];
 }
 
-export function measureCoastlineProximity(landCollection, territoryCollection, toleranceKm = 1, coastalSearchRadiusKm = 50, minimumCoastalSamples = 3) {
+
+function nameForFeature(feature) {
+  const properties = feature?.properties ?? {};
+  return properties.NAME ?? properties.ADMIN ?? properties.name ?? properties.NAME_EN
+    ?? properties.NAME_0 ?? properties.SOVEREIGNT ?? properties.NAME_LONG ?? properties.BRK_NAME
+    ?? properties.GEOUNIT ?? properties.GU_A3 ?? properties.SU_A3 ?? null;
+}
+
+export function measureCoastlineProximity(landCollection, territoryCollection, toleranceKm = 1, coastalSearchRadiusKm = 50, minimumCoastalSamples = 3, detailOptions = {}) {
   if (landCollection?.type !== "FeatureCollection" || !Array.isArray(landCollection.features)
     || territoryCollection?.type !== "FeatureCollection" || !Array.isArray(territoryCollection.features)) {
     throw new TypeError("Deux FeatureCollections GeoJSON sont requises pour mesurer la proximité côtière.");
@@ -166,6 +174,10 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
   let total = 0, matched = 0, maxDistanceKm = 0;
   let coastalTotal = 0, coastalMatched = 0;
   const coastalSampleDistances = [];
+  const coastalSegmentDetails = [];
+  const includeSegmentDetails = detailOptions?.includeSegmentDetails === true;
+  const maxSegmentDetails = Number.isInteger(detailOptions?.maxSegmentDetails)
+    ? Math.max(1, Math.min(1000, detailOptions.maxSegmentDetails)) : 100;
   const featureStats = territoryCollection.features.map((feature, featureIndex) => {
     let segmentCount = 0, matchedCount = 0, featureMaxDistanceKm = 0;
     let coastalSegmentCount = 0, coastalMatchedSegmentCount = 0;
@@ -177,10 +189,11 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
         if (!validPoint(a) || !validPoint(b)) continue;
         segmentCount++;
         total++;
-        const sampleDistancesKm = COAST_SAMPLE_FRACTIONS.map(fraction => nearestDistance([
+        const sampleCoordinates = COAST_SAMPLE_FRACTIONS.map(fraction => [
           Number(a[0]) + (Number(b[0]) - Number(a[0])) * fraction,
           Number(a[1]) + (Number(b[1]) - Number(a[1])) * fraction
-        ]));
+        ]);
+        const sampleDistancesKm = sampleCoordinates.map(nearestDistance);
         const segmentMaxDistanceKm = Math.max(...sampleDistancesKm);
         const nearCoastSampleCount = sampleDistancesKm.filter(distance => distance <= searchRadius).length;
         const isCoastalSegment = nearCoastSampleCount >= coastalSampleThreshold;
@@ -191,7 +204,18 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
           matchedCount++;
           matched++;
         }
+
         if (isCoastalSegment) {
+          if (includeSegmentDetails) coastalSegmentDetails.push({
+            featureIndex,
+            name: typeof nameForFeature(feature) === "string" ? nameForFeature(feature) : null,
+            segmentIndex: index,
+            coordinates: [a, b].map(point => [Number(point[0]), Number(point[1])]),
+            sampleCoordinates,
+            sampleDistancesKm,
+            maxSampleDistanceKm: segmentMaxDistanceKm,
+            withinToleranceSampleCount: sampleDistancesKm.filter(distance => distance <= tolerance).length
+          });
           coastalSegmentCount++;
           coastalTotal++;
           featureCoastalSampleDistances.push(...sampleDistancesKm);
@@ -265,6 +289,10 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     coastalSampleMedianDistanceKm: percentile(coastalSampleDistances, 0.5),
     coastalSampleP90DistanceKm: percentile(coastalSampleDistances, 0.9),
     coastalSampleMaxDistanceKm: percentile(coastalSampleDistances, 1),
+    segmentDetails: includeSegmentDetails ? coastalSegmentDetails
+      .sort((a, b) => b.maxSampleDistanceKm - a.maxSampleDistanceKm)
+      .slice(0, maxSegmentDetails) : undefined,
+    segmentDetailsTruncated: includeSegmentDetails && coastalSegmentDetails.length > maxSegmentDetails,
     maxSampleDistanceKm: Number.isFinite(maxDistanceKm) ? maxDistanceKm : null,
     featureStats
   };
@@ -738,7 +766,9 @@ export function auditLoadedCoastlineAlignment(landCollection, territoryCollectio
   const toleranceKm = Number.isFinite(Number(options.toleranceKm)) ? Math.max(0, Number(options.toleranceKm)) : 1;
   const coastalSearchRadiusKm = Number.isFinite(Number(options.coastalSearchRadiusKm))
     ? Math.max(toleranceKm, Number(options.coastalSearchRadiusKm)) : Math.max(toleranceKm, 50);
-  const proximity = measureCoastlineProximity(landCollection, territoryCollection, toleranceKm, coastalSearchRadiusKm);
+  const proximity = measureCoastlineProximity(landCollection, territoryCollection, toleranceKm, coastalSearchRadiusKm,
+    Number.isInteger(options.minimumCoastalSamples) ? options.minimumCoastalSamples : 3,
+    { includeSegmentDetails: options.segmentDetails === true, maxSegmentDetails: options.maxSegmentDetails });
   const sensitivity = options.sensitivity === true
     ? analyzeCoastalClassificationSensitivity(landCollection, territoryCollection, toleranceKm,
       options.sensitivityRadiiKm ?? [5, 10, 20, 50], options.sensitivitySampleThresholds ?? [3, 4, 5])
@@ -766,6 +796,8 @@ export function auditLoadedCoastlineAlignment(landCollection, territoryCollectio
       sampleMedianDistanceKm: proximity.coastalSampleMedianDistanceKm,
       sampleP90DistanceKm: proximity.coastalSampleP90DistanceKm,
       sampleMaxDistanceKm: proximity.coastalSampleMaxDistanceKm,
+      segmentDetails: proximity.segmentDetails,
+      segmentDetailsTruncated: proximity.segmentDetailsTruncated,
       featureStats: proximity.featureStats.map(feature => ({
         featureIndex: feature.featureIndex,
         name: feature.name,
