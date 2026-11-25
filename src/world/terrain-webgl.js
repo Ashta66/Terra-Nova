@@ -510,8 +510,8 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
     const data = buildTerrainTileTexture(tile, store, diagnostics);
     if (!data || !Number.isInteger(data.width) || !Number.isInteger(data.height)
       || data.width < 1 || data.height < 1 || data.width > cell || data.height > cell
-      || !(data.values instanceof Uint8Array || data.values instanceof Uint8ClampedArray)
-      || data.values.length !== data.width * data.height * 2) {
+      || !ArrayBuffer.isView(data.values)
+      || data.values.length !== data.width * data.height) {
       buildFailures++;
       lastBuildFailure = diagnostics.reason ?? (!data ? "unknown-build-failure" : "invalid-atlas-tile-data");
       return null;
