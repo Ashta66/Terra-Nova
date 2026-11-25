@@ -427,3 +427,19 @@ test("le snapshot indexé conserve la référence exacte de la collection publi�
   assert.equal(index.hitCount, hits.length);
   assert.equal(findMapLabelHitAtPoint(hits, 10, 10, index), hits[0]);
 });
+
+test("l'index accepte les bornes numériques textuelles sans changer la sélection",()=>{
+ const item=hit("Texte numérique",{left:"-12.5",right:"24",top:"3",bottom:"48.5"});
+ const hits=[item], index=createMapLabelHitIndex(hits,16);
+ assert.equal(findMapLabelHitAtPoint(hits,0,10,index),item);
+ assert.equal(findMapLabelHitAtPoint(hits,25,10,index),null);
+});
+test("la construction itérative ignore les entrées invalides sans perdre l'ordre",()=>{
+ const invalid=hit("Invalide",{left:10,right:0,top:0,bottom:10});
+ const first=hit("Premier",{left:0,right:20,top:0,bottom:20});
+ const last=hit("Dernier",{left:0,right:20,top:0,bottom:20});
+ const hits=[invalid,first,last], index=createMapLabelHitIndex(hits);
+ assert.equal(index.hitCount,3);
+ assert.equal(index.cells.get("0:0").length,2);
+ assert.equal(findMapLabelHitAtPoint(hits,10,10,index),last);
+});
