@@ -177,6 +177,6 @@ test("la bitmap overscan compose selon sa densité pixel/degree sans double-éch
  assert.equal(result.rects.length,1);
  close(result.rects[0].w,params.Ws);
  close(result.rects[0].h,params.Hs);
- close(result.rects[0].x,0);
- close(result.rects[0].y,0);
+ close(result.rects[0].x,-(params.Ws-1000)/2);
+ close(result.rects[0].y,-(params.Hs-500)/2);
 });
