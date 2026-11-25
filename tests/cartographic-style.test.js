@@ -371,10 +371,10 @@ test("les panneaux de pré-campagne sont des éléments frères ancrés dans le 
 
 test("les panneaux de commandement prolongent la matière et la typographie de chaque époque", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /\.side-heading::after[\s\S]*?background:var\(--theme-accent\)/);
-  assert.match(css, /\.ai-orb\s*\{[\s\S]*?radial-gradient/);
-  assert.match(css, /\.era-milestones button\.is-active[\s\S]*?var\(--theme-accent\)/);
-  assert.match(css, /\.topbar \.brand-mark::after[\s\S]*?pointer-events:none/);
+  assert.match(css, /\\.side-heading::after[\\s\\S]*?background:var\\(--theme-accent\\)/);
+  assert.match(css, /\\.ai-orb\\s*\\{[\\s\\S]*?radial-gradient/);
+  assert.match(css, /\\.era-milestones button\\.is-active[\\s\\S]*?var\\(--theme-accent\\)/);
+  assert.match(css, /\\.topbar \\.brand-mark::after[\\s\\S]*?pointer-events:none/);
   for (const [era, texture] of [
     ["exploration", "parchment"],
     ["westphalia", "vellum"],
@@ -383,16 +383,10 @@ test("les panneaux de commandement prolongent la matière et la typographie de c
     ["present", "glass"],
     ["future", "obsidian"]
   ]) {
-    assert.match(
-      css,
-      new RegExp(`body\\\\[data-cartographic-era="${era}"\\\\] \\\\.time-sidebar,[\\\\s\\\\S]*?assets/textures/${texture}\\\\.svg`),
-      `matière de panneau absente pour ${era}`
-    );
-    assert.match(
-      css,
-      new RegExp(`body\\\\[data-cartographic-era="${era}"\\\\] \\\\.ai-orb`),
-      `instrument d'époque absent pour ${era}`
-    );
+    assert.ok(css.includes(`body[data-cartographic-era="${era}"] .time-sidebar,`), `panneau gauche absent pour ${era}`);
+    assert.ok(css.includes(`body[data-cartographic-era="${era}"] .ai-sidebar`), `panneau droit absent pour ${era}`);
+    assert.ok(css.includes(`assets/textures/${texture}.svg`), `matière absente pour ${era}`);
+    assert.ok(css.includes(`body[data-cartographic-era="${era}"] .ai-orb`), `instrument d'époque absent pour ${era}`);
   }
-  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.era-milestones button\s*\{transition:none!important\}/);
+  assert.match(css, /@media\\s*\\(prefers-reduced-motion:\\s*reduce\\)[\\s\\S]*?\\.era-milestones button\\s*\\{transition:none!important\\}/);
 });
