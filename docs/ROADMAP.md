@@ -1,3 +1,45 @@
+## 25 novembre 2026 — lot 44 : fluidité du rendu et réduction des coûts par frame
+
+### Cache polygonal géographique
+- [x] Ajouter un chemin rapide lorsque la même collection de features est rendue à nouveau.
+- [x] Reconnaître également une nouvelle liste contenant les mêmes références de features.
+- [x] Éviter le regroupement des features par compartiment sur un cache inchangé.
+- [x] Éviter le tri des compartiments lors d'une frame identique.
+- [x] Éviter la reconstruction des Maps temporaires de compartiments sur le chemin rapide.
+- [x] Ne déclencher aucune allocation de buffer GPU lors d'un cache polygonal inchangé.
+- [x] Retourner des métriques nulles de construction et de transfert pour un cache réutilisé.
+- [x] Préserver les références de buffers et de compartiments pendant la réutilisation.
+- [x] Conserver le chemin incrémental existant lorsqu'une seule partie des features change.
+- [x] Mettre en cache le nombre maximal d'attributs vertex au lieu de le relire à chaque frame.
+
+### Soumission WebGL
+- [x] Supprimer la création d'un Set temporaire pour chaque remise à zéro des attributs.
+- [x] Conserver la désactivation des attributs non utilisés entre programmes polygonaux et linéaires.
+- [x] Mettre en cache l'emplacement de l'uniforme d'opacité du relief.
+- [x] Éviter les recherches répétées d'uniformes à chaque rendu de tuiles.
+- [x] Calculer le niveau LOD demandé une seule fois par rendu.
+- [x] Réutiliser ce niveau demandé pour diagnostiquer les limitations de capacité de l'atlas.
+
+### Préparation des tuiles terrain
+- [x] Remplacer la déduplication quadratique des précharges prédictives par un Set.
+- [x] Préserver la priorité des tuiles LOD adjacentes sur les précharges spatiales.
+- [x] Arrêter la collecte dès que les douze précharges maximales sont retenues.
+- [x] Éviter de fusionner les deux listes prédictives dans un tableau temporaire.
+- [x] Résoudre l'entrée GPU de chaque tuile une seule fois pendant la préparation du batch.
+- [x] Calculer chaque rectangle étendu une seule fois au lieu de le recalculer pendant l'écriture.
+- [x] Filtrer les rectangles invalides pendant cette unique passe de préparation.
+- [x] Allouer le buffer Float32 final une seule fois à partir du nombre de sommets validés.
+- [x] Préserver exactement l'ordre des tuiles, les UV atlas, les halos et les six sommets par rectangle.
+
+### Vérification
+- [x] Tester le chemin rapide sans nouvelle allocation GPU.
+- [x] Tester la réutilisation avec une nouvelle liste de références inchangées.
+- [x] Tester les rectangles invalides et les tuiles sans entrée GPU.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot réduit le travail CPU et les allocations temporaires sur les chemins de rendu récurrents. Il ne modifie ni les données géographiques, ni les shaders d'apparence, ni la simulation, ni l'interpolation historique. Les gains de temps réels restent à mesurer sur le matériel cible.
+
 ## 25 novembre 2026 — lot 43 : pipeline GPU, atlas et stabilité des buffers
 
 ### Atlas de tuiles terrain — allocation et transfert
