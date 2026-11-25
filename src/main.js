@@ -49,8 +49,19 @@ if (typeof window !== "undefined") {
   window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
   window.exportMapBenchmark = options => mapBenchmarkCollector.exportResults(options);
   window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
-  // Audit manuel des couches actuellement chargées, sans effet sur le rendu.
-  window.auditLoadedCoastlineAlignment = options => auditLoadedCoastlineAlignment(worldFeatures, territoryFeatures, options);
+  // Audit manuel des géométries réellement sélectionnées par le dernier rendu.
+  window.auditLoadedCoastlineAlignment = options => {
+    const layers = activeCoastlineAuditLayers ?? {
+      land: worldFeatures,
+      territories: territoryFeatures,
+      level: "base",
+      zoom: null
+    };
+    return auditLoadedCoastlineAlignment(layers.land, layers.territories, {
+      ...options,
+      dataset: { level: layers.level, zoom: layers.zoom }
+    });
+  };
 }
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
@@ -68,6 +79,7 @@ let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
 let territoryFeatures = null;
+let activeCoastlineAuditLayers = null;
 let territoryLandLod = null;
 let cachedBoundaryTerritorySource = null;
 let cachedBoundaryLodCollection = null;
@@ -1101,6 +1113,12 @@ function renderMapFrame() {
   const territoryDetailFeatures = useRegionalPoliticalPair
     ? regionalTerritoryLod?.getForZoom(mapViewport.zoom) ?? regionalTerritoryFeatures
     : territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
+  activeCoastlineAuditLayers = {
+    land: landDetail.features,
+    territories: territoryDetailFeatures,
+    level: useRegionalPoliticalPair ? "regional-10m" : "world-110m",
+    zoom: mapViewport.zoom
+  };
   let renderPoliticalBoundaryFeatures = politicalBoundaryFeatures;
   if (year >= 2026 && territoryDetailFeatures) {
     if (cachedBoundaryTerritorySource !== territoryDetailFeatures) {
