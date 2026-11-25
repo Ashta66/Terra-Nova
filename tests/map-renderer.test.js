@@ -2501,6 +2501,24 @@ test("la matière du relief terrestre renforce les montagnes sans effacer les pl
   assert.deepEqual(base, [120, 125, 110], "la couleur d'origine reste immuable");
 });
 
+test("les plaines et plateaux gagnent un modelé chromatique progressif avec l'altitude", () => {
+  const base = [120, 125, 110];
+  const lowPlain = applyLandformTint(base, "plains", 20);
+  const highPlain = applyLandformTint(base, "plains", 420);
+  const lowPlateau = applyLandformTint(base, "plateaus", 750);
+  const highPlateau = applyLandformTint(base, "plateaus", 2200);
+  const distance = color => color.reduce((sum, channel, index) => sum + Math.abs(channel - base[index]), 0);
+  assert.ok(distance(highPlain) > distance(lowPlain),
+    "les plaines légèrement plus élevées reçoivent une nuance progressivement plus présente");
+  assert.ok(distance(highPlateau) > distance(lowPlateau),
+    "les hauts plateaux acquièrent une signature minérale plus affirmée");
+  for (const color of [lowPlain, highPlain, lowPlateau, highPlateau]) {
+    assert.ok(color.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255));
+    assert.ok(distance(color) <= 14, "le modelé reste subtil et ne transforme pas les surfaces en aplats saturés");
+  }
+  assert.deepEqual(base, [120, 125, 110], "la couleur source reste immuable");
+});
+
 test("le renforcement des formes terrestres ne modifie pas les couleurs bathymétriques", () => {
   for (const elevation of [-11000, -6000, -1500, -200, -1]) {
     assert.deepEqual(
