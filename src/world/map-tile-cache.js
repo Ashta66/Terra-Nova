@@ -32,12 +32,12 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
   let misses = 0;
   let evictions = 0;
   let rejected = 0;
-  let closedResources = 0;
+  let closeCalls = 0;
   let disposed = false;
   const evictionReasons = Object.create(null);
 
   const notifyEviction = (key, entry, reason) => {
-    closedResources += closeTileValue(entry.value);
+    closeCalls += closeTileValue(entry.value);
     evictions++;
     evictionReasons[reason] = (evictionReasons[reason] ?? 0) + 1;
     try { onEvict?.(key, entry.value, reason); } catch { /* un observateur ne bloque pas le cache */ }
