@@ -219,11 +219,11 @@ export function applyLandformTint(color, landform, elevation = 0) {
   // Les montagnes gagnent une matière minérale progressivement plus marquée
   // avec l'altitude, sans transformer les sommets en aplats blancs.
   const mountainStrength = landform === "mountains"
-    ? 0.055 + clamp((Number(elevation) - 1100) / 3900, 0, 1) * 0.075
+    ? 0.09 + clamp((Number(elevation) - 1100) / 3900, 0, 1) * 0.10
     : 0;
   const strength = mountainStrength || ({
-    plateaus: 0.045, valleys: 0.04, plains: 0.025, hills: 0.055
-  }[landform] ?? 0.035);
+    plateaus: 0.07, valleys: 0.055, plains: 0.035, hills: 0.075
+  }[landform] ?? 0.04);
   const target = landform === "mountains" && elevation >= 2800
     ? MOUNTAIN_ELEVATION_TINT : tint;
   const inverse = 1 - strength;
