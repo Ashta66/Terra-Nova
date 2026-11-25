@@ -1057,6 +1057,7 @@ function createTileRenderer(tileStore) {
   gl.uniform1i(gl.getUniformLocation(program,"u_elevation"),0);
   const viewCenter=gl.getUniformLocation(program,"u_viewCenter");
   const zoomLocation=gl.getUniformLocation(program,"u_zoom");
+  const opacityLocation=gl.getUniformLocation(program,"u_opacity");
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
   if(!cache) { gl.deleteBuffer(buffer); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
@@ -1146,7 +1147,8 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
   gl.disable(gl.SCISSOR_TEST);
   gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
   const now=globalThis.performance?.now?.()??Date.now();
-  let level=selectTerrainTileLevel(tileStore,viewport,width);
+  const requestedLevel=selectTerrainTileLevel(tileStore,viewport,width);
+  let level=requestedLevel;
   let visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
   // Si le viewport demande plus de slots que le budget GPU, remonter d'un
   // niveau LOD jusqu'à retrouver une couverture complète dans l'atlas.
@@ -1154,7 +1156,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     level++;
     visible=collectTerrainViewportTiles(tileStore,viewport,width,height,level);
   }
-  renderer.capacityLimited=level!==selectTerrainTileLevel(tileStore,viewport,width);
+  renderer.capacityLimited=level!==requestedLevel;
   if(visible.length>cache.capacity) {
     renderer.lastFallbackReason="atlas-capacity";
     renderer.waitingForTiles=false;
@@ -1215,7 +1217,7 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
   gl.activeTexture(gl.TEXTURE0);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  const opacityLocation=gl.getUniformLocation(program,"u_opacity");
+  const opacityLocation=renderer.opacityLocation;
   const started=globalThis.performance?.now?.()??Date.now();
   const drawLevel=(items,opacity)=>{
     if(!items.length||opacity<=0)return;
