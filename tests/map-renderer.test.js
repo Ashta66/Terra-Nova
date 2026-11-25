@@ -535,6 +535,29 @@ test("les chaînes de moyenne altitude sont reconnues par leur pente", () => {
   assert.equal(classifyLandform(1450, 1430, 1470, 1460, 1440, 35), "plateaus");
 });
 
+test("la palette continentale détaille les transitions hypsométriques sans rupture", () => {
+  const elevations = [0, 180, 400, 700, 1000, 1300, 1600, 2000, 2300, 2600, 3000, 3400, 4000, 5000];
+  const colors = elevations.map(elevation => terrainColorForElevation(elevation, 1));
+  const luminance = color => color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+  for (let index = 1; index < colors.length; index++) {
+    assert.ok(luminance(colors[index]) >= luminance(colors[index - 1]),
+      `la palette hypsométrique ne doit pas s'assombrir à ${elevations[index]} m`);
+    assert.ok(Math.max(...colors[index].map((channel, i) => Math.abs(channel - colors[index - 1][i]))) < 35,
+      "les paliers d'altitude ne doivent pas produire de cassure chromatique");
+  }
+  assert.ok(new Set(colors.map(color => color.join(","))).size >= 12,
+    "les étages continentaux doivent conserver une lecture nuancée");
+});
+
+test("les matières des plaines, vallées, plateaux et collines restent distinctes", () => {
+  const elevation = 900;
+  const forms = ["plains", "valleys", "plateaus", "hills", "mountains"];
+  const colors = forms.map(form => terrainColorForElevation(elevation, 1, form, 42));
+  assert.equal(new Set(colors.map(color => color.join(","))).size, forms.length,
+    "chaque forme terrestre doit conserver une signature colorimétrique propre");
+  assert.ok(colors.every(color => color.every(channel => channel >= 0 && channel <= 255)));
+});
+
 test("la teinte minérale des montagnes progresse avec l'altitude", () => {
   const base = [120, 125, 110];
   const foothills = applyLandformTint(base, "mountains", 1200);
