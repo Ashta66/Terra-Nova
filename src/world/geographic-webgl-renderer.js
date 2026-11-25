@@ -392,38 +392,44 @@ export function createGeographicWebGLRenderer(gl) {
       if (!grouped.has(bucket)) grouped.set(bucket, []);
       grouped.get(bucket).push(feature);
     }
-    const chunks = new Map();
+    const chunks = new Map(), newlyBuiltBatches = [];
     let drawnFeatures = 0, skippedFeatures = 0;
     let geometryBuildMs = 0, bufferUploadMs = 0, uploadedBytes = 0, bufferUploads = 0;
-    let cacheBuildMs = 0;
-    let reusedChunks = 0;
-    for (const [bucket, featureRefs] of grouped) {
-      featureRefs.sort((a, b) => featureId(a) - featureId(b));
-      const oldChunk = previousChunks.get(bucket);
-      let chunk;
-      if (oldChunk && sameFeatureRefs(oldChunk.featureRefs, featureRefs)) {
-        chunk = oldChunk;
-        reusedChunks++;
-      } else {
-        const startedAt = now();
-        const built = buildBatches(featureRefs);
-        cacheBuildMs += Math.max(0, now() - startedAt);
-        geometryBuildMs += built.geometryBuildMs;
-        bufferUploadMs += built.bufferUploadMs;
-        const bytes = built.batches.reduce((sum, batch) =>
-          sum + batch.positions.byteLength + batch.anchors.byteLength + batch.indices.byteLength, 0);
-        const uploads = built.batches.length * 3;
-        uploadedBytes += bytes;
-        bufferUploads += uploads;
-        chunk = { bucket, featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
-        if (oldChunk) releaseBatches(oldChunk.batches);
+    let cacheBuildMs = 0, reusedChunks = 0;
+    try {
+      for (const [bucket, featureRefs] of grouped) {
+        featureRefs.sort((a, b) => featureId(a) - featureId(b));
+        const oldChunk = previousChunks.get(bucket);
+        let chunk;
+        if (oldChunk && sameFeatureRefs(oldChunk.featureRefs, featureRefs)) {
+          chunk = oldChunk;
+          reusedChunks++;
+        } else {
+          const startedAt = now();
+          const built = buildBatches(featureRefs);
+          newlyBuiltBatches.push(...built.batches);
+          cacheBuildMs += Math.max(0, now() - startedAt);
+          geometryBuildMs += built.geometryBuildMs;
+          bufferUploadMs += built.bufferUploadMs;
+          const bytes = built.batches.reduce((sum, batch) =>
+            sum + batch.positions.byteLength + batch.anchors.byteLength + batch.indices.byteLength, 0);
+          const uploads = built.batches.length * 3;
+          uploadedBytes += bytes;
+          bufferUploads += uploads;
+          chunk = { bucket, featureRefs, ...built, uploadedBytes: bytes, bufferUploads: uploads };
+        }
+        drawnFeatures += chunk.drawnFeatures;
+        skippedFeatures += chunk.skippedFeatures;
+        chunks.set(bucket, chunk);
       }
-      drawnFeatures += chunk.drawnFeatures;
-      skippedFeatures += chunk.skippedFeatures;
-      chunks.set(bucket, chunk);
+    } catch (error) {
+      releaseBatches(newlyBuiltBatches);
+      throw error;
     }
+    // Publication is atomic: only after every changed chunk built successfully
+    // may replaced or removed buffers from the previous cache be released.
     for (const [bucket, oldChunk] of previousChunks) {
-      if (!chunks.has(bucket)) releaseBatches(oldChunk.batches);
+      if (chunks.get(bucket) !== oldChunk) releaseBatches(oldChunk.batches);
     }
     const batches = [...chunks.values()].flatMap(chunk => chunk.batches);
     return {
