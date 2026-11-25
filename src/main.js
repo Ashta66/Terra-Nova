@@ -5,6 +5,7 @@ import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
 import { reconcileMapTileWorkQueue, takeNextMapTileWork } from "./world/map-tile-work-queue.js";
+import { isMapTileWorkerReplyCurrent, releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
@@ -134,6 +135,8 @@ let mapTileWorkerLayers = null;
 let mapTileWorkerQueue = [];
 let mapTileWorkerPending = new Map();
 let mapTileWorkerSequence = 0;
+const MAP_TILE_WORKER_REQUEST_TIMEOUT_MS = 20000;
+const mapTileWorkerRequestTimers = new Map();
 const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
 const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
@@ -393,6 +396,31 @@ function animateMapTileRefinements() {
   mapTileFadeFrame = requestAnimationFrame(tick);
 }
 
+function clearMapTileWorkerRequestTimer(key) {
+  const timer = mapTileWorkerRequestTimers.get(key);
+  if (timer !== undefined) clearTimeout(timer);
+  mapTileWorkerRequestTimers.delete(key);
+}
+
+function recoverMapTileWorker(worker, reason) {
+  if (!worker || mapTileWorker !== worker) return;
+  console.warn("Worker de tuiles redémarré ; reprise du plan visible.", reason);
+  try { worker.terminate(); } catch {}
+  mapTileWorker = null;
+  mapTileWorkerReady = false;
+  mapTileWorkerLayers = null;
+  for (const timer of mapTileWorkerRequestTimers.values()) clearTimeout(timer);
+  mapTileWorkerRequestTimers.clear();
+  mapTileWorkerPending.clear();
+  mapTileWorkerQueue = reconcileMapTileWorkQueue(
+    lastMapTilePlan?.tiles,
+    [],
+    key => mapTileCache.has(key),
+    () => false
+  );
+  requestCompose();
+}
+
 function pumpMapTileWorkerQueue() {
   if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
   while (mapTileWorkerQueue.length && mapTileWorkerPending.size < 2) {
@@ -404,12 +432,21 @@ function pumpMapTileWorkerQueue() {
     if (!tile) break;
     const key = tile.key;
     const requestId = ++mapTileWorkerSequence;
+    const worker = mapTileWorker;
     mapTileWorkerPending.set(key, requestId);
+    const timer = setTimeout(() => {
+      if (mapTileWorker === worker && mapTileWorkerPending.get(key) === requestId) {
+        recoverMapTileWorker(worker, new Error("Délai de rendu d'une tuile dépassé"));
+      }
+    }, MAP_TILE_WORKER_REQUEST_TIMEOUT_MS);
+    mapTileWorkerRequestTimers.set(key, timer);
     try {
-      mapTileWorker.postMessage({ type: "render-tile", requestId, tile });
+      worker.postMessage({ type: "render-tile", requestId, tile });
     } catch (error) {
+      clearMapTileWorkerRequestTimer(key);
       mapTileWorkerPending.delete(key);
-      console.warn("Préparation de tuile impossible :", error);
+      recoverMapTileWorker(worker, error);
+      break;
     }
   }
 }
@@ -418,41 +455,41 @@ function requestMapPhysicalTiles(plan, layers) {
   if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || !layers?.land?.features) return;
   try {
     if (!mapTileWorker) {
-      mapTileWorker = new Worker(new URL("./world/map-tile-worker.js", import.meta.url), { type: "module" });
-      mapTileWorker.addEventListener("message", event => {
+      const worker = new Worker(new URL("./world/map-tile-worker.js", import.meta.url), { type: "module" });
+      mapTileWorker = worker;
+      worker.addEventListener("message", event => {
+        if (mapTileWorker !== worker) {
+          event.data?.bitmap?.close?.();
+          return;
+        }
         const message = event.data ?? {};
         if (message.type === "ready") {
           mapTileWorkerReady = true;
           pumpMapTileWorkerQueue();
           return;
         }
-        if (message.type === "tile-ready") {
-          mapTileWorkerPending.delete(message.tile?.key);
-          if (message.bitmap) {
+        if (message.type === "tile-ready" || message.type === "tile-error") {
+          if (!releaseMapTileWorkerReply(message, mapTileWorkerPending)) {
+            message.bitmap?.close?.();
+            return;
+          }
+          clearMapTileWorkerRequestTimer(message.tile.key);
+          if (message.type === "tile-ready" && message.bitmap) {
             mapTileCache.set(message.tile.key, message.bitmap);
             if (isMapTileRelevantToPlan(message.tile.key, lastMapTilePlan)) {
               mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
               requestCompose();
               animateMapTileRefinements();
             }
+          } else if (message.type === "tile-error") {
+            console.info("Tuile physique non disponible :", message.error);
           }
           pumpMapTileWorkerQueue();
-          return;
-        }
-        if (message.type === "tile-error") {
-          mapTileWorkerPending.delete(message.tile?.key);
-          console.info("Tuile physique non disponible :", message.error);
-          pumpMapTileWorkerQueue();
         }
       });
-      mapTileWorker.addEventListener("error", error => {
-        console.warn("Worker de tuiles indisponible ; le rendu de scène classique reste actif.", error);
-        mapTileWorker.terminate();
-        mapTileWorker = null;
-        mapTileWorkerReady = false;
-        mapTileWorkerPending.clear();
-        mapTileWorkerQueue = [];
-      });
+      const onWorkerFailure = error => recoverMapTileWorker(worker, error);
+      worker.addEventListener("error", onWorkerFailure);
+      worker.addEventListener("messageerror", onWorkerFailure);
     }
     const nextLayers = {
       land: layers.land,
@@ -482,7 +519,8 @@ function requestMapPhysicalTiles(plan, layers) {
     );
     pumpMapTileWorkerQueue();
   } catch (error) {
-    console.warn("Initialisation du moteur de tuiles impossible :", error);
+    if (mapTileWorker) recoverMapTileWorker(mapTileWorker, error);
+    else console.warn("Initialisation du moteur de tuiles impossible :", error);
   }
 }
 
