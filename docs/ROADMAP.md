@@ -1548,3 +1548,15 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] CI GitHub Actions du lot à confirmer.
 
 **Portée :** cette modification réduit les allocations temporaires de références de chemins pendant la préparation des ancrages. Elle ne change ni les clés de coordonnées, ni les seuils RDP, ni la géométrie simplifiée ; aucun gain chiffré n'est revendiqué sans benchmark.
+
+
+## Lot 51 — réutilisation de la pile de calcul des emprises spatiales (25 novembre 2026)
+
+- [x] Identifier l'allocation d'une pile de parcours distincte pour chaque feature lors de la construction de l'index.
+- [x] Réutiliser une pile temporaire unique pendant le calcul séquentiel des bornes.
+- [x] Réinitialiser explicitement cette pile avant chaque géométrie et conserver le parcours itératif, y compris pour les GeometryCollection imbriquées.
+- [x] Ajouter un test sur les géométries composites imbriquées, les points isolés et les géométries vides.
+- [ ] Validation locale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Portée :** suppression des allocations répétées de tableaux de pile pendant la construction de l'index. Les bornes calculées, le classement des entités globales et la sélection spatiale restent inchangés ; aucun gain chiffré n'est revendiqué sans benchmark.
