@@ -484,8 +484,8 @@ function requestMapPhysicalTiles(plan, layers) {
           }
           clearMapTileWorkerRequestTimer(message.tile.key);
           if (message.type === "tile-ready" && message.bitmap) {
-            mapTileCache.set(message.tile.key, message.bitmap);
-            if (isMapTileRelevantToPlan(message.tile.key, lastMapTilePlan)) {
+            const cached = mapTileCache.set(message.tile.key, message.bitmap);
+            if (cached && isMapTileRelevantToPlan(message.tile.key, lastMapTilePlan)) {
               mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
               requestCompose();
               animateMapTileRefinements();
