@@ -1674,6 +1674,45 @@ test("les couches politiques sont exécutées à l'intérieur du masque continen
   assert.deepEqual(calls, ["save", ["clip", mask, "evenodd"], "draw", "restore"]);
 });
 
+test("les aplats territoriaux sont réellement découpés par le masque terrestre canonique", () => {
+  const { canvas, calls } = createCanvas();
+  const previousPath2D = globalThis.Path2D;
+  class TerritoryPath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = TerritoryPath2D;
+  try {
+    const territories = {
+      type: "FeatureCollection",
+      features: [{
+        type: "Feature",
+        properties: { ADMIN: "Testland", NAME: "Testland", ADM0_A3: "TST" },
+        geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+      }]
+    };
+    renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      territories
+    });
+    const territoryFillIndex = calls.findIndex(call =>
+      call[0] === "fill" && call[1] instanceof TerritoryPath2D && call[2] === "evenodd"
+    );
+    const maskClipIndex = territoryFillIndex < 0 ? -1 : calls.findLastIndex((call, index) =>
+      index < territoryFillIndex && call[0] === "clip" && call[1] instanceof TerritoryPath2D
+    );
+    assert.ok(territoryFillIndex >= 0, "l'aplat territorial doit être rendu avec sa géométrie");
+    assert.ok(maskClipIndex >= 0 && maskClipIndex < territoryFillIndex,
+      "le masque continental doit être actif avant le remplissage territorial");
+  } finally {
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
+  }
+});
+
 test("le rendu politique reste compatible quand aucun masque Path2D n'est disponible", () => {
   const calls = [];
   const context = { save: () => calls.push("save"), restore: () => calls.push("restore") };
