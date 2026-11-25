@@ -1,3 +1,45 @@
+## 25 novembre 2026 — lot 43 : pipeline GPU, atlas et stabilité des buffers
+
+### Atlas de tuiles terrain — allocation et transfert
+- [x] Borner la dimension de l'atlas à la capacité maximale de texture du GPU.
+- [x] Vérifier le budget réel en octets avant allocation.
+- [x] Libérer la texture si l'allocation initiale échoue.
+- [x] Valider les dimensions et la longueur des données d'altitude avant encodage.
+- [x] Accepter les buffers d'altitude signés natifs utilisés par le magasin terrain.
+- [x] Restaurer le slot libre lorsqu'un transfert texSubImage2D échoue.
+- [x] Distinguer les échecs de construction et les échecs de transfert dans les statistiques.
+- [x] Isoler les exceptions de construction et d'encodage des tuiles.
+- [x] Remplacer les entrées d'une ancienne révision sans conserver de texture obsolète.
+- [x] Préserver le comportement LRU et les slots protégés en cas de pression GPU.
+
+### File de chargement et cycle de vie atlas
+- [x] Borner le nombre de tuiles en attente.
+- [x] Promouvoir une demande déjà présente sans créer de doublon.
+- [x] Remplacer une précharge de faible priorité par une tuile visible plus urgente.
+- [x] Choisir de manière déterministe la précharge à abandonner lorsque la file est pleine.
+- [x] Annuler le scheduler idle ou timeout lorsque la file est vidée.
+- [x] Invalider les callbacks de scheduler devenus obsolètes après clear ou dispose.
+- [x] Reprendre avec setTimeout si requestIdleCallback échoue.
+- [x] Isoler les exceptions du callback de disponibilité UI.
+- [x] Éviter de réallouer intégralement la texture lors d'un clear logique.
+- [x] Rendre dispose idempotent et interdire les accès après destruction.
+
+### Buffers géographiques et publication atomique
+- [x] Libérer les buffers partiellement créés lors d'un échec d'allocation.
+- [x] Libérer les buffers partiellement transférés lors d'un échec bufferData.
+- [x] Construire tous les compartiments polygonaux avant de publier un nouveau cache.
+- [x] Conserver l'ancien cache tant que tous les nouveaux compartiments n'ont pas été construits.
+- [x] Poursuivre le nettoyage même si une suppression GPU isolée échoue.
+
+### Vérification
+- [x] Ajouter des tests d'allocation, de budget, de LRU, de slots protégés et de révisions.
+- [x] Ajouter des tests de file bornée, priorité, annulation et callbacks tardifs.
+- [x] Ajouter des tests de restauration après échec de transfert et de reconstruction atomique.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot optimise la gestion des ressources et la robustesse du pipeline ; il ne modifie pas les shaders d'apparence, les matériaux historiques, la simulation ou l'interpolation temporelle. Aucun gain FPS n'est annoncé sans mesure sur matériel réel.
+
 ## 25 novembre 2026 — lot 42 : cycle de vie WebGL et surfaces de rendu
 
 ### Cycle de vie des contextes
