@@ -3345,15 +3345,17 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
   });
   // Le trait côtier canonique est recomposé au-dessus des couches politiques.
-  // Les frontières historiques peuvent provenir d'une source distincte et leur
-  // généralisation indépendante ne doit pas remplacer le contour du fond terrestre.
-  if (landCoastCollection?.features?.length) {
+  // Reconstituer ici la collection dans cette portée (celle de drawStaticLayers
+  // n'est pas accessible à ce stade) en conservant l'exclusion de l'Antarctique.
+  const finalLandCoastFeatures = getLandFeatureGroups(visibleLand?.features ?? []).landCoastFeatures;
+  const finalLandCoastCollection = { ...visibleLand, features: finalLandCoastFeatures };
+  if (finalLandCoastCollection.features.length) {
     const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
     measureLayer("liseré-côtier-final", () => {
       context.save();
       context.shadowColor = theme.colors.coast;
       context.shadowBlur = coastlineMaterial.shadowBlur * (projection.renderScale ?? 1);
-      const drawn = drawPolygonLayer(context, landCoastCollection,
+      const drawn = drawPolygonLayer(context, finalLandCoastCollection,
         width, height, projection, "rgba(0,0,0,0)",
         theme.colors.accent, coastlineMaterial.lineWidth, coastlineMaterial.alpha,
         true, Infinity, coastProfile);
