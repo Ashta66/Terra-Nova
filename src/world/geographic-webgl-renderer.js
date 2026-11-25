@@ -300,6 +300,7 @@ export function createGeographicWebGLRenderer(gl) {
   const lineViewportLocation = gl.getUniformLocation(lineProgram, "u_viewport");
   const lineWidthLocation = gl.getUniformLocation(lineProgram, "u_line_width");
   const lineColorLocation = gl.getUniformLocation(lineProgram, "u_color");
+  const maxVertexAttribs = Math.max(0, Number(gl.getParameter(gl.MAX_VERTEX_ATTRIBS)) || 0);
   const meshCache = createGeographicMeshCache();
   const featureIds = new WeakMap();
   const lineSupportCache = new WeakMap();
@@ -400,6 +401,16 @@ export function createGeographicWebGLRenderer(gl) {
   }
 
   function buildIncrementalPolygonLayer(features, previous) {
+    if (previous?.type === "polygons"
+      && (previous.featuresRef === features || sameFeatureRefs(previous.featureRefs, features))) {
+      // Le tableau est souvent stable entre deux frames. Éviter dans ce cas
+      // regroupement, tri, Map temporaires et parcours des compartiments.
+      return {
+        ...previous, featuresRef: features, cacheHit: true,
+        cacheBuildMs: 0, geometryBuildMs: 0, bufferUploadMs: 0,
+        uploadedBytes: 0, bufferUploads: 0
+      };
+    }
     const previousChunks = previous?.chunks instanceof Map ? previous.chunks : new Map();
     const grouped = new Map();
     for (const feature of features) {
@@ -594,11 +605,9 @@ export function createGeographicWebGLRenderer(gl) {
     gl.useProgram(program);
     gl.uniform2f(centerLocation, centerLongitude, centerLatitude);
     gl.uniform1f(zoomLocation, zoom);
-    const maxVertexAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS);
     const resetVertexAttribArrays = (activeLocations) => {
-      const active = new Set(activeLocations.filter(location => Number.isInteger(location) && location >= 0));
       for (let location = 0; location < maxVertexAttribs; location++) {
-        if (!active.has(location)) gl.disableVertexAttribArray(location);
+        if (!activeLocations.includes(location)) gl.disableVertexAttribArray(location);
       }
     };
 
