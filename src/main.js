@@ -3,6 +3,7 @@ import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
+import { getMapTileResourceProfile } from "./world/map-tile-resource-profile.js";
 import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
 import { reconcileMapTileWorkQueue, takeNextMapTileWork } from "./world/map-tile-work-queue.js";
 import { releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
@@ -142,9 +143,13 @@ const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
 const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
 const MAP_TILE_HORIZONTAL_OFFSETS = [-1, 0, 1];
+const mapTileResourceProfile = getMapTileResourceProfile({
+  deviceMemory: globalThis.navigator?.deviceMemory,
+  hardwareConcurrency: globalThis.navigator?.hardwareConcurrency
+});
 const mapTileCache = createMapTileCache({
-  maxBytes: 64 * 1024 * 1024,
-  maxEntries: 192,
+  maxBytes: mapTileResourceProfile.maxBytes,
+  maxEntries: mapTileResourceProfile.maxEntries,
   onEvict: key => mapTileFadeStarts.delete(key)
 });
 let sceneRecenterPending = false;
@@ -352,7 +357,7 @@ function scheduleMapPrefetch(collections) {
   lastMapPrefetchViewport = { ...mapViewport };
   // Pyramide de tuiles avec marge et priorité directionnelle. Les index GeoJSON
   // existants restent le moteur de sélection pendant cette étape de transition.
-  const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: 48 });
+  const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: mapTileResourceProfile.maxPlannedTiles });
   lastMapTilePlan = tilePlan;
   requestMapPhysicalTiles(tilePlan, { land: collections[0], lakes: collections[1], rivers: collections[2], glaciers: glacierFeatures, elevationPoints, terrain: terrainGrid });
   if (mapViewport.zoom <= 1.001) return;
@@ -429,8 +434,8 @@ function recoverMapTileWorker(worker, reason) {
 }
 
 function pumpMapTileWorkerQueue() {
-  if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
-  while (mapTileWorkerQueue.length && mapTileWorkerPending.size < 2) {
+  if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= mapTileResourceProfile.workerConcurrency) return;
+  while (mapTileWorkerQueue.length && mapTileWorkerPending.size < mapTileResourceProfile.workerConcurrency) {
     const tile = takeNextMapTileWork(
       mapTileWorkerQueue,
       key => mapTileCache.has(key),
