@@ -78,7 +78,8 @@ export function getMapTilePyramidPlan(viewport = {}, options = {}) {
       const tileIndex = y * count + x;
       if (seen[tileIndex]) continue;
       seen[tileIndex] = 1;
-      const key = getMapTileKey(z, x, y);
+      // x et y sont déjà normalisés et bornés par la grille de cette boucle.
+      const key = z + "/" + x + "/" + y;
       const ox = rawX + 0.5 - centerX;
       const oy = y + 0.5 - centerY;
       const distance = Math.hypot(ox, oy);
