@@ -9,7 +9,7 @@
 - [x] Conserver la limite stricte de deux travaux simultanés.
 - [x] Continuer à traiter la file après une erreur d'envoi au worker.
 - [x] Ajouter cinq tests sur priorité, obsolescence, doublons et états concurrents.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : succès, 637/637 tests (run 45522466038).
 - [ ] Validation locale du joueur : `npm test` à confirmer.
 
 Les travaux non démarrés qui ne correspondent plus au plan visible sont abandonnés. Les calculs déjà envoyés au worker restent bornés et leurs résultats peuvent alimenter le cache sans imposer de composition si la tuile n'est plus pertinente.
