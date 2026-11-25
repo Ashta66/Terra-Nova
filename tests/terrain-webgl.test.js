@@ -427,3 +427,22 @@ test("les statistiques distinguent le budget demandé et la mémoire allouée", 
   assert.ok(atlas.stats.byteLength < atlas.stats.maxBytes);
   atlas.dispose();
 });
+
+test("le batch atlas ignore les rectangles invalides sans décaler les sommets valides", () => {
+  const tile = { level: 0, x: 0, y: 0, width: 2, height: 2 };
+  const valid = { x: 0, y: 0, width: 2, height: 2, u0: 0, u1: 1, v0: 0, v1: 1 };
+  const rects = [null, { ...valid, width: 0 }, { ...valid, x: NaN }, valid];
+  const entries = new Map([["0/0/0", { slotX: 1, slotY: 2 }]]);
+  const atlas = { cellSize: 4, atlasWidth: 16, atlasHeight: 16 };
+  const vertices = buildTerrainTileAtlasBatchVertices([{ tile, rects }], entries, 2, 2, atlas);
+  const expected = buildTerrainTileAtlasBatchVertices([{ tile, rects: [valid] }], entries, 2, 2, atlas);
+  assert.deepEqual(vertices, expected);
+});
+test("le batch atlas ignore les tuiles sans entrée GPU et retourne un buffer vide", () => {
+  const tile = { level: 0, x: 0, y: 0, width: 2, height: 2 };
+  const rects = [{ x: 0, y: 0, width: 2, height: 2, u0: 0, u1: 1, v0: 0, v1: 1 }];
+  const atlas = { cellSize: 4, atlasWidth: 16, atlasHeight: 16 };
+  const vertices = buildTerrainTileAtlasBatchVertices([{ tile, rects }], new Map(), 2, 2, atlas);
+  assert.ok(vertices instanceof Float32Array);
+  assert.equal(vertices.length, 0);
+});
