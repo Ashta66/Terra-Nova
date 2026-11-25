@@ -2667,7 +2667,7 @@ test("l'audit côtier compare les arêtes extérieures sans compter les trous", 
     ] }
   }] };
   const territories = { type: "FeatureCollection", features: [{
-    type: "Feature", properties: {},
+    type: "Feature", properties: { NAME: "Pays test" },
     geometry: { type: "MultiPolygon", coordinates: [
       [[[4,4],[4,0],[0,0],[0,4],[4,4]]],
       [[[10,0],[11,0],[10,1],[10,0]]]
@@ -2679,6 +2679,14 @@ test("l'audit côtier compare les arêtes extérieures sans compter les trous", 
   assert.equal(audit.matchedSegmentCount, 4);
   assert.equal(audit.unmatchedSegmentCount, 3);
   assert.equal(audit.exactMatchRatio, 4 / 7);
+  assert.deepEqual(audit.featureStats, [{
+    featureIndex: 0,
+    name: "Pays test",
+    segmentCount: 7,
+    matchedSegmentCount: 4,
+    unmatchedSegmentCount: 3,
+    exactMatchRatio: 4 / 7
+  }]);
 });
 
 test("l'audit côtier refuse les collections GeoJSON invalides", () => {
