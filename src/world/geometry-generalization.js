@@ -37,17 +37,20 @@ function countGeometryVertices(geometry) {
   return 0;
 }
 
-function collectPaths(geometry, paths = []) {
-  if (!geometry) return paths;
-  const addPolygon = polygon => { for (const ring of polygon ?? []) if (Array.isArray(ring)) paths.push(ring); };
-  if (geometry.type === "Polygon") addPolygon(geometry.coordinates);
-  else if (geometry.type === "MultiPolygon") for (const polygon of geometry.coordinates ?? []) addPolygon(polygon);
-  else if (geometry.type === "LineString") paths.push(geometry.coordinates ?? []);
+function forEachGeometryPath(geometry, visitPath) {
+  if (!geometry) return;
+  const visitPolygon = polygon => {
+    for (const ring of polygon ?? []) if (Array.isArray(ring)) visitPath(ring);
+  };
+  if (geometry.type === "Polygon") visitPolygon(geometry.coordinates);
+  else if (geometry.type === "MultiPolygon") {
+    for (const polygon of geometry.coordinates ?? []) visitPolygon(polygon);
+  } else if (geometry.type === "LineString") visitPath(geometry.coordinates ?? []);
   else if (geometry.type === "MultiLineString") {
-    for (const line of geometry.coordinates ?? []) paths.push(line);
+    for (const line of geometry.coordinates ?? []) visitPath(line);
+  } else if (geometry.type === "GeometryCollection") {
+    for (const child of geometry.geometries ?? []) forEachGeometryPath(child, visitPath);
   }
-  else if (geometry.type === "GeometryCollection") for (const child of geometry.geometries ?? []) collectPaths(child, paths);
-  return paths;
 }
 
 function pointDistanceSquared(point, start, end, cos) {
@@ -167,10 +170,10 @@ function simplifyGeometry(geometry,tolerance,anchors){
  */
 export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERANCE) {
   if(!collection?.features||!Number.isFinite(tolerance)||tolerance<=0)return collection;
-  const paths = [];
-  for (const feature of collection.features) collectPaths(feature?.geometry, paths);
+  // Compte les occurrences au fil du parcours : ne conserve pas un second
+  // tableau contenant toutes les références de chemins de la collection.
   const occurrences = new Map();
-  for (const path of paths) {
+  const countPathOccurrences = path => {
     const seenInPath = new Set();
     for (const point of path) {
       const key = coordinateKey(point);
@@ -178,6 +181,9 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
       seenInPath.add(key);
       occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
     }
+  };
+  for (const feature of collection.features) {
+    forEachGeometryPath(feature?.geometry, countPathOccurrences);
   }
   const sharedAnchors = new Set();
   for (const [key, count] of occurrences) if (count > 1) sharedAnchors.add(key);
