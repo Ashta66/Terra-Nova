@@ -1,4 +1,4 @@
-import { projectCoordinate } from "./projection.js";
+import { projectCoordinate, createCoordinateProjector } from "./projection.js";
 import { getCartographicTheme } from "./cartographic-style.js";
 import { drawTerrainRaster, sampleElevation, isTerrainHillshadePrepared } from "./terrain.js";
 import { renderTerrainWebGLTiles, getTerrainWebGLTileStats } from "./terrain-webgl.js";
@@ -35,22 +35,23 @@ export function partitionFeatures(features, supports) {
 
 function createContinuousProjector(width, height, projection) {
   const viewport = projection.viewport ?? {};
-  const unwrappedProjection = projection.type === "orthographic"
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const project = createCoordinateProjector(width, height, projection.type === "orthographic"
     ? projection
-    : { ...projection, viewport: { ...viewport, wrapLongitude: false } };
+    : { ...projection, viewport: { ...viewport, wrapLongitude: false } });
   let previousLongitude = null;
   return coordinate => {
     let longitude = coordinate[0];
     if (projection.type !== "orthographic") {
       if (previousLongitude === null) {
-        longitude += 360 * Math.round((Number(viewport.centerLongitude ?? 0) - longitude) / 360);
+        longitude += 360 * Math.round((centerLongitude - longitude) / 360);
       } else {
         while (longitude - previousLongitude > 180) longitude -= 360;
         while (longitude - previousLongitude < -180) longitude += 360;
       }
       previousLongitude = longitude;
     }
-    return projectCoordinate([longitude, coordinate[1]], width, height, unwrappedProjection);
+    return project(longitude, coordinate[1]);
   };
 }
 
