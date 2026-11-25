@@ -1846,3 +1846,8 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Isoler le décalage restant entre données géographiques, limites politiques et masque physique avant de modifier leur projection.
 
 **Point de diagnostic :** le rendu final est composé depuis une scène unique ; les appels raster et vectoriels reçoivent le même viewport. Le désalignement restant ne doit donc pas être corrigé par un offset visuel global. Il faut distinguer un écart de projection d'un écart entre sources/géométries ou d'un chemin WebGL spécifique.
+
+### Correctif lot 54.1 — portée du profil côtier
+- Le rendu final du liseré côtier calculait désormais son profil dans `renderWorldMap`, au lieu de référencer la variable locale à `drawStaticLayers`.
+- Le profil de simplification est construit localement depuis le zoom LOD effectif (avec repli sur le zoom du viewport), sans modifier les données ni les coordonnées géographiques.
+- Validation locale en attente après récupération du correctif.
