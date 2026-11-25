@@ -323,3 +323,36 @@ test("la recherche LOD ignore les zooms non numériques sans altérer le cache",
  assert.equal(lod.getStats().generatedLevels,0);
  assert.equal(lod.getStats().cachedLevels,0);
 });
+
+
+test("la simplification RDP traite une longue ligne avec pile compacte sans perdre ses extrémités",()=>{
+ const coordinates=[];
+ for(let index=0;index<12000;index++){
+  coordinates.push([index*0.01,Math.sin(index/17)*0.0002]);
+ }
+ const source={type:"FeatureCollection",features:[{
+  type:"Feature",properties:{id:"long-line"},
+  geometry:{type:"LineString",coordinates}
+ }]};
+ const result=simplifyGeoJsonCollection(source,0.001);
+ const simplified=result.features[0].geometry.coordinates;
+ assert.deepEqual(simplified[0],coordinates[0]);
+ assert.deepEqual(simplified[simplified.length-1],coordinates[coordinates.length-1]);
+ assert.ok(simplified.length<coordinates.length);
+ assert.equal(result.geometryStats.originalVertices,coordinates.length);
+ assert.equal(result.geometryStats.simplifiedVertices,simplified.length);
+ assert.equal(coordinates.length,12000,"la collection source reste immuable");
+});
+
+test("la pile compacte conserve les points d'ancrage partagés lors de la simplification",()=>{
+ const shared=[2,0.0001];
+ const first=[[0,0],shared,[4,0],[6,0],[8,0]];
+ const second=[[2,-2],shared,[2,2]];
+ const source={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{id:"a"},geometry:{type:"LineString",coordinates:first}},
+  {type:"Feature",properties:{id:"b"},geometry:{type:"LineString",coordinates:second}}
+ ]};
+ const result=simplifyGeoJsonCollection(source,0.1);
+ assert.ok(result.features.every(feature=>feature.geometry.coordinates.some(point=>
+  point[0]===shared[0]&&point[1]===shared[1])));
+});
