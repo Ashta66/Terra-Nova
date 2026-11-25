@@ -2977,8 +2977,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     let landClipPath = null;
     if (options.terrainEnabled !== false && projection.type === "equirectangular" && visibleLand?.features?.length) {
       target.save();
+      // Relief et couches politiques partagent le même masque continental exact.
+      // Ne pas appliquer ici le LOD secondaire : il décalerait le bord du relief
+      // par rapport au masque de référence utilisé pour les territoires.
       landClipPath = measureLayer("land-mask-path", () =>
-        buildLandClipPath(visibleLand, width, height, projection, coastProfile));
+        landAlignmentClipPath ?? buildLandClipPath(visibleLand, width, height, projection,
+          { tolerance: 0, minRingArea: 0 }));
       if (globalThis.__TERRA_DISABLE_LAND_TERRAIN_CLIP !== true) {
         if (landClipPath) {
           target.clip(landClipPath, "evenodd");
@@ -3351,7 +3355,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   const finalLandCoastCollection = { ...visibleLand, features: finalLandCoastFeatures };
   if (finalLandCoastCollection.features.length) {
     const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
-    const finalCoastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
+    // Le trait de référence suit exactement le masque continental, sans seconde
+    // simplification susceptible de créer un liseré décalé.
+    const finalCoastProfile = { tolerance: 0, minRingArea: 0 };
     measureLayer("liseré-côtier-final", () => {
       context.save();
       context.shadowColor = theme.colors.coast;
