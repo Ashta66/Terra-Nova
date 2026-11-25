@@ -57,3 +57,21 @@ test("tile plans contain unique, bounded tile records with stable keys", () => {
   assert.equal(plan.requestedTileCount >= plan.tiles.length, true);
   assert.equal(plan.truncated, plan.requestedTileCount > plan.tiles.length);
 });
+
+test("le plan de tuiles conserve des clés normalisées et un ordre déterministe après optimisation",()=>{
+ const viewport={zoom:12,centerLongitude:180,centerLatitude:89.9};
+ const options={overscan:2.5,maxTiles:32};
+ const first=getMapTilePyramidPlan(viewport,options);
+ const second=getMapTilePyramidPlan(viewport,options);
+ assert.deepEqual(first.tiles.map(tile=>tile.key),second.tiles.map(tile=>tile.key));
+ assert.equal(new Set(first.tiles.map(tile=>tile.key)).size,first.tiles.length);
+ assert.ok(first.tiles.every(tile=>tile.key===tile.z+"/"+tile.x+"/"+tile.y));
+ assert.ok(first.tiles.every(tile=>tile.x>=0&&tile.x<2**tile.z&&tile.y>=0&&tile.y<2**tile.z));
+});
+test("les options de planification restent bornées pour les entrées extrêmes",()=>{
+ const plan=getMapTilePyramidPlan({zoom:1e9,centerLongitude:-540,centerLatitude:120},{overscan:99,maxTiles:9999});
+ assert.equal(plan.z,7);
+ assert.ok(plan.tiles.length<=256);
+ assert.ok(plan.overscan<=2.5);
+ assert.ok(plan.tiles.every(tile=>tile.y>=0&&tile.y<128));
+});
