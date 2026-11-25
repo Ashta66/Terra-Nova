@@ -9,6 +9,7 @@ export function geoTileKey(longitude, latitude) {
 export function invalidateGeoTiles(previousRevisions = {}, cells = [], halo = 1) {
   const revisions = { ...previousRevisions };
   const changed = new Uint8Array(TILE_COLUMNS * TILE_ROWS);
+  let changedCount = 0;
   const margin = Math.max(0, Math.min(2, Math.floor(Number(halo) || 0)));
   for (const cell of cells) {
     const longitude = Number(cell?.longitude);
@@ -21,12 +22,14 @@ export function invalidateGeoTiles(previousRevisions = {}, cells = [], halo = 1)
       if (ty < 0 || ty >= TILE_ROWS) continue;
       for (let dx = -margin; dx <= margin; dx++) {
         const tx = (x + dx + TILE_COLUMNS) % TILE_COLUMNS;
-        changed[ty * TILE_COLUMNS + tx] = 1;
+        const tileIndex = ty * TILE_COLUMNS + tx;
+        if (!changed[tileIndex]) {
+          changed[tileIndex] = 1;
+          changedCount++;
+        }
       }
     }
   }
-  let changedCount = 0;
-  for (let index = 0; index < changed.length; index++) changedCount += changed[index];
   const invalidatedTileKeys = new Array(changedCount);
   let write = 0;
   // Le parcours linéaire produit directement l'ordre ligne/colonne attendu,
