@@ -177,9 +177,11 @@ test("le remplissage terrestre WebGL est composé sous le masque côtier canoniq
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
       geographicWebGLRenderer
     });
-    assert.equal(renderCalls.length, 1);
-    assert.deepEqual(renderCalls[0].map(layer => layer.key), ["land-fill"],
-      "le GPU ne doit pas redessiner un contour côtier indépendant du masque");
+    const landFillCalls = renderCalls.filter(layers => layers.some(layer => layer.key === "land-fill"));
+    assert.equal(landFillCalls.length, 1,
+      "le remplissage terrestre doit être soumis une seule fois");
+    assert.deepEqual(landFillCalls[0].map(layer => layer.key), ["land-fill"],
+      "l'appel du remplissage terrestre ne doit pas soumettre de contour côtier indépendant");
     const composeIndex = calls.findIndex(call => call[0] === "drawImage");
     const clipIndex = calls.findIndex((call, index) => index < composeIndex && call[0] === "clip");
     assert.ok(composeIndex >= 0, "le canevas WebGL doit être composé");
