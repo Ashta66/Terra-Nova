@@ -450,3 +450,74 @@ export function analyzeCoastlineCandidateTopology(candidates, nodeToleranceKm = 
     ringStats
   };
 }
+
+
+/**
+ * Mesure la part de chaque anneau source couverte par les candidats côtiers,
+ * puis associe couverture, chaînes et audit topologique. Aucun seuil
+ * automatique de reconstruction n'est imposé par cette mesure.
+ */
+export function measureCoastlineCandidateCoverage(candidates, nodeToleranceKm = 0.001) {
+  if (!Array.isArray(candidates)) {
+    throw new TypeError("Un tableau de segments candidats est requis.");
+  }
+  const valid = candidates.filter(candidate =>
+    Number.isInteger(candidate?.featureIndex) && candidate.featureIndex >= 0
+    && Number.isInteger(candidate?.ringIndex) && candidate.ringIndex >= 0
+    && Number.isInteger(candidate?.segmentIndex) && candidate.segmentIndex >= 0
+    && Number.isInteger(candidate?.ringSegmentCount) && candidate.ringSegmentCount > 0
+    && candidate.segmentIndex < candidate.ringSegmentCount
+    && Array.isArray(candidate.coordinates) && candidate.coordinates.length === 2
+    && validPoint(candidate.coordinates[0]) && validPoint(candidate.coordinates[1]));
+  const groups = new Map();
+  for (const candidate of valid) {
+    const key = candidate.featureIndex + ":" + candidate.ringIndex;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(candidate);
+  }
+  const chained = chainCoastlineAlignmentCandidates(valid);
+  const topology = analyzeCoastlineCandidateTopology(valid, nodeToleranceKm);
+  const chainByRing = new Map();
+  for (const chain of chained.chains) {
+    const key = chain.featureIndex + ":" + chain.ringIndex;
+    if (!chainByRing.has(key)) chainByRing.set(key, []);
+    chainByRing.get(key).push(chain);
+  }
+  const ringStats = [];
+  let totalSourceSegments = 0, totalCoveredSegments = 0;
+  for (const [key, group] of groups) {
+    const ringSegmentCount = Math.max(...group.map(candidate => candidate.ringSegmentCount));
+    const indices = [...new Set(group.map(candidate => candidate.segmentIndex))];
+    const covered = indices.length;
+    const chains = chainByRing.get(key) ?? [];
+    totalSourceSegments += ringSegmentCount;
+    totalCoveredSegments += covered;
+    ringStats.push({
+      featureIndex: group[0].featureIndex,
+      name: group[0].name ?? null,
+      ringIndex: group[0].ringIndex,
+      sourceSegmentCount: ringSegmentCount,
+      candidateSegmentCount: group.length,
+      coveredSegmentCount: covered,
+      uncoveredSegmentCount: Math.max(0, ringSegmentCount - covered),
+      coverageRatio: covered / ringSegmentCount,
+      chainCount: chains.length,
+      longestChainSegmentCount: Math.max(0, ...chains.map(chain => chain.segmentCount)),
+      closedChainCount: chains.filter(chain => chain.isClosed).length
+    });
+  }
+  return {
+    toleranceKm: null,
+    nodeToleranceKm: Number.isFinite(Number(nodeToleranceKm)) ? Math.max(0.000001, Number(nodeToleranceKm)) : 0.001,
+    ringCount: ringStats.length,
+    sourceSegmentCount: totalSourceSegments,
+    coveredSegmentCount: totalCoveredSegments,
+    uncoveredSegmentCount: totalSourceSegments - totalCoveredSegments,
+    coverageRatio: totalSourceSegments ? totalCoveredSegments / totalSourceSegments : 0,
+    chainCount: chained.chainCount,
+    closedChainCount: chained.closedChainCount,
+    openChainCount: chained.openChainCount,
+    topology,
+    ringStats
+  };
+}
