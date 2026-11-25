@@ -3323,6 +3323,9 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
     administrativeBoundaryCount = 0;
   }
+  // Capture facultative du rendu final des limites politiques pour comparer
+  // le masque physique, les pays et les frontières dans un même repère pixel.
+  captureTerrainLayerStage(context, "05-after-political-boundaries");
   const labelHits = measureLayer("etiquettes", () => drawMapLabels(context, visibleLabels, width, height, projection, theme, projection.lodZoom ?? projection.viewport.zoom ?? 1, options.physicalWorld, options.qualityProfile?.labelDensity ?? 1));
 
   const sumFamilyTimings = keys => keys.reduce((sum, key) => sum + (renderTimings[key] ?? 0), 0);
