@@ -1856,3 +1856,9 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - Le liseré final réutilise désormais exactement le profil de simplification des côtes terrestres (`getLandCoastSimplificationProfile`) déjà employé par le fond terrestre.
 - Cela évite une seconde entrée de cache Path2D avec une tolérance différente et conserve le nombre de constructions attendu pour un viewport stable.
 - Validation locale en attente.
+
+### Lot 55 — masque continental strictement partagé
+- Le diagnostic du lot 54 laissait encore deux profils distincts : le masque des couches politiques était construit sans simplification secondaire, tandis que le relief utilisait le profil LOD côtier.
+- Le relief réutilise maintenant le même `landAlignmentClipPath` que les couches politiques ; en l'absence de ce masque préconstruit, il le construit avec une tolérance nulle.
+- Le liseré côtier final est tracé avec ce même niveau de fidélité (tolérance nulle), sur la géométrie terrestre LOD déjà sélectionnée. Aucune donnée géographique source ni géométrie historique n'est modifiée.
+- Validation visuelle et tests locaux en attente.
