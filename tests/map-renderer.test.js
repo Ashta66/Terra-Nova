@@ -636,6 +636,23 @@ test("la palette terrestre varie selon la latitude sans changer la bathymétrie"
   );
 });
 
+test("les signatures végétales différencient mieux les climats sans créer de classes de couverture", () => {
+  const base = [120, 125, 110];
+  const zones = ["tropical", "subtropical", "temperate", "boreal", "tundra", "alpine", "nival"];
+  const colors = zones.map(zone => applyVegetationZoneTint(base, zone));
+  assert.equal(new Set(colors.map(color => color.join(","))).size, zones.length,
+    "chaque grande zone climatique doit garder une nuance identifiable");
+  for (const color of colors) {
+    assert.equal(color.length, 3);
+    assert.ok(color.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255));
+    assert.ok(color.every((channel, index) => Math.abs(channel - base[index]) <= 12),
+      "la signature végétale ne doit pas écraser la matière hypsométrique");
+  }
+  assert.deepEqual(terrainColorForElevation(-2500, 1, "ocean", 5),
+    terrainColorForElevation(-2500, 1, "ocean", 60),
+    "les nouvelles nuances ne doivent jamais recolorer l'océan");
+});
+
 test("les teintes de végétation restent modestes aux hautes altitudes", () => {
   const base = [180, 180, 180];
   const alpine = applyVegetationZoneTint(base, "alpine");
