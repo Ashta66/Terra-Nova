@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2726,4 +2726,37 @@ test("la proximité côtière détecte un écart supérieur à la tolérance", (
   const audit = measureCoastlineProximity(land, territories, 0.1);
   assert.ok(audit.unmatchedSegmentCount > 0);
   assert.ok(audit.featureStats[0].maxSampleDistanceKm > 1);
+});
+
+
+test("l'extraction côtière isole les segments candidats sans modifier les géométries source", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays candidat" },
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const originalTerritories = structuredClone(territories);
+  const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  assert.equal(result.candidateCount, 4);
+  assert.ok(result.candidates.every(candidate => candidate.featureIndex === 0));
+  assert.ok(result.candidates.every(candidate => candidate.name === "Pays candidat"));
+  assert.ok(result.candidates.every(candidate => candidate.maxSampleDistanceKm <= 0.1));
+  assert.deepEqual(territories, originalTerritories);
+});
+
+test("l'extraction côtière écarte les segments éloignés du masque terrestre", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1],[0,1],[0,0.02]]] }
+  }] };
+  const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  assert.equal(result.candidateCount, 2);
+  assert.ok(result.candidates.every(candidate => candidate.segmentIndex >= 1));
 });
