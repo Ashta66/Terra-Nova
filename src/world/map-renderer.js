@@ -577,6 +577,19 @@ export function buildLandClipPath(collection, width, height, projection, coastPr
 }
 
 
+/** Exécute une couche géographique à l'intérieur du masque exact des continents. */
+export function drawWithinLandMask(context, maskPath, draw) {
+  if (typeof draw !== "function") return 0;
+  if (!maskPath || typeof context?.clip !== "function") return draw();
+  context.save();
+  try {
+    context.clip(maskPath, "evenodd");
+    return draw();
+  } finally {
+    context.restore();
+  }
+}
+
 function isAntarcticLandFeature(feature) {
   if (!feature || typeof feature !== "object") return false;
   if (antarcticLandClassificationCache.has(feature)) {
@@ -2921,6 +2934,12 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   let terrainRenderer = "canvas2d";
   let landWebGLStats = null;
   let staticCacheHit = false;
+  // Les couches politiques sont découpées par la géométrie continentale source,
+  // non par une copie simplifiée : les bords côtiers ne peuvent plus diverger.
+  const landAlignmentClipPath = projection.type === "equirectangular"
+    && (visibleTerritories?.features?.length || visiblePoliticalBoundaries?.features?.length)
+    ? buildLandClipPath(visibleLand, width, height, projection, { tolerance: 0, minRingArea: 0 })
+    : null;
 
   const drawStaticLayers = target => {
     target.fillStyle = theme.colors.ocean;
@@ -3090,7 +3109,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     captureTerrainLayerStage(target, "02-after-land");
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
-    const territoryCount = measureLayer("territoires-couleurs", () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1)));
+    const territoryCount = measureLayer("territoires-couleurs", () => drawWithinLandMask(target, landAlignmentClipPath, () => drawTerritoryLayer(target, visibleTerritories, width, height, projection, "", "fill", countryOpacity * (reliefMode ? 0.28 : 1))));
     captureTerrainLayerStage(target, "03-after-territories");
     // Diagnostic A/B : permet d'isoler l'ombrage Canvas tuilé du relief WebGL.
     // Désactivé uniquement si le développeur active explicitement le drapeau global.
@@ -3269,7 +3288,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
 
   terrainEnabled = Boolean(staticStats?.terrainEnabled);
-  const territoryOutlineCount = measureLayer("frontières-territoriales", () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", Number(options.countryOpacity ?? 0.52)));
+  const territoryOutlineCount = measureLayer("frontières-territoriales", () => drawWithinLandMask(context, landAlignmentClipPath, () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", Number(options.countryOpacity ?? 0.52))));
   const physicalContext = options.physicalOverlayContext ?? context;
   if (options.physicalOverlayContext) {
     const overlayCanvas = physicalContext.canvas;
@@ -3287,6 +3306,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   let boundariesWebGLRendered = false;
   let politicalBoundaryCount = 0;
   let administrativeBoundaryCount = 0;
+  drawWithinLandMask(context, landAlignmentClipPath, () => {
   if (canRenderBoundariesWebGL) {
     try {
       const politicalPartition = partitionFeatures(visiblePoliticalBoundaries?.features, feature => boundaryRenderer.supportsBoundary(feature));
@@ -3323,6 +3343,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       + drawStyledBoundaryLayer(context, visiblePoliticalBoundaries, width, height, projection, "#293945", options.interactive ? 0.75 : 1.05, [], true));
     administrativeBoundaryCount = 0;
   }
+  });
   // Capture facultative du rendu final des limites politiques pour comparer
   // le masque physique, les pays et les frontières dans un même repère pixel.
   captureTerrainLayerStage(context, "05-after-political-boundaries");
