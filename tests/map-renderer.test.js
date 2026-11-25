@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates, summarizeCoastlineAlignment } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, analyzeCoastalClassificationSensitivity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates, summarizeCoastlineAlignment } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -3017,4 +3017,29 @@ test("l'audit chargé expose une métrique côtière distincte de la couverture 
   assert.deepEqual(report.coastalAlignment.featureStats[0].bounds, [0, 0, 1, 1]);
   assert.deepEqual(report.coastalAlignment.featureStats[0].boundsCenter, [0.5, 0.5]);
   assert.equal(report.coverage.sourceSegmentCount, 8);
+});
+
+
+test("la sensibilité côtière compare les rayons et seuils sans modifier les sources", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays décalé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1.02],[0,1.02],[0,0.02]]] }
+  }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = analyzeCoastalClassificationSensitivity(land, territories, 1, [5, 10], [3, 5]);
+  assert.equal(report.rows.length, 4);
+  assert.deepEqual(report.rows.map(row => [row.searchRadiusKm, row.minimumSamples]), [
+    [5, 3], [5, 5], [10, 3], [10, 5]
+  ]);
+  assert.ok(report.rows.every(row => row.sampleCount === row.coastalSegmentCount * 5));
+  assert.ok(report.rows[0].coastalSegmentCount >= report.rows[1].coastalSegmentCount);
+  assert.ok(report.rows[2].coastalSegmentCount >= report.rows[3].coastalSegmentCount);
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+  assert.throws(() => analyzeCoastalClassificationSensitivity(land, territories, 1, [], [3]), /listes non vides/);
 });
