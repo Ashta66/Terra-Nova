@@ -84,6 +84,11 @@ export function getLakeCoastSimplificationProfile(zoom = 1) {
   return getLandCoastSimplificationProfile(zoom);
 }
 
+/** Profil de matière du contact terre-mer, volontairement sans double trait. */
+export function getCoastlineMaterialProfile() {
+  return { lineWidth: 0.62, alpha: 0.32, shadowBlur: 1.35 };
+}
+
 const lakeAreaScores = new WeakMap();
 const MAX_VISIBLE_LAKES = 12;
 
@@ -3063,10 +3068,20 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
           theme.colors.coast, 0.85, 1, true, Infinity, coastProfile);
       }
     });
-    // Liseré discret : sépare visuellement la côte de l'océan sans concurrencer les frontières.
-    measureLayer("liseré-côtier", () => drawPolygonLayer(target, landCoastCollection,
-      width, height, projection, "rgba(0,0,0,0)",
-      theme.colors.accent, 0.42, 0.24, true, Infinity, coastProfile));
+    // Une seule arête côtière, avec un halo de matière très diffus côté océan.
+    // Le flou reste dans la couche statique et ne crée ni géométrie ni trait supplémentaire.
+    const coastlineMaterial = getCoastlineMaterialProfile();
+    measureLayer("liseré-côtier", () => {
+      target.save();
+      target.shadowColor = theme.colors.coast;
+      target.shadowBlur = coastlineMaterial.shadowBlur * (projection.renderScale ?? 1);
+      const drawn = drawPolygonLayer(target, landCoastCollection,
+        width, height, projection, "rgba(0,0,0,0)",
+        theme.colors.accent, coastlineMaterial.lineWidth, coastlineMaterial.alpha,
+        true, Infinity, coastProfile);
+      target.restore();
+      return drawn;
+    });
     captureTerrainLayerStage(target, "02-after-land");
     const reliefMode = options.terrainMode === "relief";
     const countryOpacity = Math.max(0, Math.min(1, Number(options.countryOpacity ?? 0.52)));
