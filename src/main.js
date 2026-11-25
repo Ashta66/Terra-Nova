@@ -1090,7 +1090,7 @@ function renderMapFrame() {
   };
   const landLodTransition = prepareLandLodTransition(landDetail.level);
   const completionContext = {
-    sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
+    sceneViewport: { ...renderViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
     sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition, landLodSet: landLod
   };
   const fallback = () => {
