@@ -1851,3 +1851,8 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - Le rendu final du liseré côtier calculait désormais son profil dans `renderWorldMap`, au lieu de référencer la variable locale à `drawStaticLayers`.
 - Le profil de simplification est construit localement depuis le zoom LOD effectif (avec repli sur le zoom du viewport), sans modifier les données ni les coordonnées géographiques.
 - Validation locale en attente après récupération du correctif.
+
+### Correctif lot 54.2 — réutilisation du profil LOD côtier
+- Le liseré final réutilise désormais exactement le profil de simplification des côtes terrestres (`getLandCoastSimplificationProfile`) déjà employé par le fond terrestre.
+- Cela évite une seconde entrée de cache Path2D avec une tolérance différente et conserve le nombre de constructions attendu pour un viewport stable.
+- Validation locale en attente.
