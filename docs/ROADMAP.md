@@ -1,3 +1,20 @@
+## 25 novembre 2026 — alignement des couches politiques sur la géométrie continentale
+
+### Référence géométrique unique
+- [x] Construire un masque d'alignement à partir des géométries continentales sources, sans simplification ni seuil d'aire.
+- [x] Découper les aplats territoriaux par ce masque avant composition.
+- [x] Découper les contours territoriaux par le même masque.
+- [x] Découper les frontières politiques Canvas/WebGL au moment de leur composition, sans translater ni déformer leurs coordonnées.
+- [x] Préserver un fallback sans Path2D : le rendu reste disponible si le masque ne peut pas être construit.
+- [x] Ajouter des tests sur l'ordre save/clip/draw/restore et sur le fallback.
+
+### Portée
+Cette correction utilise les contours GeoJSON continentaux non simplifiés comme limite physique de référence. Les géométries politiques ne sont pas réécrites ; seules leurs parties situées hors du masque terrestre sont masquées à l'affichage. Les frontières intérieures restent issues de leurs données historiques.
+
+### Validation
+- [ ] Validation locale : `npm test` à confirmer.
+- [ ] Contrôle visuel requis à plusieurs zooms, notamment sur les littoraux et les frontières côtières.
+
 ## 25 novembre 2026 — lot 49 : simplification géométrique à allocations réduites
 
 ### Ramer-Douglas-Peucker
