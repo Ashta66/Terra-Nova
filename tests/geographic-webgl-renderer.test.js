@@ -582,3 +582,25 @@ test("un nouveau tableau de références inchangées réutilise directement le c
   assert.equal(uploaded.length, before);
   renderer.dispose();
 });
+
+
+test("la déduplication des jonctions conserve les coordonnées numériques exactes", () => {
+  const { gl } = createMockGl();
+  const sameEndpoint = new Float32Array([
+    0, 0, 1, 0,
+    1, 0, 2, 0
+  ]);
+  const result = buildRibbonBuffer([sameEndpoint], gl);
+  assert.equal(result.vertexCount, 120,
+    "les trois extrémités numériques distinctes produisent trois disques, sans fusionner le sommet partagé");
+  gl.deleteBuffer(result.lineBuffer);
+
+  const sameLongitude = new Float32Array([
+    5, 1, 6, 1,
+    5, 2, 6, 2
+  ]);
+  const separate = buildRibbonBuffer([sameLongitude], gl);
+  assert.equal(separate.vertexCount, 156,
+    "une même longitude avec deux latitudes distinctes conserve quatre jonctions");
+  gl.deleteBuffer(separate.lineBuffer);
+});
