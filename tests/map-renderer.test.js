@@ -5,6 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
+import { measureSharedCoastlineEdges } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2654,4 +2655,32 @@ test("le renforcement des formes terrestres ne modifie pas les couleurs bathymé
       `la bathymétrie doit rester indépendante de la classe terrestre à ${elevation} m`
     );
   }
+});
+
+
+test("l'audit côtier compare les arêtes extérieures sans compter les trous", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[4,0],[4,4],[0,4],[0,0]],
+      [[1,1],[1,2],[2,2],[2,1],[1,1]]
+    ] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "MultiPolygon", coordinates: [
+      [[[4,4],[4,0],[0,0],[0,4],[4,4]]],
+      [[[10,0],[11,0],[10,1],[10,0]]]
+    ] }
+  }] };
+  const audit = measureSharedCoastlineEdges(land, territories, 5);
+  assert.equal(audit.landSegmentCount, 4);
+  assert.equal(audit.territorySegmentCount, 7);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.unmatchedSegmentCount, 3);
+  assert.equal(audit.exactMatchRatio, 4 / 7);
+});
+
+test("l'audit côtier refuse les collections GeoJSON invalides", () => {
+  assert.throws(() => measureSharedCoastlineEdges(null, { type: "FeatureCollection", features: [] }), /FeatureCollections/);
 });
