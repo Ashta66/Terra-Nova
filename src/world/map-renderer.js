@@ -425,6 +425,8 @@ let projectedPathCacheHits = 0;
 let projectedPathCacheMisses = 0;
 let projectedPathCacheBuilds = 0;
 let projectedPathCacheEvictions = 0;
+let projectedViewportProfileHits = 0;
+let projectedViewportProfileMisses = 0;
 let combinedLandMaskCacheHits = 0;
 let combinedLandMaskCacheMisses = 0;
 let combinedLandMaskCacheBuilds = 0;
@@ -464,10 +466,12 @@ function getProjectedViewportCacheProfile(width, height, projection, coastProfil
     + ":" + (coastProfile ? Number(coastProfile.minRingArea).toPrecision(8) : "all");
   const cached = projectedViewportProfileCache.get(key);
   if (cached) {
+    projectedViewportProfileHits++;
     projectedViewportProfileCache.delete(key);
     projectedViewportProfileCache.set(key, cached);
     return cached;
   }
+  projectedViewportProfileMisses++;
   const profile = { pathProjection, key };
   projectedViewportProfileCache.set(key, profile);
   if (projectedViewportProfileCache.size > MAX_PROJECTED_VIEWPORT_PROFILES) {
@@ -3335,6 +3339,10 @@ export function getProjectedPathCacheStats() {
     projectedPathCacheMisses,
     projectedPathCacheBuilds,
     projectedPathCacheEvictions,
+    projectedViewportProfileHits,
+    projectedViewportProfileMisses,
+    projectedViewportProfileEntries: projectedViewportProfileCache.size,
+    maxProjectedViewportProfiles: MAX_PROJECTED_VIEWPORT_PROFILES,
     combinedLandMaskCacheHits,
     combinedLandMaskCacheMisses,
     combinedLandMaskCacheBuilds,
