@@ -157,51 +157,29 @@ test("la classification WebGL des terres est réutilisée pour une collection st
   }
 });
 
-test("le remplissage terrestre WebGL est composé sous le masque côtier canonique sans contour GPU concurrent", () => {
-  const { canvas, calls } = createCanvas();
+test("le remplissage terrestre utilise le même profil Canvas que le masque côtier", () => {
+  const { canvas } = createCanvas();
   const renderCalls = [];
   const geographicWebGLRenderer = {
-    canvas: {},
-    supports: () => true,
-    supportsBoundary: () => true,
-    renderLayers: (layers) => {
-      renderCalls.push(layers);
-      return {};
-    }
+    canvas: {}, supports: () => true, supportsBoundary: () => true,
+    renderLayers: layers => { renderCalls.push(layers); return {}; }
   };
-  const previousDisableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+  const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
   const previousPath2D = globalThis.Path2D;
-  class MaskPath2D {
-    addPath() {}
-    moveTo() {}
-    lineTo() {}
-    closePath() {}
-  }
+  class MaskPath2D { addPath() {} moveTo() {} lineTo() {} closePath() {} }
   globalThis.Path2D = MaskPath2D;
-  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = false;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = false;
   try {
     renderWorldMap(canvas, land, {
       width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
-      territories: land,
-      geographicWebGLRenderer
+      territories: land, geographicWebGLRenderer
     });
-    const landFillCalls = renderCalls.filter(layers => layers.some(layer => layer.key === "land-fill"));
-    assert.equal(landFillCalls.length, 1,
-      "le remplissage terrestre doit être soumis une seule fois");
-    assert.deepEqual(landFillCalls[0].map(layer => layer.key), ["land-fill"],
-      "l'appel du remplissage terrestre ne doit pas soumettre de contour côtier indépendant");
-    const composeIndex = calls.findIndex(call => call[0] === "drawImage"
-      && call[1] === 0 && call[2] === 0 && call[3] === 640 && call[4] === 320);
-    const clipIndex = composeIndex < 0 ? -1 : calls.findLastIndex(
-      (call, index) => index < composeIndex && call[0] === "clip"
-    );
-    assert.ok(composeIndex >= 0, "le canevas WebGL doit être composé à la taille du viewport");
-    assert.ok(clipIndex >= 0 && clipIndex < composeIndex,
-      "le masque terrestre doit précéder la composition du remplissage GPU ciblé");
+    assert.equal(renderCalls.flat().some(layer => layer.key === "land-fill"), false,
+      "le remplissage terrestre ne doit pas contourner la simplification écran du masque côtier");
   } finally {
-    if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
-    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
+    if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
     if (previousPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previousPath2D;
   }
@@ -1826,19 +1804,16 @@ test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaill
     "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
 });
 
-test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
+test("le rendu terrestre Canvas conserve l'exclusion de l'Antarctique du masque continental", () => {
   const { canvas } = createCanvas();
   const antarcticaFeature = {
-    type: "Feature",
-    bbox: [-180, -90, 180, -63],
+    type: "Feature", bbox: [-180, -90, 180, -63],
     geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -70], [180, -90], [-180, -90], [-180, -63]]] }
   };
   const collection = { type: "FeatureCollection", features: [...land.features, antarcticaFeature] };
   const renderedLayerBatches = [];
   const geographicWebGLRenderer = {
-    canvas: {},
-    supports: () => true,
-    supportsBoundary: () => true,
+    canvas: {}, supports: () => true, supportsBoundary: () => true,
     renderLayers: layers => { renderedLayerBatches.push(layers); return {}; }
   };
   const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
@@ -1847,23 +1822,16 @@ test("Antarctique absent du remplissage terrestre translucide WebGL", () => {
     renderWorldMap(canvas, collection, {
       width: 640, height: 320, pixelRatio: 1,
       viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
-      terrainEnabled: true,
-      geographicWebGLRenderer
+      terrainEnabled: true, geographicWebGLRenderer
     });
   } finally {
     if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
   }
   const renderedLayers = renderedLayerBatches.flat();
-  assert.ok(renderedLayers.length, "le moteur WebGL géographique doit recevoir les couches");
-  const landFill = renderedLayers.find(layer => layer.key === "land-fill");
-  assert.ok(landFill, "la couche de remplissage terrestre doit être rendue");
-  assert.equal(landFill.features.length, 1,
-    "seule la terre ordinaire doit recevoir le remplissage translucide");
-  assert.ok(landFill.features.every(feature => feature !== antarcticaFeature),
-    "la géométrie antarctique doit être absente du remplissage translucide");
+  assert.equal(renderedLayers.some(layer => layer.key === "land-fill"), false,
+    "le remplissage terrestre doit rester sur le chemin Canvas généralisé");
 });
-
 
 test("les repères d'altitude sont triés une seule fois par collection et conservent leur priorité", () => {
   const mountain = { type: "Feature", properties: { elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86, 28] } };
