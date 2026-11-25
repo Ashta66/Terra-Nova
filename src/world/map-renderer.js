@@ -84,9 +84,14 @@ export function getLakeCoastSimplificationProfile(zoom = 1) {
   return getLandCoastSimplificationProfile(zoom);
 }
 
-/** Profil de matière du contact terre-mer, volontairement sans double trait. */
-export function getCoastlineMaterialProfile() {
-  return { lineWidth: 0.62, alpha: 0.32, shadowBlur: 1.35 };
+/** Profil de matière du contact terre-mer, renforcé doucement au zoom rapproché. */
+export function getCoastlineMaterialProfile(zoom = 1) {
+  const detail = Math.min(12, Math.max(0, (Number(zoom) || 1) - 1));
+  return {
+    lineWidth: 0.62 + detail * 0.006,
+    alpha: 0.32 + detail * 0.003,
+    shadowBlur: 1.35 + detail * 0.025
+  };
 }
 
 const lakeAreaScores = new WeakMap();
@@ -3070,7 +3075,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     });
     // Une seule arête côtière, avec un halo de matière très diffus côté océan.
     // Le flou reste dans la couche statique et ne crée ni géométrie ni trait supplémentaire.
-    const coastlineMaterial = getCoastlineMaterialProfile();
+    const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
     measureLayer("liseré-côtier", () => {
       target.save();
       target.shadowColor = theme.colors.coast;
