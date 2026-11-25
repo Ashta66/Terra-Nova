@@ -477,3 +477,41 @@ test("un lot échoué ne laisse aucune entrée partiellement publiée dans le ca
   assert.equal(recovered.drawCalls, 1);
   renderer.dispose();
 });
+
+test("un échec d'un compartiment ultérieur libère les compartiments déjà construits", () => {
+  const { gl, deleted } = createMockGl();
+  const original = gl.bufferData;
+  let calls = 0;
+  gl.bufferData = (...args) => {
+    if (++calls === 5) throw new Error("second bucket upload");
+    original(...args);
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  const features = Array.from({ length: 65 }, (_, index) => polygonFeature(index));
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /second bucket upload/);
+  assert.equal(deleted.size, 6);
+  renderer.dispose();
+});
+test("un rebuild transactionnel conserve les anciens compartiments si le nouveau échoue", () => {
+  const { gl, deleted } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  const originalFeatures = Array.from({ length: 65 }, (_, index) => polygonFeature(index));
+  renderer.renderLayers([{ key: "land", type: "polygons", features: originalFeatures }], 800, 400,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  const previousBuffers = deleted.size;
+  const changed = originalFeatures.slice();
+  changed.push(polygonFeature(100));
+  const originalUpload = gl.bufferData;
+  let calls = 0;
+  gl.bufferData = (...args) => { if (++calls === 2) throw new Error("replacement upload"); originalUpload(...args); };
+  assert.throws(() => renderer.renderLayers([{ key: "land", type: "polygons", features: changed }], 800, 400,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /replacement upload/);
+  assert.equal(deleted.size, previousBuffers + 3, "les buffers de remplacement échoués sont libérés, les anciens restent valides");
+  gl.bufferData = originalUpload;
+  const recovered = renderer.renderLayers([{ key: "land", type: "polygons", features: originalFeatures }], 800, 400,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(recovered.cacheHit, true);
+  renderer.dispose();
+});
