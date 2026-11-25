@@ -1572,3 +1572,32 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] CI GitHub Actions du lot à confirmer.
 
 **Bilan d'audit :** les autres parcours examinés disposent déjà de caches bornés, de parcours itératifs, de déduplication sans allocations intermédiaires, de files à curseur ou de sélections limitées par budget. Les modifications plus profondes restantes toucheraient à l'ordre de tri des tuiles, à la géométrie ou aux stratégies de rendu ; elles nécessitent des benchmarks représentatifs avant d'être considérées comme des optimisations sûres. La phase d'optimisation est donc considérée comme clôturée sous réserve de la validation finale et des mesures locales. Aucun gain de FPS ou de mémoire chiffré n'est revendiqué.
+
+
+## Lot artistique 6 — finition des instruments de commandement (25 novembre 2026)
+
+- [x] Renforcer la hiérarchie des titres et des panneaux latéraux avec les variables du thème actif.
+- [x] Différencier les matières des panneaux pour les six époques.
+- [x] Donner à l'orbe du Centre de Veille une finition adaptée à chaque période.
+- [x] Améliorer les états actifs de la frise et des commandes, sans modifier leur comportement.
+- [x] Respecter la préférence de réduction des animations.
+- [x] Ajouter des assertions de présence des finitions et des textures par époque.
+- [x] Corriger les assertions initiales suréchappées après retour des tests locaux.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** finitions CSS uniquement ; aucun changement aux contrôles, à la chronologie ou aux systèmes de simulation.
+
+## Lot artistique 7 — langage cartographique par époque (25 novembre 2026)
+
+- [x] Ajouter une rose nautique discrète pour l'époque des explorations.
+- [x] Ajouter un cartouche de grille gravé pour Westphalie.
+- [x] Renforcer la trame d'imprimerie de la période révolutionnaire.
+- [x] Développer le motif topographique et de quadrillage militaire pour l'époque moderne.
+- [x] Ajouter une microgrille de coordonnées pour l'époque contemporaine.
+- [x] Ajouter un réticule orbital pour l'époque futuriste.
+- [x] Conserver les overlays en `pointer-events:none` et hors du canvas interactif.
+- [x] Adapter leur intensité aux petits écrans et conserver le respect des préférences de mouvement.
+- [x] Ajouter des tests sur les six motifs, le balisage et l'absence d'interception des interactions.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** motifs CSS décoratifs au-dessus de la carte. Les géométries, les couleurs des territoires, les couches physiques et les interactions du canvas ne sont pas modifiées.
