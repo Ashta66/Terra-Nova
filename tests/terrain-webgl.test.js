@@ -137,3 +137,185 @@ test("les terres des calottes groenlandaise et antarctique reçoivent une neige 
   assert.match(shader, /if\(snowAmount>0\.0\)color=mix\(color,vec3\(0\.96,0\.97,0\.98\),snowAmount\)/);
   assert.doesNotMatch(shader, /iceSheet&&e>=1500\.0\)e=max\(e,5000\.0\)/);
 });
+
+function createAtlasHarness(options = {}) {
+  const calls = { texImage: 0, texSubImage: 0, deleted: 0, scheduled: [], cancelled: [] };
+  const gl = {
+    MAX_TEXTURE_SIZE: 1, TEXTURE_2D: 2, TEXTURE_MIN_FILTER: 3, TEXTURE_MAG_FILTER: 4,
+    TEXTURE_WRAP_S: 5, TEXTURE_WRAP_T: 6, NEAREST: 7, CLAMP_TO_EDGE: 8,
+    UNPACK_ALIGNMENT: 9, LUMINANCE_ALPHA: 10, UNSIGNED_BYTE: 11,
+    getParameter: () => options.maxTextureSize ?? 1024,
+    createTexture: () => ({}), bindTexture() {}, texParameteri() {}, pixelStorei() {},
+    texImage2D() { calls.texImage++; },
+    texSubImage2D() { calls.texSubImage++; if (options.failUpload) throw new Error("upload failed"); },
+    deleteTexture() { calls.deleted++; }
+  };
+  const values = new Int16Array(64);
+  for (let i = 0; i < values.length; i++) values[i] = i - 20;
+  const sourceTile = { originX: 0, originY: 0, width: 8, height: 8, values };
+  const store = { width: 8, height: 8, tileSize: 8, revision: 1,
+    getTileAtLevel: () => sourceTile };
+  const tile = (x = 0, y = 0) => ({ level: 0, x, y, originX: 0, originY: 0, width: 8, height: 8 });
+  return { gl, calls, store, tile };
+}
+
+test("l'atlas borne sa taille réelle par le budget mémoire demandé", () => {
+  const { gl } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { slotsPerSide: 32, maxBytes: 4096 });
+  assert.ok(atlas);
+  assert.ok(atlas.memoryBytes <= 4096);
+  assert.equal(atlas.stats.maxBytes, 4096);
+  assert.equal(atlas.stats.overBudget, false);
+  atlas.dispose();
+});
+test("l'atlas refuse une texture maximale inférieure à une cellule", () => {
+  const { gl } = createAtlasHarness({ maxTextureSize: 9 });
+  assert.equal(createTerrainWebGLTileAtlas(gl, { tileSize: 8 }), null);
+});
+test("l'atlas libère la texture si son allocation initiale échoue", () => {
+  const harness = createAtlasHarness();
+  harness.gl.texImage2D = () => { throw new Error("allocation"); };
+  assert.equal(createTerrainWebGLTileAtlas(harness.gl, { tileSize: 8 }), null);
+  assert.equal(harness.calls.deleted, 1);
+});
+test("l'atlas ne réalloue pas la texture lors d'un clear logique", () => {
+  const { gl, calls } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { slotsPerSide: 2, maxBytes: 4096 });
+  assert.equal(calls.texImage, 1);
+  atlas.clear();
+  assert.equal(calls.texImage, 1);
+  assert.equal(atlas.size, 0);
+  atlas.dispose();
+});
+test("l'atlas encode les valeurs d'altitude signées dans une tuile valide", () => {
+  const { gl, store, tile, calls } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 2, maxBytes: 4096 });
+  const entry = atlas.get(tile());
+  assert.ok(entry);
+  assert.equal(calls.texSubImage, 1);
+  assert.equal(entry.byteLength, 200);
+  assert.equal(atlas.stats.uploads, 1);
+  atlas.dispose();
+});
+test("les consultations atlas réutilisent la même entrée LRU", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 2, maxBytes: 4096 });
+  const first = atlas.get(tile());
+  assert.equal(atlas.get(tile()), first);
+  assert.equal(atlas.stats.hits, 1);
+  assert.equal(atlas.stats.uploads, 1);
+  atlas.dispose();
+});
+test("une tuile de révision différente remplace son ancienne version", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 2, maxBytes: 4096 });
+  atlas.get(tile());
+  store.revision++;
+  atlas.get(tile());
+  assert.equal(atlas.size, 2);
+  atlas.dispose();
+});
+test("les erreurs de transfert GPU restituent le slot et sont diagnostiquées", () => {
+  const { gl, store, tile } = createAtlasHarness({ failUpload: true });
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 1, maxBytes: 1024 });
+  assert.equal(atlas.get(tile()), null);
+  assert.equal(atlas.size, 0);
+  assert.equal(atlas.stats.uploadFailures, 1);
+  assert.match(atlas.stats.lastUploadFailure, /upload failed/);
+  atlas.dispose();
+});
+test("les insertions atlas sont refusées après dispose", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store);
+  atlas.dispose();
+  assert.equal(atlas.get(tile()), null);
+  assert.equal(atlas.peek(tile()), null);
+  assert.equal(atlas.enqueue(tile()), false);
+  assert.equal(atlas.disposed, true);
+});
+test("dispose atlas est idempotent et ne supprime la texture qu'une fois", () => {
+  const { gl, calls } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 });
+  atlas.dispose(); atlas.dispose();
+  assert.equal(calls.deleted, 1);
+});
+test("la file atlas est bornée et évince une précharge au profit d'une tuile visible", () => {
+  const { gl, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 2 });
+  const original = globalThis.setTimeout;
+  globalThis.setTimeout = callback => { globalThis.__atlasScheduled = callback; return 17; };
+  try {
+    assert.equal(atlas.enqueue(tile(0), new Set(), 2), true);
+    assert.equal(atlas.enqueue(tile(1), new Set(), 2), true);
+    assert.equal(atlas.enqueue(tile(2), new Set(), 0), true);
+    assert.equal(atlas.pendingCount, 2);
+    assert.equal(atlas.stats.rejectedPending, 1);
+  } finally {
+    globalThis.setTimeout = original;
+    delete globalThis.__atlasScheduled;
+    atlas.dispose();
+  }
+});
+test("une file atlas refuse une nouvelle précharge de priorité égale lorsqu'elle est pleine", () => {
+  const { gl, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 1 });
+  const original = globalThis.setTimeout;
+  globalThis.setTimeout = () => 1;
+  try {
+    atlas.enqueue(tile(0), new Set(), 2);
+    assert.equal(atlas.enqueue(tile(1), new Set(), 2), false);
+    assert.equal(atlas.pendingCount, 1);
+  } finally { globalThis.setTimeout = original; atlas.dispose(); }
+});
+test("clear annule la tâche planifiée et vide les demandes en attente", () => {
+  const { gl, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 });
+  const originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout;
+  let cancelled = 0;
+  globalThis.setTimeout = () => 42;
+  globalThis.clearTimeout = id => { if (id === 42) cancelled++; };
+  try {
+    atlas.enqueue(tile());
+    atlas.clear();
+    assert.equal(atlas.pendingCount, 0);
+    assert.equal(cancelled, 1);
+  } finally {
+    globalThis.setTimeout = originalSet;
+    globalThis.clearTimeout = originalClear;
+    atlas.dispose();
+  }
+});
+test("un callback idle obsolète ne travaille pas après clear", () => {
+  const { gl, tile, calls } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 });
+  const originalSet = globalThis.setTimeout;
+  let scheduled;
+  globalThis.setTimeout = callback => { scheduled = callback; return 5; };
+  try {
+    atlas.enqueue(tile());
+    atlas.clear();
+    scheduled?.();
+    assert.equal(calls.texSubImage, 0);
+  } finally { globalThis.setTimeout = originalSet; atlas.dispose(); }
+});
+test("les erreurs de callback onReady ne bloquent pas la file atlas", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { maxPending: 2 });
+  const originalSet = globalThis.setTimeout;
+  const callbacks = [];
+  globalThis.setTimeout = callback => { callbacks.push(callback); return callbacks.length; };
+  try {
+    atlas.setOnReady(() => { throw new Error("ui"); });
+    atlas.enqueue(tile(), new Set(), 0);
+    assert.doesNotThrow(() => callbacks.shift()?.());
+    assert.equal(atlas.stats.uploads, 1);
+  } finally { globalThis.setTimeout = originalSet; atlas.dispose(); }
+});
+test("les diagnostics atlas exposent la limite de file et le cycle de vie", () => {
+  const { gl } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 7 });
+  assert.equal(atlas.stats.maxPending, 7);
+  assert.equal(atlas.stats.disposed, false);
+  atlas.dispose();
+  assert.equal(atlas.stats.disposed, true);
+});
