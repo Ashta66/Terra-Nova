@@ -4,6 +4,7 @@ import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
 import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
+import { reconcileMapTileWorkQueue, takeNextMapTileWork } from "./world/map-tile-work-queue.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
@@ -394,10 +395,14 @@ function animateMapTileRefinements() {
 
 function pumpMapTileWorkerQueue() {
   if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
-  while (mapTileWorkerQueue.length) {
-    const tile = mapTileWorkerQueue.shift();
+  while (mapTileWorkerQueue.length && mapTileWorkerPending.size < 2) {
+    const tile = takeNextMapTileWork(
+      mapTileWorkerQueue,
+      key => mapTileCache.has(key),
+      key => mapTileWorkerPending.has(key)
+    );
+    if (!tile) break;
     const key = tile.key;
-    if (mapTileCache.get(key) || mapTileWorkerPending.has(key)) continue;
     const requestId = ++mapTileWorkerSequence;
     mapTileWorkerPending.set(key, requestId);
     try {
@@ -406,7 +411,6 @@ function pumpMapTileWorkerQueue() {
       mapTileWorkerPending.delete(key);
       console.warn("Préparation de tuile impossible :", error);
     }
-    if (mapTileWorkerPending.size >= 2) break;
   }
 }
 
@@ -468,10 +472,14 @@ function requestMapPhysicalTiles(plan, layers) {
       mapTileWorkerLayers = nextLayers;
       mapTileWorker.postMessage({ type: "init", layers: nextLayers });
     }
-    mapTileWorkerQueue.length = 0;
-    for (const tile of plan?.tiles ?? []) {
-      if (!mapTileCache.get(tile.key) && !mapTileWorkerPending.has(tile.key)) mapTileWorkerQueue.push(tile);
-    }
+    // Le plan est déjà ordonné du centre vers la périphérie : il devient
+    // l'unique source de priorité et remplace les travaux en attente obsolètes.
+    mapTileWorkerQueue = reconcileMapTileWorkQueue(
+      plan?.tiles,
+      mapTileWorkerQueue,
+      key => mapTileCache.has(key),
+      key => mapTileWorkerPending.has(key)
+    );
     pumpMapTileWorkerQueue();
   } catch (error) {
     console.warn("Initialisation du moteur de tuiles impossible :", error);
