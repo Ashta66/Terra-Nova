@@ -77,15 +77,19 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
   const viewZoom = clampPositive(view.zoom);
   const sceneWidth = Math.max(1, Number(sceneSize.w) || W);
   const sceneHeight = Math.max(1, Number(sceneSize.h) || H);
-  const k = viewZoom / sceneZoom;
+  // La bitmap de scène est déjà rendue avec Ws/Hs pixels et son zoom interne.
+  // La mise à l'échelle de composition doit comparer les densités pixel/degree,
+  // et non simplement le rapport des zooms (qui double-compte l'overscan).
+  const scaleX = W * viewZoom / (sceneWidth * sceneZoom);
+  const scaleY = H * viewZoom / (sceneHeight * sceneZoom);
   const dLon = normalizeLongitudeDelta(
     (Number(sceneViewport.centerLongitude) || 0) - (Number(view.centerLongitude) || 0)
   );
   const dLat = (Number(sceneViewport.centerLatitude) || 0) - (Number(view.centerLatitude) || 0);
-  const dx = W / 2 + (dLon / 360) * W * viewZoom - (sceneWidth / 2) * k;
-  const dy = H / 2 - (dLat / 180) * H * viewZoom - (sceneHeight / 2) * k;
-  const dw = sceneWidth * k;
-  const dh = sceneHeight * k;
+  const dx = W / 2 + (dLon / 360) * W * viewZoom - (sceneWidth / 2) * scaleX;
+  const dy = H / 2 - (dLat / 180) * H * viewZoom - (sceneHeight / 2) * scaleY;
+  const dw = sceneWidth * scaleX;
+  const dh = sceneHeight * scaleY;
   const base = { x: dx, y: dy, w: dw, h: dh };
   const coversWorld = Number(sceneSize.f) >= sceneZoom - 1e-6;
 
