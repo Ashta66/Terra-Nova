@@ -368,3 +368,85 @@ export function chainCoastlineAlignmentCandidates(candidates) {
     chains
   };
 }
+
+
+/**
+ * Audit non destructif du graphe d'extrémités des candidats. La tolérance
+ * sert uniquement à regrouper les nœuds proches ; aucune géométrie n'est
+ * déplacée ou fusionnée.
+ */
+export function analyzeCoastlineCandidateTopology(candidates, nodeToleranceKm = 0.001) {
+  if (!Array.isArray(candidates)) {
+    throw new TypeError("Un tableau de segments candidats est requis.");
+  }
+  const tolerance = Number.isFinite(Number(nodeToleranceKm))
+    ? Math.max(0.000001, Number(nodeToleranceKm)) : 0.001;
+  const valid = candidates.filter(candidate =>
+    Number.isInteger(candidate?.featureIndex) && candidate.featureIndex >= 0
+    && Number.isInteger(candidate?.ringIndex) && candidate.ringIndex >= 0
+    && Number.isInteger(candidate?.segmentIndex) && candidate.segmentIndex >= 0
+    && Array.isArray(candidate.coordinates) && candidate.coordinates.length === 2
+    && validPoint(candidate.coordinates[0]) && validPoint(candidate.coordinates[1]));
+  const groups = new Map();
+  for (const candidate of valid) {
+    const key = candidate.featureIndex + ":" + candidate.ringIndex;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(candidate);
+  }
+  const ringStats = [];
+  let duplicateSegmentCount = 0, continuityBreakCount = 0, branchNodeCount = 0;
+  for (const group of groups.values()) {
+    group.sort((a, b) => a.segmentIndex - b.segmentIndex);
+    const seenIndices = new Set();
+    const duplicates = [];
+    for (const candidate of group) {
+      if (seenIndices.has(candidate.segmentIndex)) duplicates.push(candidate.segmentIndex);
+      seenIndices.add(candidate.segmentIndex);
+    }
+    const breaks = [];
+    const nodes = [];
+    const nodeFor = point => {
+      let node = nodes.find(item => pointsCoincideWithinKm(item.coordinate, point, tolerance));
+      if (!node) {
+        node = { coordinate: [...point], degree: 0 };
+        nodes.push(node);
+      }
+      node.degree++;
+      return node;
+    };
+    for (const candidate of group) {
+      nodeFor(candidate.coordinates[0]);
+      nodeFor(candidate.coordinates[1]);
+    }
+    for (let index = 1; index < group.length; index++) {
+      const previous = group[index - 1], current = group[index];
+      if (current.segmentIndex === previous.segmentIndex + 1
+        && !pointsCoincideWithinKm(previous.coordinates[1], current.coordinates[0], tolerance)) {
+        breaks.push({ afterSegmentIndex: previous.segmentIndex, beforeSegmentIndex: current.segmentIndex });
+      }
+    }
+    const branches = nodes.filter(node => node.degree > 2);
+    duplicateSegmentCount += duplicates.length;
+    continuityBreakCount += breaks.length;
+    branchNodeCount += branches.length;
+    ringStats.push({
+      featureIndex: group[0].featureIndex,
+      ringIndex: group[0].ringIndex,
+      candidateCount: group.length,
+      duplicateSegmentIndices: [...new Set(duplicates)],
+      continuityBreaks: breaks,
+      endpointNodeCount: nodes.length,
+      branchNodeCount: branches.length,
+      endpointDegrees: nodes.map(node => node.degree).sort((a, b) => a - b)
+    });
+  }
+  return {
+    candidateCount: valid.length,
+    ringCount: ringStats.length,
+    duplicateSegmentCount,
+    continuityBreakCount,
+    branchNodeCount,
+    isUnambiguous: duplicateSegmentCount === 0 && continuityBreakCount === 0 && branchNodeCount === 0,
+    ringStats
+  };
+}
