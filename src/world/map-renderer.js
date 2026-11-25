@@ -415,6 +415,8 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
 
 const projectedPathCache = new WeakMap();
 const projectedPathCacheLru = new Map();
+const projectedViewportProfileCache = new Map();
+const MAX_PROJECTED_VIEWPORT_PROFILES = 64;
 const PROJECTED_PATHS_PER_FEATURE = 10;
 const MAX_PROJECTED_PATHS = 4096;
 const MAX_PROJECTED_PATH_VERTICES = 750_000;
@@ -460,7 +462,18 @@ function getProjectedViewportCacheProfile(width, height, projection, coastProfil
     + ":" + snappedLongitude.toPrecision(12) + ":" + snappedLatitude.toPrecision(12)
     + ":" + (coastProfile ? Number(coastProfile.tolerance).toPrecision(8) : "full")
     + ":" + (coastProfile ? Number(coastProfile.minRingArea).toPrecision(8) : "all");
-  return { pathProjection, key };
+  const cached = projectedViewportProfileCache.get(key);
+  if (cached) {
+    projectedViewportProfileCache.delete(key);
+    projectedViewportProfileCache.set(key, cached);
+    return cached;
+  }
+  const profile = { pathProjection, key };
+  projectedViewportProfileCache.set(key, profile);
+  if (projectedViewportProfileCache.size > MAX_PROJECTED_VIEWPORT_PROFILES) {
+    projectedViewportProfileCache.delete(projectedViewportProfileCache.keys().next().value);
+  }
+  return profile;
 }
 
 function getProjectedPath(feature, width, height, projection, coastProfile = null) {
