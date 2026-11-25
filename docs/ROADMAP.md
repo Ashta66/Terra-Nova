@@ -1739,3 +1739,19 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et comparaison visuelle des continents sous plusieurs latitudes.
 
 **Portée :** enrichissement colorimétrique des signatures climatiques terrestres existantes. Aucune nouvelle géographie ni donnée écologique n'est inventée.
+
+
+## Lot artistique 14 — modelé des plaines et plateaux (25 novembre 2026)
+
+- [x] Auditer les teintes de formes terrestres déjà dérivées du relief ETOPO.
+- [x] Renforcer modérément la signature des plaines sans les saturer.
+- [x] Donner aux plateaux une matière minérale progressive avec l'altitude.
+- [x] Faire varier l'intensité des nuances de façon continue, sans bandes ni frontières artificielles.
+- [x] Préserver les signatures distinctes des vallées, collines et montagnes.
+- [x] Conserver les palettes hypsométriques et les classes de relief existantes.
+- [x] Ne modifier aucune altitude, géométrie, donnée physique ou règle de simulation.
+- [x] Ajouter des tests de progression, d'amplitude et d'immuabilité de la couleur source.
+- [x] Garantir que les couleurs bathymétriques restent indépendantes.
+- [ ] Validation locale : `npm test` et contrôle visuel des plaines et plateaux à plusieurs niveaux de zoom.
+
+**Portée :** modulation colorimétrique légère des classes existantes, sans ajout de détails cartographiques fictifs.
