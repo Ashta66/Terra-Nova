@@ -844,12 +844,11 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
     assert.equal(constructions, 2);
-    // Un petit pan reste dans la même cellule de cache et réutilise les chemins.
+    // Tout déplacement réel reconstruit les chemins au centre exact du viewport.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
-    assert.equal(constructions, 2);
-    // Un déplacement plus large invalide bien le cadrage.
-    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
     assert.equal(constructions, 4);
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
+    assert.equal(constructions, 6);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
