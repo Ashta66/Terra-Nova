@@ -1,3 +1,41 @@
+## 25 novembre 2026 — lot 42 : cycle de vie WebGL et surfaces de rendu
+
+### Cycle de vie des contextes
+- [x] Centraliser les transitions de perte et de restauration WebGL.
+- [x] Prévenir le comportement de perte par défaut du navigateur.
+- [x] Ignorer les événements de perte dupliqués.
+- [x] Ignorer les restaurations sans perte préalable.
+- [x] Exposer un indicateur fiable de disponibilité du contexte.
+- [x] Incrémenter une génération à chaque transition pour invalider les références GPU périmées.
+- [x] Isoler les exceptions des callbacks de cycle de vie.
+- [x] Rendre la destruction idempotente.
+- [x] Retirer les écouteurs à la destruction.
+- [x] Couvrir les événements tardifs après destruction.
+
+### Intégration des moteurs
+- [x] Basculer le rendu géographique sur Canvas pendant la perte du contexte.
+- [x] Réinitialiser l'instance géographique après restauration.
+- [x] Relancer un rendu de carte après restauration.
+- [x] Nettoyer les écouteurs du moteur géographique à la fermeture définitive de la page.
+- [x] Unifier le suivi de perte/restauration du relief WebGL.
+- [x] Vider les requêtes de mesure GPU devenues invalides lors d'une perte.
+- [x] Invalider l'atlas de tuiles terrain après perte du contexte.
+- [x] Recréer le moteur terrain après restauration.
+- [x] Libérer shaders, programmes et buffers partiellement créés lors d'un échec d'initialisation du moteur terrain.
+- [x] Éviter les tentatives répétées d'initialisation géographique après échec de compilation.
+
+### Surfaces et non-régression
+- [x] Centraliser le calcul des dimensions physiques Canvas.
+- [x] Borner le DPR maximal et le nombre total de pixels.
+- [x] Rejeter les dimensions invalides ou dont l'aire déborde les nombres finis.
+- [x] Intégrer le dimensionnement borné au canvas d'affichage principal.
+- [x] Tester transitions, callbacks, destruction, DPR, budget pixels et cas limites.
+
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot ne change ni les règles de simulation ni l'interpolation historique. Les surfaces restent en Canvas 2D si WebGL est indisponible ; aucune promesse de récupération instantanée n'est faite, car la restauration dépend du navigateur et du pilote graphique.
+
 ## 25 novembre 2026 — lot 41 : stabilité mémoire et charge adaptative des tuiles
 
 ### Profil matériel et charge
