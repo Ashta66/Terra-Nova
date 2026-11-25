@@ -208,12 +208,23 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     const propertySummary = Object.fromEntries(Object.entries(properties)
       .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
       .slice(0, 24));
+    const featureCoordinates = exteriorRings(feature?.geometry).flat()
+      .filter(validPoint).map(point => [Number(point[0]), Number(point[1])]);
+    const bounds = featureCoordinates.length ? [
+      Math.min(...featureCoordinates.map(point => point[0])),
+      Math.min(...featureCoordinates.map(point => point[1])),
+      Math.max(...featureCoordinates.map(point => point[0])),
+      Math.max(...featureCoordinates.map(point => point[1]))
+    ] : null;
+    const boundsCenter = bounds ? [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2] : null;
     return {
       featureIndex,
       name: typeof name === "string" ? name : null,
       propertyKeys: Object.keys(properties).sort(),
       propertySummary,
       geometryType: feature?.geometry?.type ?? null,
+      bounds,
+      boundsCenter,
       segmentCount,
       matchedSegmentCount: matchedCount,
       unmatchedSegmentCount: segmentCount - matchedCount,
@@ -715,6 +726,8 @@ export function auditLoadedCoastlineAlignment(landCollection, territoryCollectio
         propertyKeys: feature.propertyKeys,
         propertySummary: feature.propertySummary,
         geometryType: feature.geometryType,
+        bounds: feature.bounds,
+        boundsCenter: feature.boundsCenter,
         coastalSegmentCount: feature.coastalSegmentCount,
         matchedSegmentCount: feature.coastalMatchedSegmentCount,
         unmatchedSegmentCount: feature.coastalUnmatchedSegmentCount,
