@@ -204,3 +204,94 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     featureStats
   };
 }
+
+
+/**
+ * Extrait les segments de contours nationaux dont les échantillons suivent
+ * une côte du masque terrestre. Le résultat est un inventaire de candidats
+ * non destructif : aucune coordonnée GeoJSON source n'est remplacée.
+ *
+ * Les candidats sont volontairement segmentés à l'échelle des segments source.
+ * Une étape topologique ultérieure devra les chaîner et vérifier leurs nœuds
+ * avant toute reconstruction des anneaux nationaux.
+ */
+export function collectCoastlineAlignmentCandidates(landCollection, territoryCollection, toleranceKm = 1) {
+  if (landCollection?.type !== "FeatureCollection" || !Array.isArray(landCollection.features)
+    || territoryCollection?.type !== "FeatureCollection" || !Array.isArray(territoryCollection.features)) {
+    throw new TypeError("Deux FeatureCollections GeoJSON sont requises pour extraire les candidats côtiers.");
+  }
+  const tolerance = Number.isFinite(Number(toleranceKm)) ? Math.max(0, Number(toleranceKm)) : 1;
+  const cellSize = Math.max(0.05, tolerance / EARTH_KM_PER_DEGREE * 2 + 0.02);
+  const bins = new Map();
+  const addSegment = (a, b) => {
+    if (!validPoint(a) || !validPoint(b)) return;
+    const minX = Math.floor(Math.min(Number(a[0]), Number(b[0])) / cellSize);
+    const maxX = Math.floor(Math.max(Number(a[0]), Number(b[0])) / cellSize);
+    const minY = Math.floor(Math.min(Number(a[1]), Number(b[1])) / cellSize);
+    const maxY = Math.floor(Math.max(Number(a[1]), Number(b[1])) / cellSize);
+    if ((maxX - minX + 1) * (maxY - minY + 1) > 2000) return;
+    const segment = [a, b];
+    for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) {
+      const key = x + ":" + y;
+      if (!bins.has(key)) bins.set(key, []);
+      bins.get(key).push(segment);
+    }
+  };
+  for (const feature of landCollection.features) {
+    for (const ring of exteriorRings(feature?.geometry)) {
+      if (!Array.isArray(ring)) continue;
+      for (let index = 0; index < ring.length - 1; index++) addSegment(ring[index], ring[index + 1]);
+    }
+  }
+  const nearestDistance = point => {
+    const bx = Math.floor(Number(point[0]) / cellSize);
+    const by = Math.floor(Number(point[1]) / cellSize);
+    const radius = Math.max(1, Math.ceil(tolerance / EARTH_KM_PER_DEGREE / cellSize) + 1);
+    let nearest = Infinity;
+    const seen = new Set();
+    for (let x = bx - radius; x <= bx + radius; x++) {
+      for (let y = by - radius; y <= by + radius; y++) {
+        for (const segment of bins.get(x + ":" + y) ?? []) {
+          if (seen.has(segment)) continue;
+          seen.add(segment);
+          nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+        }
+      }
+    }
+    return nearest;
+  };
+  const candidates = [];
+  territoryCollection.features.forEach((feature, featureIndex) => {
+    const properties = feature?.properties ?? {};
+    const rawName = properties.NAME ?? properties.ADMIN ?? properties.name ?? properties.NAME_EN ?? null;
+    const name = typeof rawName === "string" ? rawName : null;
+    exteriorRings(feature?.geometry).forEach((ring, ringIndex) => {
+      if (!Array.isArray(ring)) return;
+      for (let segmentIndex = 0; segmentIndex < ring.length - 1; segmentIndex++) {
+        const a = ring[segmentIndex], b = ring[segmentIndex + 1];
+        if (!validPoint(a) || !validPoint(b)) continue;
+        const sampleDistancesKm = COAST_SAMPLE_FRACTIONS.map(fraction => nearestDistance([
+          Number(a[0]) + (Number(b[0]) - Number(a[0])) * fraction,
+          Number(a[1]) + (Number(b[1]) - Number(a[1])) * fraction
+        ]));
+        const maxSampleDistanceKm = Math.max(...sampleDistancesKm);
+        if (maxSampleDistanceKm <= tolerance) {
+          candidates.push({
+            featureIndex,
+            name,
+            ringIndex,
+            segmentIndex,
+            coordinates: [[...a], [...b]],
+            maxSampleDistanceKm,
+            sampleDistancesKm
+          });
+        }
+      }
+    });
+  });
+  return {
+    toleranceKm: tolerance,
+    candidateCount: candidates.length,
+    candidates
+  };
+}
