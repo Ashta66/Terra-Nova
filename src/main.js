@@ -1,5 +1,6 @@
 import { advanceClock, createClock, formatDate, SPEEDS, MAX_SIMULATION_YEAR } from "./core/clock.js";
 import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
+import { auditLoadedCoastlineAlignment } from "./world/coastline-alignment.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
@@ -48,6 +49,8 @@ if (typeof window !== "undefined") {
   window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
   window.exportMapBenchmark = options => mapBenchmarkCollector.exportResults(options);
   window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
+  // Audit manuel des couches actuellement chargées, sans effet sur le rendu.
+  window.auditLoadedCoastlineAlignment = options => auditLoadedCoastlineAlignment(worldFeatures, territoryFeatures, options);
 }
 const createLandLodWorker = () => typeof Worker === "function"
   ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
