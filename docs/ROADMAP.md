@@ -1,3 +1,19 @@
+## 25 novembre 2026 — lot 38 : priorisation de la file des workers cartographiques
+
+- [x] Extraire la réconciliation de la file de travaux dans un module pur.
+- [x] Remplacer les travaux en attente par le plan de tuiles visible le plus récent.
+- [x] Préserver l'ordre de priorité centre-vers-périphérie calculé par le planificateur.
+- [x] Dédupliquer les clés de tuiles avant leur mise en file.
+- [x] Écarter les tuiles déjà présentes dans le cache ou déjà en cours de calcul.
+- [x] Revalider cache et état pending au moment de dépiler, pas seulement à l'insertion.
+- [x] Conserver la limite stricte de deux travaux simultanés.
+- [x] Continuer à traiter la file après une erreur d'envoi au worker.
+- [x] Ajouter cinq tests sur priorité, obsolescence, doublons et états concurrents.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les travaux non démarrés qui ne correspondent plus au plan visible sont abandonnés. Les calculs déjà envoyés au worker restent bornés et leurs résultats peuvent alimenter le cache sans imposer de composition si la tuile n'est plus pertinente.
+
 ## 25 novembre 2026 — lot 37 : résultats asynchrones cartographiques obsolètes
 
 - [x] Détecter si une tuile reçue appartient encore au plan visible ou à l'une de ses générations parentes.
