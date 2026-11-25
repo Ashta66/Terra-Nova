@@ -2728,6 +2728,28 @@ test("la recherche côtière conserve les longs segments et compense la longitud
   assert.ok(polarResult.featureStats[0].maxSampleDistanceKm < 50);
 });
 
+test("la proximité côtière traite correctement les segments traversant l'antiméridien", () => {
+  const crossing = {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [179.8, -1], [-179.8, -1], [-179.8, 1],
+          [179.8, 1], [179.8, -1]
+        ]]
+      }
+    }]
+  };
+  const audit = measureCoastlineProximity(crossing, crossing, 0.1, 50);
+  assert.equal(audit.territorySegmentCount, 4);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.proximityRatio, 1);
+  assert.equal(audit.featureStats[0].maxSampleDistanceKm, 0);
+});
+
 test("la proximité côtière reconnaît un segment découpé différemment", () => {
   const land = { type: "FeatureCollection", features: [{
     type: "Feature", properties: {},
