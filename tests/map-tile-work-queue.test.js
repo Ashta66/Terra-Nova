@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reconcileMapTileWorkQueue, takeNextMapTileWork, getMapTileWorkQueueStats } from "../src/world/map-tile-work-queue.js";
+import { reconcileMapTileWorkQueue, takeNextMapTileWork, getMapTileWorkQueueStats, hasMapTileWork } from "../src/world/map-tile-work-queue.js";
 
 test("queue follows the visible plan priority and removes obsolete work", () => {
   const old = [{ key: "old" }];
@@ -28,4 +28,40 @@ test("queue diagnostics report queued and in-flight work independently", () => {
     queued: 2, pending: 1
   });
   assert.deepEqual(getMapTileWorkQueueStats(null, null), { queued: 0, pending: 0 });
+});
+
+test("la consommation séquentielle avance sans décaler le tableau à chaque tuile",()=>{
+ const queue=[{key:"a"},{key:"b"},{key:"c"},{key:"d"}];
+ const originalFirst=queue[0];
+ assert.equal(takeNextMapTileWork(queue).key,"a");
+ assert.equal(queue[0],originalFirst,"la tête du tableau n'est pas déplacée");
+ assert.equal(getMapTileWorkQueueStats(queue,new Map()).queued,3);
+ assert.equal(hasMapTileWork(queue),true);
+ assert.equal(takeNextMapTileWork(queue).key,"b");
+ assert.equal(takeNextMapTileWork(queue).key,"c");
+ assert.equal(takeNextMapTileWork(queue).key,"d");
+ assert.equal(hasMapTileWork(queue),false);
+ assert.equal(queue.length,0,"les références sont libérées à épuisement");
+});
+test("les entrées devenues en cache ou pending sont sautées avec le curseur",()=>{
+ const queue=[{key:"cached"},{key:"pending"},{key:"ready"}];
+ assert.equal(takeNextMapTileWork(queue,key=>key==="cached",key=>key==="pending").key,"ready");
+ assert.equal(queue.length,0);
+});
+test("une file réconciliée repart avec un nouveau curseur indépendant",()=>{
+ const first=[{key:"a"},{key:"b"}];
+ assert.equal(takeNextMapTileWork(first).key,"a");
+ const next=reconcileMapTileWorkQueue([{key:"x"},{key:"y"}],first);
+ assert.equal(hasMapTileWork(next),true);
+ assert.equal(takeNextMapTileWork(next).key,"x");
+ assert.equal(getMapTileWorkQueueStats(next,new Map()).queued,1);
+});
+test("le curseur reste cohérent quand des travaux sont ajoutés en fin de file",()=>{
+ const queue=[{key:"a"}];
+ assert.equal(takeNextMapTileWork(queue).key,"a");
+ queue.push({key:"b"},{key:"c"});
+ assert.equal(hasMapTileWork(queue),true);
+ assert.equal(takeNextMapTileWork(queue).key,"b");
+ assert.equal(takeNextMapTileWork(queue).key,"c");
+ assert.equal(queue.length,0);
 });
