@@ -9,7 +9,7 @@ import { reconcileMapTileWorkQueue, takeNextMapTileWork, hasMapTileWork } from "
 import { releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
-import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet, collectSharedGeometryAnchors } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
@@ -56,6 +56,7 @@ const createLandLodWorker = () => typeof Worker === "function"
 let state = createGameState();
 let interval = null;
 let worldFeatures = null;
+let worldSourceFeatures = null;
 let worldLandLod = null;
 let lakeFeatures = null;
 let riverFeatures = null;
@@ -947,17 +948,20 @@ function renderMapFrame() {
     regionalPoliticalPairLoadAttempted = true;
     loadAlignedRegionalMapData().then(pair => {
       if (!pair) return;
-      // Les deux sources sont simplifiées et généralisées avec les mêmes seuils :
-      // aucun basculement régional n'est possible si une seule source est disponible.
-      regionalLandFeatures = simplifyGeoJsonCollection(pair.land, 0.0008);
-      regionalTerritoryFeatures = simplifyGeoJsonCollection(pair.territories, 0.0008);
+      // Les sommets côtiers présents dans les deux sources deviennent des ancres
+      // communes : les LOD indépendants ne peuvent plus supprimer un point d'un seul côté.
+      const regionalLandSource = filterSmallIslandComponents(pair.land, 100, false);
+      const regionalTerritorySource = filterSmallIslandComponents(pair.territories, 100, false);
+      const regionalSharedAnchors = collectSharedGeometryAnchors([regionalLandSource, regionalTerritorySource]);
+      regionalLandFeatures = simplifyGeoJsonCollection(regionalLandSource, 0.0008, regionalSharedAnchors);
+      regionalTerritoryFeatures = simplifyGeoJsonCollection(regionalTerritorySource, 0.0008, regionalSharedAnchors);
       const regionalLodLevels = [
         { maxZoom: 8, tolerance: 0.004 },
         { maxZoom: 12, tolerance: 0.002 },
         { maxZoom: 20, tolerance: 0.0008 }
       ];
-      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, regionalLodLevels, 0.0008);
-      regionalTerritoryLod = createGeoJsonLodSet(regionalTerritoryFeatures, regionalLodLevels, 0.0008);
+      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, regionalLodLevels, 0.0008, { sharedAnchors: regionalSharedAnchors });
+      regionalTerritoryLod = createGeoJsonLodSet(regionalTerritoryFeatures, regionalLodLevels, 0.0008, { sharedAnchors: regionalSharedAnchors });
       cachedBoundaryTerritorySource = null;
       cachedBoundaryLodCollection = null;
       lastRenderedMapSignature = null;
@@ -1017,13 +1021,27 @@ function renderMapFrame() {
     ]).then(([political]) => {
       const currentYear = String(String(state.clock.date).slice(0, 4));
       if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
-      // Appliquer exactement le même seuil de conservation des îles que pour le fond terrestre.
-      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,false),0.008);
+      // Les sommets côtiers exactement partagés entre le fond terrestre et les pays
+      // sont protégés dans les deux généralisations, y compris à chaque palier LOD.
+      const territorySourceFeatures = filterSmallIslandComponents(political?.territories ?? null, 100, false);
+      const sharedCoastAnchors = year >= 2026 && worldSourceFeatures
+        ? collectSharedGeometryAnchors([worldSourceFeatures, territorySourceFeatures])
+        : null;
+      territoryFeatures = simplifyGeoJsonCollection(territorySourceFeatures, 0.008, sharedCoastAnchors);
+      if (year >= 2026 && worldSourceFeatures) {
+        worldFeatures = simplifyGeoJsonCollection(worldSourceFeatures, 0.008, sharedCoastAnchors);
+        worldLandLod?.dispose?.();
+        worldLandLod = createGeoJsonLodSet(worldFeatures, [
+          { maxZoom: 1.8, tolerance: 0.04 },
+          { maxZoom: 3.5, tolerance: 0.02 },
+          { maxZoom: 6, tolerance: 0.008 }
+        ], 0.008, { createWorker: createLandLodWorker, sharedAnchors: sharedCoastAnchors });
+      }
       territoryLandLod = createGeoJsonLodSet(territoryFeatures, [
         { maxZoom: 1.8, tolerance: 0.04 },
         { maxZoom: 3.5, tolerance: 0.02 },
         { maxZoom: 6, tolerance: 0.008 }
-      ], 0.008);
+      ], 0.008, { sharedAnchors: sharedCoastAnchors });
       cachedBoundaryTerritorySource = null;
       cachedBoundaryLodCollection = null;
       // Derive modern borders from the exact simplified polygon geometry used for fills.
@@ -1174,7 +1192,8 @@ async function loadWorldMap() {
     }
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
-    worldFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(worldFeatures,100,false),0.008);
+    worldSourceFeatures = filterSmallIslandComponents(worldFeatures, 100, false);
+    worldFeatures = simplifyGeoJsonCollection(worldSourceFeatures, 0.008);
     worldLandLod = createGeoJsonLodSet(worldFeatures, [
       { maxZoom: 1.8, tolerance: 0.04 },
       { maxZoom: 3.5, tolerance: 0.02 },
