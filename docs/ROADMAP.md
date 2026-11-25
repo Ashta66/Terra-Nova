@@ -1868,3 +1868,8 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - Le passage temporaire à une tolérance nulle créait une troisième variante de chemin Path2D et faisait échouer le test de réutilisation du cache. Cette variante distincte est supprimée.
 - Le masque reste commun aux couches concernées dans le même repère projeté ; aucune donnée géographique n'est modifiée.
 - Validation locale en attente.
+
+### Correctif lot 55.2 — profil partagé dans le fallback du masque
+- Le test a révélé un second chemin de construction : lorsque le masque anticipé n'existe pas (absence de couche politique), le fallback du relief construisait encore un masque à tolérance nulle.
+- Ce fallback utilise maintenant lui aussi `sharedLandCoastProfile`. Les trois chemins d'entrée (masque anticipé, fallback relief, contour final) partagent donc la même clé Path2D.
+- Validation locale en attente.
