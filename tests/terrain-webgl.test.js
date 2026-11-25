@@ -320,3 +320,110 @@ test("les diagnostics atlas exposent la limite de file et le cycle de vie", () =
   atlas.dispose();
   assert.equal(atlas.stats.disposed, true);
 });
+
+test("une erreur du magasin pendant la construction est diagnostiquée sans propager", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  store.getTileAtLevel = () => { throw new Error("store unavailable"); };
+  const atlas = createTerrainWebGLTileAtlas(gl, store);
+  assert.equal(atlas.get(tile()), null);
+  assert.equal(atlas.stats.buildFailures, 1);
+  assert.match(atlas.stats.lastBuildFailure, /store unavailable/);
+  atlas.dispose();
+});
+test("une file atlas promeut une demande existante sans la dupliquer", () => {
+  const { gl, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 2 });
+  const originalSet = globalThis.setTimeout;
+  const callbacks = [];
+  globalThis.setTimeout = callback => { callbacks.push(callback); return callbacks.length; };
+  try {
+    assert.equal(atlas.enqueue(tile(), new Set(), 2), true);
+    assert.equal(atlas.enqueue(tile(), new Set(), 0), false);
+    assert.equal(atlas.pendingCount, 1);
+    callbacks.shift()?.();
+    assert.equal(atlas.stats.uploads, 1);
+  } finally { globalThis.setTimeout = originalSet; atlas.dispose(); }
+});
+test("l'atlas évince la tuile LRU non protégée lorsque sa capacité est atteinte", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 1, maxBytes: 512 });
+  assert.ok(atlas.get(tile(0)));
+  assert.ok(atlas.get(tile(1)));
+  assert.equal(atlas.size, 1);
+  assert.equal(atlas.stats.evictions, 1);
+  atlas.dispose();
+});
+test("l'atlas ne remplace pas une entrée protégée lorsqu'aucun slot n'est libre", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 1, maxBytes: 512 });
+  const first = atlas.get(tile(0));
+  atlas.setProtectedKeys(new Set(["0/0/0@1"]));
+  assert.equal(atlas.get(tile(1)), null);
+  assert.equal(atlas.peek(tile(0)), first);
+  assert.equal(atlas.stats.evictions, 0);
+  atlas.dispose();
+});
+test("clear restitue l'ensemble des slots pour les prochaines tuiles", () => {
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { slotsPerSide: 1, maxBytes: 512 });
+  assert.ok(atlas.get(tile()));
+  atlas.clear();
+  assert.equal(atlas.size, 0);
+  assert.ok(atlas.get(tile(1)));
+  assert.equal(atlas.size, 1);
+  atlas.dispose();
+});
+test("un budget inférieur à une cellule refuse la création de l'atlas", () => {
+  const { gl } = createAtlasHarness();
+  assert.equal(createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxBytes: 100 }), null);
+});
+test("un contexte incapable de créer une texture est refusé sans exception", () => {
+  const { gl } = createAtlasHarness();
+  gl.createTexture = () => null;
+  assert.equal(createTerrainWebGLTileAtlas(gl, { tileSize: 8 }), null);
+});
+test("retainPending annule le scheduler quand aucune demande ne reste", () => {
+  const { gl, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 });
+  const originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout;
+  let cancelled = 0;
+  globalThis.setTimeout = () => 77;
+  globalThis.clearTimeout = id => { if (id === 77) cancelled++; };
+  try {
+    atlas.enqueue(tile());
+    assert.equal(atlas.retainPending(new Set(), true), 1);
+    assert.equal(atlas.pendingCount, 0);
+    assert.equal(cancelled, 1);
+  } finally {
+    globalThis.setTimeout = originalSet;
+    globalThis.clearTimeout = originalClear;
+    atlas.dispose();
+  }
+});
+test("le scheduler idle est annulé à clear et son callback tardif devient inerte", () => {
+  const { gl, tile, calls } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 });
+  const originalIdle = globalThis.requestIdleCallback, originalCancel = globalThis.cancelIdleCallback;
+  let callback, cancelled = 0;
+  globalThis.requestIdleCallback = fn => { callback = fn; return 88; };
+  globalThis.cancelIdleCallback = id => { if (id === 88) cancelled++; };
+  try {
+    atlas.enqueue(tile());
+    atlas.clear();
+    callback?.({ didTimeout: true, timeRemaining: () => 10 });
+    assert.equal(cancelled, 1);
+    assert.equal(calls.texSubImage, 0);
+  } finally {
+    if (originalIdle === undefined) delete globalThis.requestIdleCallback; else globalThis.requestIdleCallback = originalIdle;
+    if (originalCancel === undefined) delete globalThis.cancelIdleCallback; else globalThis.cancelIdleCallback = originalCancel;
+    atlas.dispose();
+  }
+});
+test("les statistiques distinguent le budget demandé et la mémoire allouée", () => {
+  const { gl } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { slotsPerSide: 2, maxBytes: 4096 });
+  assert.equal(atlas.stats.maxBytes, 4096);
+  assert.equal(atlas.stats.byteLength, atlas.memoryBytes);
+  assert.ok(atlas.stats.byteLength < atlas.stats.maxBytes);
+  atlas.dispose();
+});
