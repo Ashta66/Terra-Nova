@@ -38,7 +38,7 @@ import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
 
@@ -57,7 +57,6 @@ let state = createGameState();
 let interval = null;
 let worldFeatures = null;
 let worldLandLod = null;
-const landLodSelector = createMapLayerLodSelector(0.18);
 let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
@@ -83,10 +82,6 @@ let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
 let geographicWebGLSurface = null;
 let geographicWebGLLifecycle = null;
-let regionalLandFeatures = null;
-let regionalLandLod = null;
-let regionalLandLoadPromise = null;
-let regionalLandLoadAttempted = false;
 let regionalRiverFeatures = null;
 let regionalLabelFeatures = null;
 let regionalRiverLoadAttempted = false;
@@ -933,22 +928,6 @@ function renderMapFrame() {
   if (!worldFeatures || (mapInteractionActive && !interactionRenderAllowed)) return;
   if (mapInteractionActive) interactionRenderAllowed = false;
   const regionalWarmup = getRegionalWarmupProfile(mapViewport.zoom);
-  if (regionalWarmup.land && !regionalLandFeatures && !regionalLandLoadAttempted) {
-    regionalLandLoadAttempted = true;
-    regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
-      regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
-      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, [
-        { maxZoom: 9, tolerance: 0.004 }
-      ], 0.0018, { createWorker: createLandLodWorker });
-      lastLandLodWarmupZoom = null;
-      if (features && shouldRefreshRegionalLayer("land", getRegionalWarmupProfile(mapViewport.zoom))) {
-        lastRenderedMapSignature = null;
-        renderMap();
-      } else if (!features) {
-        console.info("Fond régional Natural Earth absent : conservation du fond mondial.");
-      }
-    });
-  }
   // Les couches sont demandées selon leur utilité visuelle : les noms de villes
   // arrivent avant les détails physiques, les réseaux hydrographiques plus tard.
   const activateRegionalLayer = (loader, assign, label, layer) => loader.then(features => {
@@ -1061,9 +1040,9 @@ function renderMapFrame() {
   lastRenderedMapSignature = signature;
   // Les pays actuellement chargés restent en 1:110m : ne pas afficher une côte 1:10m sans territoires de même résolution.
   const selectedLandDetail = selectAlignedLandDetailLevel(
-    mapViewport.zoom, worldFeatures, regionalLandFeatures, null, 6
+    mapViewport.zoom, worldFeatures, null, null, 6
   );
-  const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
+  const landLod = worldLandLod;
   cancelLandLodWarmup();
   const landDetail = {
     ...selectedLandDetail,
@@ -1136,9 +1115,6 @@ async function installFullMapPack() {
     await downloadFullMapPack(progress => {
       status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
-    regionalLandFeatures = null;
-    regionalLandLod = null;
-    landLodSelector.reset();
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
