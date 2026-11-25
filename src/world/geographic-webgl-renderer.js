@@ -349,14 +349,19 @@ export function createGeographicWebGLRenderer(gl) {
         const positions = new Float32Array(batch.positions);
         const anchors = new Float32Array(batch.anchors);
         const indices = new Uint16Array(batch.indices);
-        const vertexBuffer = gl.createBuffer();
-        const anchorBuffer = gl.createBuffer();
-        const elementBuffer = gl.createBuffer();
-        if (!vertexBuffer || !anchorBuffer || !elementBuffer) {
+        let vertexBuffer = null, anchorBuffer = null, elementBuffer = null;
+        try {
+          vertexBuffer = gl.createBuffer();
+          anchorBuffer = gl.createBuffer();
+          elementBuffer = gl.createBuffer();
+          if (!vertexBuffer || !anchorBuffer || !elementBuffer) {
+            throw new Error("Impossible de créer les buffers géographiques.");
+          }
+        } catch (error) {
           if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
           if (anchorBuffer) gl.deleteBuffer(anchorBuffer);
           if (elementBuffer) gl.deleteBuffer(elementBuffer);
-          throw new Error("Impossible de créer les buffers géographiques.");
+          throw error;
         }
         const gpuBatch = { positions, anchors, indices, vertexBuffer, anchorBuffer, elementBuffer, triangles: indices.length / 3 };
         gpuBatches.push(gpuBatch);
