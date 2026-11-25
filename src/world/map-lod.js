@@ -205,6 +205,15 @@ export function selectLandDetailLevel(zoom, worldFeatures, regionalFeatures = nu
   return selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures);
 }
 
+/** Sélectionne un LOD terrestre uniquement si les territoires disposent du même niveau de détail. */
+export function selectAlignedLandDetailLevel(zoom, worldFeatures, regionalLandFeatures = null, regionalTerritories = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
+  const hasMatchingRegionalTerritories = regionalTerritories?.type === "FeatureCollection"
+    && Array.isArray(regionalTerritories.features)
+    && regionalTerritories.features.length > 0;
+  return selectMapLayerDetailLevel(zoom, worldFeatures,
+    hasMatchingRegionalTerritories ? regionalLandFeatures : null, threshold);
+}
+
 export async function loadOptionalGeoJson(url, fetcher = globalThis.fetch) {
   if (typeof fetcher !== "function") return null;
   const key = String(url).split(/[?#]/, 1)[0].split("/").pop();
