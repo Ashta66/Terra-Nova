@@ -1806,3 +1806,14 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale et contrôle visuel comparatif sur la côte atlantique, à zoom régional, après déplacement et redimensionnement.
 
 **Diagnostic :** l'ancien cache pouvait réutiliser un chemin calculé sur un centre arrondi alors que les couches directes utilisaient le centre courant. Le cadrage principal arrondissait déjà son centre en amont, mais les appels directs/sandbox au renderer pouvaient conserver cette divergence. Le correctif retire cette seconde quantification. Il ne modifie aucune donnée ni géométrie géographique.
+
+### Lot B — cache de projection cyclique et audit des moteurs
+
+- [x] Canonicaliser les longitudes du cache vectoriel modulo 360 sans arrondir latitude, longitude ou zoom.
+- [x] Préserver la réutilisation du cache pour 4° et 364°, qui représentent le même centre géographique.
+- [x] Adapter le test Path2D : un déplacement réel, même faible, doit reconstruire le chemin exact.
+- [x] Vérifier les contrats d'appel : relief tuilé, polygones WebGL, frontières WebGL et couches Canvas reçoivent le même `projection.viewport` dans `renderWorldMap`.
+- [ ] Validation locale du test et capture comparative des couches.
+- [ ] Isoler le décalage restant entre données géographiques, limites politiques et masque physique avant de modifier leur projection.
+
+**Point de diagnostic :** le rendu final est composé depuis une scène unique ; les appels raster et vectoriels reçoivent le même viewport. Le désalignement restant ne doit donc pas être corrigé par un offset visuel global. Il faut distinguer un écart de projection d'un écart entre sources/géométries ou d'un chemin WebGL spécifique.
