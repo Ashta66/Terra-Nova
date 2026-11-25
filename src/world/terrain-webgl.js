@@ -507,7 +507,13 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
     if (!free.length) return null;
 
     const started = now(), diagnostics = {};
-    const data = buildTerrainTileTexture(tile, store, diagnostics);
+    let data;
+    try { data = buildTerrainTileTexture(tile, store, diagnostics); }
+    catch (error) {
+      buildFailures++;
+      lastBuildFailure = error?.message ?? "tile-build-failed";
+      return null;
+    }
     if (!data || !Number.isInteger(data.width) || !Number.isInteger(data.height)
       || data.width < 1 || data.height < 1 || data.width > cell || data.height > cell
       || !ArrayBuffer.isView(data.values)
@@ -516,7 +522,13 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
       lastBuildFailure = diagnostics.reason ?? (!data ? "unknown-build-failure" : "invalid-atlas-tile-data");
       return null;
     }
-    const packed = encodeTerrainTexture(data.values);
+    let packed;
+    try { packed = encodeTerrainTexture(data.values); }
+    catch (error) {
+      buildFailures++;
+      lastBuildFailure = error?.message ?? "tile-encoding-failed";
+      return null;
+    }
     buildMs += Math.max(0, now() - started);
     if (!(packed instanceof Uint8Array) || packed.byteLength !== data.width * data.height * 2) {
       buildFailures++;
@@ -580,14 +592,20 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
     pumpScheduled = true;
     const generation = scheduleGeneration;
     if (typeof globalThis.requestIdleCallback === "function") {
-      scheduledKind = "idle";
-      scheduledHandle = globalThis.requestIdleCallback(deadline => pump(deadline, generation), { timeout: 500 });
-    } else if (typeof globalThis.setTimeout === "function") {
-      scheduledKind = "timeout";
-      scheduledHandle = globalThis.setTimeout(() => pump(undefined, generation), 16);
-    } else {
-      pump(undefined, generation);
+      try {
+        scheduledKind = "idle";
+        scheduledHandle = globalThis.requestIdleCallback(deadline => pump(deadline, generation), { timeout: 500 });
+        return;
+      } catch { scheduledKind = null; scheduledHandle = null; }
     }
+    if (typeof globalThis.setTimeout === "function") {
+      try {
+        scheduledKind = "timeout";
+        scheduledHandle = globalThis.setTimeout(() => pump(undefined, generation), 16);
+        return;
+      } catch { scheduledKind = null; scheduledHandle = null; }
+    }
+    pump(undefined, generation);
   }
   function setOnReady(callback) {
     onReady = typeof callback === "function" ? callback : null;
@@ -656,7 +674,7 @@ export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
     if (disposed) return;
     clear();
     disposed = true;
-    gl.deleteTexture?.(texture);
+    try { gl.deleteTexture?.(texture); } catch { /* le contexte peut déjà être perdu */ }
   }
   return {
     texture, cellSize: cell, atlasWidth, atlasHeight, capacity: side * side, maxBytes: requestedBytes,
