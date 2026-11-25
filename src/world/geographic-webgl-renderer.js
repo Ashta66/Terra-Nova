@@ -170,7 +170,7 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
     gl.bindBuffer(gl.ARRAY_BUFFER, lineBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
   } catch (error) {
-    gl.deleteBuffer(lineBuffer);
+    try { gl.deleteBuffer(lineBuffer); } catch { /* preserve the original upload error */ }
     throw error;
   }
   return { lineBuffer, vertexCount: cursor / 9, drawnFeatures: 0, skippedFeatures: 0,
@@ -373,9 +373,9 @@ export function createGeographicWebGLRenderer(gl) {
             throw new Error("Impossible de créer les buffers géographiques.");
           }
         } catch (error) {
-          if (vertexBuffer) gl.deleteBuffer(vertexBuffer);
-          if (anchorBuffer) gl.deleteBuffer(anchorBuffer);
-          if (elementBuffer) gl.deleteBuffer(elementBuffer);
+          deleteBufferSafely(vertexBuffer);
+          deleteBufferSafely(anchorBuffer);
+          deleteBufferSafely(elementBuffer);
           throw error;
         }
         const gpuBatch = { positions, anchors, indices, vertexBuffer, anchorBuffer, elementBuffer, triangles: indices.length / 3 };
@@ -681,7 +681,7 @@ export function createGeographicWebGLRenderer(gl) {
   function clearLayerCache() {
     for (const cached of layerCaches.values()) {
       releaseBatches(cached.batches);
-      if (cached.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+      deleteBufferSafely(cached.lineBuffer);
     }
     layerCaches.clear();
   }
