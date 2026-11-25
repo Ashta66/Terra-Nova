@@ -237,9 +237,18 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
 
   function getLevelForZoom(zoom = 1) {
     const value = Number(zoom);
-    for (let index = 0; index < normalizedLevels.length; index++) {
-      const item = normalizedLevels[index];
-      if (value <= item.maxZoom && item.tolerance > baseTolerance) return item;
+    if (!Number.isFinite(value) || !normalizedLevels.length) return null;
+    let low = 0, high = normalizedLevels.length - 1, candidate = -1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1;
+      if (value <= normalizedLevels[middle].maxZoom) {
+        candidate = middle;
+        high = middle - 1;
+      } else low = middle + 1;
+    }
+    if (candidate < 0) return null;
+    for (let index = candidate; index < normalizedLevels.length; index++) {
+      if (normalizedLevels[index].tolerance > baseTolerance) return normalizedLevels[index];
     }
     return null;
   }
@@ -263,20 +272,19 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     const current = Number(zoom);
     if (!Number.isFinite(current)) return null;
     if (direction >= 0) {
-      let active = null;
-      for (let index = 0; index < normalizedLevels.length; index++) {
-        if (current <= normalizedLevels[index].maxZoom) {
-          active = normalizedLevels[index];
-          break;
-        }
-      }
-      if (!active) return null;
-      if (active.tolerance <= baseTolerance) return null;
-      return active.maxZoom + 0.001;
+      const active = getLevelForZoom(current);
+      return active ? active.maxZoom + 0.001 : null;
     }
-    for (let index = normalizedLevels.length - 1; index >= 0; index--) {
-      const level = normalizedLevels[index];
-      if (level.maxZoom < current && level.tolerance > baseTolerance) return level.maxZoom;
+    let low = 0, high = normalizedLevels.length - 1, candidate = -1;
+    while (low <= high) {
+      const middle = (low + high) >>> 1;
+      if (normalizedLevels[middle].maxZoom < current) {
+        candidate = middle;
+        low = middle + 1;
+      } else high = middle - 1;
+    }
+    for (let index = candidate; index >= 0; index--) {
+      if (normalizedLevels[index].tolerance > baseTolerance) return normalizedLevels[index].maxZoom;
     }
     return null;
   }
