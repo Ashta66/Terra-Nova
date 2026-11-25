@@ -41,6 +41,8 @@ function createContinuousProjector(width, height, projection, preparedProjector 
     : { ...projection, viewport: { ...viewport, wrapLongitude: false } });
   let previousLongitude = null;
   return coordinate => {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) throw new TypeError("Coordonnée longitude/latitude invalide.");
+    if (!Number.isFinite(coordinate[0]) || !Number.isFinite(coordinate[1])) throw new TypeError("Coordonnée non numérique.");
     let longitude = coordinate[0];
     if (projection.type !== "orthographic") {
       if (previousLongitude === null) {
