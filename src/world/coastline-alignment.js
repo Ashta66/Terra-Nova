@@ -832,6 +832,7 @@ export function auditLoadedCoastlineAlignment(landCollection, territoryCollectio
       sampleP90DistanceKm: proximity.coastalSampleP90DistanceKm,
       sampleMaxDistanceKm: proximity.coastalSampleMaxDistanceKm,
       segmentDetails: proximity.segmentDetails,
+      exhaustiveCompare: proximity.exhaustiveCompare,
       segmentDetailsTruncated: proximity.segmentDetailsTruncated,
       featureStats: proximity.featureStats.map(feature => ({
         featureIndex: feature.featureIndex,
