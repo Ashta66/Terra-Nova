@@ -247,10 +247,8 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       } else low = middle + 1;
     }
     if (candidate < 0) return null;
-    for (let index = candidate; index < normalizedLevels.length; index++) {
-      if (normalizedLevels[index].tolerance > baseTolerance) return normalizedLevels[index];
-    }
-    return null;
+    const level = normalizedLevels[candidate];
+    return level.tolerance > baseTolerance ? level : null;
   }
 
   function getForZoom(zoom = 1) {
