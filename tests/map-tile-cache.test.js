@@ -40,6 +40,15 @@ test("le remplacement d'une clé ajuste les octets et ferme l'ancienne ressource
   assert.equal(cache.stats().entries, 1);
 });
 
+test("réinsérer la même ressource ne la ferme pas", () => {
+  const cache = createMapTileCache();
+  const tile = closable(8);
+  cache.set("tile", tile);
+  assert.equal(cache.set("tile", tile), true);
+  assert.equal(tile.closed, 0);
+  assert.equal(cache.stats().bytes, 8);
+});
+
 test("la suppression ferme la ressource et retourne un statut exact", () => {
   const cache = createMapTileCache();
   const tile = closable(8);
@@ -61,21 +70,40 @@ test("clear ferme toutes les ressources et réinitialise les compteurs", () => {
   assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, maxBytes: 64 * 1024 * 1024, maxEntries: 192, hits: 0, misses: 0 });
 });
 
-test("une tuile plus grande que le budget est rejetée sans évincer les entrées valides", () => {
+test("dispose est idempotent et ferme les ressources restantes", () => {
+  const cache = createMapTileCache();
+  const tile = closable(8);
+  cache.set("tile", tile);
+  cache.dispose();
+  cache.dispose();
+  assert.equal(tile.closed, 1);
+  assert.equal(cache.stats().entries, 0);
+  assert.equal(cache.stats().bytes, 0);
+});
+
+test("une tuile plus grande que le budget est rejetée et fermée sans évincer les entrées valides", () => {
   const cache = createMapTileCache({ maxBytes: 10 });
   const retained = closable(8), oversized = closable(11);
   cache.set("retained", retained);
   assert.equal(cache.set("oversized", oversized), false);
   assert.equal(cache.get("retained"), retained);
   assert.equal(retained.closed, 0);
-  assert.equal(oversized.closed, 0);
+  assert.equal(oversized.closed, 1);
 });
 
-test("la taille des bitmaps est estimée à partir de leurs dimensions", () => {
-  const cache = createMapTileCache({ maxBytes: 4096 });
-  const bitmap = { width: 16, height: 16, close() {} };
-  cache.set("bitmap", bitmap);
-  assert.equal(cache.stats().bytes, 1024);
+test("les tailles inconnues, nulles, négatives et non finies sont rejetées", () => {
+  const cache = createMapTileCache({ maxBytes: 100 });
+  const invalid = [
+    { byteLength: -50, close() { this.closed = true; } },
+    { byteLength: 0, close() { this.closed = true; } },
+    { width: -10, height: 20, close() { this.closed = true; } },
+    { width: 1e308, height: 1e308, close() { this.closed = true; } },
+    { close() { this.closed = true; } }
+  ];
+  for (let i = 0; i < invalid.length; i++) assert.equal(cache.set("invalid-" + i, invalid[i]), false);
+  assert.equal(invalid.every(value => value.closed === true), true);
+  assert.deepEqual(cache.stats().entries, 0);
+  assert.deepEqual(cache.stats().bytes, 0);
 });
 
 test("les statistiques distinguent les accès réussis et manqués", () => {
@@ -85,7 +113,6 @@ test("les statistiques distinguent les accès réussis et manqués", () => {
   assert.equal(cache.stats().hits, 1);
   assert.equal(cache.stats().misses, 1);
 });
-
 
 test("une méthode close défaillante ne bloque ni suppression ni éviction", () => {
   const cache = createMapTileCache({ maxEntries: 1, maxBytes: 100 });
@@ -99,10 +126,29 @@ test("une méthode close défaillante ne bloque ni suppression ni éviction", ()
   assert.equal(cache.has("next"), true);
 });
 
-test("les tailles négatives et dimensions invalides ne diminuent pas le budget mémoire", () => {
-  const cache = createMapTileCache({ maxBytes: 100 });
-  cache.set("negative", { byteLength: -50 });
-  cache.set("invalid-dimensions", { width: -10, height: 20 });
-  assert.equal(cache.stats().bytes, 0);
-  assert.equal(cache.stats().entries, 2);
+test("les évictions notifient leur cause sans bloquer le cache si le callback échoue", () => {
+  const events = [];
+  const cache = createMapTileCache({
+    maxEntries: 1, maxBytes: 100,
+    onEvict(key, value, reason) {
+      events.push([key, value.byteLength, reason]);
+      if (key === "first") throw new Error("observer failed");
+    }
+  });
+  const first = closable(8), second = closable(9);
+  cache.set("first", first);
+  cache.set("second", second);
+  assert.deepEqual(events, [["first", 8, "capacity"]]);
+  assert.equal(first.closed, 1);
+  assert.equal(cache.has("second"), true);
+});
+
+test("la suppression explicite et clear exposent des causes distinctes", () => {
+  const events = [];
+  const cache = createMapTileCache({ onEvict: (key, value, reason) => events.push([key, reason]) });
+  cache.set("a", closable(8));
+  cache.set("b", closable(8));
+  cache.delete("a");
+  cache.clear();
+  assert.deepEqual(events, [["a", "delete"], ["b", "clear"]]);
 });
