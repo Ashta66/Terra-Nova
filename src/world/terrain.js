@@ -300,7 +300,7 @@ export function calculateHillshade(west, east, north, south, latitude, cellSizeD
     flat += upLight * light.weight;
   }
   const steepness = Math.min(1, Math.hypot(slopeEast, slopeNorth));
-  return clamp(1 + (lit - flat) * 1.3 - steepness * 0.12, 0.48, 1.52);
+  return clamp(1 + (lit - flat) * 1.35 - steepness * 0.10, 0.52, 1.48);
 }
 
 export function visibleTileRevisionSignature(viewport = {}, revisions = {}) {
