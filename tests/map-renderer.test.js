@@ -157,6 +157,40 @@ test("la classification WebGL des terres est réutilisée pour une collection st
   }
 });
 
+test("le remplissage terrestre WebGL est composé sous le masque côtier canonique sans contour GPU concurrent", () => {
+  const { canvas, calls } = createCanvas();
+  const renderCalls = [];
+  const geographicWebGLRenderer = {
+    canvas: {},
+    supports: () => true,
+    supportsBoundary: () => true,
+    renderLayers: (layers) => {
+      renderCalls.push(layers);
+      return {};
+    }
+  };
+  const previousDisableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = false;
+  try {
+    renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      geographicWebGLRenderer
+    });
+    assert.equal(renderCalls.length, 1);
+    assert.deepEqual(renderCalls[0].map(layer => layer.key), ["land-fill"],
+      "le GPU ne doit pas redessiner un contour côtier indépendant du masque");
+    const composeIndex = calls.findIndex(call => call[0] === "drawImage");
+    const clipIndex = calls.findIndex((call, index) => index < composeIndex && call[0] === "clip");
+    assert.ok(composeIndex >= 0, "le canevas WebGL doit être composé");
+    assert.ok(clipIndex >= 0 && clipIndex < composeIndex,
+      "le masque terrestre doit être appliqué avant la composition du remplissage GPU");
+  } finally {
+    if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
+  }
+});
+
 test("le masque Canvas de repli exclut aussi l'Antarctique sans Path2D", () => {
   const previousPath2D = globalThis.Path2D;
   const previousAntarcticBase = globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
