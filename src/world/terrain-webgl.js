@@ -799,11 +799,13 @@ function createTileRenderer(tileStore) {
   if(!gl) return null;
   const vertex=compileShader(gl,gl.VERTEX_SHADER,TILE_VERTEX_SHADER);
   const fragment=compileShader(gl,gl.FRAGMENT_SHADER,TILE_FRAGMENT_SHADER);
-  if(!vertex||!fragment) return null;
+  if(!vertex||!fragment) { if(vertex)gl.deleteShader(vertex); if(fragment)gl.deleteShader(fragment); return null; }
   const program=gl.createProgram();
+  if(!program) { gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
   gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);
-  if(!gl.getProgramParameter(program,gl.LINK_STATUS)) return null;
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)) { gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
   const buffer=gl.createBuffer();
+  if(!buffer) { gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
   gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
   gl.useProgram(program);
@@ -819,7 +821,7 @@ function createTileRenderer(tileStore) {
   const zoomLocation=gl.getUniformLocation(program,"u_zoom");
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
-  if(!cache)return null;
+  if(!cache) { gl.deleteBuffer(buffer); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
   const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,viewCenter,zoomLocation,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
   renderer.lifecycle=createWebGLContextLifecycle(canvas,{
     onLost:()=>{renderer.contextLost=true;cache.dispose();},
