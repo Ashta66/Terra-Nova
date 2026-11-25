@@ -1560,3 +1560,15 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] CI GitHub Actions du lot à confirmer.
 
 **Portée :** suppression des allocations répétées de tableaux de pile pendant la construction de l'index. Les bornes calculées, le classement des entités globales et la sélection spatiale restent inchangés ; aucun gain chiffré n'est revendiqué sans benchmark.
+
+
+## Lot 52 — clôture des optimisations sûres du moteur cartographique (25 novembre 2026)
+
+- [x] Auditer les modules de rendu, projection, index spatial, tuilage, files de travaux, cache et hit-testing.
+- [x] Retirer le tableau temporaire créé par `Object.values` lors de la normalisation des emprises de labels.
+- [x] Remplacer le callback `forEach` de construction de l'index de labels par une boucle indexée, en conservant les indices source et l'ordre de dessin.
+- [x] Ajouter des tests sur les bornes numériques textuelles, les entrées invalides et la priorité du dernier label.
+- [ ] Validation locale finale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Bilan d'audit :** les autres parcours examinés disposent déjà de caches bornés, de parcours itératifs, de déduplication sans allocations intermédiaires, de files à curseur ou de sélections limitées par budget. Les modifications plus profondes restantes toucheraient à l'ordre de tri des tuiles, à la géométrie ou aux stratégies de rendu ; elles nécessitent des benchmarks représentatifs avant d'être considérées comme des optimisations sûres. La phase d'optimisation est donc considérée comme clôturée sous réserve de la validation finale et des mesures locales. Aucun gain de FPS ou de mémoire chiffré n'est revendiqué.
