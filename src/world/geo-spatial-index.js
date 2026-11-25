@@ -5,9 +5,10 @@ const MAX_QUERY_CACHE_ENTRIES = 64;
 const MAX_TILE_CACHE_ENTRIES = 256;
 const MAX_PREFETCH_RADIUS = 1;
 
-function getBounds(feature) {
+function getBounds(feature, pending) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  const pending = [feature?.geometry];
+  pending.length = 0;
+  pending.push(feature?.geometry);
   while (pending.length) {
     const value = pending.pop();
     if (!value) continue;
@@ -46,9 +47,12 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   const cells = new Map();
   const global = [];
   const bounds = new Array(collection.features.length);
+  // Une seule pile de parcours est réutilisée pour toutes les features :
+  // getBounds la vide avant chaque parcours et la consomme entièrement.
+  const boundsStack = [];
   for (let index = 0; index < collection.features.length; index++) {
     const feature = collection.features[index];
-    const box = getBounds(feature);
+    const box = getBounds(feature, boundsStack);
     bounds[index] = box;
     if (!box) { global.push(index); continue; }
     const west = longitudeCell(Math.max(-180, box.minX), columns, size);
