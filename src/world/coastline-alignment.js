@@ -210,8 +210,9 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
         if (!validPoint(a) || !validPoint(b)) continue;
         segmentCount++;
         total++;
+        const longitudeDelta = ((Number(b[0]) - Number(a[0]) + 540) % 360) - 180;
         const sampleCoordinates = COAST_SAMPLE_FRACTIONS.map(fraction => [
-          Number(a[0]) + (Number(b[0]) - Number(a[0])) * fraction,
+          Number(a[0]) + longitudeDelta * fraction,
           Number(a[1]) + (Number(b[1]) - Number(a[1])) * fraction
         ]);
         const sampleDistancesKm = sampleCoordinates.map(nearestDistance);
