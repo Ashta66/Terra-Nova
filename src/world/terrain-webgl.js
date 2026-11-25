@@ -1,3 +1,4 @@
+import { createWebGLContextLifecycle } from "./webgl-context-lifecycle.js";
 const renderers = new WeakMap();
 
 const VERTEX_SHADER = `
@@ -602,13 +603,15 @@ function createRenderer(grid) {
     pendingQueries: [], lastGpuMs: null, lastSubmitMs: 0,
     contextLost: false
   };
-  canvas.addEventListener?.("webglcontextlost", event => {
-    event.preventDefault?.();
-    renderer.contextLost = true;
-  });
-  canvas.addEventListener?.("webglcontextrestored", () => {
-    renderer.contextLost = true;
-    renderers.delete(grid);
+  renderer.lifecycle = createWebGLContextLifecycle(canvas, {
+    onLost: () => {
+      renderer.contextLost = true;
+      renderer.pendingQueries.length = 0;
+    },
+    onRestored: () => {
+      renderer.contextLost = true;
+      renderers.delete(grid);
+    }
   });
   return renderer;
 }
@@ -818,8 +821,10 @@ function createTileRenderer(tileStore) {
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
   if(!cache)return null;
   const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,viewCenter,zoomLocation,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
-  canvas.addEventListener?.("webglcontextlost",event=>{event.preventDefault?.();renderer.contextLost=true;});
-  canvas.addEventListener?.("webglcontextrestored",()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);});
+  renderer.lifecycle=createWebGLContextLifecycle(canvas,{
+    onLost:()=>{renderer.contextLost=true;cache.dispose();},
+    onRestored:()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);}
+  });
   return renderer;
 }
 
