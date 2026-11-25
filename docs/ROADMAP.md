@@ -1,3 +1,29 @@
+## 25 novembre 2026 — lot 37 : résultats asynchrones cartographiques obsolètes
+
+- [x] Détecter si une tuile reçue appartient encore au plan visible ou à l'une de ses générations parentes.
+- [x] Mettre en cache les tuiles terminées hors écran sans déclencher de composition inutile.
+- [x] Ne rafraîchir les couches régionales que si leur famille reste pertinente au zoom courant.
+- [x] Conserver les données régionales chargées pour une réutilisation ultérieure, même si la vue a changé.
+- [x] Ignorer les réponses de frontières historiques dont l'année ne correspond plus à l'année simulée.
+- [x] Relancer la demande de frontières pour l'année courante après la fin d'une requête devenue obsolète.
+- [x] Centraliser les décisions d'acceptation dans `map-async-result.js`.
+- [x] Ajouter cinq tests ciblés sur les tuiles, les couches régionales et les années historiques.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les résultats asynchrones utiles restent réutilisables en cache, mais seuls ceux qui peuvent améliorer la vue courante provoquent une nouvelle composition. Les réponses historiques périmées ne peuvent plus remplacer les frontières de l'année active.
+
+## 25 novembre 2026 — lot 36 : cycle de vie du rendu et callbacks RAF
+
+- [x] Regrouper les demandes de composition dans une frame unique.
+- [x] Invalider les callbacks RAF annulés avec un jeton de génération.
+- [x] Empêcher un callback tardif d'effacer ou d'exécuter une frame plus récente.
+- [x] Autoriser une nouvelle frame demandée pendant un rendu.
+- [x] Rendre l'annulation et la destruction idempotentes.
+- [x] Ajouter des tests ciblés sur annulation tardive, réentrance et destruction.
+- [x] CI GitHub Actions : succès (run 45464349758).
+- [x] Validation locale du joueur : `npm test` confirmé.
+
 ## 24 novembre 2026 — lot 35 : robustesse des gestes pointeur
 
 - [x] Extraire les règles de démarrage et de propriété d'un geste pointeur.
