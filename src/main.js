@@ -137,6 +137,7 @@ let mapTileWorkerPending = new Map();
 let mapTileWorkerSequence = 0;
 const MAP_TILE_WORKER_REQUEST_TIMEOUT_MS = 20000;
 const mapTileWorkerRequestTimers = new Map();
+let mapTileWorkerReadyTimer = null;
 const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
 const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
@@ -409,6 +410,8 @@ function recoverMapTileWorker(worker, reason) {
   mapTileWorker = null;
   mapTileWorkerReady = false;
   mapTileWorkerLayers = null;
+  if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+  mapTileWorkerReadyTimer = null;
   for (const timer of mapTileWorkerRequestTimers.values()) clearTimeout(timer);
   mapTileWorkerRequestTimers.clear();
   mapTileWorkerPending.clear();
@@ -464,6 +467,8 @@ function requestMapPhysicalTiles(plan, layers) {
         }
         const message = event.data ?? {};
         if (message.type === "ready") {
+          if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+          mapTileWorkerReadyTimer = null;
           mapTileWorkerReady = true;
           pumpMapTileWorkerQueue();
           return;
@@ -490,6 +495,9 @@ function requestMapPhysicalTiles(plan, layers) {
       const onWorkerFailure = error => recoverMapTileWorker(worker, error);
       worker.addEventListener("error", onWorkerFailure);
       worker.addEventListener("messageerror", onWorkerFailure);
+      mapTileWorkerReadyTimer = setTimeout(() => {
+        recoverMapTileWorker(worker, new Error("Le worker de tuiles n'a pas confirmé son initialisation"));
+      }, MAP_TILE_WORKER_REQUEST_TIMEOUT_MS);
     }
     const nextLayers = {
       land: layers.land,
