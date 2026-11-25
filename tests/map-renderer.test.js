@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2841,4 +2841,36 @@ test("l'audit topologique détecte un nœud ramifié", () => {
   const audit = analyzeCoastlineCandidateTopology(candidates);
   assert.equal(audit.branchNodeCount, 1);
   assert.equal(audit.isUnambiguous, false);
+});
+
+
+test("la couverture côtière mesure un anneau entièrement candidat et fermé", () => {
+  const candidates = [
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 1, coordinates: [[1,0],[1,1]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = measureCoastlineCandidateCoverage(candidates);
+  assert.equal(result.coverageRatio, 1);
+  assert.equal(result.uncoveredSegmentCount, 0);
+  assert.equal(result.chainCount, 1);
+  assert.equal(result.closedChainCount, 1);
+  assert.equal(result.ringStats[0].longestChainSegmentCount, 4);
+  assert.equal(result.topology.isUnambiguous, true);
+});
+
+test("la couverture côtière distingue une couverture partielle sans fermer artificiellement l'anneau", () => {
+  const candidates = [
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = measureCoastlineCandidateCoverage(candidates);
+  assert.equal(result.sourceSegmentCount, 5);
+  assert.equal(result.coveredSegmentCount, 3);
+  assert.equal(result.uncoveredSegmentCount, 2);
+  assert.equal(result.coverageRatio, 0.6);
+  assert.equal(result.chainCount, 2);
+  assert.equal(result.closedChainCount, 0);
 });
