@@ -3043,3 +3043,26 @@ test("la sensibilité côtière compare les rayons et seuils sans modifier les s
   assert.deepEqual(territories, originalTerritories);
   assert.throws(() => analyzeCoastalClassificationSensitivity(land, territories, 1, [], [3]), /listes non vides/);
 });
+
+test("le diagnostic détaillé expose les segments côtiers les plus éloignés sans modifier les sources", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays décalé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1.02],[0,1.02],[0,0.02]]] }
+  }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 2 });
+  assert.equal(report.segmentDetails.length, 2);
+  assert.equal(report.segmentDetails[0].name, "Pays décalé");
+  assert.ok(report.segmentDetails[0].maxSampleDistanceKm >= report.segmentDetails[1].maxSampleDistanceKm);
+  assert.equal(report.segmentDetails[0].sampleCoordinates.length, 5);
+  assert.equal(report.segmentDetails[0].sampleDistancesKm.length, 5);
+  assert.equal(report.segmentDetailsTruncated, true);
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+});
