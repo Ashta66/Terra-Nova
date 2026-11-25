@@ -1804,7 +1804,7 @@ test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaill
     "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
 });
 
-test("le rendu terrestre Canvas conserve l'exclusion de l'Antarctique du masque continental", () => {
+test("le remplissage terrestre ne soumet plus de géométrie brute au moteur WebGL", () => {
   const { canvas } = createCanvas();
   const antarcticaFeature = {
     type: "Feature", bbox: [-180, -90, 180, -63],
