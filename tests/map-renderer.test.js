@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
@@ -2379,4 +2379,24 @@ test("le placement viewport rejette les géométries internes incohérentes", ()
     ...layout,
     textY: layout.box.bottom + 2
   }, 160, 100), null);
+});
+
+test("les profils de viewport projeté sont mutualisés et leur cache reste borné",()=>{
+ const previous=globalThis.Path2D;
+ class FakePath2D { addPath(){} moveTo(){} lineTo(){} closePath(){} }
+ globalThis.Path2D=FakePath2D;
+ try{
+  const {canvas}=createCanvas();
+  const before=getProjectedPathCacheStats();
+  for(let i=0;i<90;i++){
+   renderWorldMap(canvas,land,{width:640,height:320,pixelRatio:1,viewport:{zoom:2,centerLongitude:i*13,centerLatitude:(i%11)-5}});
+  }
+  const after=getProjectedPathCacheStats();
+  assert.ok(after.projectedViewportProfileHits>before.projectedViewportProfileHits);
+  assert.ok(after.projectedViewportProfileEntries<=after.maxProjectedViewportProfiles);
+  assert.equal(after.maxProjectedViewportProfiles,64);
+ }finally{
+  if(previous===undefined)delete globalThis.Path2D;
+  else globalThis.Path2D=previous;
+ }
 });
