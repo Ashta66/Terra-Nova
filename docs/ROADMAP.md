@@ -8,7 +8,7 @@
 - [x] Relancer la demande de frontières pour l'année courante après la fin d'une requête devenue obsolète.
 - [x] Centraliser les décisions d'acceptation dans `map-async-result.js`.
 - [x] Ajouter cinq tests ciblés sur les tuiles, les couches régionales et les années historiques.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : succès, 632/632 tests (run 45521662946).
 - [ ] Validation locale du joueur : `npm test` à confirmer.
 
 Les résultats asynchrones utiles restent réutilisables en cache, mais seuls ceux qui peuvent améliorer la vue courante provoquent une nouvelle composition. Les réponses historiques périmées ne peuvent plus remplacer les frontières de l'année active.
