@@ -462,18 +462,17 @@ function touchProjectedPath(entry, feature) {
 function getProjectedViewportCacheProfile(width, height, projection, coastProfile) {
   const viewport = projection.viewport ?? {};
   const zoom = Math.max(1, Number(viewport.zoom ?? 1));
-  const centerStep = 1 / zoom;
-  const normalizedLongitude = ((((Number(viewport.centerLongitude ?? 0) + 180) % 360 + 360) % 360) - 180);
-  const snappedLongitude = Math.round(normalizedLongitude / centerStep) * centerStep;
-  const snappedLatitude = Math.round(Number(viewport.centerLatitude ?? 0) / centerStep) * centerStep;
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const centerLatitude = Number(viewport.centerLatitude ?? 0);
+  // Le cache ne doit jamais arrondir le centre : les couches raster, WebGL et
+  // les frontières directes projettent toutes sur le viewport exact.
   const pathProjection = {
     ...projection,
-    viewport: { ...viewport, centerLongitude: snappedLongitude, centerLatitude: snappedLatitude }
+    viewport: { ...viewport, centerLongitude, centerLatitude }
   };
-  // La clé conserve la précision des paramètres effectivement employés par projectCoordinate.
   const key = projection.type + ":" + width + ":" + height
     + ":" + zoom.toPrecision(12)
-    + ":" + snappedLongitude.toPrecision(12) + ":" + snappedLatitude.toPrecision(12)
+    + ":" + centerLongitude.toPrecision(12) + ":" + centerLatitude.toPrecision(12)
     + ":" + (coastProfile ? Number(coastProfile.tolerance).toPrecision(8) : "full")
     + ":" + (coastProfile ? Number(coastProfile.minRingArea).toPrecision(8) : "all");
   const cached = projectedViewportProfileCache.get(key);
