@@ -110,3 +110,23 @@ test("le cache de requêtes reste borné après des déplacements répétés",()
   assert.ok(stats.cachedQueries<=stats.maxCachedQueries);
   assert.ok(stats.cachedTiles<=stats.maxCachedTiles);
 });
+
+test("le calcul des bornes réutilise correctement le parcours des géométries composites",()=>{
+ const data={type:"FeatureCollection",features:[
+  {type:"Feature",properties:{id:"nested"},geometry:{type:"GeometryCollection",geometries:[
+   {type:"Point",coordinates:[-120,45]},
+   {type:"GeometryCollection",geometries:[
+    {type:"LineString",coordinates:[[10,-20],[30,5]]},
+    {type:"MultiPoint",coordinates:[[0,0],[15,25]]}
+   ]}
+  ]}},
+  {type:"Feature",properties:{id:"point"},geometry:{type:"Point",coordinates:[7,-8]}},
+  {type:"Feature",properties:{id:"empty"},geometry:{type:"GeometryCollection",geometries:[]}}
+ ]};
+ const index=buildGeoSpatialIndex(data);
+ assert.deepEqual(index.bounds,[
+  {minX:-120,minY:-20,maxX:30,maxY:45},
+  {minX:7,minY:-8,maxX:7,maxY:-8},
+  null
+ ]);
+});
