@@ -3005,5 +3005,11 @@ test("l'audit chargé expose une métrique côtière distincte de la couverture 
   assert.equal(report.coastalAlignment.coastalSegmentCount, 6);
   assert.equal(report.coastalAlignment.matchedSegmentCount, 6);
   assert.equal(report.coastalAlignment.proximityRatio, 1);
+  assert.equal(report.coastalAlignment.sampleCount, 30);
+  assert.equal(report.coastalAlignment.samplesWithinToleranceCount, 30);
+  assert.equal(report.coastalAlignment.sampleProximityRatio, 1);
+  assert.equal(report.coastalAlignment.sampleMedianDistanceKm, 0);
+  assert.equal(report.coastalAlignment.sampleP90DistanceKm, 0);
+  assert.equal(report.coastalAlignment.featureStats[0].sampleCount, 15);
   assert.equal(report.coverage.sourceSegmentCount, 8);
 });
