@@ -1069,7 +1069,10 @@ function renderMapFrame() {
   // Les territoires suivent exactement les mêmes paliers de généralisation que
   // le fond terrestre. Les frontières modernes sont ensuite extraites de cette
   // même collection LOD, jamais d'une version de détail différente.
-  const territoryDetailFeatures = territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
+  const landUsesBaseGeometry = landDetail.features === selectedLandDetail.features;
+  const territoryDetailFeatures = landUsesBaseGeometry
+    ? territoryFeatures
+    : territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
   let renderPoliticalBoundaryFeatures = politicalBoundaryFeatures;
   if (year >= 2026 && territoryDetailFeatures) {
     if (cachedBoundaryTerritorySource !== territoryDetailFeatures) {
