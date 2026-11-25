@@ -928,6 +928,7 @@ function completeMapRender(result, context) {
 }
 
 function renderMapFrame() {
+  const year = Number(String(state.clock.date).slice(0, 4));
   // Un chargement régional ou une invalidation asynchrone ne doit jamais
   // lancer un rendu complet pendant que le joueur manipule la carte.
   if (!worldFeatures || (mapInteractionActive && !interactionRenderAllowed)) return;
@@ -1007,7 +1008,6 @@ function renderMapFrame() {
       }, error => console.warn("Planification des tuiles de relief impossible :", error));
     }
   }
-  const year = Number(String(state.clock.date).slice(0, 4));
   const boundaryRequestKey = String(year);
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
     const requestedYear = boundaryRequestKey;
