@@ -462,13 +462,14 @@ function touchProjectedPath(entry, feature) {
 function getProjectedViewportCacheProfile(width, height, projection, coastProfile) {
   const viewport = projection.viewport ?? {};
   const zoom = Math.max(1, Number(viewport.zoom ?? 1));
-  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const rawCenterLongitude = Number(viewport.centerLongitude ?? 0);
+  const centerLongitude = ((((rawCenterLongitude + 180) % 360) + 360) % 360) - 180;
   const centerLatitude = Number(viewport.centerLatitude ?? 0);
-  // Le cache ne doit jamais arrondir le centre : les couches raster, WebGL et
-  // les frontières directes projettent toutes sur le viewport exact.
+  // Le cache canonicalise uniquement les longitudes cycliques : il ne quantifie
+  // jamais le centre et conserve donc le viewport exact pour toute projection.
   const pathProjection = {
     ...projection,
-    viewport: { ...viewport, centerLongitude, centerLatitude }
+    viewport: { ...viewport, centerLongitude: rawCenterLongitude, centerLatitude }
   };
   const key = projection.type + ":" + width + ":" + height
     + ":" + zoom.toPrecision(12)
