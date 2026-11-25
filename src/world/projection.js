@@ -43,6 +43,68 @@ export function projectOrthographic(longitude, latitude, width, height, center =
   };
 }
 
+/**
+ * Prépare une projection pour parcourir de grandes géométries.
+ * Les constantes dépendant du viewport sont calculées une seule fois et
+ * l'appelant fournit directement longitude/latitude, sans tableau temporaire.
+ */
+export function createCoordinateProjector(width, height, projection = "equirectangular", center) {
+  const type = typeof projection === "object" && projection !== null ? projection.type : projection;
+  const viewport = typeof projection === "object" && projection !== null ? projection.viewport ?? {} : {};
+  if (type !== "equirectangular" && type !== "mercator" && type !== "orthographic") {
+    throw new RangeError("Projection inconnue : " + type);
+  }
+  if (type === "orthographic") {
+    const longitude0 = Number(center?.longitude ?? 0);
+    const latitude0 = Number(center?.latitude ?? 0) * DEG;
+    const sinLatitude0 = Math.sin(latitude0);
+    const cosLatitude0 = Math.cos(latitude0);
+    const radius = Math.min(width, height) * 0.46;
+    return (longitude, latitude) => {
+      const lambda = (longitude - longitude0) * DEG;
+      const phi = latitude * DEG;
+      const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi);
+      const cosLambda = Math.cos(lambda);
+      const cosc = sinLatitude0 * sinPhi + cosLatitude0 * cosPhi * cosLambda;
+      if (cosc < 0) return null;
+      return {
+        x: width / 2 + radius * cosPhi * Math.sin(lambda),
+        y: height / 2 - radius * (cosLatitude0 * sinPhi - sinLatitude0 * cosPhi * cosLambda)
+      };
+    };
+  }
+  const centerLongitude = Number(viewport.centerLongitude ?? 0);
+  const zoom = type === "mercator"
+    ? clamp(Number(viewport.zoom ?? 1), 1, 35)
+    : clamp(Number(viewport.zoom ?? 1), 1, 20);
+  const scaleX = width * zoom / 360;
+  const centerX = width / 2 - centerLongitude * scaleX;
+  if (type === "equirectangular") {
+    const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85, 85);
+    const scaleY = height * zoom / 180;
+    const centerY = height / 2 + centerLatitude * scaleY;
+    const wrap = viewport.wrapLongitude !== false;
+    return (longitude, latitude) => {
+      const wrapped = wrap && Math.abs(centerLongitude - longitude) > 180
+        ? longitude + 360 * Math.round((centerLongitude - longitude) / 360) : longitude;
+      return { x: width / 2 + (wrapped - centerLongitude) * scaleX, y: centerY - latitude * scaleY };
+    };
+  }
+  const centerLatitude = clamp(Number(viewport.centerLatitude ?? 0), -85.05112878, 85.05112878);
+  const centerPhi = centerLatitude * DEG;
+  const centerMercatorY = Math.log(Math.tan(Math.PI / 4 + centerPhi / 2));
+  const centerWorldY = clamp((1 - centerMercatorY / Math.PI) / 2, 0, 1);
+  const scaleY = height * zoom;
+  const wrap = viewport.wrapLongitude !== false;
+  return (longitude, latitude) => {
+    const wrapped = wrap ? longitude + 360 * Math.round((centerLongitude - longitude) / 360) : longitude;
+    const phi = clamp(latitude, -85.05112878, 85.05112878) * DEG;
+    const mercatorY = Math.log(Math.tan(Math.PI / 4 + phi / 2));
+    const worldY = clamp((1 - mercatorY / Math.PI) / 2, 0, 1);
+    return { x: width / 2 + (wrapped - centerLongitude) * scaleX, y: height / 2 + (worldY - centerWorldY) * scaleY };
+  };
+}
+
 export function projectCoordinate(coordinate, width, height, projection = "equirectangular", center) {
   if (!Array.isArray(coordinate) || coordinate.length < 2) throw new TypeError("Coordonnée longitude/latitude invalide.");
   const [longitude, latitude] = coordinate;
