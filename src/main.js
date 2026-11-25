@@ -65,6 +65,9 @@ let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
 let territoryFeatures = null;
+let territoryLandLod = null;
+let cachedBoundaryTerritorySource = null;
+let cachedBoundaryLodCollection = null;
 let territoryLabelFeatures = null;
 let previewCountry = "";
 let playerCountry = "";
@@ -1009,7 +1012,14 @@ function renderMapFrame() {
     ]).then(([political]) => {
       const currentYear = String(String(state.clock.date).slice(0, 4));
       if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
-      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
+      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.008);
+      territoryLandLod = createGeoJsonLodSet(territoryFeatures, [
+        { maxZoom: 1.8, tolerance: 0.04 },
+        { maxZoom: 3.5, tolerance: 0.02 },
+        { maxZoom: 6, tolerance: 0.008 }
+      ], 0.008);
+      cachedBoundaryTerritorySource = null;
+      cachedBoundaryLodCollection = null;
       // Derive modern borders from the exact simplified polygon geometry used for fills.
       // Historical boundary sources remain untouched.
       politicalBoundaryFeatures = year >= 2026 && territoryFeatures
@@ -1056,6 +1066,18 @@ function renderMapFrame() {
     ...selectedLandDetail,
     features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
   };
+  // Les territoires suivent exactement les mêmes paliers de généralisation que
+  // le fond terrestre. Les frontières modernes sont ensuite extraites de cette
+  // même collection LOD, jamais d'une version de détail différente.
+  const territoryDetailFeatures = territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
+  let renderPoliticalBoundaryFeatures = politicalBoundaryFeatures;
+  if (year >= 2026 && territoryDetailFeatures) {
+    if (cachedBoundaryTerritorySource !== territoryDetailFeatures) {
+      cachedBoundaryTerritorySource = territoryDetailFeatures;
+      cachedBoundaryLodCollection = territoriesToSharedBoundaries(territoryDetailFeatures);
+    }
+    renderPoliticalBoundaryFeatures = cachedBoundaryLodCollection ?? politicalBoundaryFeatures;
+  }
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, null, Infinity);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
@@ -1070,10 +1092,10 @@ function renderMapFrame() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: getCombinedLabelCollection(labelDetail.features, territoryLabelFeatures),
-    territories: territoryFeatures,
+    territories: territoryDetailFeatures,
     physicalWorld: state.physicalWorld,
     selectedCountry: playerCountry || previewCountry,
-    politicalBoundaries: politicalBoundaryFeatures,
+    politicalBoundaries: renderPoliticalBoundaryFeatures,
     administrativeBoundaries: null,
     terrain: terrainGrid,
     terrainTileStore,
