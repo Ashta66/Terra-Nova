@@ -3011,5 +3011,8 @@ test("l'audit chargé expose une métrique côtière distincte de la couverture 
   assert.equal(report.coastalAlignment.sampleMedianDistanceKm, 0);
   assert.equal(report.coastalAlignment.sampleP90DistanceKm, 0);
   assert.equal(report.coastalAlignment.featureStats[0].sampleCount, 15);
+  assert.deepEqual(report.coastalAlignment.featureStats[0].propertyKeys, ["ADMIN"]);
+  assert.deepEqual(report.coastalAlignment.featureStats[0].propertySummary, { ADMIN: "Ouest" });
+  assert.equal(report.coastalAlignment.featureStats[0].geometryType, "Polygon");
   assert.equal(report.coverage.sourceSegmentCount, 8);
 });
