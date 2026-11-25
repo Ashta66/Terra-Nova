@@ -642,7 +642,8 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         let color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform, lat));
         if (globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION !== true && !hillshadeOnly) {
           const adjacentSea = west < 0 || east < 0 || north < 0 || south < 0;
-          color = applyCoastalTransitionTint(color, e, adjacentSea);\n          color = applyFoothillTransitionTint(color, e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
+          color = applyCoastalTransitionTint(color, e, adjacentSea);
+          color = applyFoothillTransitionTint(color, e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         }
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
