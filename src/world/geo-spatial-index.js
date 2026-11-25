@@ -72,20 +72,17 @@ export function buildGeoSpatialIndex(collection, cellSize = DEFAULT_CELL_SIZE) {
   return {
     collection, cellSize: size, columns, rows, cells, global, bounds,
     queryCache: new Map(), tileCache: new Map(), tileHits: 0, tileMisses: 0,
-    featureMarks: new Uint32Array(collection.features.length), featureMark: 0,
     queryMarks: new Uint32Array(collection.features.length), queryMark: 0
   };
 }
 
-function nextFeatureMark(index, query = false) {
-  const marks = query ? index.queryMarks : index.featureMarks;
-  const key = query ? "queryMark" : "featureMark";
-  index[key] = (index[key] + 1) >>> 0;
-  if (index[key] === 0) {
-    marks.fill(0);
-    index[key] = 1;
+function nextQueryMark(index) {
+  index.queryMark = (index.queryMark + 1) >>> 0;
+  if (index.queryMark === 0) {
+    index.queryMarks.fill(0);
+    index.queryMark = 1;
   }
-  return index[key];
+  return index.queryMark;
 }
 
 function mergeSortedFeatureIndices(global, local) {
@@ -159,14 +156,19 @@ function getViewportTileRanges(index, viewport) {
 
 function getVisibleTileKeys(index, viewport) {
   const { minY, maxY, minX1, maxX1, minX2, maxX2, rangeCount } = getViewportTileRanges(index, viewport);
-  const keys = [];
+  const rows = Math.max(0, maxY - minY + 1);
+  const firstWidth = Math.max(0, maxX1 - minX1 + 1);
+  const secondWidth = rangeCount === 2 ? Math.max(0, maxX2 - minX2 + 1) : 0;
+  const keys = new Array(rows * (firstWidth + secondWidth));
+  let write = 0;
   for (let y = minY; y <= maxY; y++) {
     const rowOffset = y * index.columns;
-    for (let x = minX1; x <= maxX1; x++) keys.push(rowOffset + x);
+    for (let x = minX1; x <= maxX1; x++) keys[write++] = rowOffset + x;
     if (rangeCount === 2) {
-      for (let x = minX2; x <= maxX2; x++) keys.push(rowOffset + x);
+      for (let x = minX2; x <= maxX2; x++) keys[write++] = rowOffset + x;
     }
   }
+  keys.length = write;
   return keys;
 }
 
@@ -179,7 +181,7 @@ function queryGeoSpatialIndexForTiles(index, tileKeys) {
     return cached;
   }
 
-  const mark = nextFeatureMark(index, true);
+  const mark = nextQueryMark(index);
   const marks = index.queryMarks;
   const ordered = [];
   for (const tileId of tileKeys) {
