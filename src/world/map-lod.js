@@ -300,7 +300,19 @@ export async function downloadRegionalMapData(onProgress = () => {}, fetcher = g
   return { count: total };
 }
 
-export const REGIONAL_LAND_DATA_PATH = "./data/ne_10m_land.geojson";
+export const REGIONAL_LAND_DATA_PATH = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson";
+export const REGIONAL_TERRITORIES_DATA_PATH = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson";
+
+/** Charge le couple terre/pays 1:10m. Aucun des deux niveaux n'est activé seul. */
+export async function loadAlignedRegionalMapData(fetcher = globalThis.fetch) {
+  const [land, territories] = await Promise.all([
+    loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH, fetcher),
+    loadOptionalGeoJson(REGIONAL_TERRITORIES_DATA_PATH, fetcher)
+  ]);
+  if (!land?.features?.length || !territories?.features?.length) return null;
+  return { land, territories, level: "regional-10m" };
+}
+
 export const REGIONAL_LAKES_DATA_PATH = "./data/ne_10m_lakes.geojson";
 export const REGIONAL_RIVERS_DATA_PATH = "./data/ne_10m_rivers.geojson";
 export const REGIONAL_LABELS_DATA_PATH = "./data/ne_10m_map_labels.geojson";
