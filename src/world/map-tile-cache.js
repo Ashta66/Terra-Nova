@@ -78,13 +78,13 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
       return entry.value;
     },
     set(key, value) {
-      if (disposed) { if (value) closedResources += closeTileValue(value); rejected++; return false; }
+      if (disposed) { if (value) closeCalls += closeTileValue(value); rejected++; return false; }
       const id = String(key);
       const previous = entries.get(id);
       const size = getTileByteLength(value);
       if (!id || !value || !Number.isFinite(size) || size <= 0 || size > budget) {
         rejected++;
-        if (value && previous?.value !== value) closedResources += closeTileValue(value);
+        if (value && previous?.value !== value) closeCalls += closeTileValue(value);
         return false;
       }
       if (previous) {
@@ -114,7 +114,7 @@ export function createMapTileCache({ maxBytes = DEFAULT_MAX_BYTES, maxEntries = 
     stats() {
       return {
         entries: entries.size, bytes, maxBytes: budget, maxEntries: limit,
-        hits, misses, peakBytes, evictions, rejected, closedResources,
+        hits, misses, peakBytes, evictions, rejected, closeCalls,
         evictionReasons: { ...evictionReasons }, disposed
       };
     }
