@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { projectCoordinate, projectEquirectangular, projectMercator, projectOrthographic } from "../src/world/projection.js";
+import { projectCoordinate, projectEquirectangular, projectMercator, projectOrthographic, createCoordinateProjector } from "../src/world/projection.js";
 
 test("équirectangulaire place les limites du monde aux bords du canevas", () => {
   assert.deepEqual(projectEquirectangular(-180, 90, 360, 180), { x: 0, y: 0 });
@@ -133,4 +133,33 @@ test("un facteur de zoom neutre conserve exactement le viewport", async () => {
   const { zoomEquirectangularViewportAtPoint } = await import("../src/world/projection.js");
   const base = { zoom: 4, centerLongitude: 12, centerLatitude: 6 };
   assert.deepEqual(zoomEquirectangularViewportAtPoint(base, 1, 200, 100, 800, 400), base);
+});
+
+test("le projecteur préconfiguré correspond aux trois projections publiques",()=>{
+ const cases=[
+  {type:"equirectangular",viewport:{zoom:3.5,centerLongitude:179,centerLatitude:24}},
+  {type:"mercator",viewport:{zoom:8,centerLongitude:-175,centerLatitude:67}},
+  {type:"orthographic"}
+ ];
+ for(const projection of cases){
+  const project=createCoordinateProjector(1280,720,projection);
+  for(const [longitude,latitude] of [[0,0],[179,45],[-179,-35],[540,89.9],[-72,82]]){
+   const expected=projectCoordinate([longitude,latitude],1280,720,projection);
+   const actual=project(longitude,latitude);
+   if(expected===null)assert.equal(actual,null);
+   else {
+    assert.ok(Math.abs(actual.x-expected.x)<1e-9,projection.type+" x");
+    assert.ok(Math.abs(actual.y-expected.y)<1e-9,projection.type+" y");
+   }
+  }
+ }
+});
+test("le projecteur préconfiguré respecte le mode longitude non enveloppée",()=>{
+ const projection={type:"equirectangular",viewport:{zoom:2,centerLongitude:10,centerLatitude:0,wrapLongitude:false}};
+ const actual=createCoordinateProjector(800,400,projection)(350,0);
+ const expected=projectCoordinate([350,0],800,400,projection);
+ assert.deepEqual(actual,expected);
+});
+test("le projecteur refuse les types de projection inconnus dès sa création",()=>{
+ assert.throws(()=>createCoordinateProjector(800,400,"unknown"),/Projection inconnue/);
 });
