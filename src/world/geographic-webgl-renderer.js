@@ -358,13 +358,14 @@ export function createGeographicWebGLRenderer(gl) {
           if (elementBuffer) gl.deleteBuffer(elementBuffer);
           throw new Error("Impossible de créer les buffers géographiques.");
         }
+        const gpuBatch = { positions, anchors, indices, vertexBuffer, anchorBuffer, elementBuffer, triangles: indices.length / 3 };
+        gpuBatches.push(gpuBatch);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, anchorBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, anchors, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW ?? gl.DYNAMIC_DRAW);
-        gpuBatches.push({ positions, anchors, indices, vertexBuffer, anchorBuffer, elementBuffer, triangles: indices.length / 3 });
       }
     } catch (error) {
       releaseBatches(gpuBatches);
