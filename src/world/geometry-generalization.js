@@ -168,7 +168,29 @@ function simplifyGeometry(geometry,tolerance,anchors){
  * Les sommets partagés entre entités sont conservés comme points d'ancrage :
  * les frontières communes restent ainsi alignées des deux côtés.
  */
-export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERANCE) {
+/** Collecte les sommets communs à plusieurs couches GeoJSON avant leur LOD indépendant. */
+export function collectSharedGeometryAnchors(collections = []) {
+  const occurrences = new Map();
+  const countPathOccurrences = path => {
+    const seenInPath = new Set();
+    for (const point of path) {
+      const key = coordinateKey(point);
+      if (!key || seenInPath.has(key)) continue;
+      seenInPath.add(key);
+      occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+    }
+  };
+  for (const collection of collections) {
+    for (const feature of collection?.features ?? []) {
+      forEachGeometryPath(feature?.geometry, countPathOccurrences);
+    }
+  }
+  const anchors = new Set();
+  for (const [key, count] of occurrences) if (count > 1) anchors.add(key);
+  return anchors;
+}
+
+export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERANCE, externalAnchors = null) {
   if(!collection?.features||!Number.isFinite(tolerance)||tolerance<=0)return collection;
   // Compte les occurrences au fil du parcours : ne conserve pas un second
   // tableau contenant toutes les références de chemins de la collection.
@@ -185,7 +207,7 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   for (const feature of collection.features) {
     forEachGeometryPath(feature?.geometry, countPathOccurrences);
   }
-  const sharedAnchors = new Set();
+  const sharedAnchors = new Set(externalAnchors ?? []);
   for (const [key, count] of occurrences) if (count > 1) sharedAnchors.add(key);
   let originalVertices=0,simplifiedVertices=0,changedFeatures=0;
   const features=collection.features.map(feature=>{
@@ -225,6 +247,8 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     }
   }
   normalizedLevels.length = normalizedCount;
+  const sharedAnchors = options.sharedAnchors instanceof Set
+    ? options.sharedAnchors : new Set(options.sharedAnchors ?? []);
   const cache = new Map();
   const generationSamples = [];
   const pending = new Map();
@@ -277,7 +301,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     // pendant le rendu. Le niveau de base reste affiché jusqu'à la réponse du Worker.
     if (typeof options.createWorker === "function" && !workerFailed) return baseCollection;
     const startedAt = now();
-    const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance);
+    const generalized = simplifyGeoJsonCollection(baseCollection, level.tolerance, sharedAnchors);
     recordResult(level.tolerance, generalized, now() - startedAt);
     return generalized;
   }
@@ -375,7 +399,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
       // La collection est clonée une seule fois ; les niveaux suivants réutilisent
       // la copie conservée dans le Worker.
       if (!workerInitializationSent) {
-        activeWorker.postMessage({ type: "init", collection: baseCollection });
+        activeWorker.postMessage({ type: "init", collection: baseCollection, sharedAnchors: [...sharedAnchors] });
         workerInitializationSent = true;
         workerCollectionTransfers += 1;
       }
@@ -392,7 +416,7 @@ export function createGeoJsonLodSet(baseCollection, levels = [], baseTolerance =
     if (!level || !baseCollection?.features || cache.has(level.tolerance)) return Promise.resolve(false);
     return prepareLevelAsync(level, () => {
       const startedAt = now();
-      recordResult(level.tolerance, simplifyGeoJsonCollection(baseCollection, level.tolerance), now() - startedAt);
+      recordResult(level.tolerance, simplifyGeoJsonCollection(baseCollection, level.tolerance, sharedAnchors), now() - startedAt);
       return true;
     });
   }
