@@ -35,7 +35,7 @@
 - [x] Ajouter des tests de curseur, statistiques et cycle de vie de file.
 - [x] Ajouter des tests d'invalidation bitmap et de déduplication.
 - [x] Ajouter des tests de planification déterministe et de bornage.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : 743 tests réussis, 0 échec (run 45538533119).
 - [ ] Validation locale : `npm test` à confirmer.
 
 Ce lot réduit le coût de dépilement des travaux, les allocations d'invalidation géographique et les normalisations répétées de clés. Il ne modifie ni la géométrie des tuiles, ni les priorités de planification, ni les coordonnées, ni les règles de simulation.
