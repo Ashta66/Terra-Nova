@@ -179,20 +179,20 @@ export function territoriesToSharedBoundaries(collection) {
   const keyPoint = p => Number(p[0]).toFixed(5) + "," + Number(p[1]).toFixed(5);
   const edgeKey = (a,b) => [keyPoint(a),keyPoint(b)].sort().join("|");
   const edges = new Map();
-  for (const feature of collection.features) {
+  collection.features.forEach((feature, featureIndex) => {
     const g=feature?.geometry;
     const polygons=g?.type === "Polygon" ? [g.coordinates] : g?.type === "MultiPolygon" ? g.coordinates : [];
     for(const polygon of polygons) for(const ring of polygon ?? []) {
       if(!Array.isArray(ring)||ring.length<2)continue;
       for(let i=0;i<ring.length-1;i++){
         const a=ring[i],b=ring[i+1],key=edgeKey(a,b);
-        if(!edges.has(key))edges.set(key,{a,b,count:0});
-        edges.get(key).count++;
+        if(!edges.has(key))edges.set(key,{a,b,owners:new Set()});
+        edges.get(key).owners.add(featureIndex);
       }
     }
-  }
+  });
   const lines=[];
-  for(const edge of edges.values())if(edge.count>1)lines.push([edge.a,edge.b]);
+  for(const edge of edges.values())if(edge.owners.size>1)lines.push([edge.a,edge.b]);
   return {type:"FeatureCollection",features:lines.length?[{type:"Feature",properties:{boundaryLayer:"political-modern-derived",source:"modern-territories"},geometry:{type:"MultiLineString",coordinates:lines}}]:[]};
 }
 
