@@ -2408,7 +2408,11 @@ function drawPhysicalWorldLayer(ctx,world,w,h,projection,terrainGrid=null){
  ctx.restore();return count;
 }
 export function getTerritoryFillSimplificationProfile(zoom = 1) {
-  return getLandCoastSimplificationProfile(zoom);
+  // Les polygones pays gardent leurs sommets source : leur bord côtier est
+  // ensuite strictement découpé par le masque terrestre canonique. Simplifier
+  // indépendamment les deux jeux de données déplace leurs côtes différemment.
+  void zoom;
+  return null;
 }
 
 // Les contours politiques suivent exactement le littoral du masque terrestre.
