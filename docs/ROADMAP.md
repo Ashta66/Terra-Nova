@@ -1722,3 +1722,20 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et contrôle visuel des côtes aux zooms mondial, régional et rapproché.
 
 **Portée :** finition de la restitution visuelle du littoral uniquement. Aucun changement géographique ou comportemental.
+
+
+## Lot artistique 13 — signatures végétales et matières climatiques (25 novembre 2026)
+
+- [x] Auditer les signatures végétales existantes et leurs limites de données.
+- [x] Conserver les classes tropicale, subtropicale, tempérée, boréale, toundra, alpine et nivale.
+- [x] Renforcer les nuances tropicales et boréales sans basculer vers des aplats saturés.
+- [x] Différencier les signatures tempérées et subtropicales.
+- [x] Garder les transitions de haute altitude plus minérales et mesurées.
+- [x] Adapter l'intensité par zone climatique plutôt que d'appliquer une force uniforme.
+- [x] Préserver intégralement les couleurs bathymétriques.
+- [x] Ne pas déduire de forêts, déserts, biomes locaux ou précipitations absents des données.
+- [x] Ne modifier ni les altitudes, ni la classification du relief, ni les données ETOPO.
+- [x] Tester la distinction des sept signatures et leurs limites colorimétriques.
+- [ ] Validation locale : `npm test` et comparaison visuelle des continents sous plusieurs latitudes.
+
+**Portée :** enrichissement colorimétrique des signatures climatiques terrestres existantes. Aucune nouvelle géographie ni donnée écologique n'est inventée.
