@@ -1918,3 +1918,142 @@ body[data-cartographic-era="future"] .map-cartographic-overlay::after {
 @media(prefers-reduced-motion:reduce) {
   .map-cartographic-overlay::after { transition:none!important; }
 }
+
+
+/* Lot artistique 6 — instruments de commandement et hiérarchie des panneaux.
+   Les effets restent strictement décoratifs : aucun calque ne capte les entrées. */
+.side-heading {
+  position:relative;
+  padding:0 0 13px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 58%,transparent);
+}
+.side-heading::after {
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-1px;
+  width:42px;
+  height:2px;
+  background:var(--theme-accent);
+  box-shadow:0 0 10px color-mix(in srgb,var(--theme-accent) 28%,transparent);
+}
+.side-heading h1,.side-heading h2 {
+  font-family:var(--theme-display-font);
+  letter-spacing:-.025em;
+  text-shadow:0 2px 14px #0007;
+}
+.time-sidebar,.ai-sidebar {
+  background-color:var(--theme-panel);
+  background-image:
+    linear-gradient(180deg,color-mix(in srgb,var(--theme-panel-raised) 92%,transparent),var(--theme-panel) 46%),
+    var(--material-texture-present);
+  background-blend-mode:normal,soft-light;
+}
+.ai-orb {
+  border-color:color-mix(in srgb,var(--theme-accent) 76%,transparent);
+  background:
+    radial-gradient(circle at 34% 28%,color-mix(in srgb,var(--theme-accent) 18%,transparent),transparent 58%),
+    linear-gradient(145deg,var(--theme-panel-raised),var(--theme-panel));
+  box-shadow:0 0 30px color-mix(in srgb,var(--theme-accent) 12%,transparent),
+    inset 0 1px #ffffff18,inset 0 -12px 24px #0005;
+}
+.ai-orb::before,.ai-orb::after {
+  border-color:color-mix(in srgb,var(--theme-accent) 38%,transparent);
+}
+.ai-capabilities {
+  background:linear-gradient(115deg,color-mix(in srgb,var(--theme-panel-raised) 88%,transparent),transparent);
+}
+.time-stats strong { font-variant-numeric:tabular-nums; }
+.chronicle-console .clock-subline strong {
+  text-shadow:0 0 16px color-mix(in srgb,var(--theme-accent) 18%,transparent);
+}
+.timeline-control { position:relative; }
+.timeline-heading label { color:var(--theme-text);font-family:var(--theme-display-font); }
+.era-milestones button {
+  position:relative;
+  overflow:hidden;
+  transition:background-color .18s,border-color .18s,transform .18s,box-shadow .18s;
+}
+.era-milestones button small {
+  display:block;
+  margin-top:2px;
+  color:var(--theme-muted);
+  font-size:7px;
+  line-height:1.2;
+}
+.era-milestones button.is-active {
+  color:var(--theme-accent);
+  border-color:var(--theme-accent);
+  background:linear-gradient(155deg,color-mix(in srgb,var(--theme-accent) 16%,var(--theme-control)),var(--theme-control));
+  box-shadow:inset 0 1px #ffffff16,0 3px 10px #0004;
+}
+.era-milestones button.is-active small { color:var(--theme-text); }
+.speed-chip {
+  box-shadow:inset 0 1px #ffffff0c,0 2px 6px #0003;
+}
+.speed-chip.is-active {
+  box-shadow:inset 0 1px #ffffff1c,inset 0 -8px 16px #0003,0 0 12px color-mix(in srgb,var(--theme-accent) 12%,transparent);
+}
+.topbar .brand-mark {
+  position:relative;
+  overflow:hidden;
+  border-color:var(--theme-accent);
+  color:var(--theme-accent);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--theme-accent) 12%,var(--theme-panel)),var(--theme-panel));
+  box-shadow:inset 0 1px #ffffff20,0 2px 8px #0005;
+}
+.topbar .brand-mark::after {
+  content:"";
+  position:absolute;
+  inset:3px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  pointer-events:none;
+}
+body[data-cartographic-era="exploration"] .time-sidebar,
+body[data-cartographic-era="exploration"] .ai-sidebar {
+  background-image:url("../assets/textures/parchment.svg"),linear-gradient(155deg,#493822,#2b2117);
+  background-blend-mode:multiply,normal;
+}
+body[data-cartographic-era="westphalia"] .time-sidebar,
+body[data-cartographic-era="westphalia"] .ai-sidebar {
+  background-image:url("../assets/textures/vellum.svg"),linear-gradient(155deg,#35363a,#292c32);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="revolution"] .time-sidebar,
+body[data-cartographic-era="revolution"] .ai-sidebar {
+  background-image:url("../assets/textures/newsprint.svg"),linear-gradient(180deg,#353330,#292927);
+  background-blend-mode:multiply,normal;
+}
+body[data-cartographic-era="modern"] .time-sidebar,
+body[data-cartographic-era="modern"] .ai-sidebar {
+  background-image:url("../assets/textures/military.svg"),linear-gradient(150deg,#2b3739,#202b30);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="present"] .time-sidebar,
+body[data-cartographic-era="present"] .ai-sidebar {
+  background-image:url("../assets/textures/glass.svg"),linear-gradient(145deg,#1d2627,#141b1d);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="future"] .time-sidebar,
+body[data-cartographic-era="future"] .ai-sidebar {
+  background-image:url("../assets/textures/obsidian.svg"),linear-gradient(150deg,#101e25,#09131a);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="exploration"] .ai-orb { border-style:double;border-width:3px; }
+body[data-cartographic-era="westphalia"] .ai-orb { border-radius:12px;transform:rotate(45deg) scale(.82); }
+body[data-cartographic-era="westphalia"] .ai-orb::before,
+body[data-cartographic-era="westphalia"] .ai-orb::after { border-radius:8px; }
+body[data-cartographic-era="revolution"] .ai-orb { border-radius:2px;box-shadow:inset 0 0 0 5px #0003,0 5px 18px #0006; }
+body[data-cartographic-era="modern"] .ai-orb { border-radius:0;border-width:2px; }
+body[data-cartographic-era="present"] .ai-orb { backdrop-filter:blur(10px); }
+body[data-cartographic-era="future"] .ai-orb {
+  border-radius:5px;
+  box-shadow:0 0 22px #32b9c51a,inset 0 0 18px #32b9c510;
+}
+@media(max-width:760px) {
+  .side-heading { padding-bottom:10px; }
+  .ai-orb { width:52px;height:52px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .era-milestones button { transition:none!important; }
+}
