@@ -1060,7 +1060,7 @@ function createTileRenderer(tileStore) {
   const maxTextureSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const cache=createTerrainWebGLTileAtlas(gl,tileStore,{slotsPerSide:32,maxBytes:32*1024*1024});
   if(!cache) { gl.deleteBuffer(buffer); gl.deleteProgram(program); gl.deleteShader(vertex); gl.deleteShader(fragment); return null; }
-  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,viewCenter,zoomLocation,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
+  const renderer={canvas,gl,program,buffer,position,atlasUv,atlasStep,tileStep,atlasBounds,viewCenter,zoomLocation,opacityLocation,cache,maxTextureSize,contextLost:false,lastSubmitMs:0,revision:tileStore.revision??0,lastDrawCalls:0,lastVisibleTiles:0,lastLevel:null,lastPreloadedTiles:0,lastPreloadAt:0,lastZoom:null,transitionFromLevel:null,transitionStartedAt:0,transitionProgress:1,waitingForTiles:false,readyChildTiles:0,pendingChildTiles:0,lastFallbackReason:null,lastMissingVisibleTiles:[],lastDrawnVisibleTiles:0,capacityLimited:false,vertexBufferCapacityBytes:32,vertexBufferUploadBytes:0,vertexBufferAllocations:0};
   renderer.lifecycle=createWebGLContextLifecycle(canvas,{
     onLost:()=>{renderer.contextLost=true;cache.dispose();},
     onRestored:()=>{renderer.contextLost=true;tileRenderers.delete(tileStore);}
@@ -1257,7 +1257,15 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     const preferredLevel=renderer.lastZoom===null?null:(zoom>renderer.lastZoom?level-1:zoom<renderer.lastZoom?level+1:null);
     const spatial=collectTerrainPredictiveTiles(tileStore,viewport,width,height,level,6);
     const adjacent=collectTerrainPredictiveLodTiles(tileStore,viewport,width,height,level,preferredLevel,8);
-    const combined=[...adjacent,...spatial].filter((item,index,all)=>all.findIndex(other=>other.tile.level===item.tile.level&&other.tile.x===item.tile.x&&other.tile.y===item.tile.y)===index).slice(0,12);
+    const seenPredictive=new Set();
+    const combined=[];
+    for(const item of [...adjacent,...spatial]) {
+      const tile=item.tile,key=String(tile.level)+"/"+tile.x+"/"+tile.y;
+      if(seenPredictive.has(key))continue;
+      seenPredictive.add(key);
+      combined.push(item);
+      if(combined.length>=12)break;
+    }
     cache.retainPending(new Set([...visible,...combined].map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
     for(const {tile} of combined) {
       if(cache.enqueue(tile,protectedKeys,2)) renderer.lastPreloadedTiles++;
