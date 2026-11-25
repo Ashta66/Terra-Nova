@@ -1644,3 +1644,34 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale du joueur : `npm test` et contrôle visuel des océans à zoom mondial, régional et rapproché.
 
 **Portée :** palette de restitution uniquement. Les profondeurs, données ETOPO, géométries côtières, relief terrestre, règles de simulation et résultats géographiques restent inchangés.
+
+
+## Lot artistique 10 — matière continentale et relief hypsométrique (25 novembre 2026)
+
+- [x] Auditer les seuils de couleurs continentales existants.
+- [x] Conserver les classes géomorphologiques dérivées du MNT.
+- [x] Ajouter des nuances intermédiaires dans les basses terres.
+- [x] Distinguer visuellement les plaines basses et les plaines d'altitude.
+- [x] Lisser la montée chromatique des collines.
+- [x] Renforcer la lecture minérale des plateaux.
+- [x] Donner davantage de présence aux vallées sans dessiner de faux cours d'eau.
+- [x] Conserver la signature minérale progressive des montagnes.
+- [x] Garder les sommets élevés dans une gamme pierre/neige, sans blanc uniforme prématuré.
+- [x] Préserver la progression lumineuse générale avec l'altitude.
+- [x] Éviter les ruptures chromatiques entre paliers hypsométriques.
+- [x] Maintenir une palette terrestre sombre et organique aux basses altitudes.
+- [x] Éviter les verts saturés et les beiges trop lumineux.
+- [x] Renforcer les matières par mélange colorimétrique, sans motif géométrique artificiel.
+- [x] Ne pas ajouter de bruit aléatoire au raster.
+- [x] Ne pas modifier les altitudes ETOPO.
+- [x] Ne pas modifier la classification des formes terrestres.
+- [x] Ne pas modifier les coordonnées, côtes ou géométries.
+- [x] Préserver intégralement la palette bathymétrique du lot 9.
+- [x] Préserver l'indépendance du relief terrestre et de l'ombrage océanique.
+- [x] Conserver le rendu Canvas et les tuiles WebGL existantes.
+- [x] Tester la progression de luminance de la palette continentale.
+- [x] Tester la continuité des transitions hypsométriques.
+- [x] Tester la distinction des signatures colorimétriques des formes terrestres.
+- [ ] Validation locale et contrôle visuel à plusieurs niveaux de zoom.
+
+**Portée :** restitution colorimétrique du raster terrestre uniquement. Aucune donnée physique, géométrie ou règle de simulation n'est modifiée.
