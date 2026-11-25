@@ -549,3 +549,36 @@ test("clearLayerCache poursuit le nettoyage après une erreur de buffer", () => 
   gl.deleteBuffer = original;
   renderer.dispose();
 });
+
+test("un cache polygonal identique court-circuite les reconstructions et allocations", () => {
+  const { gl, uploaded } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  const features = Array.from({ length: 12 }, (_, index) => polygonFeature(index));
+  const viewport = { zoom: 2, centerLongitude: 0, centerLatitude: 0 };
+  const first = renderer.renderLayers([{ key: "land", type: "polygons", features }], 800, 400, viewport);
+  let allocations = 0;
+  const createBuffer = gl.createBuffer;
+  gl.createBuffer = () => { allocations++; return createBuffer(); };
+  const second = renderer.renderLayers([{ key: "land", type: "polygons", features }], 800, 400, viewport);
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.bufferUploads, 0);
+  assert.equal(second.uploadedBytes, 0);
+  assert.equal(second.cacheBuildMs, 0);
+  assert.equal(allocations, 0);
+  assert.equal(second.cachedGpuBytes, first.cachedGpuBytes);
+  assert.equal(uploaded.length, first.bufferUploads);
+  renderer.dispose();
+});
+test("un nouveau tableau de références inchangées réutilise directement le cache polygonal", () => {
+  const { gl, uploaded } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  const features = Array.from({ length: 10 }, (_, index) => polygonFeature(index));
+  const viewport = { zoom: 2, centerLongitude: 0, centerLatitude: 0 };
+  renderer.renderLayers([{ key: "land", type: "polygons", features }], 800, 400, viewport);
+  const before = uploaded.length;
+  const next = renderer.renderLayers([{ key: "land", type: "polygons", features: features.slice() }], 800, 400, viewport);
+  assert.equal(next.cacheHit, true);
+  assert.equal(next.bufferUploads, 0);
+  assert.equal(uploaded.length, before);
+  renderer.dispose();
+});
