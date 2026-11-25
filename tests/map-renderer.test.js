@@ -2757,6 +2757,6 @@ test("l'extraction côtière écarte les segments éloignés du masque terrestre
     geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1],[0,1],[0,0.02]]] }
   }] };
   const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
-  assert.equal(result.candidateCount, 2);
-  assert.ok(result.candidates.every(candidate => candidate.segmentIndex >= 1));
+  assert.equal(result.candidateCount, 1);
+  assert.equal(result.candidates[0].segmentIndex, 2);
 });
