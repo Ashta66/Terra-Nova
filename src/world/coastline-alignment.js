@@ -105,9 +105,9 @@ function pointSegmentDistanceKm(point, start, end) {
 }
 
 /**
- * Mesure la proximité côtière en tenant compte des sommets intermédiaires
- * présents dans une seule des deux sources. Les cinq points échantillonnés
- * doivent rester dans la tolérance : ce n'est pas une opération de fusion.
+ * Mesure la proximité côtière sans confondre frontières intérieures et côtes.
+ * Un segment est côtier si au moins trois de ses cinq échantillons sont dans
+ * coastalSearchRadiusKm ; il est aligné si les cinq restent dans toleranceKm.
  */
 export function measureCoastlineProximity(landCollection, territoryCollection, toleranceKm = 1, coastalSearchRadiusKm = 50) {
   if (landCollection?.type !== "FeatureCollection" || !Array.isArray(landCollection.features)
@@ -117,7 +117,7 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
   const tolerance = Number.isFinite(Number(toleranceKm)) ? Math.max(0, Number(toleranceKm)) : 1;
   const searchRadius = Number.isFinite(Number(coastalSearchRadiusKm))
     ? Math.max(tolerance, Number(coastalSearchRadiusKm)) : Math.max(tolerance, 50);
-  const cellSize = Math.max(0.05, tolerance / EARTH_KM_PER_DEGREE * 2 + 0.02);
+  const cellSize = Math.max(0.05, searchRadius / EARTH_KM_PER_DEGREE * 2 + 0.02);
   const bins = new Map();
   const addSegment = (a, b) => {
     if (!validPoint(a) || !validPoint(b)) return;
