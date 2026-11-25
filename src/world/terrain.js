@@ -273,6 +273,31 @@ export function applyCoastalTransitionTint(color, elevation, adjacentSea = false
   ];
 }
 
+/** Transition minérale progressive des piémonts, calculée depuis la pente ETOPO locale. */
+export function applyFoothillTransitionTint(color, elevation, west, east, north, south, latitude, cellSizeDegrees = 1 / 6) {
+  if (!Array.isArray(color) || color.length < 3
+    || ![elevation, west, east, north, south, latitude, cellSizeDegrees].every(Number.isFinite)
+    || elevation < 250 || elevation > 2100 || cellSizeDegrees <= 0) return color;
+  const metersPerDegree = 111320;
+  const cellWidth = metersPerDegree * Math.max(0.15, Math.cos(latitude * Math.PI / 180)) * cellSizeDegrees;
+  const cellHeight = metersPerDegree * cellSizeDegrees;
+  const slope = Math.hypot((east - west) / (2 * cellWidth), (north - south) / (2 * cellHeight));
+  const smoothstep = (low, high, value) => {
+    const t = clamp((value - low) / (high - low), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const slopeBand = smoothstep(0.018, 0.055, slope) * (1 - smoothstep(0.07, 0.12, slope));
+  const altitudeBand = smoothstep(250, 650, elevation) * (1 - smoothstep(1500, 2100, elevation));
+  const strength = 0.055 * slopeBand * altitudeBand;
+  if (strength < 0.001) return color;
+  const tint = [151, 135, 111], inverse = 1 - strength;
+  return [
+    Math.round(color[0] * inverse + tint[0] * strength),
+    Math.round(color[1] * inverse + tint[1] * strength),
+    Math.round(color[2] * inverse + tint[2] * strength)
+  ];
+}
+
 export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands", latitude = 0) {
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
@@ -461,7 +486,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=samplePreparedHillshade(grid,lon,lat)??1;
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat); }
+        else { const baseShade=1+(shade-1)*0.35; color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat); color=applyCoastalTransitionTint(color,e,w<0||east<0||n<0||southE<0); color=applyFoothillTransitionTint(color,e,w??e,east??e,n??e,southE??e,lat,dx); }
        }else{
         const w=hasPhysicalChanges?samplePhysicalElevation(grid,lon-dx,lat,physical):sampleElevation(grid,lon-dx,lat);
         const east=hasPhysicalChanges?samplePhysicalElevation(grid,lon+dx,lat,physical):sampleElevation(grid,lon+dx,lat);
@@ -469,7 +494,7 @@ function drawTerrainTileRaster(context,width,height,grid,viewport,quality,landOn
         const southE=hasPhysicalChanges?samplePhysicalElevation(grid,lon,lat-dy,physical):sampleElevation(grid,lon,lat-dy);
         const shade=calculateHillshade(w??e,east??e,n??e,southE??e,lat,dx);
         if(hillshadeOnly){const relief=clamp((shade-.48)/1.04,0,1),gray=Math.round(28+relief*214);color=[gray,gray,gray];}
-        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat);}
+        else {const baseShade=1+(shade-1)*0.35;color=terrainColorForElevation(snowElevation,baseShade,classifyLandform(e,w??e,east??e,n??e,southE??e,lat,dx),lat);color=applyCoastalTransitionTint(color,e,w<0||east<0||n<0||southE<0);color=applyFoothillTransitionTint(color,e,w??e,east??e,n??e,southE??e,lat,dx);}
        }
       }else color=terrainColorForElevation(e,1,"ocean");
       if(debugElevation) color=terrainDebugElevationColor(e);
@@ -617,7 +642,7 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         let color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform, lat));
         if (globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION !== true && !hillshadeOnly) {
           const adjacentSea = west < 0 || east < 0 || north < 0 || south < 0;
-          color = applyCoastalTransitionTint(color, e, adjacentSea);
+          color = applyCoastalTransitionTint(color, e, adjacentSea);\n          color = applyFoothillTransitionTint(color, e, west ?? e, east ?? e, north ?? e, south ?? e, lat, dx);
         }
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
