@@ -259,6 +259,20 @@ function terrainDebugElevationColor(elevation) {
   return [channel, channel, channel];
 }
 
+/** Nuance minérale discrète des basses terres réellement adjacentes à l'océan. */
+export function applyCoastalTransitionTint(color, elevation, adjacentSea = false) {
+  if (!adjacentSea || !Array.isArray(color) || color.length < 3
+    || !Number.isFinite(Number(elevation)) || elevation < 0 || elevation > 300) return color;
+  const strength = 0.055 * (1 - Number(elevation) / 300);
+  const tint = [153, 139, 111];
+  const inverse = 1 - strength;
+  return [
+    Math.round(color[0] * inverse + tint[0] * strength),
+    Math.round(color[1] * inverse + tint[1] * strength),
+    Math.round(color[2] * inverse + tint[2] * strength)
+  ];
+}
+
 export function terrainColorForElevation(elevation, shade = 1, landform = "lowlands", latitude = 0) {
   if (elevation < 0) {
     // Mer volontairement sobre : grandes masses bathymétriques, sans ombrage
@@ -600,7 +614,11 @@ export function drawTerrainRaster(context, width, height, grid, viewport = {}, q
         const gray = Math.round(28 + relief * 214);
         const baseShade = 1 + (shade - 1) * 0.35;
         const snowElevation = zoom < 2.5 ? terrainSnowElevationForPixel(grid, lon, lat, pixelWidthDegrees, pixelHeightDegrees) : e;
-        const color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform, lat));
+        let color = globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION===true ? terrainDebugElevationColor(e) : (hillshadeOnly ? [gray, gray, gray] : terrainColorForElevation(snowElevation, baseShade, landform, lat));
+        if (globalThis.__TERRA_DEBUG_TERRAIN_ELEVATION !== true && !hillshadeOnly) {
+          const adjacentSea = west < 0 || east < 0 || north < 0 || south < 0;
+          color = applyCoastalTransitionTint(color, e, adjacentSea);
+        }
         const i = (py * renderWidth + px) * 4;
         pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
         continue;
