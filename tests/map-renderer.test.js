@@ -493,6 +493,32 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
 });
 
 
+test("la bathymétrie distingue les plateaux, talus, bassins abyssaux et fosses", () => {
+  const depths = [-11000, -8000, -6000, -4000, -2500, -1500, -800, -200, -50];
+  const colors = depths.map(depth => terrainColorForElevation(depth, 1));
+  const luminance = color => color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+  for (let index = 1; index < colors.length; index++) {
+    assert.ok(luminance(colors[index]) > luminance(colors[index - 1]),
+      `la remontée vers le plateau doit éclaircir progressivement la bathymétrie à ${depths[index]} m`);
+    assert.ok(Math.max(...colors[index].map((channel, i) => Math.abs(channel - colors[index - 1][i]))) < 18,
+      "les transitions bathymétriques restent continues");
+  }
+  assert.ok(new Set(colors.map(color => color.join(","))).size >= 8,
+    "les grands domaines de profondeur doivent rester visuellement différenciables");
+});
+
+test("la palette bathymétrique reste sombre et indépendante de l'ombrage terrestre", () => {
+  const deep = terrainColorForElevation(-11000, 1);
+  const shelf = terrainColorForElevation(-200, 1);
+  const strongShade = terrainColorForElevation(-200, 0.45);
+  assert.ok(deep[2] > deep[0], "les grands fonds conservent une dominante marine froide");
+  assert.ok(shelf[2] > shelf[0], "les plateaux conservent une dominante marine froide");
+  assert.ok(Math.max(...strongShade.map((channel, i) => Math.abs(channel - shelf[i]))) <= 2,
+    "l'ombrage terrestre ne doit pas creuser artificiellement les océans");
+  assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - shelf[i]))) < 35,
+    "le contraste global reste contenu pour préserver la lecture stratégique");
+});
+
 test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
   assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
   const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
