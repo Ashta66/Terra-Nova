@@ -515,3 +515,37 @@ test("un rebuild transactionnel conserve les anciens compartiments si le nouveau
   assert.equal(recovered.cacheHit, true);
   renderer.dispose();
 });
+
+test("un deleteBuffer défaillant ne bloque pas la libération des autres buffers", () => {
+  const { gl, deleted } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  renderer.renderLayers([{ key: "land", type: "polygons", features: [polygonFeature(0)] }], 800, 400,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  const original = gl.deleteBuffer;
+  let calls = 0;
+  gl.deleteBuffer = buffer => { if (++calls === 1) throw new Error("context lost"); original(buffer); };
+  assert.doesNotThrow(() => renderer.dispose());
+  assert.equal(calls, 3);
+  assert.equal(deleted.size, 2);
+});
+test("dispose géographique est idempotent même après une erreur de suppression", () => {
+  const { gl } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  gl.deleteProgram = () => { throw new Error("program already invalid"); };
+  assert.doesNotThrow(() => renderer.dispose());
+  assert.doesNotThrow(() => renderer.dispose());
+});
+test("clearLayerCache poursuit le nettoyage après une erreur de buffer", () => {
+  const { gl, deleted } = createMockGl();
+  const renderer = createGeographicWebGLRenderer(gl);
+  renderer.renderLayers([{ key: "land", type: "polygons", features: [polygonFeature(0)] }], 800, 400,
+    { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  const original = gl.deleteBuffer;
+  let calls = 0;
+  gl.deleteBuffer = buffer => { if (++calls === 1) throw new Error("buffer invalid"); original(buffer); };
+  assert.doesNotThrow(() => renderer.clearLayerCache());
+  assert.equal(calls, 3);
+  assert.equal(deleted.size, 2);
+  gl.deleteBuffer = original;
+  renderer.dispose();
+});
