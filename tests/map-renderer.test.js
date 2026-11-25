@@ -2749,7 +2749,7 @@ test("la proximité côtière traite correctement les segments traversant l'anti
   assert.equal(audit.territorySegmentCount, 4);
   assert.equal(audit.matchedSegmentCount, 4);
   assert.equal(audit.proximityRatio, 1);
-  assert.equal(audit.featureStats[0].maxSampleDistanceKm, 0);
+  assert.ok(audit.featureStats[0].maxSampleDistanceKm < 1e-9, "le bruit flottant doit rester négligeable");
   assert.equal(audit.segmentDetails.length, 4);
   const crossingSegments = audit.segmentDetails.filter(segment =>
     Math.abs(segment.coordinates[1][0] - segment.coordinates[0][0]) > 180
