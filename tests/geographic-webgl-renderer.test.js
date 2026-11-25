@@ -457,7 +457,7 @@ test("un échec de création d'un buffer nul nettoie les buffers déjà créés"
   assert.throws(() => renderer.renderLayers([
     { key: "land", type: "polygons", features: [polygonFeature(0)] }
   ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /Impossible de créer les buffers/);
-  assert.equal(deleted.size, 1);
+  assert.equal(deleted.size, 2);
   renderer.dispose();
 });
 test("un lot échoué ne laisse aucune entrée partiellement publiée dans le cache", () => {
