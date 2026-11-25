@@ -15,7 +15,7 @@ import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
 import { resolveCountryInsignia } from "./game/country-insignia.js";
-import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
+import { isNonStateHistoricalRegion, territoriesToSharedBoundaries } from "./world/historical-boundaries.js";
 import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
 import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
 import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
@@ -1009,8 +1009,12 @@ function renderMapFrame() {
     ]).then(([political]) => {
       const currentYear = String(String(state.clock.date).slice(0, 4));
       if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
-      politicalBoundaryFeatures = simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
       territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
+      // Derive modern borders from the exact simplified polygon geometry used for fills.
+      // Historical boundary sources remain untouched.
+      politicalBoundaryFeatures = year >= 2026 && territoryFeatures
+        ? territoriesToSharedBoundaries(territoryFeatures)
+        : simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
       populateCampaignCountries();
       territoryLabelFeatures = buildTerritoryLabels(territoryFeatures);
       boundarySourceLabel = political?.sourceYear
