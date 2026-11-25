@@ -1813,6 +1813,7 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [x] Préserver la réutilisation du cache pour 4° et 364°, qui représentent le même centre géographique.
 - [x] Adapter le test Path2D : un déplacement réel, même faible, doit reconstruire le chemin exact.
 - [x] Vérifier les contrats d'appel : relief tuilé, polygones WebGL, frontières WebGL et couches Canvas reçoivent le même `projection.viewport` dans `renderWorldMap`.
+- [x] Ajouter une cinquième capture facultative après dessin des frontières politiques, dans le même repère pixel que les quatre étapes physiques et territoriales.
 - [ ] Validation locale du test et capture comparative des couches.
 - [ ] Isoler le décalage restant entre données géographiques, limites politiques et masque physique avant de modifier leur projection.
 
