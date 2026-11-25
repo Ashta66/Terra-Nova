@@ -88,6 +88,21 @@ function nextFeatureMark(index, query = false) {
   return index[key];
 }
 
+function mergeSortedFeatureIndices(global, local) {
+  if (!global.length) return local.slice();
+  if (!local.length) return global.slice();
+  const merged = new Array(global.length + local.length);
+  let a = 0, b = 0, write = 0;
+  while (a < global.length && b < local.length) {
+    if (global[a] < local[b]) merged[write++] = global[a++];
+    else merged[write++] = local[b++];
+  }
+  while (a < global.length) merged[write++] = global[a++];
+  while (b < local.length) merged[write++] = local[b++];
+  merged.length = write;
+  return merged;
+}
+
 function getTileFeatureIndices(index, tileId) {
   const key = tileId;
   const x = tileId % index.columns;
@@ -100,20 +115,10 @@ function getTileFeatureIndices(index, tileId) {
     return cached;
   }
   index.tileMisses++;
-  const mark = nextFeatureMark(index);
-  const marks = index.featureMarks;
-  const ordered = [];
-  for (const featureIndex of index.global) {
-    if (marks[featureIndex] === mark) continue;
-    marks[featureIndex] = mark;
-    ordered.push(featureIndex);
-  }
-  for (const featureIndex of index.cells.get(y * index.columns + x) ?? []) {
-    if (marks[featureIndex] === mark) continue;
-    marks[featureIndex] = mark;
-    ordered.push(featureIndex);
-  }
-  ordered.sort((a, b) => a - b);
+  // Les indices globaux et ceux d'une cellule sont chacun insérés dans
+  // l'ordre source pendant la construction : leur fusion linéaire évite un tri.
+  const local = index.cells.get(y * index.columns + x) ?? [];
+  const ordered = mergeSortedFeatureIndices(index.global, local);
   index.tileCache.set(key, ordered);
   if (index.tileCache.size > MAX_TILE_CACHE_ENTRIES) {
     index.tileCache.delete(index.tileCache.keys().next().value);
