@@ -2936,9 +2936,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   let staticCacheHit = false;
   // Les couches politiques sont découpées par la géométrie continentale source,
   // non par une copie simplifiée : les bords côtiers ne peuvent plus diverger.
+  const sharedLandCoastProfile = getLandCoastSimplificationProfile(projection.lodZoom ?? projection.viewport?.zoom ?? 1);
   const landAlignmentClipPath = projection.type === "equirectangular"
     && (visibleTerritories?.features?.length || visiblePoliticalBoundaries?.features?.length)
-    ? buildLandClipPath(visibleLand, width, height, projection, { tolerance: 0, minRingArea: 0 })
+    ? buildLandClipPath(visibleLand, width, height, projection, sharedLandCoastProfile)
     : null;
 
   const drawStaticLayers = target => {
@@ -3357,7 +3358,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     const coastlineMaterial = getCoastlineMaterialProfile(projection.zoom ?? 1);
     // Le trait de référence suit exactement le masque continental, sans seconde
     // simplification susceptible de créer un liseré décalé.
-    const finalCoastProfile = { tolerance: 0, minRingArea: 0 };
+    const finalCoastProfile = sharedLandCoastProfile;
     measureLayer("liseré-côtier-final", () => {
       context.save();
       context.shadowColor = theme.colors.coast;
