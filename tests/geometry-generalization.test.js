@@ -356,3 +356,26 @@ test("la pile compacte conserve les points d'ancrage partagés lors de la simpli
  assert.ok(result.features.every(feature=>feature.geometry.coordinates.some(point=>
   point[0]===shared[0]&&point[1]===shared[1])));
 });
+
+test("le parcours direct des chemins conserve les ancrages dans une grande collection composite",()=>{
+ const shared=[12,4];
+ const features=[];
+ for(let index=0;index<1500;index++){
+  const offset=index*0.01;
+  features.push({type:"Feature",properties:{id:index},geometry:{
+   type:"GeometryCollection",geometries:[
+    {type:"LineString",coordinates:[[offset,0],shared,[offset+1,0]]},
+    {type:"MultiLineString",coordinates:[[[offset,1],shared,[offset+1,1]]]}
+   ]
+  }});
+ }
+ const result=simplifyGeoJsonCollection({type:"FeatureCollection",features},0.5);
+ for(const feature of result.features){
+  for(const geometry of feature.geometry.geometries){
+   const lines=geometry.type==="LineString"?[geometry.coordinates]:geometry.coordinates;
+   assert.ok(lines.every(line=>line.some(point=>point[0]===shared[0]&&point[1]===shared[1])));
+  }
+ }
+ assert.equal(result.geometryStats.originalVertices,1500*6);
+ assert.equal(features[0].geometry.geometries[0].coordinates.length,3,"la source reste immuable");
+});
