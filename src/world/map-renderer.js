@@ -2428,7 +2428,21 @@ function drawTerritoryLayer(context,collection,width,height,projection,selectedC
   const paint=path=>{
    const fillPath=()=>{if(path)context.fill(path,"evenodd");else context.fill("evenodd");};
    const strokePath=()=>{if(path)context.stroke(path);else context.stroke();};
-   if(pass!=="outlines"){const statusOpacity=status==="influence"?.28:status==="contested"?.72:status==="unclaimed"?.12:1;context.globalCompositeOperation="source-over";context.globalAlpha=fillOpacity*statusOpacity;context.fillStyle=nationalColor;fillPath();}
+   if(pass!=="outlines"){
+    const statusOpacity=status==="influence"?.28:status==="contested"?.72:status==="unclaimed"?.12:1;
+    context.globalCompositeOperation="source-over";
+    context.globalAlpha=fillOpacity*statusOpacity;
+    context.fillStyle=nationalColor;
+    fillPath();
+    // Très légère extension du remplissage, strictement sous le masque terrestre.
+    // Elle ferme les micro-fentes entre deux sources côtières sans déplacer la côte
+    // vers l'océan ; les frontières politiques sont redessinées ensuite au-dessus.
+    context.strokeStyle=nationalColor;
+    context.lineWidth=2.4*renderScale;
+    context.lineJoin="round";
+    context.lineCap="round";
+    strokePath();
+   }
    if(pass!=="fill"){context.globalCompositeOperation="source-over";context.globalAlpha=status==="influence"?.42:.78;context.setLineDash?.(status==="influence"?influenceDash:status==="contested"?contestedDash:[]);context.strokeStyle=nationalColor;context.lineWidth=Math.max(.72,Math.min(1.45,.88*Math.sqrt(zoom)))*renderScale;context.lineJoin="round";strokePath();context.setLineDash?.([]);context.globalAlpha=.46;context.strokeStyle="#14232c";context.lineWidth=Math.max(.45,Math.min(.85,.55*Math.sqrt(zoom)))*renderScale;strokePath();
     if(selected){context.globalAlpha=.96;context.strokeStyle="#fff0b4";context.lineWidth=Math.max(1.5,Math.min(2.8,1.7*Math.sqrt(zoom)))*renderScale;strokePath();context.globalAlpha=.9;context.strokeStyle="#fff";context.lineWidth=.65*renderScale;strokePath();}
    }
