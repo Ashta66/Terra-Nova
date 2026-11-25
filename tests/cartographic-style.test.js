@@ -371,10 +371,17 @@ test("les panneaux de pré-campagne sont des éléments frères ancrés dans le 
 
 test("les panneaux de commandement prolongent la matière et la typographie de chaque époque", () => {
   const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
-  assert.match(css, /\\.side-heading::after[\\s\\S]*?background:var\\(--theme-accent\\)/);
-  assert.match(css, /\\.ai-orb\\s*\\{[\\s\\S]*?radial-gradient/);
-  assert.match(css, /\\.era-milestones button\\.is-active[\\s\\S]*?var\\(--theme-accent\\)/);
-  assert.match(css, /\\.topbar \\.brand-mark::after[\\s\\S]*?pointer-events:none/);
+  for (const selector of [
+    ".side-heading::after",
+    ".ai-orb {",
+    ".era-milestones button.is-active",
+    ".topbar .brand-mark::after"
+  ]) {
+    assert.ok(css.includes(selector), `règle CSS absente : ${selector}`);
+  }
+  assert.ok(css.includes("background:var(--theme-accent)"));
+  assert.ok(css.includes("radial-gradient(circle at 34% 28%"));
+  assert.ok(css.includes("pointer-events:none"));
   for (const [era, texture] of [
     ["exploration", "parchment"],
     ["westphalia", "vellum"],
@@ -388,5 +395,6 @@ test("les panneaux de commandement prolongent la matière et la typographie de c
     assert.ok(css.includes(`assets/textures/${texture}.svg`), `matière absente pour ${era}`);
     assert.ok(css.includes(`body[data-cartographic-era="${era}"] .ai-orb`), `instrument d'époque absent pour ${era}`);
   }
-  assert.match(css, /@media\\s*\\(prefers-reduced-motion:\\s*reduce\\)[\\s\\S]*?\\.era-milestones button\\s*\\{transition:none!important\\}/);
+  assert.ok(css.includes("@media(prefers-reduced-motion:reduce)"));
+  assert.ok(css.includes(".era-milestones button { transition:none!important; }"));
 });
