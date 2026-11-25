@@ -2400,3 +2400,29 @@ test("les profils de viewport projeté sont mutualisés et leur cache reste born
   else globalThis.Path2D=previous;
  }
 });
+
+
+test("la matière du relief terrestre renforce les montagnes sans effacer les plaines et plateaux", () => {
+  const base = [120, 125, 110];
+  const mountain = applyLandformTint(base, "mountains", 4200);
+  const plateau = applyLandformTint(base, "plateaus", 1600);
+  const valley = applyLandformTint(base, "valleys", 300);
+  const plain = applyLandformTint(base, "plains", 100);
+  const hills = applyLandformTint(base, "hills", 800);
+  const distance = color => color.reduce((sum, channel, index) => sum + Math.abs(channel - base[index]), 0);
+  assert.ok(distance(mountain) >= 28, "les hautes chaînes doivent recevoir une signature minérale perceptible");
+  assert.ok(distance(plateau) > distance(plain), "les plateaux doivent se distinguer des plaines");
+  assert.ok(distance(hills) > distance(plain), "les collines doivent conserver une matière distincte");
+  assert.notDeepEqual(valley, plain, "les vallées gardent leur teinte propre");
+  assert.deepEqual(base, [120, 125, 110], "la couleur d'origine reste immuable");
+});
+
+test("le renforcement des formes terrestres ne modifie pas les couleurs bathymétriques", () => {
+  for (const elevation of [-11000, -6000, -1500, -200, -1]) {
+    assert.deepEqual(
+      terrainColorForElevation(elevation, 1, "ocean"),
+      terrainColorForElevation(elevation, 1, "mountains"),
+      `la bathymétrie doit rester indépendante de la classe terrestre à ${elevation} m`
+    );
+  }
+});
