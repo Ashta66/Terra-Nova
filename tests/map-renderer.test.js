@@ -1707,7 +1707,7 @@ test("les côtes physiques gagnent en détail à mesure que le zoom augmente", (
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
     assert.deepEqual(land, profile);
-    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), land);
+    assert.equal(getTerritoryFillSimplificationProfile(zoom), null);
     assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
   }
   assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
@@ -1738,9 +1738,9 @@ test("les rives des lacs utilisent le même profil de simplification que les cô
   }
 });
 
-test("les aplats territoriaux orange suivent le même masque côtier que les terres", () => {
+test("les aplats pays conservent les sommets source avant clipping par le masque côtier canonique", () => {
   for (const zoom of [1, 2, 4, 8, 20]) {
-    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), getLandCoastSimplificationProfile(zoom));
+    assert.equal(getTerritoryFillSimplificationProfile(zoom), null);
   }
 });
 
