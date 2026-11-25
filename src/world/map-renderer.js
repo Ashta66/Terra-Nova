@@ -3077,9 +3077,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
     // géométries traversant l'antiméridien conservent le remplissage Canvas.
     const landFill = terrainEnabled ? "rgba(255,255,255,0.055)" : "#53665f";
     const geographicRenderer = options.geographicWebGLRenderer;
-    const canRenderLandWebGL = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL !== true
-      && geographicRenderer?.renderLayers && geographicRenderer.canvas
-      && projection.type === "equirectangular" && typeof geographicRenderer.supports === "function";
+    // Le maillage WebGL projette les sommets GeoJSON bruts, sans le profil
+      // de simplification écran appliqué au masque et au contour Canvas.
+      // Garder le remplissage terrestre en Canvas garantit une silhouette unique
+      // pour le relief, le fond terrestre et le masque des territoires.
+      const canRenderLandWebGL = false;
     const landCount = measureLayer("terres-et-cotes", () => {
       if (!canRenderLandWebGL) {
         return drawPolygonLayer(target, landCoastCollection, width, height, projection, landFill,
