@@ -182,11 +182,14 @@ test("le remplissage terrestre WebGL est composé sous le masque côtier canoniq
       "le remplissage terrestre doit être soumis une seule fois");
     assert.deepEqual(landFillCalls[0].map(layer => layer.key), ["land-fill"],
       "l'appel du remplissage terrestre ne doit pas soumettre de contour côtier indépendant");
-    const composeIndex = calls.findIndex(call => call[0] === "drawImage");
-    const clipIndex = calls.findIndex((call, index) => index < composeIndex && call[0] === "clip");
-    assert.ok(composeIndex >= 0, "le canevas WebGL doit être composé");
+    const composeIndex = calls.findIndex(call => call[0] === "drawImage"
+      && call[1] === 0 && call[2] === 0 && call[3] === 640 && call[4] === 320);
+    const clipIndex = composeIndex < 0 ? -1 : calls.findLastIndex(
+      (call, index) => index < composeIndex && call[0] === "clip"
+    );
+    assert.ok(composeIndex >= 0, "le canevas WebGL doit être composé à la taille du viewport");
     assert.ok(clipIndex >= 0 && clipIndex < composeIndex,
-      "le masque terrestre doit être appliqué avant la composition du remplissage GPU");
+      "le masque terrestre doit précéder la composition du remplissage GPU ciblé");
   } finally {
     if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
