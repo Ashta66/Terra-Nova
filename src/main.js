@@ -38,7 +38,7 @@ import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { loadOptionalGeoJson, loadAlignedRegionalMapData, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
 
@@ -84,6 +84,11 @@ let geographicWebGLSurface = null;
 let geographicWebGLLifecycle = null;
 let regionalRiverFeatures = null;
 let regionalLabelFeatures = null;
+let regionalLandFeatures = null;
+let regionalTerritoryFeatures = null;
+let regionalLandLod = null;
+let regionalTerritoryLod = null;
+let regionalPoliticalPairLoadAttempted = false;
 let regionalRiverLoadAttempted = false;
 let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
@@ -937,6 +942,27 @@ function renderMapFrame() {
     lastRenderedMapSignature = null;
     renderMap();
   }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
+  if (year >= 2026 && regionalWarmup.land && !regionalPoliticalPairLoadAttempted) {
+    regionalPoliticalPairLoadAttempted = true;
+    loadAlignedRegionalMapData().then(pair => {
+      if (!pair) return;
+      // Les deux sources sont simplifiées et généralisées avec les mêmes seuils :
+      // aucun basculement régional n'est possible si une seule source est disponible.
+      regionalLandFeatures = simplifyGeoJsonCollection(pair.land, 0.0008);
+      regionalTerritoryFeatures = simplifyGeoJsonCollection(pair.territories, 0.0008);
+      const regionalLodLevels = [
+        { maxZoom: 8, tolerance: 0.004 },
+        { maxZoom: 12, tolerance: 0.002 },
+        { maxZoom: 20, tolerance: 0.0008 }
+      ];
+      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, regionalLodLevels, 0.0008);
+      regionalTerritoryLod = createGeoJsonLodSet(regionalTerritoryFeatures, regionalLodLevels, 0.0008);
+      cachedBoundaryTerritorySource = null;
+      cachedBoundaryLodCollection = null;
+      lastRenderedMapSignature = null;
+      renderMap();
+    }).catch(error => console.warn("Couple terre/pays régional indisponible ; niveau mondial conservé.", error));
+  }
   if (regionalWarmup.labels && !regionalLabelLoadAttempted) {
     regionalLabelLoadAttempted = true;
     activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels", "labels");
@@ -1038,22 +1064,20 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  // Les pays actuellement chargés restent en 1:110m : ne pas afficher une côte 1:10m sans territoires de même résolution.
   const selectedLandDetail = selectAlignedLandDetailLevel(
-    mapViewport.zoom, worldFeatures, null, null, 6
+    mapViewport.zoom, worldFeatures, regionalLandFeatures, regionalTerritoryFeatures, 6
   );
-  const landLod = worldLandLod;
+  const useRegionalPoliticalPair = year >= 2026 && selectedLandDetail.level === "regional-10m";
+  const landLod = useRegionalPoliticalPair ? regionalLandLod : worldLandLod;
   cancelLandLodWarmup();
   const landDetail = {
     ...selectedLandDetail,
     features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
   };
-  // Les territoires suivent exactement les mêmes paliers de généralisation que
-  // le fond terrestre. Les frontières modernes sont ensuite extraites de cette
-  // même collection LOD, jamais d'une version de détail différente.
-  const landUsesBaseGeometry = landDetail.features === selectedLandDetail.features;
-  const territoryDetailFeatures = landUsesBaseGeometry
-    ? territoryFeatures
+  // Les territoires et frontières modernes basculent avec le même couple de
+  // données et le même profil LOD que le fond terrestre.
+  const territoryDetailFeatures = useRegionalPoliticalPair
+    ? regionalTerritoryLod?.getForZoom(mapViewport.zoom) ?? regionalTerritoryFeatures
     : territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
   let renderPoliticalBoundaryFeatures = politicalBoundaryFeatures;
   if (year >= 2026 && territoryDetailFeatures) {
