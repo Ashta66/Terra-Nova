@@ -415,3 +415,65 @@ test("les géométries réelles Natural Earth produisent des maillages polygonau
     "polygon-holes-require-canvas": 1
   });
 });
+
+test("les trois buffers d'un lot sont libérés si un transfert échoue au milieu", () => {
+  const { gl, deleted } = createMockGl();
+  const original = gl.bufferData;
+  let calls = 0;
+  gl.bufferData = (...args) => {
+    calls++;
+    if (calls === 2) throw new Error("buffer upload");
+    return original(...args);
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /buffer upload/);
+  assert.equal(deleted.size, 3);
+  renderer.dispose();
+});
+test("un échec de création du deuxième buffer libère le premier", () => {
+  const { gl, deleted } = createMockGl();
+  const original = gl.createBuffer;
+  let calls = 0;
+  gl.createBuffer = () => {
+    calls++;
+    if (calls === 2) throw new Error("buffer allocation");
+    return original();
+  };
+  const renderer = createGeographicWebGLRenderer(gl);
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /buffer allocation/);
+  assert.equal(deleted.size, 1);
+  renderer.dispose();
+});
+test("un échec de création d'un buffer nul nettoie les buffers déjà créés", () => {
+  const { gl, deleted } = createMockGl();
+  const original = gl.createBuffer;
+  let calls = 0;
+  gl.createBuffer = () => (++calls === 2 ? null : original());
+  const renderer = createGeographicWebGLRenderer(gl);
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /Impossible de créer les buffers/);
+  assert.equal(deleted.size, 1);
+  renderer.dispose();
+});
+test("un lot échoué ne laisse aucune entrée partiellement publiée dans le cache", () => {
+  const { gl } = createMockGl();
+  const original = gl.bufferData;
+  let calls = 0;
+  gl.bufferData = (...args) => { if (++calls === 2) throw new Error("upload"); original(...args); };
+  const renderer = createGeographicWebGLRenderer(gl);
+  assert.throws(() => renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 }), /upload/);
+  gl.bufferData = original;
+  const recovered = renderer.renderLayers([
+    { key: "land", type: "polygons", features: [polygonFeature(0)] }
+  ], 800, 400, { zoom: 2, centerLongitude: 0, centerLatitude: 0 });
+  assert.equal(recovered.cacheHit, false);
+  assert.equal(recovered.drawCalls, 1);
+  renderer.dispose();
+});
