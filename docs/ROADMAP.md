@@ -1601,3 +1601,15 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale du joueur : `npm test`.
 
 **Portée :** motifs CSS décoratifs au-dessus de la carte. Les géométries, les couleurs des territoires, les couches physiques et les interactions du canvas ne sont pas modifiées.
+
+
+## Lot artistique 8 — matière et lecture du relief physique (25 novembre 2026)
+
+- [x] Auditer la chaîne ETOPO existante, les classes de formes terrestres et l'ombrage directionnel.
+- [x] Renforcer la signature minérale des montagnes, progressivement avec l'altitude.
+- [x] Mieux différencier plateaux, collines, vallées et plaines par des teintes de matière mesurées.
+- [x] Préserver l'immuabilité des couleurs source.
+- [x] Ajouter des tests de contraste des formes terrestres et d'indépendance de la bathymétrie.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** ajustement de la restitution colorimétrique des formes terrestres existantes. Aucune altitude, classification, donnée ETOPO, profondeur océanique, frontière ou règle de simulation n'est modifiée. Aucun gain de performance n'est revendiqué.
