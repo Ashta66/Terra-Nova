@@ -33,10 +33,10 @@ export function partitionFeatures(features, supports) {
   return { supported, unsupported };
 }
 
-function createContinuousProjector(width, height, projection) {
+function createContinuousProjector(width, height, projection, preparedProjector = null) {
   const viewport = projection.viewport ?? {};
   const centerLongitude = Number(viewport.centerLongitude ?? 0);
-  const project = createCoordinateProjector(width, height, projection.type === "orthographic"
+  const project = preparedProjector ?? createCoordinateProjector(width, height, projection.type === "orthographic"
     ? projection
     : { ...projection, viewport: { ...viewport, wrapLongitude: false } });
   let previousLongitude = null;
@@ -341,8 +341,8 @@ function projectedRingArea(points) {
   return Math.abs(area) / 2;
 }
 
-function traceRing(context, ring, width, height, projection, coastProfile) {
-  const project = createContinuousProjector(width, height, projection);
+function traceRing(context, ring, width, height, projection, coastProfile, preparedProjector) {
+  const project = createContinuousProjector(width, height, projection, preparedProjector);
   const projected = [];
   for (const coordinate of ring) {
     const point = project(coordinate);
@@ -364,23 +364,27 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
   const geometryType = geometry.type;
   if (geometryType === "Polygon" || geometryType === "MultiPolygon") {
     let vertices = 0;
+    const preparedProjector = createCoordinateProjector(width, height, projection.type === "orthographic"
+      ? projection : { ...projection, viewport: { ...(projection.viewport ?? {}), wrapLongitude: false } });
     const polygonProfile = coastProfile ?? { tolerance: 0.55, minRingArea: 0.7 };
     const polygons = geometryType === "Polygon" ? geometry.coordinates : geometry.coordinates ?? [];
     const polygonCount = geometryType === "Polygon" ? 1 : polygons.length;
     for (let polygonIndex = 0; polygonIndex < polygonCount; polygonIndex++) {
       const polygon = geometryType === "Polygon" ? polygons : polygons[polygonIndex];
       if (!polygon?.length) continue;
-      const exteriorCount = traceRing(context, polygon[0], width, height, projection, polygonProfile);
+      const exteriorCount = traceRing(context, polygon[0], width, height, projection, polygonProfile, preparedProjector);
       if (!exteriorCount) continue;
       vertices += exteriorCount;
       for (let ringIndex = 1; ringIndex < polygon.length; ringIndex++) {
-        vertices += traceRing(context, polygon[ringIndex], width, height, projection, polygonProfile);
+        vertices += traceRing(context, polygon[ringIndex], width, height, projection, polygonProfile, preparedProjector);
       }
     }
     return vertices;
   }
   if (geometryType === "LineString" || geometryType === "MultiLineString") {
     let vertices = 0;
+    const preparedProjector = createCoordinateProjector(width, height, projection.type === "orthographic"
+      ? projection : { ...projection, viewport: { ...(projection.viewport ?? {}), wrapLongitude: false } });
     const lines = geometryType === "LineString" ? geometry.coordinates : geometry.coordinates ?? [];
     const lineCount = geometryType === "LineString" ? 1 : lines.length;
     for (let lineIndex = 0; lineIndex < lineCount; lineIndex++) {
@@ -396,7 +400,7 @@ function traceGeometry(context, geometry, width, height, projection, coastProfil
         }
         segment = [];
       };
-      const project = createContinuousProjector(width, height, projection);
+      const project = createContinuousProjector(width, height, projection, preparedProjector);
       for (const coordinate of line) {
         const point = project(coordinate);
         if (!point) { flushSegment(); continue; }
