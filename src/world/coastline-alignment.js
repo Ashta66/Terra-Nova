@@ -95,9 +95,13 @@ function validPoint(point) {
 
 function pointSegmentDistanceKm(point, start, end) {
   const latitudeScale = Math.cos(Number(point[1]) * Math.PI / 180);
-  const px = Number(point[0]) * latitudeScale, py = Number(point[1]);
-  const ax = Number(start[0]) * latitudeScale, ay = Number(start[1]);
-  const bx = Number(end[0]) * latitudeScale, by = Number(end[1]);
+  const wrappedLongitudeDelta = longitude => {
+    const delta = Number(longitude) - Number(point[0]);
+    return ((delta + 540) % 360) - 180;
+  };
+  const px = 0, py = Number(point[1]);
+  const ax = wrappedLongitudeDelta(start[0]) * latitudeScale, ay = Number(start[1]);
+  const bx = wrappedLongitudeDelta(end[0]) * latitudeScale, by = Number(end[1]);
   const dx = bx - ax, dy = by - ay;
   const lengthSquared = dx * dx + dy * dy;
   const t = lengthSquared ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared)) : 0;
