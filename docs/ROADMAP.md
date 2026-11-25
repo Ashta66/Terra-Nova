@@ -1,3 +1,21 @@
+## 25 novembre 2026 — lot 40 : cycle de vie mémoire des tuiles physiques
+
+- [x] Refuser les bitmaps de taille nulle, inconnue, négative ou non finie afin de ne pas sous-estimer le budget.
+- [x] Fermer immédiatement les ressources reçues mais rejetées, notamment lorsqu'elles dépassent le budget.
+- [x] Conserver une ressource déjà détenue lorsque la même instance est réinsérée sous sa clé.
+- [x] Centraliser la suppression, l'éviction LRU, le remplacement et le vidage dans un chemin de libération unique.
+- [x] Signaler la cause de chaque éviction via un callback isolé des erreurs d'observateur.
+- [x] Synchroniser le cycle de vie des animations de fondu avec l'éviction de leur bitmap.
+- [x] Ne démarrer un fondu que si le bitmap a effectivement été retenu dans le cache.
+- [x] Ajouter une méthode `dispose()` idempotente pour libérer le cache entier.
+- [x] Réduire à zéro le backing store de l'OffscreenCanvas après transfert du bitmap depuis le worker.
+- [x] Nettoyer worker, temporisations, file et bitmaps à la fermeture définitive de la page, sans casser le retour depuis le bfcache.
+- [x] Étendre les tests du cache aux tailles invalides, aux rejets, aux callbacks et au nettoyage.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le cache prend explicitement possession des ressources acceptées et ferme celles qu'il rejette ou évince. Les animations ne conservent plus d'état pour des bitmaps évincés ; la fermeture définitive de la page libère aussi le worker et ses ressources graphiques, tout en préservant une page placée dans le cache de navigation du navigateur.
+
 ## 25 novembre 2026 — lot 39 : reprise après incident du worker de tuiles
 
 - [x] Associer chaque réponse à l'identifiant exact de sa requête active.
