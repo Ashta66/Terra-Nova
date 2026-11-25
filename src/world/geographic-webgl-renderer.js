@@ -478,11 +478,16 @@ export function createGeographicWebGLRenderer(gl) {
     return total;
   }
 
+  function findOldestInactiveLayerKey(activeKeys) {
+    for (const key of layerCaches.keys()) if (!activeKeys.has(key)) return key;
+    return undefined;
+  }
+
   function evictGpuCache(activeKeys) {
     let retainedBytes = getRetainedGpuBytes();
     let evictedLayers = 0;
     while (retainedBytes > MAX_CACHED_GPU_BYTES) {
-      const oldestKey = [...layerCaches.keys()].find(key => !activeKeys.has(key));
+      const oldestKey = findOldestInactiveLayerKey(activeKeys);
       if (oldestKey === undefined) break;
       const oldest = layerCaches.get(oldestKey);
       releaseBatches(oldest?.batches);
@@ -585,7 +590,7 @@ export function createGeographicWebGLRenderer(gl) {
       layerCaches.set(layer.key, layer.cached);
     }
     while (layerCaches.size > MAX_CACHED_LAYERS) {
-      const oldestKey = [...layerCaches.keys()].find(key => !seenKeys.has(key));
+      const oldestKey = findOldestInactiveLayerKey(seenKeys);
       if (oldestKey === undefined) break;
       const oldest = layerCaches.get(oldestKey);
       releaseBatches(oldest?.batches);
@@ -673,7 +678,7 @@ export function createGeographicWebGLRenderer(gl) {
     }
     empty.drawSubmitMs = Math.max(0, now() - drawStartedAt);
     empty.totalMs = Math.max(0, now() - renderStartedAt);
-    const memory = evictGpuCache(new Set(prepared.map(layer => layer.key)));
+    const memory = evictGpuCache(seenKeys);
     empty.cachedGpuBytes = memory.retainedBytes;
     return { drawnFeatures, skippedFeatures, drawCalls, triangles, cacheHit: allCacheHits,
       bufferUploads, uploadedBytes, cacheBuildMs: empty.cacheBuildMs,
