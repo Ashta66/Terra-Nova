@@ -398,3 +398,27 @@ test("les panneaux de commandement prolongent la matière et la typographie de c
   assert.ok(css.includes("@media(prefers-reduced-motion:reduce)"));
   assert.ok(css.includes(".era-milestones button { transition:none!important; }"));
 });
+
+
+test("les six époques disposent d'un langage cartographique décoratif distinct", () => {
+  const css = readFileSync(new URL("../styles/main.css", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.ok(html.includes('class="map-cartographic-overlay" aria-hidden="true"'));
+  assert.ok(css.includes(".map-cartographic-overlay {"));
+  assert.ok(css.includes("position:absolute; z-index:2; inset:0; overflow:hidden; pointer-events:none;"));
+  assert.ok(css.includes(".map-cartographic-overlay::before {"));
+  assert.ok(css.includes(".map-cartographic-overlay::after {"));
+  for (const era of ["exploration", "westphalia", "revolution", "modern", "present", "future"]) {
+    assert.ok(
+      css.includes(`body[data-cartographic-era="${era}"] .map-cartographic-overlay::before`),
+      `motif cartographique absent pour ${era}`
+    );
+  }
+  assert.ok(css.includes("repeating-conic-gradient(from 0deg at 50% 50%"));
+  assert.ok(css.includes("box-shadow:inset 0 0 0 5px"));
+  assert.ok(css.includes("radial-gradient(circle,color-mix(in srgb,var(--theme-text) 20%,transparent)"));
+  assert.ok(css.includes("repeating-radial-gradient(ellipse at 28% 34%"));
+  assert.ok(css.includes("background-size:48px 48px"));
+  assert.ok(css.includes("linear-gradient(90deg,transparent calc(50% - .5px)"));
+  assert.ok(css.includes("@media(max-width:760px)"));
+});
