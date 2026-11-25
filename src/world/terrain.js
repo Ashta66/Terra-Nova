@@ -10,9 +10,11 @@ const SEA_COLOR_STOPS = [
   [-800, [32, 64, 76]], [-200, [39, 68, 82]], [-50, [48, 85, 91]], [0, [57, 96, 101]]
 ];
 const LAND_COLOR_STOPS = [
-  [0, [91, 112, 72]], [250, [105, 119, 72]], [1000, [132, 128, 77]],
-  [1500, [148, 132, 92]], [2000, [157, 143, 122]], [2600, [183, 177, 164]],
-  [3200, [213, 216, 215]], [4000, [238, 241, 242]], [5000, [250, 251, 252]]
+  [0, [88, 108, 69]], [180, [98, 113, 70]], [400, [111, 119, 73]],
+  [700, [124, 124, 76]], [1000, [132, 128, 77]], [1300, [141, 130, 84]],
+  [1600, [149, 134, 96]], [2000, [157, 143, 122]], [2300, [169, 158, 140]],
+  [2600, [183, 177, 164]], [3000, [201, 204, 199]], [3400, [221, 224, 218]],
+  [4000, [238, 241, 242]], [5000, [250, 251, 252]]
 ];
 const LANDFORM_TINTS = {
   mountains: [164, 153, 140], plateaus: [183, 158, 121],
@@ -224,9 +226,11 @@ export function applyLandformTint(color, landform, elevation = 0) {
   const mountainStrength = landform === "mountains"
     ? 0.09 + clamp((Number(elevation) - 1100) / 3900, 0, 1) * 0.10
     : 0;
+  // Renforcer les signatures de terrain sans créer de frontières artificielles :
+  // le mélange reste continu et ne touche ni l'altitude ni la classification.
   const strength = mountainStrength || ({
-    plateaus: 0.07, valleys: 0.055, plains: 0.035, hills: 0.075
-  }[landform] ?? 0.04);
+    plateaus: 0.085, valleys: 0.07, plains: 0.045, hills: 0.09
+  }[landform] ?? 0.045);
   const target = landform === "mountains" && elevation >= 2800
     ? MOUNTAIN_ELEVATION_TINT : tint;
   const inverse = 1 - strength;
