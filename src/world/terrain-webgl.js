@@ -1254,13 +1254,17 @@ export function renderTerrainWebGLTiles(tileStore,width,height,viewport={},optio
     const adjacent=collectTerrainPredictiveLodTiles(tileStore,viewport,width,height,level,preferredLevel,8);
     const seenPredictive=new Set();
     const combined=[];
-    for(const item of [...adjacent,...spatial]) {
-      const tile=item.tile,key=String(tile.level)+"/"+tile.x+"/"+tile.y;
-      if(seenPredictive.has(key))continue;
-      seenPredictive.add(key);
-      combined.push(item);
-      if(combined.length>=12)break;
-    }
+    const appendPredictive=items=>{
+      for(const item of items) {
+        const tile=item.tile,key=String(tile.level)+"/"+tile.x+"/"+tile.y;
+        if(seenPredictive.has(key))continue;
+        seenPredictive.add(key);
+        combined.push(item);
+        if(combined.length>=12)return false;
+      }
+      return true;
+    };
+    if(appendPredictive(adjacent))appendPredictive(spatial);
     cache.retainPending(new Set([...visible,...combined].map(({tile})=>`${tile.level}/${tile.x}/${tile.y}@${revisionSuffix}`)));
     for(const {tile} of combined) {
       if(cache.enqueue(tile,protectedKeys,2)) renderer.lastPreloadedTiles++;
