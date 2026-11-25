@@ -507,7 +507,6 @@ export function measureCoastlineCandidateCoverage(candidates, nodeToleranceKm = 
     });
   }
   return {
-    toleranceKm: null,
     nodeToleranceKm: Number.isFinite(Number(nodeToleranceKm)) ? Math.max(0.000001, Number(nodeToleranceKm)) : 0.001,
     ringCount: ringStats.length,
     sourceSegmentCount: totalSourceSegments,
