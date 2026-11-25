@@ -1768,3 +1768,16 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test`, puis contrôle visuel des archipels et côtes à petite et grande échelle.
 
 **Portée :** finition du rendu du littoral existant uniquement ; aucune modification des données géographiques, des seuils de filtrage ou des règles de simulation.
+
+
+## Lot artistique 16 — transition minérale des basses terres côtières (25 novembre 2026)
+
+- [x] Repérer les pixels terrestres dont au moins un voisin cardinal échantillonné est sous le niveau marin.
+- [x] Appliquer une nuance minérale chaude et discrète uniquement à ces basses terres adjacentes à la mer.
+- [x] Faire décroître continûment cette nuance entre 0 et 300 mètres d'altitude.
+- [x] Laisser inchangées les basses terres intérieures, les reliefs élevés et les pixels océaniques.
+- [x] Exclure les modes de diagnostic d'altitude et de hillshade seul.
+- [x] Ajouter des tests sur l'adjacence marine, l'atténuation avec l'altitude, l'immuabilité de la couleur source et la préservation de la bathymétrie.
+- [ ] Validation locale : `npm test` et inspection des littoraux à plusieurs niveaux de zoom.
+
+**Portée :** nuance de transition raster fondée sur l'adjacence réelle à l'océan dans les échantillons ETOPO ; aucune plage, île ou géométrie fictive n'est créée.
