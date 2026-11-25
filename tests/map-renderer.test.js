@@ -519,14 +519,22 @@ test("la palette bathymétrique reste sombre et indépendante de l'ombrage terre
     "le contraste global reste contenu pour préserver la lecture stratégique");
 });
 
+test("le hillshade conserve un modelé lisible sur les pentes douces", () => {
+  const flat = calculateHillshade(500, 500, 500, 500, 45);
+  const gentle = calculateHillshade(450, 550, 525, 475, 45);
+  assert.equal(flat, 1, "une surface plane conserve son éclairage neutre");
+  assert.ok(Math.abs(gentle - 1) > 0.0001, "les faibles variations de pente restent perceptibles");
+  assert.ok(gentle >= 0.52 && gentle <= 1.48, "les nuances restent dans la plage douce");
+});
+
 test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
   assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
   const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
   const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
   assert.notEqual(illuminatedSlope, 1);
   assert.notEqual(oppositeSlope, 1);
-  assert.ok(illuminatedSlope >= 0.48 && illuminatedSlope <= 1.52);
-  assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
+  assert.ok(illuminatedSlope >= 0.52 && illuminatedSlope <= 1.48);
+  assert.ok(oppositeSlope >= 0.52 && oppositeSlope <= 1.48);
 });
 
 
