@@ -302,6 +302,7 @@ function getGeographicWebGLRenderer() {
       return null;
     }
     geographicWebGLRenderer = createGeographicWebGLRenderer(gl);
+    if (!geographicWebGLRenderer) geographicWebGLRendererUnavailable = true;
   } catch (error) {
     geographicWebGLRendererUnavailable = true;
     console.info("Renderer géographique WebGL indisponible : rendu Canvas conservé.", error);
