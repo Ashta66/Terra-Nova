@@ -202,7 +202,15 @@ export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) 
   if (numericYear >= 2026) {
     if (!modernPoliticalPromise) modernPoliticalPromise = readCollection(MODERN_POLITICAL_URL, "Frontières politiques actuelles", fetcher);
     if (!modernTerritoriesPromise) modernTerritoriesPromise = readCollection(MODERN_TERRITORIES_URL, "Pays modernes", fetcher);
-    const territories = await modernTerritoriesPromise;\n    const derivedBoundaries = territoriesToSharedBoundaries(territories);\n    return { collection: derivedBoundaries?.features?.length ? derivedBoundaries : await modernPoliticalPromise, territories, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m · limites dérivées des pays" };
+    const territories = await modernTerritoriesPromise;
+    const derivedBoundaries = territoriesToSharedBoundaries(territories);
+    return {
+      collection: derivedBoundaries?.features?.length ? derivedBoundaries : await modernPoliticalPromise,
+      territories,
+      sourceYear: 2026,
+      exact: numericYear === 2026,
+      source: "Natural Earth 1:110m · limites dérivées des pays"
+    };
   }
   if (numericYear === 1812) {
     try {
