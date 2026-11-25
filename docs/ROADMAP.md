@@ -1,3 +1,27 @@
+## 25 novembre 2026 — lot 48 : construction des rubans géographiques
+
+### Déduplication des jonctions
+- [x] Remplacer les clés de jonction textuelles par une indexation numérique à deux niveaux.
+- [x] Éviter la création d'une chaîne par extrémité de segment.
+- [x] Éviter le tableau temporaire de coordonnées pour chaque extrémité unique.
+- [x] Préserver l'égalité exacte des coordonnées Float32.
+- [x] Préserver les jonctions distinctes lorsque deux extrémités sont proches mais différentes.
+- [x] Préserver les latitudes distinctes partageant une même longitude.
+- [x] Préallouer le buffer final à partir du nombre exact de jonctions uniques.
+- [x] Conserver l'isolation des groupes de tracés et leurs ancrages longitudinaux.
+- [x] Conserver les disques de raccord et leur tessellation à 12 secteurs.
+- [x] Conserver le nombre de sommets et l'ordre des segments existants.
+
+### Tests
+- [x] Tester les sommets partagés entre segments consécutifs.
+- [x] Tester les segments disjoints.
+- [x] Tester les extrémités proches mais numériquement distinctes.
+- [x] Tester les groupes indépendants.
+- [x] Tester les latitudes distinctes pour une même longitude.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les allocations temporaires lors de la déduplication des extrémités de lignes géographiques. Il ne modifie ni les coordonnées projetées, ni la géométrie des rubans, ni les règles de raccordement.
+
 ## 25 novembre 2026 — lot 47 : projection préconfigurée et sélection LOD
 
 ### Projection des grandes géométries
