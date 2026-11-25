@@ -106,16 +106,18 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
   const endpointGroups = [];
   for (const group of segmentGroups ?? []) {
     if (!group || group.length < 4) continue;
+    // Deux niveaux numériques conservent l'égalité exacte des Float32 sans
+    // fabriquer une chaîne et un tableau pour chaque extrémité.
     const endpoints = new Map();
+    const addEndpoint = (x, y) => {
+      let latitudes = endpoints.get(x);
+      if (!latitudes) { latitudes = new Set(); endpoints.set(x, latitudes); }
+      latitudes.add(y);
+    };
     for (let index = 0; index + 3 < group.length; index += 4) {
       segmentCount++;
-      const ax = group[index], ay = group[index + 1];
-      const bx = group[index + 2], by = group[index + 3];
-      // Les coordonnées proviennent déjà du maillage Float32 : deux sommets
-      // raccordés partagent la même valeur. Ne pas arrondir ici, car deux
-      // extrémités distinctes très proches doivent garder chacune leur cap.
-      endpoints.set(`${ax},${ay}`, [ax, ay]);
-      endpoints.set(`${bx},${by}`, [bx, by]);
+      addEndpoint(group[index], group[index + 1]);
+      addEndpoint(group[index + 2], group[index + 3]);
     }
     endpointGroups.push(endpoints);
   }
@@ -123,7 +125,11 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
     return { lineBuffer: null, vertexCount: 0, drawnFeatures: 0, skippedFeatures: 0, positions: new Float32Array() };
   }
 
-  const joinVertexCount = endpointGroups.reduce((sum, endpoints) => sum + endpoints.size * 36, 0);
+  let uniqueEndpointCount = 0;
+  for (const endpoints of endpointGroups) {
+    for (const latitudes of endpoints.values()) uniqueEndpointCount += latitudes.size;
+  }
+  const joinVertexCount = uniqueEndpointCount * 36;
   const data = new Float32Array((segmentCount * 6 + joinVertexCount) * 9);
   let cursor = 0;
   let currentLongitudeAnchor = 0;
@@ -160,7 +166,9 @@ export function buildRibbonBuffer(segmentGroups, gl, message = "Impossible de cr
       appendVertex(ax, ay, bx, by, 1);
       appendVertex(bx, by, ax, ay, 1);
     }
-    for (const [x, y] of endpointGroups[groupIndex++].values()) appendDisk(x, y);
+    for (const [x, latitudes] of endpointGroups[groupIndex++]) {
+      for (const y of latitudes) appendDisk(x, y);
+    }
   }
 
   const lineBuffer = gl.createBuffer();
