@@ -173,7 +173,7 @@ test("les limites peuvent être réduites à chaud et évacuent les plus ancienn
   assert.deepEqual(cache.setLimits({ maxEntries: 2, maxBytes: 45 }), { maxBytes: 45, maxEntries: 2 });
   assert.equal(cache.has("a"), false);
   assert.equal(a.closed, 1);
-  assert.equal(cache.stats().bytes, 50 > 45 ? 30 : 45);
+  assert.equal(cache.stats().bytes, 30);
   assert.equal(cache.stats().entries, 1);
 });
 test("les limites invalides ne corrompent pas le budget actif", () => {
@@ -202,7 +202,7 @@ test("les rejets et fermetures sont comptabilisés", () => {
   const tile = closable(11);
   assert.equal(cache.set("large", tile), false);
   assert.equal(cache.stats().rejected, 1);
-  assert.equal(cache.stats().closedResources, 1);
+  assert.equal(cache.stats().closeCalls, 1);
 });
 test("le remplacement renseigne la cause et conserve une seule entrée", () => {
   const cache = createMapTileCache();
