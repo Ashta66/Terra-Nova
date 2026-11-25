@@ -315,12 +315,27 @@ export function createGeographicWebGLRenderer(gl) {
     return id;
   }
 
+  function deleteBufferSafely(buffer) {
+    if (!buffer) return;
+    try { gl.deleteBuffer(buffer); } catch { /* le contexte peut être perdu */ }
+  }
+
+  function deleteProgramSafely(resource) {
+    if (!resource) return;
+    try { gl.deleteProgram(resource); } catch { /* poursuivre le nettoyage */ }
+  }
+
+  function deleteShaderSafely(resource) {
+    if (!resource) return;
+    try { gl.deleteShader(resource); } catch { /* poursuivre le nettoyage */ }
+  }
+
   function releaseBatches(batches) {
     for (const batch of batches ?? []) {
-      if (batch.vertexBuffer) gl.deleteBuffer(batch.vertexBuffer);
-      if (batch.anchorBuffer) gl.deleteBuffer(batch.anchorBuffer);
-      if (batch.elementBuffer) gl.deleteBuffer(batch.elementBuffer);
-      if (batch.lineBuffer) gl.deleteBuffer(batch.lineBuffer);
+      deleteBufferSafely(batch.vertexBuffer);
+      deleteBufferSafely(batch.anchorBuffer);
+      deleteBufferSafely(batch.elementBuffer);
+      deleteBufferSafely(batch.lineBuffer);
     }
   }
 
@@ -460,7 +475,7 @@ export function createGeographicWebGLRenderer(gl) {
       if (oldestKey === undefined) break;
       const oldest = layerCaches.get(oldestKey);
       releaseBatches(oldest?.batches);
-      if (oldest?.lineBuffer) gl.deleteBuffer(oldest.lineBuffer);
+      deleteBufferSafely(oldest?.lineBuffer);
       layerCaches.delete(oldestKey);
       evictedLayers++;
       retainedBytes = getRetainedGpuBytes();
@@ -513,7 +528,7 @@ export function createGeographicWebGLRenderer(gl) {
           const next = type === "lines" ? buildLineBatch(features, gl) : buildBoundaryLineBatch(features, gl);
           cacheBuildMs = Math.max(0, now() - buildStartedAt);
           releaseBatches(cached?.batches);
-          if (cached?.lineBuffer) gl.deleteBuffer(cached.lineBuffer);
+          deleteBufferSafely(cached?.lineBuffer);
           cached = { type, featuresRef: features, featureRefs: [...features], ...next };
           layerCaches.set(key, cached);
         }
@@ -563,7 +578,7 @@ export function createGeographicWebGLRenderer(gl) {
       if (oldestKey === undefined) break;
       const oldest = layerCaches.get(oldestKey);
       releaseBatches(oldest?.batches);
-      if (oldest?.lineBuffer) gl.deleteBuffer(oldest.lineBuffer);
+      deleteBufferSafely(oldest?.lineBuffer);
       layerCaches.delete(oldestKey);
     }
     if (gl.canvas && (gl.canvas.width !== Math.round(width) || gl.canvas.height !== Math.round(height))) {
@@ -697,12 +712,12 @@ export function createGeographicWebGLRenderer(gl) {
       if (disposed) return;
       disposed = true;
       clearLayerCache();
-      gl.deleteProgram(program);
-      gl.deleteShader(vertex);
-      gl.deleteShader(fragment);
-      gl.deleteProgram(lineProgram);
-      gl.deleteShader(lineVertex);
-      gl.deleteShader(lineFragment);
+      deleteProgramSafely(program);
+      deleteShaderSafely(vertex);
+      deleteShaderSafely(fragment);
+      deleteProgramSafely(lineProgram);
+      deleteShaderSafely(lineVertex);
+      deleteShaderSafely(lineFragment);
     }
   };
 }
