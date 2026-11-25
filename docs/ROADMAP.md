@@ -1,3 +1,14 @@
+## Lot 54 — rétablissement du littoral de référence au premier plan
+
+- [x] Identifier les sources distinctes : continents Natural Earth 1:110m, territoires politiques historiques/modernes, limites politiques Natural Earth ou historiques.
+- [x] Confirmer que les territoires sont pré-généralisés indépendamment du LOD terrestre (tolérance politique 0,0035 contre LOD terrestre 0,04 / 0,02 / 0,008).
+- [x] Recomposer le trait côtier exclusivement depuis les géométries terrestres actives, après les aplats et frontières politiques.
+- [x] Réutiliser le même profil projeté de côte que le fond terrestre pour cette recomposition.
+- [ ] Vérifier localement l'alignement à plusieurs zooms et sur les zones insulaires.
+- [ ] Si le décalage subsiste sous le trait côtier, auditer séparément l'alignement du raster ETOPO et du LOD terrestre.
+
+Note technique : les frontières historiques peuvent légitimement diverger du littoral Natural Earth, car elles proviennent de sources et d'époques différentes. Le trait côtier physique reste désormais la référence visuelle prioritaire ; les frontières intérieures conservent leurs géométries historiques.
+
 ## 25 novembre 2026 — alignement des couches politiques sur la géométrie continentale
 
 ### Référence géométrique unique
