@@ -168,3 +168,15 @@ test("en zoom, un cadre moins large que 2:1 déborde horizontalement et remplit 
 test("en zoom, un cadre plus large que 2:1 déborde verticalement et remplit sa largeur", () => {
   assert.deepEqual(coverMapFrame(1800, 700), { width: 1800, height: 900 });
 });
+
+test("la bitmap overscan compose selon sa densité pixel/degree sans double-échelle",()=>{
+ const view={zoom:2,centerLongitude:0,centerLatitude:0};
+ const params=sceneRenderParams(view,1000,500,1.4);
+ const size={w:params.Ws,h:params.Hs,f:params.f};
+ const result=composeRects(view,params.renderViewport,size,1000,500);
+ assert.equal(result.rects.length,1);
+ close(result.rects[0].w,params.Ws);
+ close(result.rects[0].h,params.Hs);
+ close(result.rects[0].x,0);
+ close(result.rects[0].y,0);
+});
