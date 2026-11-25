@@ -3332,7 +3332,11 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
   }
 
   terrainEnabled = Boolean(staticStats?.terrainEnabled);
-  const territoryOutlineCount = measureLayer("frontières-territoriales", () => drawWithinLandMask(context, landAlignmentClipPath, () => drawTerritoryLayer(context, visibleTerritories, width, height, projection, options.selectedCountry ?? "", "outlines", Number(options.countryOpacity ?? 0.52))));
+  // Les contours des polygones nationaux redessinent aussi leur côte externe,
+  // avec une simplification indépendante du masque terrestre. Les frontières
+  // internes sont déjà rendues depuis politicalBoundaries ; ne pas doubler les
+  // traits côtiers ici, sinon un liseré décalé apparaît le long des continents.
+  const territoryOutlineCount = 0;
   const physicalContext = options.physicalOverlayContext ?? context;
   if (options.physicalOverlayContext) {
     const overlayCanvas = physicalContext.canvas;
