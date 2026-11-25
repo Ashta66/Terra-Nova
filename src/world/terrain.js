@@ -231,8 +231,14 @@ export function applyLandformTint(color, landform, elevation = 0) {
     : 0;
   // Renforcer les signatures de terrain sans créer de frontières artificielles :
   // le mélange reste continu et ne touche ni l'altitude ni la classification.
-  const strength = mountainStrength || ({
-    plateaus: 0.085, valleys: 0.07, plains: 0.045, hills: 0.09
+  const plainStrength = landform === "plains"
+    ? 0.055 + clamp(Number(elevation) / 450, 0, 1) * 0.015
+    : 0;
+  const plateauStrength = landform === "plateaus"
+    ? 0.085 + clamp((Number(elevation) - 700) / 1500, 0, 1) * 0.035
+    : 0;
+  const strength = mountainStrength || plainStrength || plateauStrength || ({
+    valleys: 0.07, hills: 0.09
   }[landform] ?? 0.045);
   const target = landform === "mountains" && elevation >= 2800
     ? MOUNTAIN_ELEVATION_TINT : tint;
