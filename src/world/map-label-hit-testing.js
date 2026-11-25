@@ -41,7 +41,7 @@ export function createMapLabelHitIndex(hits, cellSize = DEFAULT_CELL_SIZE) {
   for (let index = 0; index < hits.length; index++) {
     const hit = hits[index];
     const bounds = readBounds(hit);
-    if (!bounds) return;
+    if (!bounds) continue;
     const minX = Math.floor(bounds.left / size);
     const maxX = Math.floor(bounds.right / size);
     const minY = Math.floor(bounds.top / size);
