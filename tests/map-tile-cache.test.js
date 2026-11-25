@@ -226,7 +226,7 @@ test("une ressource close défaillante reste comptée sans interrompre le nettoy
   const tile = { byteLength: 8, close() { throw new Error("close"); } };
   cache.set("tile", tile);
   assert.equal(cache.delete("tile"), true);
-  assert.equal(cache.stats().closedResources, 1);
+  assert.equal(cache.stats().closeCalls, 1);
   assert.equal(cache.stats().entries, 0);
 });
 test("le pic mémoire reste historique après une réduction des limites", () => {
