@@ -7,7 +7,8 @@ export function geoTileKey(longitude, latitude) {
   return Math.floor((lon + 180) / TILE_DEGREES) + ":" + Math.floor((lat + 90) / TILE_DEGREES);
 }
 export function invalidateGeoTiles(previousRevisions = {}, cells = [], halo = 1) {
-  const revisions = { ...previousRevisions }, changed = new Set();
+  const revisions = { ...previousRevisions };
+  const changed = new Uint8Array(TILE_COLUMNS * TILE_ROWS);
   const margin = Math.max(0, Math.min(2, Math.floor(Number(halo) || 0)));
   for (const cell of cells) {
     const longitude = Number(cell?.longitude);
@@ -20,16 +21,20 @@ export function invalidateGeoTiles(previousRevisions = {}, cells = [], halo = 1)
       if (ty < 0 || ty >= TILE_ROWS) continue;
       for (let dx = -margin; dx <= margin; dx++) {
         const tx = (x + dx + TILE_COLUMNS) % TILE_COLUMNS;
-        changed.add(ty * TILE_COLUMNS + tx);
+        changed[ty * TILE_COLUMNS + tx] = 1;
       }
     }
   }
-  const tileIndices = [...changed].sort((a, b) => a - b);
-  const invalidatedTileKeys = new Array(tileIndices.length);
-  for (let index = 0; index < tileIndices.length; index++) {
-    const tileIndex = tileIndices[index];
+  let changedCount = 0;
+  for (let index = 0; index < changed.length; index++) changedCount += changed[index];
+  const invalidatedTileKeys = new Array(changedCount);
+  let write = 0;
+  // Le parcours linéaire produit directement l'ordre ligne/colonne attendu,
+  // sans Set, copie d'indices ni tri de la zone invalidée.
+  for (let tileIndex = 0; tileIndex < changed.length; tileIndex++) {
+    if (!changed[tileIndex]) continue;
     const key = (tileIndex % TILE_COLUMNS) + ":" + Math.floor(tileIndex / TILE_COLUMNS);
-    invalidatedTileKeys[index] = key;
+    invalidatedTileKeys[write++] = key;
     revisions[key] = (revisions[key] ?? 0) + 1;
   }
   return { revisions, invalidatedTileKeys };
