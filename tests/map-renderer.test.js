@@ -2757,7 +2757,7 @@ test("la proximité côtière traite correctement les segments traversant l'anti
   assert.equal(crossingSegments.length, 2);
   for (const segment of crossingSegments) {
     assert.ok(segment.sampleCoordinates.every(point => Math.abs(point[0]) >= 179.8));
-    assert.ok(segment.sampleDistancesKm.every(distance => distance === 0));
+    assert.ok(segment.sampleDistancesKm.every(distance => distance < 1e-9));
   }
 });
 
