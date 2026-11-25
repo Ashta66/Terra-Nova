@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2873,4 +2873,60 @@ test("la couverture côtière distingue une couverture partielle sans fermer art
   assert.equal(result.coverageRatio, 0.6);
   assert.equal(result.chainCount, 2);
   assert.equal(result.closedChainCount, 0);
+});
+
+
+test("la classification côtière réserve les anneaux fermés et complets à une revue", () => {
+  const report = {
+    ringStats: [{
+      featureIndex: 0, name: "Île test", ringIndex: 0,
+      coverageRatio: 1, closedChainCount: 1, longestChainSegmentCount: 8
+    }],
+    topology: { ringStats: [{
+      featureIndex: 0, ringIndex: 0,
+      duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0
+    }] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report);
+  assert.equal(result.eligibleRingCount, 1);
+  assert.equal(result.rejectedRingCount, 0);
+  assert.equal(result.candidates[0].eligibleForReview, true);
+  assert.deepEqual(result.candidates[0].reasons, []);
+});
+
+test("la classification côtière refuse une couverture partielle et les ambiguïtés", () => {
+  const report = {
+    ringStats: [
+      { featureIndex: 0, ringIndex: 0, coverageRatio: 0.7, closedChainCount: 0, longestChainSegmentCount: 4 },
+      { featureIndex: 1, ringIndex: 0, coverageRatio: 1, closedChainCount: 1, longestChainSegmentCount: 8 }
+    ],
+    topology: { ringStats: [
+      { featureIndex: 0, ringIndex: 0, duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0 },
+      { featureIndex: 1, ringIndex: 0, duplicateSegmentIndices: [3], continuityBreaks: [], branchNodeCount: 1 }
+    ] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report);
+  assert.equal(result.eligibleRingCount, 0);
+  assert.ok(result.candidates[0].reasons.includes("coverage-below-threshold"));
+  assert.ok(result.candidates[1].reasons.includes("duplicate-segments"));
+  assert.ok(result.candidates[1].reasons.includes("branched-nodes"));
+});
+
+test("la classification côtière accepte des seuils explicites et valide le rapport", () => {
+  const report = {
+    ringStats: [{
+      featureIndex: 2, ringIndex: 1,
+      coverageRatio: 0.9, closedChainCount: 1, longestChainSegmentCount: 5
+    }],
+    topology: { ringStats: [{
+      featureIndex: 2, ringIndex: 1,
+      duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0
+    }] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report, {
+    minCoverageRatio: 0.85, minChainSegments: 5
+  });
+  assert.equal(result.thresholds.minCoverageRatio, 0.85);
+  assert.equal(result.candidates[0].eligibleForReview, true);
+  assert.throws(() => classifyCoastlineReconstructionCandidates(null), /rapport de couverture/);
 });
