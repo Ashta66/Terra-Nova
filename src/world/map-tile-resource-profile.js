@@ -9,11 +9,13 @@ const DEFAULT_PROFILE = Object.freeze({
 export function getMapTileResourceProfile(capabilities = {}) {
   const memory = Number(capabilities.deviceMemory);
   const cores = Number(capabilities.hardwareConcurrency);
-  if (!Number.isFinite(memory) || memory <= 0) {
+  const memoryUnavailable = capabilities.deviceMemory === undefined || capabilities.deviceMemory === null || Number.isNaN(memory);
+  if (memoryUnavailable) {
     if (Number.isFinite(cores) && cores <= 2) return { maxBytes: 20 * 1024 * 1024, maxEntries: 64, workerConcurrency: 1, maxPlannedTiles: 20, tier: "constrained" };
     if (Number.isFinite(cores) && cores <= 4) return { maxBytes: 36 * 1024 * 1024, maxEntries: 112, workerConcurrency: 1, maxPlannedTiles: 32, tier: "balanced" };
     return { ...DEFAULT_PROFILE, tier: "default" };
   }
+  if (!Number.isFinite(memory) || memory <= 0) return { ...DEFAULT_PROFILE, tier: "default" };
   if (memory <= 2 || (Number.isFinite(cores) && cores <= 2)) {
     return { maxBytes: 20 * 1024 * 1024, maxEntries: 64, workerConcurrency: 1, maxPlannedTiles: 20, tier: "constrained" };
   }
