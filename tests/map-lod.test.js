@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, loadAlignedRegionalMapData, selectLandDetailLevel, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, REGIONAL_LAND_DATA_PATH, REGIONAL_TERRITORIES_DATA_PATH } from "../src/world/map-lod.js";
 import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
@@ -241,4 +241,25 @@ test("le niveau mondial reste sélectionné sous le seuil même avec deux couche
   const selected = selectAlignedLandDetailLevel(5.99, world, regional, regionalTerritories, 6);
   assert.equal(selected.level, "world-110m");
   assert.equal(selected.features, world);
+});
+
+
+test("le niveau régional exige simultanément les terres et les pays 1:10m", async () => {
+  const requested = [];
+  const loaded = await loadAlignedRegionalMapData(async url => {
+    requested.push(url);
+    return { ok: true, json: async () => regional };
+  });
+  assert.deepEqual(requested.sort(), [REGIONAL_LAND_DATA_PATH, REGIONAL_TERRITORIES_DATA_PATH].sort());
+  assert.equal(loaded.level, "regional-10m");
+  assert.equal(loaded.land, regional);
+  assert.equal(loaded.territories, regional);
+});
+
+test("le chargement régional apparié refuse d'activer une seule des deux couches", async () => {
+  const loaded = await loadAlignedRegionalMapData(async url => ({
+    ok: true,
+    json: async () => url === REGIONAL_LAND_DATA_PATH ? regional : null
+  }));
+  assert.equal(loaded, null);
 });
