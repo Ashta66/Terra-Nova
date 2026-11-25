@@ -170,6 +170,14 @@ test("le remplissage terrestre WebGL est composé sous le masque côtier canoniq
     }
   };
   const previousDisableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+  const previousPath2D = globalThis.Path2D;
+  class MaskPath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = MaskPath2D;
   globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = false;
   try {
     renderWorldMap(canvas, land, {
@@ -193,6 +201,8 @@ test("le remplissage terrestre WebGL est composé sous le masque côtier canoniq
   } finally {
     if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
     else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
   }
 });
 
