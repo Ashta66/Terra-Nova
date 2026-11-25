@@ -2016,6 +2016,26 @@ mapCanvas.addEventListener("click", (event) => {
 mapCanvas.addEventListener("pointerup", stopMapDrag);
 mapCanvas.addEventListener("pointercancel", stopMapDrag);
 mapCanvas.addEventListener("lostpointercapture", stopMapDrag);
+window.addEventListener("pagehide", event => {
+  if (event.persisted) return;
+  if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+  mapTileWorkerReadyTimer = null;
+  for (const timer of mapTileWorkerRequestTimers.values()) clearTimeout(timer);
+  mapTileWorkerRequestTimers.clear();
+  mapTileWorkerPending.clear();
+  mapTileWorkerQueue = [];
+  if (mapTileWorker) {
+    try { mapTileWorker.terminate(); } catch {}
+    mapTileWorker = null;
+  }
+  mapTileWorkerReady = false;
+  mapTileWorkerLayers = null;
+  if (mapTileFadeFrame !== null) cancelAnimationFrame(mapTileFadeFrame);
+  mapTileFadeFrame = null;
+  mapTileFadeStarts.clear();
+  mapTileCache.dispose();
+}, { once: true });
+
 window.addEventListener("blur", () => {
   if (mapDrag) stopMapDrag({ pointerId: activeMapPointerId, type: "blur" });
   hideMapTooltip();
