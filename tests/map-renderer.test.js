@@ -1699,15 +1699,18 @@ test("les aplats territoriaux sont réellement découpés par le masque terrestr
       territories
     });
     assert.equal(result.territoryCount, 1, "le territoire de test doit effectivement être rendu");
-    const territoryFillIndex = calls.findLastIndex(call =>
+    const landFillIndex = calls.findIndex(call =>
       call[0] === "fill" && call[1] instanceof TerritoryPath2D && call[2] === "evenodd"
     );
-    const maskClipIndex = territoryFillIndex < 0 ? -1 : calls.findLastIndex((call, index) =>
-      index < territoryFillIndex && call[0] === "clip" && call[1] instanceof TerritoryPath2D
+    const maskClipIndex = landFillIndex < 0 ? -1 : calls.findIndex((call, index) =>
+      index > landFillIndex && call[0] === "clip" && call[1] instanceof TerritoryPath2D
     );
-    assert.ok(territoryFillIndex >= 0, "l'aplat territorial doit être rendu avec sa géométrie");
-    assert.ok(maskClipIndex >= 0 && maskClipIndex < territoryFillIndex,
-      "le masque continental doit être actif avant le remplissage territorial");
+    const territoryFillIndex = maskClipIndex < 0 ? -1 : calls.findIndex((call, index) =>
+      index > maskClipIndex && call[0] === "fill" && call[1] instanceof TerritoryPath2D && call[2] === "evenodd"
+    );
+    assert.ok(landFillIndex >= 0, "le fond terrestre doit être rendu avant les territoires");
+    assert.ok(maskClipIndex > landFillIndex && territoryFillIndex > maskClipIndex,
+      "le masque continental doit être activé entre le fond terrestre et l'aplat territorial");
   } finally {
     if (previousPath2D === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previousPath2D;
