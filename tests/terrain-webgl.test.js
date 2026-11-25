@@ -331,8 +331,8 @@ test("une erreur du magasin pendant la construction est diagnostiquée sans prop
   atlas.dispose();
 });
 test("une file atlas promeut une demande existante sans la dupliquer", () => {
-  const { gl, tile } = createAtlasHarness();
-  const atlas = createTerrainWebGLTileAtlas(gl, { tileSize: 8 }, { maxPending: 2 });
+  const { gl, store, tile } = createAtlasHarness();
+  const atlas = createTerrainWebGLTileAtlas(gl, store, { maxPending: 2 });
   const originalSet = globalThis.setTimeout;
   const callbacks = [];
   globalThis.setTimeout = callback => { callbacks.push(callback); return callbacks.length; };
