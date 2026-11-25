@@ -53,7 +53,9 @@ export function getCanvasBackingSize(width, height, pixelRatio = 1, {
     || cssWidth <= 0 || cssHeight <= 0 || requestedRatio <= 0 || ratioLimit <= 0 || pixelLimit < 1) {
     return { width: 1, height: 1, pixelRatio: 1, valid: false };
   }
-  const ratio = Math.min(requestedRatio, ratioLimit, Math.sqrt(pixelLimit / (cssWidth * cssHeight)));
+  const cssArea = cssWidth * cssHeight;
+  if (!Number.isFinite(cssArea) || cssArea <= 0) return { width: 1, height: 1, pixelRatio: 1, valid: false };
+  const ratio = Math.min(requestedRatio, ratioLimit, Math.sqrt(pixelLimit / cssArea));
   const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
   return {
     width: Math.max(1, Math.floor(cssWidth * safeRatio)),
