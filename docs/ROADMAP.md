@@ -1,3 +1,26 @@
+## 25 novembre 2026 — lot 49 : simplification géométrique à allocations réduites
+
+### Ramer-Douglas-Peucker
+- [x] Remplacer la pile de paires de tableaux par un buffer typé contigu.
+- [x] Éliminer les allocations de tableaux lors de chaque subdivision récursive simulée.
+- [x] Conserver le parcours en profondeur et l'ordre de traitement des segments.
+- [x] Borner la capacité de la pile à partir du nombre de points du chemin.
+- [x] Conserver le seuil de distance au carré et les calculs de distance existants.
+- [x] Préserver les extrémités des lignes.
+- [x] Préserver les points d'ancrage partagés entre frontières.
+- [x] Conserver le comportement des chemins trop courts et des tolérances nulles.
+- [x] Ne modifier ni les seuils, ni les coordonnées, ni les règles historiques.
+
+### Tests
+- [x] Ajouter un test de simplification d'une ligne de 12 000 sommets.
+- [x] Vérifier la conservation des extrémités.
+- [x] Vérifier la réduction effective du nombre de sommets.
+- [x] Vérifier l'immuabilité des coordonnées sources.
+- [x] Vérifier la conservation des ancrages partagés.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les allocations temporaires du parcours Ramer-Douglas-Peucker. La sélection des sommets et les seuils de simplification restent identiques.
+
 ## 25 novembre 2026 — lot 48 : construction des rubans géographiques
 
 ### Déduplication des jonctions
