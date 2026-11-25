@@ -47,23 +47,39 @@ export function measureSharedCoastlineEdges(landCollection, territoryCollection,
     }
   }
   let total = 0, matched = 0;
-  for (const feature of territoryCollection.features) {
+  const featureStats = territoryCollection.features.map((feature, featureIndex) => {
+    let featureTotal = 0, featureMatched = 0;
     for (const ring of exteriorRings(feature?.geometry)) {
       if (!Array.isArray(ring)) continue;
       for (let index = 0; index < ring.length - 1; index++) {
         const key = edgeKey(ring[index], ring[index + 1], digits);
         if (!key) continue;
+        featureTotal++;
         total++;
-        if (landEdges.has(key)) matched++;
+        if (landEdges.has(key)) {
+          featureMatched++;
+          matched++;
+        }
       }
     }
-  }
+    const properties = feature?.properties ?? {};
+    const name = properties.NAME ?? properties.ADMIN ?? properties.name ?? properties.NAME_EN ?? null;
+    return {
+      featureIndex,
+      name: typeof name === "string" ? name : null,
+      segmentCount: featureTotal,
+      matchedSegmentCount: featureMatched,
+      unmatchedSegmentCount: featureTotal - featureMatched,
+      exactMatchRatio: featureTotal ? featureMatched / featureTotal : 1
+    };
+  });
   return {
     precision: digits,
     landSegmentCount: landEdges.size,
     territorySegmentCount: total,
     matchedSegmentCount: matched,
     unmatchedSegmentCount: total - matched,
-    exactMatchRatio: total ? matched / total : 1
+    exactMatchRatio: total ? matched / total : 1,
+    featureStats
   };
 }
