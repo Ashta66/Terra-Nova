@@ -705,34 +705,10 @@ export function expandTerrainTileRect(rect,width,height,overlap=0.5){
 
 export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,atlas,seamOverlap=0.5){
  if(!Array.isArray(items)||!entries||!atlas||width<=0||height<=0)return new Float32Array();
- // Compter d'abord les triangles valides pour allouer le buffer final une seule fois.
- // La table entries est indexée par coordonnées de tuile (sans revision) par drawLevel.
+ // Résoudre chaque entrée et chaque rectangle une seule fois : le calcul de
+ // recouvrement est partagé entre le comptage et l'écriture du buffer final.
+ const prepared=[];
  let vertexCount=0;
- for(const {tile,rects} of items){
-  if(!entries.has(`${tile.level}/${tile.x}/${tile.y}`))continue;
-  for(const r of rects??[]){
-   if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
-   if(expandTerrainTileRect(r,width,height,seamOverlap))vertexCount+=6;
-  }
- }
- if(!vertexCount)return new Float32Array();
- const out=new Float32Array(vertexCount*12);let offset=0;
- const push=(x,y,u,v,e,t)=>{
-  out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
-  // Les UV pointent au centre des texels, pas à leur frontière.
-  // Le bord géographique tombe à mi-distance des deux échantillons voisins.
-  // Le demi-pixel supplémentaire alignait chaque tuile sur son premier échantillon
-  // intérieur et créait une discontinuité aux frontières entre tuiles.
-  out[offset++]=(e.slotX*atlas.cellSize+1.0+u*t.width)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+1.0+v*t.height)/atlas.atlasHeight;
-  out[offset++]=1/atlas.atlasWidth;out[offset++]=1/atlas.atlasHeight;
-  out[offset++]=1/(t.width+2);out[offset++]=1/(t.height+2);
-  // Les limites incluent le halo, exprimées elles aussi en centres de texels.
-  out[offset++]=(e.slotX*atlas.cellSize+0.5)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+0.5)/atlas.atlasHeight;
-  out[offset++]=(e.slotX*atlas.cellSize+t.width+1.5)/atlas.atlasWidth;
-  out[offset++]=(e.slotY*atlas.cellSize+t.height+1.5)/atlas.atlasHeight;
- };
  for(const {tile,rects} of items){
   const entry=entries.get(`${tile.level}/${tile.x}/${tile.y}`);
   if(!entry)continue;
@@ -740,11 +716,28 @@ export function buildTerrainTileAtlasBatchVertices(items,entries,width,height,at
    if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<=0||r.height<=0)continue;
    const expanded=expandTerrainTileRect(r,width,height,seamOverlap);
    if(!expanded)continue;
-   const {left:l,top:t,right,bottom,tx0:ax,tx1:bx,ty0:ay,ty1:by}=expanded;
-   const u0=r.u0+(r.u1-r.u0)*ax,u1=r.u0+(r.u1-r.u0)*bx,v0=r.v0+(r.v1-r.v0)*ay,v1=r.v0+(r.v1-r.v0)*by;
-   push(l,t,u0,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,t,u1,v0,entry,tile);
-   push(right,t,u1,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,bottom,u1,v1,entry,tile);
+   prepared.push({tile,entry,rect:r,expanded});
+   vertexCount+=6;
   }
+ }
+ if(!vertexCount)return new Float32Array();
+ const out=new Float32Array(vertexCount*12);let offset=0;
+ const push=(x,y,u,v,e,t)=>{
+  out[offset++]=x/width*2-1;out[offset++]=1-y/height*2;
+  out[offset++]=(e.slotX*atlas.cellSize+1.0+u*t.width)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+1.0+v*t.height)/atlas.atlasHeight;
+  out[offset++]=1/atlas.atlasWidth;out[offset++]=1/atlas.atlasHeight;
+  out[offset++]=1/(t.width+2);out[offset++]=1/(t.height+2);
+  out[offset++]=(e.slotX*atlas.cellSize+0.5)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+0.5)/atlas.atlasHeight;
+  out[offset++]=(e.slotX*atlas.cellSize+t.width+1.5)/atlas.atlasWidth;
+  out[offset++]=(e.slotY*atlas.cellSize+t.height+1.5)/atlas.atlasHeight;
+ };
+ for(const {tile,entry,rect:r,expanded} of prepared){
+  const {left:l,top:t,right,bottom,tx0:ax,tx1:bx,ty0:ay,ty1:by}=expanded;
+  const u0=r.u0+(r.u1-r.u0)*ax,u1=r.u0+(r.u1-r.u0)*bx,v0=r.v0+(r.v1-r.v0)*ay,v1=r.v0+(r.v1-r.v0)*by;
+  push(l,t,u0,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,t,u1,v0,entry,tile);
+  push(right,t,u1,v0,entry,tile);push(l,bottom,u0,v1,entry,tile);push(right,bottom,u1,v1,entry,tile);
  }
  return offset===out.length?out:out.subarray(0,offset);
 }
