@@ -67,7 +67,10 @@ test("clear ferme toutes les ressources et réinitialise les compteurs", () => {
   cache.clear();
   assert.equal(a.closed, 1);
   assert.equal(b.closed, 1);
-  assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, maxBytes: 64 * 1024 * 1024, maxEntries: 192, hits: 0, misses: 0 });
+  assert.equal(cache.stats().entries, 0);
+  assert.equal(cache.stats().bytes, 0);
+  assert.equal(cache.stats().hits, 0);
+  assert.equal(cache.stats().misses, 0);
 });
 
 test("dispose est idempotent et ferme les ressources restantes", () => {
@@ -151,4 +154,86 @@ test("la suppression explicite et clear exposent des causes distinctes", () => {
   cache.delete("a");
   cache.clear();
   assert.deepEqual(events, [["a", "delete"], ["b", "clear"]]);
+});
+
+test("le cache expose son pic mémoire et ses évictions par cause", () => {
+  const cache = createMapTileCache({ maxEntries: 1, maxBytes: 100 });
+  cache.set("a", closable(10));
+  cache.set("b", closable(20));
+  const stats = cache.stats();
+  assert.equal(stats.peakBytes, 30);
+  assert.equal(stats.evictions, 1);
+  assert.equal(stats.evictionReasons.capacity, 1);
+  assert.equal(stats.bytes, 20);
+});
+test("les limites peuvent être réduites à chaud et évacuent les plus anciennes entrées", () => {
+  const cache = createMapTileCache({ maxEntries: 4, maxBytes: 100 });
+  const a = closable(10), b = closable(20), c = closable(30);
+  cache.set("a", a); cache.set("b", b); cache.set("c", c);
+  assert.deepEqual(cache.setLimits({ maxEntries: 2, maxBytes: 45 }), { maxBytes: 45, maxEntries: 2 });
+  assert.equal(cache.has("a"), false);
+  assert.equal(a.closed, 1);
+  assert.equal(cache.stats().bytes, 50 > 45 ? 30 : 45);
+  assert.equal(cache.stats().entries, 1);
+});
+test("les limites invalides ne corrompent pas le budget actif", () => {
+  const cache = createMapTileCache({ maxEntries: 3, maxBytes: 100 });
+  assert.deepEqual(cache.setLimits({ maxEntries: 0, maxBytes: NaN }), { maxBytes: 100, maxEntries: 3 });
+});
+test("les insertions après dispose sont rejetées et immédiatement fermées", () => {
+  const cache = createMapTileCache();
+  const tile = closable(8);
+  cache.dispose();
+  assert.equal(cache.set("late", tile), false);
+  assert.equal(tile.closed, 1);
+  assert.equal(cache.has("late"), false);
+  assert.equal(cache.stats().disposed, true);
+});
+test("dispose ferme une seule fois et reste définitif", () => {
+  const cache = createMapTileCache();
+  const tile = closable(8);
+  cache.set("tile", tile);
+  cache.dispose(); cache.dispose();
+  assert.equal(tile.closed, 1);
+  assert.equal(cache.stats().disposed, true);
+});
+test("les rejets et fermetures sont comptabilisés", () => {
+  const cache = createMapTileCache({ maxBytes: 10 });
+  const tile = closable(11);
+  assert.equal(cache.set("large", tile), false);
+  assert.equal(cache.stats().rejected, 1);
+  assert.equal(cache.stats().closedResources, 1);
+});
+test("le remplacement renseigne la cause et conserve une seule entrée", () => {
+  const cache = createMapTileCache();
+  cache.set("key", closable(10));
+  cache.set("key", closable(20));
+  assert.equal(cache.stats().evictionReasons.replace, 1);
+  assert.equal(cache.stats().entries, 1);
+  assert.equal(cache.stats().bytes, 20);
+});
+test("le vidage conserve le cumul des évictions mais réinitialise les accès", () => {
+  const cache = createMapTileCache();
+  cache.set("key", closable(10));
+  cache.get("key"); cache.get("missing");
+  cache.clear();
+  assert.equal(cache.stats().evictionReasons.clear, 1);
+  assert.equal(cache.stats().hits, 0);
+  assert.equal(cache.stats().misses, 0);
+});
+test("une ressource close défaillante reste comptée sans interrompre le nettoyage", () => {
+  const cache = createMapTileCache();
+  const tile = { byteLength: 8, close() { throw new Error("close"); } };
+  cache.set("tile", tile);
+  assert.equal(cache.delete("tile"), true);
+  assert.equal(cache.stats().closedResources, 1);
+  assert.equal(cache.stats().entries, 0);
+});
+test("le pic mémoire reste historique après une réduction des limites", () => {
+  const cache = createMapTileCache({ maxBytes: 100 });
+  cache.set("a", closable(40));
+  cache.set("b", closable(40));
+  cache.setLimits({ maxBytes: 40 });
+  assert.equal(cache.stats().peakBytes, 80);
+  assert.equal(cache.stats().bytes, 40);
 });
