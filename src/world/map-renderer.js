@@ -3282,7 +3282,10 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       riverCount, elevationPointCount, webglStats: landWebGLStats };
   };
 
-  if (canCacheStatic) {
+  // Les captures de diagnostic exigent un passage réel dans chaque étape ;
+  // le cache statique contournerait drawStaticLayers et laisserait les captures vides.
+  const captureLayerStages = typeof window !== "undefined" && window.__TERRA_CAPTURE_LAYER_STAGES === true;
+  if (canCacheStatic && !captureLayerStages) {
     const cache = getStaticLayerCache(canvas);
     let record = cache.get(cacheSignature);
     if (record) {
