@@ -30,6 +30,7 @@ import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
 import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.js";
 import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
 import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
+import { createWebGLContextLifecycle, getCanvasBackingSize } from "./world/webgl-context-lifecycle.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
 import { loadPoliticalBoundaries } from "./world/historical-boundaries.js";
 import { getMapQualityProfile } from "./world/map-quality-profile.js";
@@ -77,6 +78,8 @@ let terrainPreloadCoordinator = null;
 let lastTerrainStorePreloadKey = null;
 let geographicWebGLRenderer = null;
 let geographicWebGLRendererUnavailable = false;
+let geographicWebGLSurface = null;
+let geographicWebGLLifecycle = null;
 let regionalLandFeatures = null;
 let regionalLandLod = null;
 let regionalLandLoadPromise = null;
@@ -274,7 +277,23 @@ function failInitialLoading(error){
 function getGeographicWebGLRenderer() {
   if (geographicWebGLRenderer || geographicWebGLRendererUnavailable) return geographicWebGLRenderer;
   try {
-    const surface = document.createElement("canvas");
+    const surface = geographicWebGLSurface ?? document.createElement("canvas");
+    geographicWebGLSurface = surface;
+    if (!geographicWebGLLifecycle) {
+      geographicWebGLLifecycle = createWebGLContextLifecycle(surface, {
+        onLost: () => {
+          geographicWebGLRenderer = null;
+          geographicWebGLRendererUnavailable = true;
+          requestCompose();
+        },
+        onRestored: () => {
+          geographicWebGLRenderer = null;
+          geographicWebGLRendererUnavailable = false;
+          renderMap();
+        }
+      });
+    }
+    if (!geographicWebGLLifecycle.canRender()) return null;
     const gl = surface.getContext("webgl", {
       alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
     });
@@ -1856,13 +1875,12 @@ function composeScene() {
   const zoomedFrame = mapViewport.zoom > 1.001;
   mapCanvas.style.maxWidth = zoomedFrame ? "none" : "100%";
   mapCanvas.style.maxHeight = zoomedFrame ? "none" : "100%";
-  const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
-  const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
-  if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
-  if (mapCanvas.height !== backingHeight) mapCanvas.height = backingHeight;
+  const backing = getCanvasBackingSize(width, height, MAP_PIXEL_RATIO, { maxPixelRatio: 2, maxPixels: 16_777_216 });
+  if (mapCanvas.width !== backing.width) mapCanvas.width = backing.width;
+  if (mapCanvas.height !== backing.height) mapCanvas.height = backing.height;
   const context = mapCanvas.getContext("2d");
   if (!context) return;
-  context.setTransform(MAP_PIXEL_RATIO, 0, 0, MAP_PIXEL_RATIO, 0, 0);
+  context.setTransform(backing.pixelRatio, 0, 0, backing.pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
   context.fillStyle = sceneOcean;
   context.fillRect(0, 0, width, height);
@@ -2039,6 +2057,10 @@ window.addEventListener("pagehide", event => {
   mapTileFadeFrame = null;
   mapTileFadeStarts.clear();
   mapTileCache.dispose();
+  geographicWebGLLifecycle?.dispose();
+  geographicWebGLLifecycle = null;
+  geographicWebGLRenderer?.dispose?.();
+  geographicWebGLRenderer = null;
 }, { once: true });
 
 window.addEventListener("blur", () => {
