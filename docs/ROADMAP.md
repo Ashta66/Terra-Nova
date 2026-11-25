@@ -1755,3 +1755,16 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et contrôle visuel des plaines et plateaux à plusieurs niveaux de zoom.
 
 **Portée :** modulation colorimétrique légère des classes existantes, sans ajout de détails cartographiques fictifs.
+
+
+## Lot artistique 15 — matière côtière adaptative et lecture des îles (25 novembre 2026)
+
+- [x] Auditer le filtrage des petites composantes insulaires et la simplification côtière existants.
+- [x] Conserver les seuils géographiques et la géométrie des îles : aucune masse terrestre ajoutée ou supprimée par ce chantier.
+- [x] Adapter légèrement l'épaisseur, l'opacité et le halo du contact terre-mer au niveau de zoom.
+- [x] Préserver le profil actuel à l'échelle générale et renforcer progressivement la matière en vue rapprochée.
+- [x] Borner les valeurs pour éviter un liseré trop lumineux ou un effet de double contour.
+- [x] Ajouter des tests de progression, de bornes et de stabilité aux différents zooms.
+- [ ] Validation locale : `npm test`, puis contrôle visuel des archipels et côtes à petite et grande échelle.
+
+**Portée :** finition du rendu du littoral existant uniquement ; aucune modification des données géographiques, des seuils de filtrage ou des règles de simulation.
