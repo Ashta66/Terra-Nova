@@ -2057,3 +2057,65 @@ body[data-cartographic-era="future"] .ai-orb {
 @media(prefers-reduced-motion:reduce) {
   .era-milestones button { transition:none!important; }
 }
+
+
+/* Lot artistique 7 — langage cartographique propre à chaque époque.
+   Calques strictement décoratifs, sans interception des gestes ni modification du canvas. */
+.map-cartographic-overlay::before {
+  background-repeat:no-repeat;
+  box-shadow:inset 0 0 24px color-mix(in srgb,var(--theme-accent) 8%,transparent);
+}
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle at 50% 50%,transparent 0 34px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 35px 35.7px,transparent 36px 68px,color-mix(in srgb,var(--theme-accent) 15%,transparent) 69px 69.7px,transparent 70px),
+    repeating-conic-gradient(from 0deg at 50% 50%,transparent 0deg 14deg,color-mix(in srgb,var(--theme-accent) 14%,transparent) 14.3deg 14.8deg,transparent 15deg 30deg);
+  background-size:190px 190px,190px 190px;
+  background-position:center;
+  opacity:.26;
+}
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before {
+  background-image:
+    linear-gradient(90deg,transparent 0 12px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 12.5px 13px,transparent 13.5px),
+    linear-gradient(0deg,transparent 0 12px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 12.5px 13px,transparent 13.5px);
+  background-size:100% 100%;
+  box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--theme-accent) 8%,transparent),inset 0 0 24px #0005;
+  opacity:.22;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle,color-mix(in srgb,var(--theme-text) 20%,transparent) .65px,transparent .9px),
+    linear-gradient(135deg,transparent 0 48%,#0000000a 49% 51%,transparent 52%);
+  background-size:5px 5px,100% 100%;
+  opacity:.2;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  background-image:
+    repeating-radial-gradient(ellipse at 28% 34%,transparent 0 19px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 20px 20.7px,transparent 21px 34px),
+    linear-gradient(90deg,transparent 49.8%,color-mix(in srgb,var(--theme-accent) 12%,transparent) 50%,transparent 50.2%);
+  background-size:100% 100%;
+  opacity:.22;
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay::before {
+  background-image:
+    linear-gradient(90deg,color-mix(in srgb,var(--theme-accent) 12%,transparent) 1px,transparent 1px),
+    linear-gradient(0deg,color-mix(in srgb,var(--theme-accent) 12%,transparent) 1px,transparent 1px);
+  background-size:48px 48px;
+  box-shadow:inset 0 0 36px color-mix(in srgb,var(--theme-accent) 10%,transparent);
+  opacity:.18;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle at 50% 50%,transparent 0 24px,color-mix(in srgb,var(--theme-accent) 30%,transparent) 24.5px 25px,transparent 25.5px 52px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 52.5px 53px,transparent 53.5px),
+    linear-gradient(90deg,transparent calc(50% - .5px),color-mix(in srgb,var(--theme-accent) 22%,transparent) 50%,transparent calc(50% + .5px)),
+    linear-gradient(0deg,transparent calc(50% - .5px),color-mix(in srgb,var(--theme-accent) 22%,transparent) 50%,transparent calc(50% + .5px));
+  background-size:100% 100%;
+  opacity:.2;
+}
+@media(max-width:760px) {
+  body[data-cartographic-era="exploration"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="revolution"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="modern"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="present"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="future"] .map-cartographic-overlay::before { opacity:.12; }
+}
