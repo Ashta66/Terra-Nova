@@ -202,10 +202,18 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
       }
     }
     const properties = feature?.properties ?? {};
-    const name = properties.NAME ?? properties.ADMIN ?? properties.name ?? properties.NAME_EN ?? null;
+    const name = properties.NAME ?? properties.ADMIN ?? properties.name ?? properties.NAME_EN
+      ?? properties.NAME_0 ?? properties.SOVEREIGNT ?? properties.NAME_LONG ?? properties.BRK_NAME
+      ?? properties.GEOUNIT ?? properties.GU_A3 ?? properties.SU_A3 ?? null;
+    const propertySummary = Object.fromEntries(Object.entries(properties)
+      .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+      .slice(0, 24));
     return {
       featureIndex,
       name: typeof name === "string" ? name : null,
+      propertyKeys: Object.keys(properties).sort(),
+      propertySummary,
+      geometryType: feature?.geometry?.type ?? null,
       segmentCount,
       matchedSegmentCount: matchedCount,
       unmatchedSegmentCount: segmentCount - matchedCount,
@@ -704,6 +712,9 @@ export function auditLoadedCoastlineAlignment(landCollection, territoryCollectio
       featureStats: proximity.featureStats.map(feature => ({
         featureIndex: feature.featureIndex,
         name: feature.name,
+        propertyKeys: feature.propertyKeys,
+        propertySummary: feature.propertySummary,
+        geometryType: feature.geometryType,
         coastalSegmentCount: feature.coastalSegmentCount,
         matchedSegmentCount: feature.coastalMatchedSegmentCount,
         unmatchedSegmentCount: feature.coastalUnmatchedSegmentCount,
