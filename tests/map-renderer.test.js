@@ -5,7 +5,7 @@ import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
 import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
 import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
-import { measureSharedCoastlineEdges } from "../src/world/coastline-alignment.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -2691,4 +2691,39 @@ test("l'audit côtier compare les arêtes extérieures sans compter les trous", 
 
 test("l'audit côtier refuse les collections GeoJSON invalides", () => {
   assert.throws(() => measureSharedCoastlineEdges(null, { type: "FeatureCollection", features: [] }), /FeatureCollections/);
+});
+
+
+test("la proximité côtière reconnaît un segment découpé différemment", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[1,0],[2,0],[2,1],[0,1],[0,0]]
+    ] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays segmenté" },
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[2,0],[2,1],[0,1],[0,0]]
+    ] }
+  }] };
+  const audit = measureCoastlineProximity(land, territories, 0.1);
+  assert.equal(audit.territorySegmentCount, 4);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.proximityRatio, 1);
+  assert.equal(audit.featureStats[0].name, "Pays segmenté");
+});
+
+test("la proximité côtière détecte un écart supérieur à la tolérance", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1],[0,1],[0,0.02]]] }
+  }] };
+  const audit = measureCoastlineProximity(land, territories, 0.1);
+  assert.ok(audit.unmatchedSegmentCount > 0);
+  assert.ok(audit.featureStats[0].maxSampleDistanceKm > 1);
 });
