@@ -1613,3 +1613,34 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale du joueur : `npm test`.
 
 **Portée :** ajustement de la restitution colorimétrique des formes terrestres existantes. Aucune altitude, classification, donnée ETOPO, profondeur océanique, frontière ou règle de simulation n'est modifiée. Aucun gain de performance n'est revendiqué.
+
+
+## Lot artistique 9 — bathymétrie stratifiée et matière des grands fonds (25 novembre 2026)
+
+- [x] Auditer la palette ETOPO et vérifier la présence du dégradé océanique décoratif déjà existant.
+- [x] Identifier les domaines visuels à mieux séparer : plateau continental, talus, bassin profond, plaine abyssale et fosses.
+- [x] Ajouter des points de contrôle bathymétriques intermédiaires sans modifier les valeurs physiques.
+- [x] Renforcer la dominante froide des grands fonds sans recourir à un aplat monochrome.
+- [x] Donner au plateau continental une teinte plus lisible sans le confondre avec la terre.
+- [x] Préserver une progression continue entre les seuils de profondeur.
+- [x] Garder une palette sombre, adaptée à la carte stratégique et aux thèmes historiques.
+- [x] Préserver l'indépendance de la bathymétrie vis-à-vis de la classe de relief terrestre.
+- [x] Préserver l'indépendance de la bathymétrie vis-à-vis de l'ombrage directionnel terrestre.
+- [x] Ne modifier aucune profondeur ETOPO, coordonnée, donnée côtière ou classification physique.
+- [x] Ne pas ajouter de fausses dorsales, fosses ou courbes bathymétriques géographiques.
+- [x] Conserver le dégradé océanique décoratif et ses profils par époque.
+- [x] Conserver le liseré côtier existant sans le confondre avec les frontières politiques.
+- [x] Vérifier la continuité colorimétrique entre les profondeurs successives.
+- [x] Vérifier que les domaines bathymétriques restent différenciables.
+- [x] Vérifier que le contraste global entre grands fonds et plateau reste mesuré.
+- [x] Vérifier la dominante froide des profondeurs et des plateaux.
+- [x] Préserver les couleurs sources et l'absence de mutation des tableaux.
+- [x] Conserver les chemins raster tuilé et Canvas de repli.
+- [x] Ajouter des tests sur la progression de luminance.
+- [x] Ajouter des tests sur les transitions entre seuils.
+- [x] Ajouter des tests sur la différenciation des profondeurs.
+- [x] Ajouter des tests de non-régression sur l'indépendance du hillshade.
+- [x] Ajouter des tests de non-régression sur le contraste stratégique maximal.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des océans à zoom mondial, régional et rapproché.
+
+**Portée :** palette de restitution uniquement. Les profondeurs, données ETOPO, géométries côtières, relief terrestre, règles de simulation et résultats géographiques restent inchangés.
