@@ -38,7 +38,7 @@
 - [x] Tester les seuils LOD exacts avec une configuration non triée.
 - [x] Tester les zooms invalides sans génération parasite.
 - [x] Tester le bornage et la réutilisation du cache de profils viewport.
-- [ ] CI GitHub Actions : à confirmer.
+- [x] CI GitHub Actions : 749 tests réussis, 0 échec (run 45539001930).
 - [ ] Validation locale : `npm test` à confirmer.
 
 Ce lot réduit les calculs de configuration répétés par sommet et par anneau, ainsi que les recherches de niveaux LOD. Les coordonnées projetées, la continuité des tracés, la topologie, les règles historiques et les profils de simplification restent inchangés.
