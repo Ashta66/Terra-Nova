@@ -1781,3 +1781,16 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et inspection des littoraux à plusieurs niveaux de zoom.
 
 **Portée :** nuance de transition raster fondée sur l'adjacence réelle à l'océan dans les échantillons ETOPO ; aucune plage, île ou géométrie fictive n'est créée.
+
+## Lot artistique 17 — matière progressive des piémonts (25 novembre 2026)
+
+- [x] Calculer une signature de piémont depuis la pente locale réellement échantillonnée dans ETOPO.
+- [x] Faire apparaître la nuance sur les pentes intermédiaires et la faire disparaître progressivement vers les plaines et les hautes montagnes.
+- [x] Garder une réponse douce sur les pentes abruptes afin de préserver la lecture des escarpements.
+- [x] Appliquer la même matière aux rendus raster tuilé et de repli, sans modifier les géométries ni l'altitude.
+- [x] Appliquer également la transition littorale dans le chemin tuilé pour conserver une restitution cohérente entre les deux moteurs raster.
+- [x] Isoler les modes de diagnostic et le hillshade seul de ces nuances colorimétriques.
+- [x] Ajouter des tests de progression, de limites, d'immuabilité et de préservation de la bathymétrie.
+- [ ] Validation locale : `npm test` et comparaison visuelle des piémonts, plaines et chaînes montagneuses à plusieurs zooms.
+
+**Portée :** nuance colorimétrique dérivée de la pente et de l'altitude ETOPO existantes. Aucune nouvelle forme de terrain, géométrie, altitude, donnée géographique ou règle de simulation n'est créée ou modifiée.
