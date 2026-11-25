@@ -622,3 +622,23 @@ export function summarizeCoastlineAlignment(coverageReport, classificationReport
     countries
   };
 }
+
+
+/**
+ * Audit complet des collections effectivement chargées par la carte.
+ * Strictement diagnostique : aucune géométrie source n'est modifiée.
+ */
+export function auditLoadedCoastlineAlignment(landCollection, territoryCollection, options = {}) {
+  if (landCollection?.type !== "FeatureCollection" || !Array.isArray(landCollection.features)
+    || territoryCollection?.type !== "FeatureCollection" || !Array.isArray(territoryCollection.features)) {
+    throw new TypeError("Les couches terrestres et territoriales doivent être chargées avant l'audit.");
+  }
+  const toleranceKm = Number.isFinite(Number(options.toleranceKm)) ? Math.max(0, Number(options.toleranceKm)) : 1;
+  const candidates = collectCoastlineAlignmentCandidates(landCollection, territoryCollection, toleranceKm);
+  const coverage = measureCoastlineCandidateCoverage(candidates.candidates, options.nodeToleranceKm);
+  const classification = classifyCoastlineReconstructionCandidates(coverage, options);
+  const summary = summarizeCoastlineAlignment(coverage, classification);
+  return { toleranceKm, landFeatureCount: landCollection.features.length,
+    territoryFeatureCount: territoryCollection.features.length, candidateSegmentCount: candidates.candidateCount,
+    coverage, classification, summary };
+}
