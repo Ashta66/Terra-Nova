@@ -2,9 +2,12 @@ const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
 export const RELIEF_EXAGGERATION = 18;
 
+// Palette bathymétrique enrichie : plateau, talus, bassins abyssaux et fosses
+// gagnent une signature chromatique sans modifier les profondeurs ETOPO.
 const SEA_COLOR_STOPS = [
-  [-11000, [25, 45, 57]], [-4000, [27, 50, 62]], [-1500, [30, 57, 68]],
-  [-500, [36, 68, 77]], [-50, [46, 80, 87]], [0, [55, 91, 96]]
+  [-11000, [19, 35, 49]], [-8000, [20, 39, 53]], [-6000, [22, 44, 58]],
+  [-4000, [24, 50, 64]], [-2500, [26, 55, 68]], [-1500, [29, 61, 72]],
+  [-800, [32, 66, 76]], [-200, [39, 74, 82]], [-50, [48, 85, 91]], [0, [57, 96, 101]]
 ];
 const LAND_COLOR_STOPS = [
   [0, [91, 112, 72]], [250, [105, 119, 72]], [1000, [132, 128, 77]],
