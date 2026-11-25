@@ -136,14 +136,18 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     ? Math.max(1, Math.min(COAST_SAMPLE_FRACTIONS.length, minimumCoastalSamples)) : 3;
   const cellSize = Math.max(0.05, searchRadius / EARTH_KM_PER_DEGREE * 2 + 0.02);
   const bins = new Map();
+  const overflowSegments = [];
   const addSegment = (a, b) => {
     if (!validPoint(a) || !validPoint(b)) return;
     const minX = Math.floor(Math.min(Number(a[0]), Number(b[0])) / cellSize);
     const maxX = Math.floor(Math.max(Number(a[0]), Number(b[0])) / cellSize);
     const minY = Math.floor(Math.min(Number(a[1]), Number(b[1])) / cellSize);
     const maxY = Math.floor(Math.max(Number(a[1]), Number(b[1])) / cellSize);
-    if ((maxX - minX + 1) * (maxY - minY + 1) > 2000) return;
     const segment = [a, b];
+    if ((maxX - minX + 1) * (maxY - minY + 1) > 2000) {
+      overflowSegments.push(segment);
+      return;
+    }
     for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) {
       const key = x + ":" + y;
       if (!bins.has(key)) bins.set(key, []);
@@ -159,15 +163,22 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
   const nearestDistance = point => {
     const bx = Math.floor(Number(point[0]) / cellSize);
     const by = Math.floor(Number(point[1]) / cellSize);
-    const radius = Math.max(1, Math.ceil(searchRadius / EARTH_KM_PER_DEGREE / cellSize) + 1);
+    const latitudeScale = Math.max(0.05, Math.cos(Number(point[1]) * Math.PI / 180));
+    const radiusX = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * latitudeScale * cellSize)) + 1);
+    const radiusY = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * cellSize)) + 1);
     let nearest = Infinity;
     const seen = new Set();
-    for (let ix = bx - radius; ix <= bx + radius; ix++) for (let iy = by - radius; iy <= by + radius; iy++) {
+    for (let ix = bx - radiusX; ix <= bx + radiusX; ix++) for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
       for (const segment of bins.get(ix + ":" + iy) ?? []) {
         if (seen.has(segment)) continue;
         seen.add(segment);
         nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
       }
+    }
+    for (const segment of overflowSegments) {
+      if (seen.has(segment)) continue;
+      seen.add(segment);
+      nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
     }
     return nearest;
   };
