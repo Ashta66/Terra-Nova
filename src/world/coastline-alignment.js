@@ -6,9 +6,10 @@
  * Cette mesure ne modifie aucune géométrie et sert à décider si une
  * reconstruction topologique peut être faite sans déplacer les frontières.
  */
-function polygonRings(geometry) {
-  if (geometry?.type === "Polygon") return geometry.coordinates ?? [];
-  if (geometry?.type === "MultiPolygon") return (geometry.coordinates ?? []).flat();
+function exteriorRings(geometry) {
+  if (geometry?.type === "Polygon") return geometry.coordinates?.[0] ? [geometry.coordinates[0]] : [];
+  if (geometry?.type === "MultiPolygon") return (geometry.coordinates ?? [])
+    .map(polygon => polygon?.[0]).filter(Array.isArray);
   return [];
 }
 
@@ -36,8 +37,8 @@ export function measureSharedCoastlineEdges(landCollection, territoryCollection,
   const digits = Number.isInteger(precision) ? Math.max(0, Math.min(8, precision)) : 5;
   const landEdges = new Set();
   for (const feature of landCollection.features) {
-    const rings = polygonRings(feature?.geometry);
-    for (const ring of rings.slice(0, 1)) {
+    const rings = exteriorRings(feature?.geometry);
+    for (const ring of rings) {
       if (!Array.isArray(ring)) continue;
       for (let index = 0; index < ring.length - 1; index++) {
         const key = edgeKey(ring[index], ring[index + 1], digits);
@@ -47,7 +48,7 @@ export function measureSharedCoastlineEdges(landCollection, territoryCollection,
   }
   let total = 0, matched = 0;
   for (const feature of territoryCollection.features) {
-    for (const ring of polygonRings(feature?.geometry).filter((_, index) => index === 0)) {
+    for (const ring of exteriorRings(feature?.geometry)) {
       if (!Array.isArray(ring)) continue;
       for (let index = 0; index < ring.length - 1; index++) {
         const key = edgeKey(ring[index], ring[index + 1], digits);
