@@ -1794,3 +1794,15 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale : `npm test` et comparaison visuelle des piémonts, plaines et chaînes montagneuses à plusieurs zooms.
 
 **Portée :** nuance colorimétrique dérivée de la pente et de l'altitude ETOPO existantes. Aucune nouvelle forme de terrain, géométrie, altitude, donnée géographique ou règle de simulation n'est créée ou modifiée.
+
+## Chantier transversal — réalignement des couches cartographiques (25 novembre 2026)
+
+### Lot A — centre de projection exact dans le cache vectoriel
+
+- [x] Supprimer l'arrondi indépendant du centre longitude/latitude dans le profil de cache des chemins projetés.
+- [x] Construire les chemins Canvas avec le centre exact reçu par le renderer, comme les frontières directes et les couches raster/WebGL.
+- [x] Conserver une clé de cache à précision suffisante sur le zoom et les deux coordonnées du centre.
+- [x] Ajouter une régression couvrant un déplacement inférieur à une demi-cellule de l'ancien arrondi.
+- [ ] Validation locale et contrôle visuel comparatif sur la côte atlantique, à zoom régional, après déplacement et redimensionnement.
+
+**Diagnostic :** l'ancien cache pouvait réutiliser un chemin calculé sur un centre arrondi alors que les couches directes utilisaient le centre courant. Le cadrage principal arrondissait déjà son centre en amont, mais les appels directs/sandbox au renderer pouvaient conserver cette divergence. Le correctif retire cette seconde quantification. Il ne modifie aucune donnée ni géométrie géographique.
