@@ -276,3 +276,23 @@ test("un worker LOD détruit ne peut pas être recréé et ignore ses réponses 
  listener?.({data:{requestId:1,result:base}});
  assert.equal(lod.getStats().workerActive,false);
 });
+
+test("les compteurs de sommets couvrent les géométries composites sans perdre de coordonnées",()=>{
+ const polygonRing=[[0,0],[1,0.0001],[2,0],[2,1],[1,1.0001],[0,1],[0,0]];
+ const line=[[10,0],[11,0.0001],[12,0],[13,0]];
+ const geometry={type:"GeometryCollection",geometries:[
+  {type:"Polygon",coordinates:[polygonRing]},
+  {type:"MultiLineString",coordinates:[line,[[20,0],[21,0],[22,0]]]},
+  {type:"MultiPolygon",coordinates:[[[[30,0],[31,0],[31,1],[30,0]]]]}
+ ]};
+ const source={type:"FeatureCollection",features:[{type:"Feature",properties:{},geometry}]};
+ const original=polygonRing.length+line.length+3+4;
+ const result=simplifyGeoJsonCollection(source,0.01);
+ assert.equal(result.geometryStats.originalVertices,original);
+ assert.equal(result.geometryStats.simplifiedVertices,result.features[0].geometry.geometries.reduce((total,child)=>{
+  if(child.type==="Polygon")return total+child.coordinates.reduce((n,ring)=>n+ring.length,0);
+  if(child.type==="MultiLineString")return total+child.coordinates.reduce((n,path)=>n+path.length,0);
+  if(child.type==="MultiPolygon")return total+child.coordinates.reduce((n,poly)=>n+poly.reduce((m,ring)=>m+ring.length,0),0);
+  return total;
+ },0));
+});
