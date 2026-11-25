@@ -66,11 +66,22 @@ function simplifyOpen(points, tolerance) {
   for (let i = 0; i < points.length; i++) latitudeSum += Number(points[i][1] || 0);
   const cosLatitude = Math.max(0.05, Math.cos((latitudeSum / points.length) * Math.PI / 180));
   const keep = new Uint8Array(points.length); keep[0]=1; keep[points.length-1]=1;
-  const stack=[[0,points.length-1]], threshold=tolerance*tolerance;
-  while(stack.length){
-    const [first,last]=stack.pop();let farthest=-1,max=threshold;
+  // Une pile plate évite deux petits tableaux par subdivision Ramer-Douglas-Peucker.
+  // Chaque entrée est une paire [début, fin], stockée dans un buffer borné.
+  const stack = new Int32Array(points.length * 2);
+  let stackLength = 2;
+  stack[0] = 0;
+  stack[1] = points.length - 1;
+  const threshold=tolerance*tolerance;
+  while(stackLength){
+    const last=stack[--stackLength], first=stack[--stackLength];
+    let farthest=-1,max=threshold;
     for(let i=first+1;i<last;i++){const d=pointDistanceSquared(points[i],points[first],points[last],cosLatitude);if(d>max){max=d;farthest=i;}}
-    if(farthest>=0){keep[farthest]=1;stack.push([first,farthest],[farthest,last]);}
+    if(farthest>=0){
+      keep[farthest]=1;
+      stack[stackLength++]=first; stack[stackLength++]=farthest;
+      stack[stackLength++]=farthest; stack[stackLength++]=last;
+    }
   }
   const result = [];
   for (let i = 0; i < points.length; i++) if (keep[i]) result.push(points[i]);
