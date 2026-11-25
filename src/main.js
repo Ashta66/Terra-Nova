@@ -3,6 +3,7 @@ import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
+import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
 import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "./world/geometry-generalization.js";
@@ -425,9 +426,11 @@ function requestMapPhysicalTiles(plan, layers) {
           mapTileWorkerPending.delete(message.tile?.key);
           if (message.bitmap) {
             mapTileCache.set(message.tile.key, message.bitmap);
-            mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
-            requestCompose();
-            animateMapTileRefinements();
+            if (isMapTileRelevantToPlan(message.tile.key, lastMapTilePlan)) {
+              mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
+              requestCompose();
+              animateMapTileRefinements();
+            }
           }
           pumpMapTileWorkerQueue();
           return;
@@ -852,29 +855,30 @@ function renderMapFrame() {
         { maxZoom: 9, tolerance: 0.004 }
       ], 0.0018, { createWorker: createLandLodWorker });
       lastLandLodWarmupZoom = null;
-      if (features) {
+      if (features && shouldRefreshRegionalLayer("land", getRegionalWarmupProfile(mapViewport.zoom))) {
         lastRenderedMapSignature = null;
         renderMap();
-      } else {
+      } else if (!features) {
         console.info("Fond régional Natural Earth absent : conservation du fond mondial.");
       }
     });
   }
   // Les couches sont demandées selon leur utilité visuelle : les noms de villes
   // arrivent avant les détails physiques, les réseaux hydrographiques plus tard.
-  const activateRegionalLayer = (loader, assign, label) => loader.then(features => {
+  const activateRegionalLayer = (loader, assign, label, layer) => loader.then(features => {
     if (!features) return;
     assign(features);
+    if (!shouldRefreshRegionalLayer(layer, getRegionalWarmupProfile(mapViewport.zoom))) return;
     lastRenderedMapSignature = null;
     renderMap();
   }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
   if (regionalWarmup.labels && !regionalLabelLoadAttempted) {
     regionalLabelLoadAttempted = true;
-    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels", "labels");
   }
   if (regionalWarmup.rivers && !regionalRiverLoadAttempted) {
     regionalRiverLoadAttempted = true;
-    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières");
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières", "rivers");
   }
   const { width, height } = viewSize();
   const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
@@ -915,10 +919,13 @@ function renderMapFrame() {
   const year = Number(String(state.clock.date).slice(0, 4));
   const boundaryRequestKey = String(year);
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
-    boundaryRequestedKey = boundaryRequestKey;
+    const requestedYear = boundaryRequestKey;
+    boundaryRequestedKey = requestedYear;
     boundaryLoadPromise = Promise.all([
       loadPoliticalBoundaries(year)
     ]).then(([political]) => {
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
       politicalBoundaryFeatures = simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
       territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
       populateCampaignCountries();
@@ -929,10 +936,19 @@ function renderMapFrame() {
       lastRenderedMapSignature = null;
       renderMap();
     }).catch(error => {
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
       console.warn("Couches de frontières indisponibles :", error);
       boundarySourceLabel = "indisponibles";
       failInitialLoading(error);
-    }).finally(() => { boundaryLoadPromise = null; });
+    }).finally(() => {
+      boundaryLoadPromise = null;
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) {
+        boundaryRequestedKey = null;
+        renderMap();
+      }
+    });
   }
   const signature = [
     width, height, year, state.physicalWorld?.revision ?? 0, mapViewport.zoom.toFixed(4),
