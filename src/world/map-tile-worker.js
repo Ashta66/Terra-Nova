@@ -12,9 +12,10 @@ self.addEventListener("message", event => {
   }
   if (message.type !== "render-tile" || !layers) return;
   const { requestId, tile } = message;
+  let surface = null;
   try {
     const options = createPhysicalTileRenderOptions(tile, layers);
-    const surface = new OffscreenCanvas(options.width, options.height);
+    surface = new OffscreenCanvas(options.width, options.height);
     const result = renderWorldMap(surface, layers.land, options);
     const bitmap = surface.transferToImageBitmap();
     self.postMessage({
@@ -26,5 +27,11 @@ self.addEventListener("message", event => {
     }, [bitmap]);
   } catch (error) {
     self.postMessage({ type: "tile-error", requestId, tile, error: error?.message ?? String(error) });
+  } finally {
+    // Le bitmap transféré possède désormais les pixels ; libérer le backing store du canvas.
+    if (surface) {
+      surface.width = 0;
+      surface.height = 0;
+    }
   }
 });
