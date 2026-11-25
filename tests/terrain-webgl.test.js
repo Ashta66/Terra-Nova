@@ -212,7 +212,8 @@ test("une tuile de révision différente remplace son ancienne version", () => {
   atlas.get(tile());
   store.revision++;
   atlas.get(tile());
-  assert.equal(atlas.size, 2);
+  assert.equal(atlas.size, 1);
+  assert.equal(atlas.stats.evictions, 1);
   atlas.dispose();
 });
 test("les erreurs de transfert GPU restituent le slot et sont diagnostiquées", () => {
