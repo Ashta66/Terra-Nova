@@ -9,6 +9,34 @@ const coordinateKey = point => Array.isArray(point) && point.length >= 2
   ? Number(point[0]).toFixed(ROUND_DIGITS) + "," + Number(point[1]).toFixed(ROUND_DIGITS)
   : "";
 
+function countGeometryVertices(geometry) {
+  if (!geometry) return 0;
+  if (geometry.type === "Polygon") {
+    let total = 0;
+    for (const ring of geometry.coordinates ?? []) total += ring?.length ?? 0;
+    return total;
+  }
+  if (geometry.type === "MultiPolygon") {
+    let total = 0;
+    for (const polygon of geometry.coordinates ?? []) {
+      for (const ring of polygon ?? []) total += ring?.length ?? 0;
+    }
+    return total;
+  }
+  if (geometry.type === "LineString") return geometry.coordinates?.length ?? 0;
+  if (geometry.type === "MultiLineString") {
+    let total = 0;
+    for (const line of geometry.coordinates ?? []) total += line?.length ?? 0;
+    return total;
+  }
+  if (geometry.type === "GeometryCollection") {
+    let total = 0;
+    for (const child of geometry.geometries ?? []) total += countGeometryVertices(child);
+    return total;
+  }
+  return 0;
+}
+
 function collectPaths(geometry, paths = []) {
   if (!geometry) return paths;
   const addPolygon = polygon => { for (const ring of polygon ?? []) if (Array.isArray(ring)) paths.push(ring); };
@@ -44,7 +72,9 @@ function simplifyOpen(points, tolerance) {
     for(let i=first+1;i<last;i++){const d=pointDistanceSquared(points[i],points[first],points[last],cosLatitude);if(d>max){max=d;farthest=i;}}
     if(farthest>=0){keep[farthest]=1;stack.push([first,farthest],[farthest,last]);}
   }
-  return points.filter((_,i)=>keep[i]);
+  const result = [];
+  for (let i = 0; i < points.length; i++) if (keep[i]) result.push(points[i]);
+  return result;
 }
 
 function simplifyPath(path, tolerance, anchors) {
@@ -143,14 +173,10 @@ export function simplifyGeoJsonCollection(collection, tolerance = DEFAULT_TOLERA
   let originalVertices=0,simplifiedVertices=0,changedFeatures=0;
   const features=collection.features.map(feature=>{
     if(!feature?.geometry)return feature;
-    const beforePaths=collectPaths(feature.geometry,[]);
-    let before=0;
-    for(const path of beforePaths)before+=path.length;
+    const before=countGeometryVertices(feature.geometry);
     originalVertices+=before;
     const geometry=simplifyGeometry(feature.geometry,tolerance,sharedAnchors);
-    const afterPaths=collectPaths(geometry,[]);
-    let after=0;
-    for(const path of afterPaths)after+=path.length;
+    const after=countGeometryVertices(geometry);
     simplifiedVertices+=after;
     if(after<before)changedFeatures++;
     if(after===before)return feature;
