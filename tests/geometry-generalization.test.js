@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { simplifyGeoJsonCollection, createGeoJsonLodSet } from "../src/world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet, collectSharedGeometryAnchors } from "../src/world/geometry-generalization.js";
 
 const polygon=(coordinates)=>({type:"Feature",properties:{},geometry:{type:"Polygon",coordinates}});
 test("simplifie les anneaux et lignes avant projection sans modifier les sources",()=>{
@@ -378,4 +378,26 @@ test("le parcours direct des chemins conserve les ancrages dans une grande colle
  }
  assert.equal(result.geometryStats.originalVertices,1500*6);
  assert.equal(features[0].geometry.geometries[0].coordinates.length,3,"la source reste immuable");
+});
+
+
+test("les sommets côtiers communs terre-pays survivent aux deux simplifications et à leurs LOD", () => {
+ const shared=[2,0.0001];
+ const land={type:"FeatureCollection",features:[{
+  type:"Feature",properties:{id:"land"},geometry:{type:"LineString",coordinates:[[0,0],shared,[4,0],[6,0],[8,0]]}
+ }]};
+ const countries={type:"FeatureCollection",features:[{
+  type:"Feature",properties:{id:"country"},geometry:{type:"LineString",coordinates:[[2,-2],shared,[2,2]]}
+ }]};
+ const anchors=collectSharedGeometryAnchors([land,countries]);
+ assert.ok(anchors.has("2.000000,0.000100"));
+ const landBase=simplifyGeoJsonCollection(land,0.0001,anchors);
+ const countryBase=simplifyGeoJsonCollection(countries,0.0001,anchors);
+ const landLod=createGeoJsonLodSet(landBase,[{maxZoom:2,tolerance:0.1}],0.0001,{sharedAnchors:anchors});
+ const countryLod=createGeoJsonLodSet(countryBase,[{maxZoom:2,tolerance:0.1}],0.0001,{sharedAnchors:anchors});
+ const landCoarse=landLod.getForZoom(1);
+ const countryCoarse=countryLod.getForZoom(1);
+ const containsShared=collection=>collection.features[0].geometry.coordinates.some(point=>point[0]===shared[0]&&point[1]===shared[1]);
+ assert.equal(containsShared(landCoarse),true);
+ assert.equal(containsShared(countryCoarse),true);
 });
