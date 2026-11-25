@@ -424,50 +424,255 @@ export function getTerrainEvictionKey(entries,protectedKeys=new Set()) {
 }
 
 export function createTerrainWebGLTileAtlas(gl, store, options = {}) {
- if(!gl||typeof gl.texSubImage2D!=="function"||!Number.isInteger(store?.tileSize))return null;
- const cell=store.tileSize+2, max=gl.getParameter?.(gl.MAX_TEXTURE_SIZE)??0;
- const maxBytes=Number.isSafeInteger(options.maxBytes)&&options.maxBytes>0?options.maxBytes:32*1024*1024;
- const memorySide=Math.floor(Math.sqrt(maxBytes/(cell*cell*2)));
- const side=Math.min(options.slotsPerSide??32,Math.floor(max/cell),memorySide);
- if(side<1)return null;
- const atlasWidth=side*cell,atlasHeight=side*cell,texture=gl.createTexture();
- if(!texture)return null;
- gl.bindTexture(gl.TEXTURE_2D,texture);
- gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
- gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
- gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
- gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);
- const entries=new Map(),free=[];
- for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});
- let hits=0,misses=0,uploads=0,uploadedBytes=0,buildMs=0,uploadMs=0,evictions=0,buildFailures=0,lastBuildFailure=null;
- const pending=new Map();let pumpScheduled=false,disposed=false,onReady=null,nextSequence=0,currentProtectedKeys=new Set();
- const now=()=>globalThis.performance?.now?.()??Date.now(),key=t=>`${t.level}/${t.x}/${t.y}@${store.revision??0}`;
- function release(k,e){entries.delete(k);free.push({slotX:e.slotX,slotY:e.slotY});evictions++;}
- function evict(protectedKeys=new Set()){const protectedSet=new Set([...currentProtectedKeys,...protectedKeys]);while(!free.length){const victim=getTerrainEvictionKey(entries,protectedSet);if(victim===null)break;release(victim,entries.get(victim));}}
- function peek(tile){if(!tile)return null;const k=key(tile),entry=entries.get(k);if(!entry)return null;entries.delete(k);entries.set(k,entry);hits++;return entry;}
- function get(tile,protectedKeys=new Set()){
-  if(!tile)return null;const k=key(tile);pending.delete(k);const hit=entries.get(k);
-  if(hit){hits++;entries.delete(k);entries.set(k,hit);return hit;}misses++;
-  const prefix=`${tile.level}/${tile.x}/${tile.y}@`;
-  for(const [old,e] of entries)if(old.startsWith(prefix))release(old,e);
-  if(!free.length)evict(protectedKeys);if(!free.length)return null;
-  const started=now(),diagnostics={},data=buildTerrainTileTexture(tile,store,diagnostics);if(!data||data.width>cell||data.height>cell){buildFailures++;lastBuildFailure=diagnostics.reason??(!data?"unknown-build-failure":"atlas-cell-overflow");return null;}
-  const packed=encodeTerrainTexture(data.values);buildMs+=now()-started;const slot=free.pop(),uploadStart=now();
-  gl.bindTexture(gl.TEXTURE_2D,texture);
-  gl.texSubImage2D(gl.TEXTURE_2D,0,slot.slotX*cell,slot.slotY*cell,data.width,data.height,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,packed);
-  uploadMs+=now()-uploadStart;uploads++;uploadedBytes+=packed.byteLength;
-  const entry={key:k,...slot,width:data.width,height:data.height,byteLength:packed.byteLength,level:tile.level,x:tile.x,y:tile.y,revision:store.revision??0,texture};
-  entries.set(k,entry);return entry;
- }
- function pump(deadline){pumpScheduled=false;if(disposed||!pending.size)return;if(deadline&&!deadline.didTimeout&&deadline.timeRemaining()<4){schedulePump();return;}const k=getTerrainPendingNextKey(pending),item=pending.get(k);if(!item)return;pending.delete(k);let uploaded=false;if(!entries.has(k)){const entry=get(item.tile,new Set([...currentProtectedKeys,...item.protectedKeys]));uploaded=Boolean(entry);}const visiblePending=[...pending.values()].some(candidate=>candidate.priority<2);if(uploaded&&item.priority<2&&!visiblePending)onReady?.(item.tile);schedulePump();}
- function schedulePump(){if(pumpScheduled||disposed||!pending.size)return;pumpScheduled=true;if(typeof globalThis.requestIdleCallback==="function")globalThis.requestIdleCallback(deadline=>pump(deadline),{timeout:500});else if(typeof globalThis.setTimeout==="function")globalThis.setTimeout(()=>pump(),16);else pump();}
- function setOnReady(callback){onReady=typeof callback==="function"?callback:null;}
- function retainPending(keys,cancelPredictive=false){const keep=keys instanceof Set?keys:new Set();let removed=0;for(const [k,item] of pending){if(keep.has(k)||(!cancelPredictive&&item.priority>=2))continue;pending.delete(k);removed++;}return removed;}
- function setProtectedKeys(keys){currentProtectedKeys=keys instanceof Set?new Set(keys):new Set();}
- function enqueue(tile,protectedKeys=new Set(),priority=1){if(!tile||disposed)return false;const k=key(tile);if(entries.has(k)){const e=entries.get(k);entries.delete(k);entries.set(k,e);return false;}const rank=Number.isFinite(priority)?priority:1;const queued=pending.get(k);if(queued){if(rank<queued.priority){queued.priority=rank;queued.protectedKeys=new Set(protectedKeys);}return false;}pending.set(k,{tile,protectedKeys:new Set(protectedKeys),priority:rank,sequence:nextSequence++});schedulePump();return true;}
- function clear(){pending.clear();entries.clear();currentProtectedKeys.clear();free.length=0;for(let y=0;y<side;y++)for(let x=0;x<side;x++)free.push({slotX:x,slotY:y});gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE_ALPHA,atlasWidth,atlasHeight,0,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE,null);}
- function dispose(){disposed=true;pending.clear();entries.clear();gl.deleteTexture?.(texture);}
- return {texture,cellSize:cell,atlasWidth,atlasHeight,capacity:side*side,maxBytes,get,peek,enqueue,retainPending,setProtectedKeys,setOnReady,evict,clear,dispose,get size(){return entries.size;},get pendingCount(){return pending.size;},get memoryBytes(){return atlasWidth*atlasHeight*2;},get stats(){return {tileCount:entries.size,pendingCount:pending.size,byteLength:atlasWidth*atlasHeight*2,maxTiles:side*side,maxBytes:atlasWidth*atlasHeight*2,overBudget:false,hits,misses,uploads,uploadedBytes,buildMs,uploadMs,evictions,buildFailures,lastBuildFailure,atlasWidth,atlasHeight,capacity:side*side};}};
+  if (!gl || typeof gl.texSubImage2D !== "function" || !Number.isInteger(store?.tileSize) || store.tileSize < 1) return null;
+  const cell = store.tileSize + 2;
+  const maxTextureSize = Number(gl.getParameter?.(gl.MAX_TEXTURE_SIZE));
+  const requestedBytes = Number.isSafeInteger(options.maxBytes) && options.maxBytes > 0
+    ? options.maxBytes : 32 * 1024 * 1024;
+  const requestedSide = Number.isInteger(options.slotsPerSide) && options.slotsPerSide > 0
+    ? options.slotsPerSide : 32;
+  if (!Number.isFinite(maxTextureSize) || maxTextureSize < cell) return null;
+  const memorySide = Math.floor(Math.sqrt(requestedBytes / (cell * cell * 2)));
+  const side = Math.min(requestedSide, Math.floor(maxTextureSize / cell), memorySide);
+  if (!Number.isSafeInteger(side) || side < 1) return null;
+  const atlasWidth = side * cell, atlasHeight = side * cell;
+  const allocatedBytes = atlasWidth * atlasHeight * 2;
+  if (!Number.isSafeInteger(allocatedBytes) || allocatedBytes > requestedBytes) return null;
+  const texture = gl.createTexture();
+  if (!texture) return null;
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, atlasWidth, atlasHeight, 0,
+      gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, null);
+  } catch {
+    gl.deleteTexture?.(texture);
+    return null;
+  }
+
+  const entries = new Map(), free = [];
+  for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) free.push({ slotX: x, slotY: y });
+  let hits = 0, misses = 0, uploads = 0, uploadedBytes = 0, buildMs = 0, uploadMs = 0;
+  let evictions = 0, buildFailures = 0, uploadFailures = 0, rejectedPending = 0;
+  let lastBuildFailure = null, lastUploadFailure = null;
+  const pending = new Map();
+  const maxPending = Number.isInteger(options.maxPending) && options.maxPending > 0 ? options.maxPending : 256;
+  let pumpScheduled = false, disposed = false, onReady = null, nextSequence = 0;
+  let scheduledHandle = null, scheduledKind = null, scheduleGeneration = 0;
+  let currentProtectedKeys = new Set();
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
+  const key = tile => `${tile.level}/${tile.x}/${tile.y}@${store.revision ?? 0}`;
+
+  function release(k, entry) {
+    if (!entry || !entries.delete(k)) return false;
+    free.push({ slotX: entry.slotX, slotY: entry.slotY });
+    evictions++;
+    return true;
+  }
+  function evict(protectedKeys = new Set()) {
+    const protectedSet = new Set([...currentProtectedKeys, ...protectedKeys]);
+    while (!free.length) {
+      const victim = getTerrainEvictionKey(entries, protectedSet);
+      if (victim === null) break;
+      release(victim, entries.get(victim));
+    }
+  }
+  function touch(k, entry) {
+    entries.delete(k);
+    entries.set(k, entry);
+    hits++;
+    return entry;
+  }
+  function peek(tile) {
+    if (disposed || !tile) return null;
+    const k = key(tile), entry = entries.get(k);
+    return entry ? touch(k, entry) : null;
+  }
+  function get(tile, protectedKeys = new Set()) {
+    if (disposed || !tile) return null;
+    const k = key(tile);
+    pending.delete(k);
+    const hit = entries.get(k);
+    if (hit) return touch(k, hit);
+    misses++;
+    const prefix = `${tile.level}/${tile.x}/${tile.y}@`;
+    for (const [oldKey, oldEntry] of entries) {
+      if (oldKey.startsWith(prefix)) release(oldKey, oldEntry);
+    }
+    if (!free.length) evict(protectedKeys);
+    if (!free.length) return null;
+
+    const started = now(), diagnostics = {};
+    const data = buildTerrainTileTexture(tile, store, diagnostics);
+    if (!data || !Number.isInteger(data.width) || !Number.isInteger(data.height)
+      || data.width < 1 || data.height < 1 || data.width > cell || data.height > cell
+      || !(data.values instanceof Uint8Array || data.values instanceof Uint8ClampedArray)
+      || data.values.length !== data.width * data.height * 2) {
+      buildFailures++;
+      lastBuildFailure = diagnostics.reason ?? (!data ? "unknown-build-failure" : "invalid-atlas-tile-data");
+      return null;
+    }
+    const packed = encodeTerrainTexture(data.values);
+    buildMs += Math.max(0, now() - started);
+    if (!(packed instanceof Uint8Array) || packed.byteLength !== data.width * data.height * 2) {
+      buildFailures++;
+      lastBuildFailure = "invalid-packed-tile-data";
+      return null;
+    }
+    const slot = free.pop(), uploadStart = now();
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, slot.slotX * cell, slot.slotY * cell,
+        data.width, data.height, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, packed);
+    } catch (error) {
+      free.push(slot);
+      uploadFailures++;
+      lastUploadFailure = error?.message ?? "texture-upload-failed";
+      return null;
+    }
+    uploadMs += Math.max(0, now() - uploadStart);
+    uploads++;
+    uploadedBytes += packed.byteLength;
+    const entry = { key: k, ...slot, width: data.width, height: data.height,
+      byteLength: packed.byteLength, level: tile.level, x: tile.x, y: tile.y,
+      revision: store.revision ?? 0, texture };
+    entries.set(k, entry);
+    return entry;
+  }
+  function cancelScheduledPump() {
+    scheduleGeneration++;
+    if (scheduledHandle !== null) {
+      if (scheduledKind === "idle") globalThis.cancelIdleCallback?.(scheduledHandle);
+      else globalThis.clearTimeout?.(scheduledHandle);
+    }
+    scheduledHandle = null;
+    scheduledKind = null;
+    pumpScheduled = false;
+  }
+  function pump(deadline, generation = scheduleGeneration) {
+    if (generation !== scheduleGeneration) return;
+    scheduledHandle = null;
+    scheduledKind = null;
+    pumpScheduled = false;
+    if (disposed || !pending.size) return;
+    if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 4) {
+      schedulePump();
+      return;
+    }
+    const selectedKey = getTerrainPendingNextKey(pending);
+    const item = pending.get(selectedKey);
+    if (!item) return;
+    pending.delete(selectedKey);
+    const uploaded = !entries.has(selectedKey)
+      && Boolean(get(item.tile, new Set([...currentProtectedKeys, ...item.protectedKeys])));
+    const visiblePending = [...pending.values()].some(candidate => candidate.priority < 2);
+    if (uploaded && item.priority < 2 && !visiblePending) {
+      try { onReady?.(item.tile); } catch { /* le callback UI ne bloque pas la file */ }
+    }
+    schedulePump();
+  }
+  function schedulePump() {
+    if (pumpScheduled || disposed || !pending.size) return;
+    pumpScheduled = true;
+    const generation = scheduleGeneration;
+    if (typeof globalThis.requestIdleCallback === "function") {
+      scheduledKind = "idle";
+      scheduledHandle = globalThis.requestIdleCallback(deadline => pump(deadline, generation), { timeout: 500 });
+    } else if (typeof globalThis.setTimeout === "function") {
+      scheduledKind = "timeout";
+      scheduledHandle = globalThis.setTimeout(() => pump(undefined, generation), 16);
+    } else {
+      pump(undefined, generation);
+    }
+  }
+  function setOnReady(callback) {
+    onReady = typeof callback === "function" ? callback : null;
+  }
+  function retainPending(keys, cancelPredictive = false) {
+    const keep = keys instanceof Set ? keys : new Set();
+    let removed = 0;
+    for (const [k, item] of pending) {
+      if (keep.has(k) || (!cancelPredictive && item.priority >= 2)) continue;
+      pending.delete(k);
+      removed++;
+    }
+    if (!pending.size) cancelScheduledPump();
+    return removed;
+  }
+  function setProtectedKeys(keys) {
+    currentProtectedKeys = keys instanceof Set ? new Set(keys) : new Set();
+  }
+  function enqueue(tile, protectedKeys = new Set(), priority = 1) {
+    if (!tile || disposed) return false;
+    const k = key(tile);
+    if (entries.has(k)) {
+      const entry = entries.get(k);
+      touch(k, entry);
+      return false;
+    }
+    const rank = Number.isFinite(priority) ? priority : 1;
+    const queued = pending.get(k);
+    if (queued) {
+      if (rank < queued.priority) {
+        queued.priority = rank;
+        queued.protectedKeys = new Set(protectedKeys);
+      }
+      return false;
+    }
+    if (pending.size >= maxPending) {
+      let worstKey = null, worst = null;
+      for (const [candidateKey, candidate] of pending) {
+        if (!worst || candidate.priority > worst.priority
+          || (candidate.priority === worst.priority && candidate.sequence > worst.sequence)) {
+          worstKey = candidateKey;
+          worst = candidate;
+        }
+      }
+      if (!worst || rank >= worst.priority) {
+        rejectedPending++;
+        return false;
+      }
+      pending.delete(worstKey);
+      rejectedPending++;
+    }
+    pending.set(k, { tile, protectedKeys: new Set(protectedKeys), priority: rank, sequence: nextSequence++ });
+    schedulePump();
+    return true;
+  }
+  function clear() {
+    if (disposed) return;
+    cancelScheduledPump();
+    pending.clear();
+    entries.clear();
+    currentProtectedKeys.clear();
+    free.length = 0;
+    for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) free.push({ slotX: x, slotY: y });
+  }
+  function dispose() {
+    if (disposed) return;
+    clear();
+    disposed = true;
+    gl.deleteTexture?.(texture);
+  }
+  return {
+    texture, cellSize: cell, atlasWidth, atlasHeight, capacity: side * side, maxBytes: requestedBytes,
+    get, peek, enqueue, retainPending, setProtectedKeys, setOnReady, evict, clear, dispose,
+    get size() { return entries.size; },
+    get pendingCount() { return pending.size; },
+    get memoryBytes() { return allocatedBytes; },
+    get disposed() { return disposed; },
+    get stats() {
+      return { tileCount: entries.size, pendingCount: pending.size, maxPending,
+        byteLength: allocatedBytes, maxTiles: side * side, maxBytes: requestedBytes,
+        overBudget: allocatedBytes > requestedBytes, hits, misses, uploads, uploadedBytes,
+        buildMs, uploadMs, evictions, buildFailures, uploadFailures, rejectedPending,
+        lastBuildFailure, lastUploadFailure, atlasWidth, atlasHeight, capacity: side * side, disposed };
+    }
+  };
 }
 
 export function expandTerrainTileRect(rect,width,height,overlap=0.5){
