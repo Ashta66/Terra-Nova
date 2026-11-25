@@ -2694,6 +2694,40 @@ test("l'audit côtier refuse les collections GeoJSON invalides", () => {
 });
 
 
+test("la recherche côtière conserve les longs segments et compense la longitude aux hautes latitudes", () => {
+  const longLand = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[-170,-80],[170,80],[171,80],[-170,-80]]
+    ] }
+  }] };
+  const nearEquator = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test long segment" },
+    geometry: { type: "Polygon", coordinates: [
+      [[-0.01,-0.01],[0.01,-0.01],[0.01,0.01],[-0.01,0.01],[-0.01,-0.01]]
+    ] }
+  }] };
+  const longResult = measureCoastlineProximity(longLand, nearEquator, 1, 50);
+  assert.ok(Number.isFinite(longResult.featureStats[0].maxSampleDistanceKm));
+  assert.ok(longResult.featureStats[0].maxSampleDistanceKm < 5);
+
+  const polarLand = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[3.4,79.9],[3.4,80.1],[3.5,80.1],[3.5,79.9],[3.4,79.9]]
+    ] }
+  }] };
+  const polarTerritory = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test polaire" },
+    geometry: { type: "Polygon", coordinates: [
+      [[0.9,79.99],[0.91,79.99],[0.91,80.01],[0.9,80.01],[0.9,79.99]]
+    ] }
+  }] };
+  const polarResult = measureCoastlineProximity(polarLand, polarTerritory, 1, 50);
+  assert.ok(Number.isFinite(polarResult.featureStats[0].maxSampleDistanceKm));
+  assert.ok(polarResult.featureStats[0].maxSampleDistanceKm < 50);
+});
+
 test("la proximité côtière reconnaît un segment découpé différemment", () => {
   const land = { type: "FeatureCollection", features: [{
     type: "Feature", properties: {},
