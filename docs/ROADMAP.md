@@ -1535,3 +1535,16 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [x] Ajouter des tests de course, d'identifiant réutilisé, de réentrance et de destruction.
 - [x] CI GitHub Actions : 627 tests réussis, 0 échec (run 45476588771).
 - [ ] Validation locale du joueur : `npm test`.
+
+
+## Lot 50 — parcours géométrique sans collection intermédiaire (25 novembre 2026)
+
+- [x] Remplacer la construction du tableau global de chemins par un parcours direct des géométries.
+- [x] Compter les occurrences de coordonnées pendant le parcours, sans conserver simultanément toutes les références de chemins.
+- [x] Préserver le traitement distinct des Polygon, MultiPolygon, LineString, MultiLineString et GeometryCollection.
+- [x] Conserver la déduplication des coordonnées répétées à l'intérieur d'un même chemin avant de détecter les ancrages partagés.
+- [x] Ajouter un test de charge sur une grande collection composite et vérifier la conservation des ancrages et l'immuabilité des sources.
+- [ ] Validation locale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Portée :** cette modification réduit les allocations temporaires de références de chemins pendant la préparation des ancrages. Elle ne change ni les clés de coordonnées, ni les seuils RDP, ni la géométrie simplifiée ; aucun gain chiffré n'est revendiqué sans benchmark.
