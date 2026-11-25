@@ -1675,3 +1675,34 @@ Précaution : le centre reste volontairement quantifié à une cellule de 1 / zo
 - [ ] Validation locale et contrôle visuel à plusieurs niveaux de zoom.
 
 **Portée :** restitution colorimétrique du raster terrestre uniquement. Aucune donnée physique, géométrie ou règle de simulation n'est modifiée.
+
+
+## Lot artistique 11 — modelé directionnel du relief (25 novembre 2026)
+
+- [x] Auditer le calcul du hillshade synchrone et son équivalent Worker.
+- [x] Conserver l'éclairage principal nord-ouest et sa faible composante secondaire.
+- [x] Rehausser légèrement la réponse lumineuse des pentes modérées.
+- [x] Réduire la pénalité uniforme appliquée aux pentes fortes.
+- [x] Resserer les bornes extrêmes pour éviter les ombres bouchées et les versants brûlés.
+- [x] Garder un éclairage strictement neutre sur une surface plane.
+- [x] Appliquer la même formule dans le thread principal et le Worker.
+- [x] Ne pas modifier l'exagération verticale du relief.
+- [x] Ne pas modifier les altitudes, les classes de terrain ou la palette hypsométrique.
+- [x] Ne pas modifier la bathymétrie.
+- [x] Conserver la préparation asynchrone et le cache de hillshade.
+- [x] Tester la neutralité des surfaces planes.
+- [x] Tester les limites de contraste sur les versants.
+- [x] Tester la perception des pentes douces.
+- [x] Préserver l'indépendance de l'ombrage océanique.
+- [x] Ne pas ajouter de bruit, de lignes ni de faux détails géographiques.
+- [x] Ne pas changer l'ordre de rendu des couches.
+- [x] Ne pas changer les dimensions des tuiles.
+- [x] Conserver les chemins de rendu Worker et synchrone.
+- [x] Vérifier la cohérence des paramètres de calcul dans les deux implémentations.
+- [x] Garder une réponse modérée adaptée à la lecture stratégique.
+- [x] Conserver les garde-fous de réduction des animations et les réglages utilisateur existants.
+- [x] Documenter les limites visuelles de l'ombrage calculé depuis le MNT.
+- [x] Préserver les tests existants du raster et des changements physiques.
+- [ ] Validation locale et comparaison visuelle à plusieurs niveaux de zoom.
+
+**Portée :** ajustement du calcul d'éclairage du relief terrestre uniquement. Aucune géométrie, donnée physique ou règle de simulation n'est modifiée.
