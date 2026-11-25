@@ -38,7 +38,7 @@ import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
 import { getCartographicTheme } from "./world/cartographic-style.js";
 import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
 import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, createMapLayerLodSelector, getRegionalWarmupProfile } from "./world/map-lod.js";
 
 const mapBenchmarkCollector = createMapBenchmarkCollector();
 
@@ -1059,7 +1059,10 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const selectedLandDetail = landLodSelector.select(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  // Les pays actuellement chargés restent en 1:110m : ne pas afficher une côte 1:10m sans territoires de même résolution.
+  const selectedLandDetail = selectAlignedLandDetailLevel(
+    mapViewport.zoom, worldFeatures, regionalLandFeatures, null, 6
+  );
   const landLod = selectedLandDetail.level === "regional-10m" ? regionalLandLod : worldLandLod;
   cancelLandLodWarmup();
   const landDetail = {
