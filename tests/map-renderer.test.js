@@ -1172,6 +1172,23 @@ test("les contours côtiers seuls ne sont pas confondus avec des frontières pol
   assert.equal(result.features.length, 0);
 });
 
+test("les contours côtiers des polygones nationaux ne sont pas redessinés comme frontières territoriales", () => {
+  const { canvas } = createCanvas();
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { NAME: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[-10, 0], [0, 0], [0, 10], [-10, 10], [-10, 0]]] } },
+    { type: "Feature", properties: { NAME: "Est" }, geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]] } }
+  ] };
+  const politicalBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [0, 10]] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 3.5 },
+    territories, politicalBoundaries
+  });
+  assert.equal(result.territoryOutlineCount, 0);
+  assert.ok(result.politicalBoundaryCount > 0);
+});
+
 test("les frontières nationales sont rendues sans tracer les limites administratives", () => {
   const { canvas, calls } = createCanvas();
   const politicalBoundaries = { type: "FeatureCollection", features: [
