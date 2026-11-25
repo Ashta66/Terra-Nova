@@ -2777,18 +2777,47 @@ function captureTerrainLayerStage(target, stage) {
   if (typeof window === "undefined" || window.__TERRA_CAPTURE_LAYER_STAGES !== true
     || !target?.canvas || typeof target.drawImage !== "function") return;
   const source = target.canvas;
+  // Préférer un HTMLCanvasElement : contrairement à OffscreenCanvas, il expose
+  // toDataURL() et peut être inspecté/exporté directement depuis la console.
   let surface;
-  if (typeof OffscreenCanvas !== "undefined") surface = new OffscreenCanvas(source.width, source.height);
-  else if (typeof document !== "undefined") {
+  if (typeof document !== "undefined") {
     surface = document.createElement("canvas");
     surface.width = source.width;
     surface.height = source.height;
+  } else if (typeof OffscreenCanvas !== "undefined") {
+    surface = new OffscreenCanvas(source.width, source.height);
   }
   const context = surface?.getContext("2d");
   if (!context) return;
   context.drawImage(source, 0, 0);
   window.__TERRA_LAYER_STAGE_CANVASES ??= {};
   window.__TERRA_LAYER_STAGE_CANVASES[stage] = surface;
+
+  // Une seule planche permet de comparer les étapes sans joindre cinq fichiers.
+  const stages = Object.entries(window.__TERRA_LAYER_STAGE_CANVASES);
+  const columns = 2;
+  const cellWidth = 960;
+  const cellHeight = Math.round(cellWidth * source.height / Math.max(1, source.width));
+  const headerHeight = 30;
+  const rows = Math.ceil(stages.length / columns);
+  const sheet = document.createElement("canvas");
+  sheet.width = columns * cellWidth;
+  sheet.height = rows * (cellHeight + headerHeight);
+  const sheetContext = sheet.getContext("2d");
+  if (sheetContext) {
+    sheetContext.fillStyle = "#111820";
+    sheetContext.fillRect(0, 0, sheet.width, sheet.height);
+    sheetContext.font = "16px sans-serif";
+    sheetContext.textBaseline = "middle";
+    stages.forEach(([name, image], index) => {
+      const x = (index % columns) * cellWidth;
+      const y = Math.floor(index / columns) * (cellHeight + headerHeight);
+      sheetContext.fillStyle = "#f2ead8";
+      sheetContext.fillText(name, x + 8, y + headerHeight / 2);
+      sheetContext.drawImage(image, x, y + headerHeight, cellWidth, cellHeight);
+    });
+    window.__TERRA_LAYER_STAGES_CONTACT_SHEET = sheet;
+  }
 }
 
 function staticLayerSignature(width, height, pixelRatio, year, theme, projection, options, layers) {
