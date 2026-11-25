@@ -53,3 +53,14 @@ test("une mémoire faible prime sur un nombre élevé de cœurs", () => {
 test("les valeurs invalides ne déclenchent pas de profil extrême", () => {
   assert.equal(getMapTileResourceProfile({ deviceMemory: -1, hardwareConcurrency: 0 }).tier, "default");
 });
+
+test("un CPU modeste borne les ressources lorsque deviceMemory est absent", () => {
+  assert.equal(getMapTileResourceProfile({ hardwareConcurrency: 2 }).tier, "constrained");
+  assert.equal(getMapTileResourceProfile({ hardwareConcurrency: 4 }).tier, "balanced");
+});
+test("un CPU standard sans métrique mémoire garde le profil par défaut", () => {
+  assert.equal(getMapTileResourceProfile({ hardwareConcurrency: 8 }).tier, "default");
+});
+test("un nombre de cœurs non fini ne déclenche pas de réduction arbitraire", () => {
+  assert.equal(getMapTileResourceProfile({ deviceMemory: undefined, hardwareConcurrency: Infinity }).tier, "default");
+});
