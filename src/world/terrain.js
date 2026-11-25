@@ -26,12 +26,12 @@ const MOUNTAIN_ELEVATION_TINT = [190, 181, 169];
 // de précipitations/occupation des sols, elle ne prétend pas distinguer forêts,
 // savanes et déserts à l'échelle locale.
 const VEGETATION_ZONE_TINTS = {
-  tropical: [91, 119, 69],
-  subtropical: [145, 130, 88],
-  temperate: [105, 125, 79],
-  boreal: [83, 105, 76],
-  tundra: [133, 128, 108],
-  alpine: [151, 143, 130],
+  tropical: [76, 112, 62],
+  subtropical: [151, 132, 83],
+  temperate: [94, 124, 73],
+  boreal: [72, 99, 72],
+  tundra: [139, 133, 111],
+  alpine: [153, 145, 132],
   nival: [190, 188, 180]
 };
 
@@ -209,7 +209,10 @@ export function classifyVegetationZone(elevation, latitude) {
 export function applyVegetationZoneTint(color, zone) {
   const tint = VEGETATION_ZONE_TINTS[zone];
   if (!tint || !Array.isArray(color) || color.length < 3) return color;
-  const strength = zone === "nival" ? 0.035 : zone === "alpine" ? 0.04 : 0.055;
+  const strength = ({
+    tropical: 0.085, subtropical: 0.065, temperate: 0.078,
+    boreal: 0.082, tundra: 0.06, alpine: 0.04, nival: 0.035
+  })[zone] ?? 0.055;
   const inverse = 1 - strength;
   return [
     Math.round(color[0] * inverse + tint[0] * strength),
