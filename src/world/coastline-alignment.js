@@ -281,6 +281,7 @@ export function collectCoastlineAlignmentCandidates(landCollection, territoryCol
             name,
             ringIndex,
             segmentIndex,
+            ringSegmentCount: ring.length - 1,
             coordinates: [[...a], [...b]],
             maxSampleDistanceKm,
             sampleDistancesKm
@@ -293,5 +294,77 @@ export function collectCoastlineAlignmentCandidates(landCollection, territoryCol
     toleranceKm: tolerance,
     candidateCount: candidates.length,
     candidates
+  };
+}
+
+
+function pointsCoincideWithinKm(a, b, toleranceKm = 0.001) {
+  if (!validPoint(a) || !validPoint(b)) return false;
+  return pointSegmentDistanceKm(a, b, b) <= toleranceKm;
+}
+
+/**
+ * Regroupe les candidats contigus d'un même anneau sans modifier leurs
+ * coordonnées. Les chaînes ouvertes/fermées sont explicites ; aucun pont
+ * artificiel n'est ajouté entre deux segments disjoints.
+ */
+export function chainCoastlineAlignmentCandidates(candidates) {
+  if (!Array.isArray(candidates)) {
+    throw new TypeError("Un tableau de segments candidats est requis.");
+  }
+  const groups = new Map();
+  for (const candidate of candidates) {
+    if (!Number.isInteger(candidate?.featureIndex) || candidate.featureIndex < 0
+      || !Number.isInteger(candidate?.ringIndex) || candidate.ringIndex < 0
+      || !Number.isInteger(candidate?.segmentIndex) || candidate.segmentIndex < 0
+      || !Array.isArray(candidate.coordinates) || candidate.coordinates.length !== 2
+      || !validPoint(candidate.coordinates[0]) || !validPoint(candidate.coordinates[1])) continue;
+    const key = candidate.featureIndex + ":" + candidate.ringIndex;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(candidate);
+  }
+  const chains = [];
+  for (const group of groups.values()) {
+    group.sort((a, b) => a.segmentIndex - b.segmentIndex);
+    const runs = [];
+    for (const candidate of group) {
+      const current = runs[runs.length - 1];
+      const previous = current?.[current.length - 1];
+      if (previous && candidate.segmentIndex === previous.segmentIndex + 1
+        && pointsCoincideWithinKm(previous.coordinates[1], candidate.coordinates[0])) {
+        current.push(candidate);
+      } else {
+        runs.push([candidate]);
+      }
+    }
+    const ringSegmentCount = Math.max(0, ...group.map(candidate => Number(candidate.ringSegmentCount) || 0));
+    if (runs.length > 1 && ringSegmentCount > 0
+      && runs[0][0].segmentIndex === 0
+      && runs[runs.length - 1].at(-1).segmentIndex === ringSegmentCount - 1
+      && pointsCoincideWithinKm(runs.at(-1).at(-1).coordinates[1], runs[0][0].coordinates[0])) {
+      const wrapped = [...runs.pop(), ...runs.shift()];
+      runs.push(wrapped);
+    }
+    for (const run of runs) {
+      const coordinates = [[...run[0].coordinates[0]]];
+      for (const candidate of run) coordinates.push([...candidate.coordinates[1]]);
+      const isClosed = pointsCoincideWithinKm(coordinates[0], coordinates.at(-1));
+      chains.push({
+        featureIndex: run[0].featureIndex,
+        name: run[0].name ?? null,
+        ringIndex: run[0].ringIndex,
+        segmentIndices: run.map(candidate => candidate.segmentIndex),
+        segmentCount: run.length,
+        coordinates,
+        isClosed,
+        maxSampleDistanceKm: Math.max(...run.map(candidate => Number(candidate.maxSampleDistanceKm) || 0))
+      });
+    }
+  }
+  return {
+    chainCount: chains.length,
+    closedChainCount: chains.filter(chain => chain.isClosed).length,
+    openChainCount: chains.filter(chain => !chain.isClosed).length,
+    chains
   };
 }
