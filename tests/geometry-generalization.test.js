@@ -296,3 +296,30 @@ test("les compteurs de sommets couvrent les géométries composites sans perdre 
   return total;
  },0));
 });
+
+test("la recherche LOD binaire respecte les seuils exacts et les niveaux non triés",()=>{
+ const base=simplifyGeoJsonCollection({type:"FeatureCollection",features:[polygon([[[0,0],[1,0],[1,1],[0,0]]])]},0.0001);
+ const lod=createGeoJsonLodSet(base,[
+  {maxZoom:6,tolerance:0.006},
+  {maxZoom:2,tolerance:0.04},
+  {maxZoom:4,tolerance:0.02}
+ ],0.0001);
+ const coarse=lod.getForZoom(1.5);
+ assert.equal(lod.getForZoom(2),coarse);
+ const medium=lod.getForZoom(2.001);
+ assert.equal(lod.getForZoom(4),medium);
+ const fine=lod.getForZoom(4.001);
+ assert.equal(lod.getForZoom(6),fine);
+ assert.equal(lod.getForZoom(6.001),base);
+ assert.equal(lod.getAdjacentZoom(1,1),2.001);
+ assert.equal(lod.getAdjacentZoom(5,-1),4);
+ assert.equal(lod.getForZoom(Infinity),base);
+});
+test("la recherche LOD ignore les zooms non numériques sans altérer le cache",()=>{
+ const base={type:"FeatureCollection",features:[]};
+ const lod=createGeoJsonLodSet(base,[{maxZoom:3,tolerance:0.1}],0.001);
+ assert.equal(lod.getForZoom(NaN),base);
+ assert.equal(lod.getForZoom("not-a-zoom"),base);
+ assert.equal(lod.getStats().generatedLevels,0);
+ assert.equal(lod.getStats().cachedLevels,0);
+});
