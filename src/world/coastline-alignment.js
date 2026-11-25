@@ -570,3 +570,55 @@ export function classifyCoastlineReconstructionCandidates(coverageReport, option
     candidates
   };
 }
+
+
+/**
+ * Agrège les mesures par pays/Feature pour prioriser l'inspection des côtes.
+ * Les ratios sont pondérés par le nombre de segments source.
+ */
+export function summarizeCoastlineAlignment(coverageReport, classificationReport) {
+  if (!coverageReport || !Array.isArray(coverageReport.ringStats)
+    || !classificationReport || !Array.isArray(classificationReport.candidates)) {
+    throw new TypeError("Les rapports de couverture et de classification sont requis.");
+  }
+  const classified = new Map(classificationReport.candidates.map(item =>
+    [item.featureIndex + ":" + item.ringIndex, item]));
+  const features = new Map();
+  for (const ring of coverageReport.ringStats) {
+    const key = String(ring.featureIndex);
+    if (!features.has(key)) features.set(key, {
+      featureIndex: ring.featureIndex,
+      name: ring.name ?? null,
+      ringCount: 0,
+      sourceSegmentCount: 0,
+      coveredSegmentCount: 0,
+      eligibleRingCount: 0,
+      rejectedRingCount: 0,
+      reasons: {}
+    });
+    const feature = features.get(key);
+    feature.ringCount++;
+    feature.sourceSegmentCount += ring.sourceSegmentCount;
+    feature.coveredSegmentCount += ring.coveredSegmentCount;
+    const classification = classified.get(ring.featureIndex + ":" + ring.ringIndex);
+    if (classification?.eligibleForReview) feature.eligibleRingCount++;
+    else feature.rejectedRingCount++;
+    for (const reason of classification?.reasons ?? ["classification-missing"]) {
+      feature.reasons[reason] = (feature.reasons[reason] ?? 0) + 1;
+    }
+  }
+  const countries = [...features.values()].map(feature => ({
+    ...feature,
+    coverageRatio: feature.sourceSegmentCount
+      ? feature.coveredSegmentCount / feature.sourceSegmentCount : 0
+  })).sort((a, b) => a.coverageRatio - b.coverageRatio
+    || b.rejectedRingCount - a.rejectedRingCount
+    || a.featureIndex - b.featureIndex);
+  return {
+    featureCount: countries.length,
+    ringCount: countries.reduce((sum, item) => sum + item.ringCount, 0),
+    eligibleRingCount: countries.reduce((sum, item) => sum + item.eligibleRingCount, 0),
+    rejectedRingCount: countries.reduce((sum, item) => sum + item.rejectedRingCount, 0),
+    countries
+  };
+}
