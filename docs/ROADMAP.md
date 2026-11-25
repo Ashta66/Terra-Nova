@@ -1,3 +1,45 @@
+## 25 novembre 2026 — lot 46 : files de tuiles et invalidation géographique
+
+### File de travaux des workers
+- [x] Remplacer le décalage du tableau à chaque dépilement par un curseur amorti O(1).
+- [x] Stocker le curseur par instance de file avec une WeakMap.
+- [x] Avancer le curseur sans déplacer les références restantes.
+- [x] Sauter les travaux devenus invalides, déjà en cache ou déjà en attente.
+- [x] Libérer les références de la file dès que celle-ci est épuisée.
+- [x] Exposer un test de présence compatible avec le curseur.
+- [x] Adapter la pompe du worker pour ne plus dépendre de queue.length comme indicateur de travail.
+- [x] Adapter les statistiques pour ne compter que les travaux non consommés.
+- [x] Préserver la priorité déterministe définie par le plan de tuiles.
+- [x] Préserver le plafond de concurrence existant.
+- [x] Repartir d'un curseur neuf après réconciliation du plan.
+- [x] Gérer l'ajout de travaux en fin de file sans perdre la position courante.
+- [x] Garder le comportement des files invalides ou épuisées.
+- [x] Tester les entrées sautées et la libération finale des références.
+- [x] Tester l'indépendance des curseurs entre deux files successives.
+
+### Invalidation géographique et planification
+- [x] Remplacer le Set d'invalidation par une bitmap de taille fixe correspondant à la grille 10°.
+- [x] Dédupliquer les cellules touchées directement lors du marquage.
+- [x] Compter les tuiles uniques au moment du premier marquage.
+- [x] Préallouer exactement le tableau de clés invalidées.
+- [x] Générer les clés par un parcours linéaire déterministe ligne/colonne.
+- [x] Supprimer la copie des indices et le tri de l'ensemble invalidé.
+- [x] Préserver le halo borné et les limites polaires.
+- [x] Préserver le passage de l'antiméridien.
+- [x] Conserver l'immuabilité de l'objet de révisions fourni en entrée.
+- [x] Éviter une normalisation modulo/floor redondante pour les clés des tuiles déjà bornées dans le plan viewport.
+- [x] Tester la stabilité de l'ordre des plans et les limites de zoom extrêmes.
+- [x] Tester les invalidations invalides, répétées, polaires et trans-antiméridien.
+
+### Vérification
+- [x] Ajouter des tests de curseur, statistiques et cycle de vie de file.
+- [x] Ajouter des tests d'invalidation bitmap et de déduplication.
+- [x] Ajouter des tests de planification déterministe et de bornage.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit le coût de dépilement des travaux, les allocations d'invalidation géographique et les normalisations répétées de clés. Il ne modifie ni la géométrie des tuiles, ni les priorités de planification, ni les coordonnées, ni les règles de simulation.
+
 ## 25 novembre 2026 — lot 45 : index spatial et généralisation géométrique
 
 ### Index spatial — fusion et requêtes viewport
