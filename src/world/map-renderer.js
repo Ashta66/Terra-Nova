@@ -2983,7 +2983,7 @@ export function renderWorldMap(canvas, featureCollection, options = {}) {
       // par rapport au masque de référence utilisé pour les territoires.
       landClipPath = measureLayer("land-mask-path", () =>
         landAlignmentClipPath ?? buildLandClipPath(visibleLand, width, height, projection,
-          { tolerance: 0, minRingArea: 0 }));
+          sharedLandCoastProfile));
       if (globalThis.__TERRA_DISABLE_LAND_TERRAIN_CLIP !== true) {
         if (landClipPath) {
           target.clip(landClipPath, "evenodd");
