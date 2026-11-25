@@ -1017,7 +1017,8 @@ function renderMapFrame() {
     ]).then(([political]) => {
       const currentYear = String(String(state.clock.date).slice(0, 4));
       if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
-      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.008);
+      // Appliquer exactement le même seuil de conservation des îles que pour le fond terrestre.
+      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,false),0.008);
       territoryLandLod = createGeoJsonLodSet(territoryFeatures, [
         { maxZoom: 1.8, tolerance: 0.04 },
         { maxZoom: 3.5, tolerance: 0.02 },
