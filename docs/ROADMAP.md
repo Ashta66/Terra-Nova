@@ -1,3 +1,20 @@
+## 25 novembre 2026 — lot 39 : reprise après incident du worker de tuiles
+
+- [x] Associer chaque réponse à l'identifiant exact de sa requête active.
+- [x] Empêcher une réponse tardive de libérer une requête plus récente pour la même tuile.
+- [x] Ignorer les messages mal formés et les identifiants non sûrs.
+- [x] Fermer les ImageBitmap reçus d'un worker devenu obsolète ou d'une réponse rejetée.
+- [x] Ajouter un délai maximal aux calculs en vol pour détecter un worker bloqué.
+- [x] Centraliser la reprise après erreur, messageerror, échec d'envoi ou dépassement du délai.
+- [x] Terminer le worker défaillant et nettoyer ses temporisations et requêtes en attente.
+- [x] Reconstruire la file depuis le dernier plan visible et redemander une composition.
+- [x] Réinitialiser les références de couches pour que le worker recréé reçoive un nouvel init.
+- [x] Ajouter cinq tests sur l'identité des réponses, la libération et les cas mal formés.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le worker est désormais remplacé après une erreur ou un blocage détecté. Les réponses d'une ancienne instance ne peuvent ni modifier le cache ni libérer les requêtes de la nouvelle instance. Le délai de garde est fixé à 20 secondes ; les tâches déjà exécutées dans l'ancien worker sont abandonnées avec son arrêt.
+ 
 ## 25 novembre 2026 — lot 38 : priorisation de la file des workers cartographiques
 
 - [x] Extraire la réconciliation de la file de travaux dans un module pur.
