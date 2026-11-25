@@ -2743,11 +2743,22 @@ test("la proximité côtière traite correctement les segments traversant l'anti
       }
     }]
   };
-  const audit = measureCoastlineProximity(crossing, crossing, 0.1, 50);
+  const audit = measureCoastlineProximity(crossing, crossing, 0.1, 50, 3, {
+    includeSegmentDetails: true
+  });
   assert.equal(audit.territorySegmentCount, 4);
   assert.equal(audit.matchedSegmentCount, 4);
   assert.equal(audit.proximityRatio, 1);
   assert.equal(audit.featureStats[0].maxSampleDistanceKm, 0);
+  assert.equal(audit.segmentDetails.length, 4);
+  const crossingSegments = audit.segmentDetails.filter(segment =>
+    Math.abs(segment.coordinates[1][0] - segment.coordinates[0][0]) > 180
+  );
+  assert.equal(crossingSegments.length, 2);
+  for (const segment of crossingSegments) {
+    assert.ok(segment.sampleCoordinates.every(point => Math.abs(point[0]) >= 179.8));
+    assert.ok(segment.sampleDistancesKm.every(distance => distance === 0));
+  }
 });
 
 test("la proximité côtière reconnaît un segment découpé différemment", () => {
