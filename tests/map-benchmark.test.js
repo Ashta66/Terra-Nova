@@ -1,6 +1,8 @@
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { compareMapBenchmarks } from "../scripts/compare-map-benchmarks.mjs";
+import { createMapBenchmarkCollector } from "../src/world/map-benchmark.js";
 
 function benchmark(mode, metrics, overrides = {}) {
   return {
@@ -70,4 +72,141 @@ test("refuse une statistique ou un export invalide", () => {
     benchmark("webgl", { x: { median: 2 } }),
     { statistic: "average" }
   ), /Statistique attendue/);
+});
+
+
+test("exporte les compteurs de réutilisation du masque et des classifications terrestres", () => {
+  let now = 0;
+  const environment = {
+    performance: { now: () => now },
+    navigator: { userAgent: "test" },
+    screen: {},
+    visualViewport: {}
+  };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 16;
+  collector.record({ totalRenderMs: 16, projectedPathCacheStats: {
+    antarcticClassificationCacheHits: 12,
+    antarcticClassificationCacheMisses: 3,
+    antarcticClassificationCoordinatesScanned: 2400,
+    landFeatureGroupCacheHits: 8,
+    landFeatureGroupCacheMisses: 1,
+    landWebGLClassificationCacheHits: 7,
+    landWebGLClassificationCacheMisses: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["geometryCache:antarcticClassificationHits"].median, 12);
+  assert.equal(metrics["geometryCache:antarcticClassificationMisses"].median, 3);
+  assert.equal(metrics["geometryCache:antarcticCoordinatesScanned"].median, 2400);
+  assert.equal(metrics["geometryCache:landFeatureGroupHits"].median, 8);
+  assert.equal(metrics["geometryCache:landFeatureGroupMisses"].median, 1);
+  assert.equal(metrics["geometryCache:landWebGLClassificationHits"].median, 7);
+  assert.equal(metrics["geometryCache:landWebGLClassificationMisses"].median, 1);
+});
+
+test("exporte les métadonnées permettant de distinguer un navigateur PC d'une émulation mobile", () => {
+  let now = 0;
+  const environment = {
+    performance: { now: () => now },
+    navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/158.0.0.0 Safari/537.36", maxTouchPoints: 0 },
+    screen: { width: 1920, height: 1080, availWidth: 1920, availHeight: 1040 },
+    visualViewport: { scale: 1 },
+    innerWidth: 1440,
+    innerHeight: 900,
+    devicePixelRatio: 1
+  };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start({ scenario: "desktop-validation", cache: "warm" });
+  now = 16;
+  collector.record({ totalRenderMs: 16, terrainRenderer: "webgl" });
+  const result = collector.exportResults();
+  assert.equal(result.metadata.viewportWidth, 1440);
+  assert.equal(result.metadata.screenWidth, 1920);
+  assert.equal(result.metadata.screenHeight, 1080);
+  assert.equal(result.metadata.visualViewportScale, 1);
+  assert.equal(result.metadata.maxTouchPoints, 0);
+  assert.equal(result.metadata.mobileUserAgent, false);
+});
+
+
+test("enregistre le cycle de vie du préchauffage LOD sans confondre planification et exécution", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 10;
+  collector.record({ totalRenderMs: 10, lodWarmupDiagnostics: {
+    scheduled: 2, started: 1, completed: 1, generated: 1, cancelled: 1, failed: 0, completedJobs: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["lod:warmup:scheduled"].median, 2);
+  assert.equal(metrics["lod:warmup:started"].median, 1);
+  assert.equal(metrics["lod:warmup:generated"].median, 1);
+  assert.equal(metrics["lod:warmup:cancelled"].median, 1);
+  assert.equal(metrics["lod:warmup:failed"].median, 0);
+});
+
+
+test("exporte des métriques distinctes pour les familles physique, politique et dynamique", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 12;
+  collector.record({ totalRenderMs: 12, renderFamilies: {
+    physicalMs: 4.5, politicalMs: 2.25, dynamicMs: 1.5
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["family:physicalMs"].median, 4.5);
+  assert.equal(metrics["family:politicalMs"].median, 2.25);
+  assert.equal(metrics["family:dynamicMs"].median, 1.5);
+});
+
+test("exporte les métriques de couverture et d'attente des tuiles de relief", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 10;
+  collector.record({ totalRenderMs: 10, terrainTileStats: {
+    tileCount: 8, pendingCount: 2, visibleTiles: 6, preloadedTiles: 3, lod: 1,
+    transitionProgress: 0.5, atlasCapacity: 32, atlasMemoryBytes: 1048576,
+    readyChildTiles: 4, pendingChildTiles: 2, waitingForTiles: true, capacityLimited: false
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["terrainTiles:tileCount"].median, 8);
+  assert.equal(metrics["terrainTiles:pendingCount"].median, 2);
+  assert.equal(metrics["terrainTiles:visibleTiles"].median, 6);
+  assert.equal(metrics["terrainTiles:transitionProgress"].median, 0.5);
+  assert.equal(metrics["terrainTiles:waitingForTiles"].median, 1);
+  assert.equal(metrics["terrainTiles:capacityLimited"].median, 0);
+});
+
+
+test("expose les commandes documentées du benchmark dans la console du navigateur", async () => {
+  const source = await readFile(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(source, /window\.collectMapBenchmark\s*=\s*options\s*=>\s*mapBenchmarkCollector\.start\(options\)/);
+  assert.match(source, /window\.exportMapBenchmark\s*=\s*options\s*=>\s*mapBenchmarkCollector\.exportResults\(options\)/);
+  assert.match(source, /window\.clearMapBenchmark\s*=\s*\(\)\s*=>\s*mapBenchmarkCollector\.clear\(\)/);
+});
+
+
+test("exporte les constructions et évictions des caches de chemins et de masques", () => {
+  let now = 0;
+  const environment = { performance: { now: () => now }, navigator: { userAgent: "test" }, screen: {}, visualViewport: {} };
+  const collector = createMapBenchmarkCollector({ environment });
+  collector.start();
+  now = 16;
+  collector.record({ totalRenderMs: 16, projectedPathCacheStats: {
+    projectedPathCacheBuilds: 5,
+    projectedPathCacheEvictions: 2,
+    combinedLandMaskCacheBuilds: 3,
+    combinedLandMaskCacheEvictions: 1
+  }});
+  const metrics = collector.exportResults().metrics;
+  assert.equal(metrics["geometryCache:projectedPathBuilds"].median, 5);
+  assert.equal(metrics["geometryCache:projectedPathEvictions"].median, 2);
+  assert.equal(metrics["geometryCache:combinedMaskBuilds"].median, 3);
+  assert.equal(metrics["geometryCache:combinedMaskEvictions"].median, 1);
 });

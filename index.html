@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#101820">
   <meta name="description" content="TERRA NOVA — une simulation vivante de civilisations, d'exploration et de transformations du monde.">
   <title>TERRA NOVA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=EB+Garamond:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Playfair+Display:wght@400;500;600;700&family=Newsreader:wght@400;500;600;700&family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body class="game-screen">
@@ -16,6 +19,14 @@
     <div class="topbar-actions"><span class="build-label">PROTO · LOT 1</span><button id="save-game" class="button button-small">Sauvegarder</button><button id="load-game" class="button button-small">Charger</button></div>
   </header>
 
+  <section class="campaign-datebar" aria-label="Chronologie de départ">
+    <div class="campaign-datebar-heading"><span>DATE DE DÉPART</span><strong id="start-year-value">1444</strong><em>CHOISISSEZ VOTRE SIÈCLE</em></div>
+    <label class="setup-date campaign-date-slider" aria-label="Date de départ">
+      <input id="start-year" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Faire défiler les années historiques">
+      <span class="setup-range-ends"><span>1444</span><span>2100</span></span>
+    </label>
+    <span class="campaign-datebar-mark" aria-hidden="true">TN / 01</span>
+  </section>
   <section id="campaign-setup" class="campaign-setup" aria-labelledby="setup-title">
     <div class="setup-card">
       <p class="eyebrow">TERRA NOVA · NOUVELLE CAMPAGNE</p>
@@ -23,20 +34,33 @@
       <p class="setup-lead">Explorez la carte, faites défiler les siècles et choisissez la nation dont vous écrirez l'histoire.</p>
       <p class="setup-map-hint"><span class="setup-live-dot"></span> Prévisualisation historique interactive · les frontières suivent la date choisie</p>
       <div class="setup-grid">
-        <label class="setup-date">DATE DE DÉPART <strong id="start-year-value">1444</strong>
-          <input id="start-year" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Faire défiler les années historiques">
-          <span class="setup-range-ends"><span>1444</span><span>2100</span></span>
-        </label>
-        <label>MODE DE PARTIE
-          <select id="campaign-mode">
-            <option value="grand-strategy" selected>Grande stratégie · Une nation, une destinée</option>
-            <option value="sandbox">Sandbox · Temps et nations libres</option>
+        <div class="campaign-mode-switch" role="group" aria-label="Mode de jeu">
+          <span class="campaign-mode-label">MODE DE JEU</span>
+          <div class="campaign-mode-options">
+            <button class="campaign-mode-button is-active" type="button" data-campaign-mode="grand-strategy" aria-pressed="true"><strong>Stratégie</strong><small>Diriger une nation, bâtir une destinée</small></button>
+            <button class="campaign-mode-button" type="button" data-campaign-mode="sandbox" aria-pressed="false"><strong>Sandbox</strong><small>Explorer librement le monde et le temps</small></button>
+          </div>
+          <select id="campaign-mode" class="visually-hidden" aria-label="Mode de jeu">
+            <option value="grand-strategy" selected>Stratégie</option>
+            <option value="sandbox">Sandbox</option>
           </select>
-        </label>
-        <div class="setup-country country-picker"><label for="country-search">NATION À DIRIGER</label><input id="country-search" class="country-search" type="search" placeholder="Rechercher une nation…" autocomplete="off"><div class="country-filter-row"><select id="country-region-filter" aria-label="Filtrer par région"><option value="all">Toutes les régions</option><option>Europe</option><option>Asie</option><option>Afrique</option><option>Amérique du Nord</option><option>Amérique du Sud</option><option>Océanie</option></select><select id="country-difficulty-filter" aria-label="Filtrer par difficulté"><option value="all">Toutes difficultés</option><option value="1">Très accessible</option><option value="2">Accessible</option><option value="3">Intermédiaire</option><option value="4">Difficile</option><option value="5">Extrême</option></select></div><div id="country-result-count" class="country-result-count">Chargement des nations historiques…</div><div id="map-cache-status" class="map-cache-status" role="status" aria-live="polite">Préparation du stockage cartographique local…</div><div id="country-results" class="country-results" role="listbox" aria-label="Nations jouables"></div><div class="country-selected"><strong id="country-selected-name">Sélectionnez une nation</strong><span id="country-selected-detail">Classement stratégique · difficulté</span><div id="country-dossier" class="country-dossier" hidden></div></div><select id="player-country" class="visually-hidden" aria-label="Nation à diriger"><option value="">Chargement des nations historiques…</option></select></div>
+        </div>
+        <div class="setup-country country-picker"><label for="country-search">NATION À DIRIGER</label><input id="country-search" class="country-search" type="search" placeholder="Rechercher une nation… (Échap pour effacer)" autocomplete="off" aria-controls="country-results" aria-describedby="country-result-count"><div class="country-filter-row"><select id="country-region-filter" aria-label="Filtrer par région"><option value="all">Toutes les régions</option><option>Europe</option><option>Asie</option><option>Afrique</option><option>Amérique du Nord</option><option>Amérique du Sud</option><option>Océanie</option></select><select id="country-difficulty-filter" aria-label="Filtrer par difficulté"><option value="all">Toutes difficultés</option><option value="1">Très accessible</option><option value="2">Accessible</option><option value="3">Intermédiaire</option><option value="4">Difficile</option><option value="5">Extrême</option></select></div><div id="country-result-count" class="country-result-count" role="status" aria-live="polite" aria-atomic="true">Chargement des nations historiques…</div><div id="map-cache-status" class="map-cache-status" role="status" aria-live="polite">Préparation du stockage cartographique local…</div><div id="country-results" class="country-results" role="listbox" aria-label="Nations jouables"></div></div><select id="player-country" class="visually-hidden" aria-label="Nation à diriger"><option value="">Chargement des nations historiques…</option></select>
       </div>
       <div class="setup-note"><span>✦</span> En sandbox, vous pourrez changer librement de date et de nation pendant la partie.</div>
       <button id="begin-campaign" class="button button-primary setup-start" type="button">Entrer dans l'Histoire <span>→</span></button>
+    </div>
+    <section class="country-selected country-dossier-panel" aria-label="Dossier de la nation sélectionnée"><div class="country-selected-heading" aria-live="polite" aria-atomic="true"><strong id="country-selected-name">Sélectionnez une nation</strong><span id="country-selected-detail">Classement stratégique · difficulté</span></div><div id="country-dossier" class="country-dossier" hidden></div></section>
+  </section>
+  <section id="campaign-launch" class="campaign-launch" aria-hidden="true" hidden>
+    <div class="campaign-launch-card" role="status" aria-live="polite" aria-atomic="true">
+      <span class="campaign-launch-overline">TERRA NOVA · CHRONIQUE DU MONDE</span>
+      <span class="campaign-launch-rule" aria-hidden="true"></span>
+      <span id="launch-era" class="campaign-launch-era">Chambre des Cartographes</span>
+      <h2 id="launch-country">Votre nation</h2>
+      <div class="campaign-launch-meta"><strong id="launch-year">1444</strong><span id="launch-mode">STRATÉGIE</span></div>
+      <p id="launch-caption">Les cartes prennent vie. Votre histoire commence.</p>
+      <span class="campaign-launch-seal" aria-hidden="true">TN</span>
     </div>
   </section>
   <main class="game-layout">
@@ -47,9 +71,9 @@
         <div class="date-display" id="current-date" aria-live="polite">1 janvier 1444</div>
         <div class="clock-subline"><span>ANNÉE SIMULÉE</span><strong id="clock-year">1444</strong></div>
         <div class="timeline-control sandbox-only">
-          <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2100</span></div>
-          <input id="year-scrubber" type="range" min="1444" max="2100" step="1" value="1444" aria-label="Choisir l'année de simulation">
-          <div class="timeline-ends"><span>1444</span><span>Ère future · 2100</span></div>
+          <div class="timeline-heading"><label for="year-scrubber">Frise chronologique</label><span id="timeline-range">1444 — 2200</span></div>
+          <input id="year-scrubber" type="range" min="1444" max="2200" step="1" value="1444" aria-label="Choisir l'année de simulation">
+          <div class="timeline-ends"><span>1444</span><span>Horizon futur · 2200</span></div>
           <div class="era-milestones" role="group" aria-label="Repères historiques">
             <button type="button" data-year="1444" class="is-active">1444<small>Départ</small></button>
             <button type="button" data-year="1492">1492<small>Explorations</small></button>
@@ -63,6 +87,7 @@
         <div class="time-controls">
           <button id="toggle-clock" class="button button-primary clock-play"><span class="play-symbol">▶</span><span id="toggle-clock-label">Lancer</span></button>
           <button id="advance-day" class="button clock-step">+ 1 jour</button>
+          <button id="advance-month" class="button clock-step">+ 1 mois</button>
           <button id="advance-year" class="button clock-step clock-step-year">+ 1 an</button>
         </div>
         <div class="speed-control">
@@ -88,7 +113,7 @@
     </aside>
 
     <section class="map-stage" aria-labelledby="map-title">
-      <div class="map-stage-heading"><div><p class="eyebrow">ATLAS VIVANT · TERRE</p><h2 id="map-title">Le monde connu en 1444</h2></div><div class="map-tools" role="group" aria-label="Navigation sur la carte">
+      <div class="map-stage-heading"><div><p class="eyebrow">ATLAS VIVANT · TERRE</p><h2 id="map-title" tabindex="-1">Le monde connu en 1444</h2></div><div class="map-tools" role="group" aria-label="Navigation sur la carte">
           <button id="map-zoom-out" class="map-tool" type="button" aria-label="Dézoomer" title="Dézoomer">−</button>
           <span id="map-zoom-level" class="map-zoom-level" aria-live="polite">100 %</span>
           <button id="map-zoom-in" class="map-tool" type="button" aria-label="Zoomer" title="Zoomer">+</button>
@@ -97,7 +122,7 @@
           <button id="tsunami-test" class="map-tool meteor-test" type="button" aria-pressed="false" title="Cliquer ensuite sur la carte pour déclencher un tsunami">〰 Tsunami · test</button>
           <button id="earthquake-test" class="map-tool meteor-test" type="button" aria-pressed="false" title="Cliquer ensuite sur la carte pour déclencher un séisme">ϟ Séisme · test</button>
         </div></div>
-      <div class="map-frame"><div id="map-tooltip" class="map-tooltip" role="status" hidden></div><canvas id="world-map" role="img" aria-label="Atlas politique et physique du monde, pays, provinces, continents et terres émergées"></canvas></div>
+      <div class="map-frame"><div id="map-tooltip" class="map-tooltip" role="status" hidden></div><canvas id="world-map" role="img" aria-label="Atlas politique et physique du monde, pays, provinces, continents et terres émergées"></canvas><div class="map-cartographic-overlay" aria-hidden="true"><span class="map-overlay-coordinate map-overlay-coordinate-nw">N 48° 51′ 24″ · E 2° 21′ 08″</span><span class="map-overlay-coordinate map-overlay-coordinate-ne">TERRA NOVA / ATLAS</span><span class="map-overlay-coordinate map-overlay-coordinate-sw">PROJECTION ÉQUIRECTANGULAIRE</span><span class="map-overlay-coordinate map-overlay-coordinate-se">ÉCHELLE VARIABLE</span><span class="map-compass"><i></i><b>N</b><em>E</em><small>S</small><strong>W</strong></span><span class="map-reticle map-reticle-a"></span><span class="map-reticle map-reticle-b"></span></div></div>
       <details id="map-diagnostics" class="map-diagnostics">
         <summary>Diagnostic des performances de la carte <span id="map-perf-total">— ms</span></summary>
         <div id="map-perf-layers" class="map-perf-layers"><span>En attente du premier rendu…</span></div>
@@ -109,14 +134,14 @@
     </section>
 
     <aside class="side-panel ai-sidebar" aria-labelledby="ai-title">
-      <div class="side-heading"><p class="eyebrow">INTELLIGENCE DU MONDE</p><h2 id="ai-title">Le Monde en devenir</h2></div>
+      <div class="side-heading"><p class="eyebrow" id="ai-subtitle">Registres des explorations</p><h2 id="ai-title">Chambre des Cartographes</h2></div>
       <div class="ai-orb"><span>TN</span></div>
       <p class="ai-intro">Imaginez un événement. Le monde pourra réagir à vos décisions et se transformer au fil du temps.</p>
       <div class="ai-capabilities"><span>✦ Événements historiques</span><span>✦ Découvertes & inventions</span><span>✦ Catastrophes naturelles</span><span>✦ Transformations géographiques</span></div>
       <div class="chat-preview">
-        <div class="chat-message assistant-message">Je serai votre chroniqueur et votre architecte du monde. Que souhaitez-vous voir advenir sur Terre ?</div>
+        <div id="ai-era-message" class="chat-message assistant-message">Consignez une découverte, une expédition ou un bouleversement qui changera les cartes du monde.</div>
         <label for="event-prompt">Votre idée d'événement</label>
-        <textarea id="event-prompt" rows="4" placeholder="Ex. : Une météorite frappe l'Atlantique en 1520…"></textarea>
+        <textarea id="event-prompt" rows="4" placeholder="Décrivez l’expédition ou la découverte à inscrire dans les chroniques…"></textarea>
         <button class="button ai-send" type="button" disabled title="L'assistant IA sera activé dans un prochain lot">Assistant IA · bientôt disponible</button>
       </div>
       <div class="ai-disclaimer">Les propositions seront prévisualisées et validées avant toute modification du monde.</div>

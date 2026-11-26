@@ -1,9 +1,58 @@
 const THEMES = [
-  { from: 1444, to: 1600, id: "manuscript", label: "Atlas manuscrit", colors: { ocean: "#172f3a", land: "#c7b68c", landAlt: "#b6a27a", coast: "#6f5a3d", grid: "#8d7957", text: "#eadbb8", accent: "#b8874e" }, texture: "parchment", detail: "engraved" },
-  { from: 1600, to: 1800, id: "engraved-atlas", label: "Atlas gravé", colors: { ocean: "#203c49", land: "#d4c7a4", landAlt: "#c5b58c", coast: "#77684f", grid: "#9c8b69", text: "#eee2c5", accent: "#c19b5d" }, texture: "paper", detail: "hachures" },
-  { from: 1800, to: 1950, id: "topographic", label: "Carte topographique", colors: { ocean: "#263f4a", land: "#b6b99a", landAlt: "#a8ad8d", coast: "#6f806e", grid: "#71877e", text: "#e5e9dc", accent: "#d1b36f" }, texture: "paper", detail: "contours" },
-  { from: 1950, to: 2025, id: "digital", label: "Cartographie numérique", colors: { ocean: "#102b3a", land: "#526c65", landAlt: "#637a68", coast: "#a8c2b6", grid: "#587b83", text: "#e5f0e9", accent: "#75c7c0" }, texture: "digital", detail: "layers" },
-  { from: 2025, to: Infinity, id: "future", label: "Cartographie prospective", colors: { ocean: "#071d31", land: "#284d55", landAlt: "#315f62", coast: "#75d6d0", grid: "#245b69", text: "#d9f8f2", accent: "#7ce5d5" }, texture: "holographic", detail: "network" }
+  {
+    from: 1492, to: 1648, id: "exploration", label: "Explorations",
+    colors: { ocean: "#354b50", land: "#c9ad78", landAlt: "#b99a64", coast: "#765638", grid: "#a58a5c", text: "#f0dfbd", accent: "#c18b43", surface: "#30291f", panel: "#443827", border: "#9b7948" },
+    texture: "parchment", detail: "engraved", typography: { display: "Cinzel", body: "EB Garamond" },
+    visuals: { material: "parchment", borderRadius: 12, mapFilter: "sepia(.22) saturate(.88) contrast(1.04)" },
+    interfaceTitle: "Chambre des Cartographes", interfaceSubtitle: "Registres des explorations",
+    interfaceMessage: "Consignez une découverte, une expédition ou un bouleversement qui changera les cartes du monde.",
+    interfacePrompt: "Décrivez l'expédition ou la découverte à inscrire dans les chroniques…"
+  },
+  {
+    from: 1648, to: 1789, id: "westphalia", label: "Paix de Westphalie",
+    colors: { ocean: "#263d4c", land: "#d8cfb5", landAlt: "#c8b99b", coast: "#66594e", grid: "#9b8d78", text: "#eee8d8", accent: "#8b3944", surface: "#282a2b", panel: "#34363a", border: "#9b8a72" },
+    texture: "vellum", detail: "engraved", typography: { display: "Cormorant Garamond", body: "Libre Baskerville" },
+    visuals: { material: "vellum", borderRadius: 8, mapFilter: "sepia(.12) saturate(.82) contrast(1.06)" },
+    interfaceTitle: "Chancellerie", interfaceSubtitle: "Ordres et traités",
+    interfaceMessage: "Soumettez un traité, une décision de cour ou une crise diplomatique aux chancelleries.",
+    interfacePrompt: "Ex. : Un traité redessine les frontières d'Europe…"
+  },
+  {
+    from: 1789, to: 1914, id: "revolution", label: "Révolutions",
+    colors: { ocean: "#68777a", land: "#c4c2b6", landAlt: "#b2b1a6", coast: "#42484a", grid: "#8c8580", text: "#f1eee7", accent: "#a8323e", surface: "#292a2b", panel: "#3b3a39", border: "#85817a" },
+    texture: "newsprint", detail: "print", typography: { display: "Playfair Display", body: "Newsreader" },
+    visuals: { material: "newsprint", borderRadius: 2, mapFilter: "grayscale(.16) contrast(1.08)" },
+    interfaceTitle: "La Gazette", interfaceSubtitle: "Bulletin des nations",
+    interfaceMessage: "Faites la une : révolutions, inventions et mouvements populaires peuvent bouleverser l'ordre établi.",
+    interfacePrompt: "Ex. : Une révolution éclate dans une grande capitale…"
+  },
+  {
+    from: 1914, to: 2026, id: "modern", label: "XXe siècle",
+    colors: { ocean: "#344b59", land: "#858d7d", landAlt: "#747e70", coast: "#4b5960", grid: "#71818a", text: "#e4e9e7", accent: "#b39a62", surface: "#17232a", panel: "#26343b", border: "#64747a" },
+    texture: "military", detail: "topographic", typography: { display: "Oswald", body: "IBM Plex Mono" },
+    visuals: { material: "military", borderRadius: 0, mapFilter: "saturate(.78) contrast(1.08)" },
+    interfaceTitle: "État-Major", interfaceSubtitle: "Situation opérationnelle",
+    interfaceMessage: "Rédigez un rapport : mouvements stratégiques, crises et mutations technologiques sont à l'ordre du jour.",
+    interfacePrompt: "Ex. : Une crise internationale éclate en 1962…"
+  },
+  {
+    from: 2026, to: 2100, id: "present", label: "Présent",
+    colors: { ocean: "#182a30", land: "#59665f", landAlt: "#4b5952", coast: "#788783", grid: "#34464a", text: "#c4cbc5", accent: "#a58d68", surface: "#080e12", panel: "#111a20", border: "#303b3e" },
+    texture: "clean", detail: "vector", typography: { display: "Inter", body: "Plus Jakarta Sans" },
+    visuals: { material: "glass", borderRadius: 7, mapFilter: "none" },
+    interfaceTitle: "Centre de Veille", interfaceSubtitle: "Réseau mondial en temps réel",
+    interfaceMessage: "Décrivez un événement contemporain. Ses conséquences pourront se propager dans la simulation.",
+    interfacePrompt: "Ex. : Un accord mondial sur le climat est signé…"
+  },
+  {
+    from: 2100, to: Infinity, id: "future", label: "Futur",
+    colors: { ocean: "#04111e", land: "#18343b", landAlt: "#21434a", coast: "#397b7c", grid: "#153744", text: "#a8c9c9", accent: "#8a9d78", surface: "#03090f", panel: "#07131c", border: "#153844" },
+    texture: "holographic", detail: "network", typography: { display: "Orbitron", body: "JetBrains Mono" },
+    visuals: { material: "obsidian", borderRadius: 4, mapFilter: "none" },
+    interfaceTitle: "Console Orbitale", interfaceSubtitle: "Réseau planétaire prospectif",
+    interfaceMessage: "Initialisez un scénario prospectif : mutations planétaires, technologies et sociétés futures.",
+    interfacePrompt: "Ex. : Les premières cités orbitales deviennent autonomes…"
+  }
 ];
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -17,22 +66,29 @@ function blendHex(a, b, t) {
 export function getCartographicTheme(year, technologyLevel = 0) {
   if (!Number.isFinite(year)) throw new TypeError("Année cartographique invalide.");
   const index = THEMES.findIndex(theme => year >= theme.from && year < theme.to);
-  const current = THEMES[Math.max(0, index)];
-  const next = THEMES[Math.min(THEMES.length - 1, Math.max(0, index) + 1)];
+  const currentIndex = index < 0 ? 0 : index;
+  const current = THEMES[currentIndex];
+  const next = THEMES[Math.min(THEMES.length - 1, currentIndex + 1)];
   const span = current.to === Infinity ? 1 : current.to - current.from;
-  // Begin the visual transition during the final fifth of an era so the
-  // palette reaches the next era exactly at its boundary.
   const transitionStart = current.from + span * 0.8;
   const chronologicalBlend = current.to === Infinity ? 0 : clamp((year - transitionStart) / (span * 0.2), 0, 1);
-  const technologyBlend = clamp(technologyLevel, 0, 1) * 0.65;
+  const technologyBlend = clamp(Number(technologyLevel) || 0, 0, 1) * 0.65;
   const t = Math.max(chronologicalBlend, technologyBlend);
+  const colors = Object.fromEntries(Object.keys(current.colors).map(key => [key, blendHex(current.colors[key], next.colors[key], t)]));
   return {
     ...current,
     year,
-    colors: Object.fromEntries(Object.keys(current.colors).map(key => [key, blendHex(current.colors[key], next.colors[key], t)]))
+    colors,
+    visuals: {
+      ...current.visuals,
+      borderRadius: mix(current.visuals.borderRadius, next.visuals.borderRadius, t),
+      surface: colors.surface,
+      panel: colors.panel,
+      border: colors.border
+    }
   };
 }
 
 export function listCartographicEras() {
-  return THEMES.map(({ id, label, from, to }) => ({ id, label, from, to }));
+  return THEMES.map(({ id, label, from, to, interfaceTitle }) => ({ id, label, from, to, interfaceTitle }));
 }

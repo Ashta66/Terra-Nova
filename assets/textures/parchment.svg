@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+<defs>
+  <filter id="paper-grain" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency=".58" numOctaves="4" seed="41" stitchTiles="stitch"/>
+    <feColorMatrix values=".78 0 0 0 .08 .65 0 0 0 .05 .42 0 0 0 .02 0 0 0 .42 0"/>
+  </filter>
+  <filter id="fibres" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".012 .34" numOctaves="3" seed="17" stitchTiles="stitch"/>
+    <feColorMatrix values=".8 0 0 0 .08 .63 0 0 0 .045 .38 0 0 0 .015 0 0 0 .27 0"/>
+  </filter>
+  <radialGradient id="patina">
+    <stop offset="0" stop-color="#c7a875" stop-opacity="0"/>
+    <stop offset=".52" stop-color="#9c794c" stop-opacity=".10"/>
+    <stop offset=".78" stop-color="#69492b" stop-opacity=".34"/>
+    <stop offset=".94" stop-color="#49301d" stop-opacity=".66"/>
+    <stop offset="1" stop-color="#24170f" stop-opacity=".82"/>
+  </radialGradient>
+  <radialGradient id="stain">
+    <stop stop-color="#382318" stop-opacity=".42"/>
+    <stop offset=".42" stop-color="#614326" stop-opacity=".25"/>
+    <stop offset="1" stop-color="#614326" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="soften"><feGaussianBlur stdDeviation="13"/></filter>
+</defs>
+<rect width="768" height="768" fill="#92764e"/>
+<rect width="768" height="768" fill="#d4b985" filter="url(#paper-grain)" opacity=".44"/>
+<rect width="768" height="768" fill="#b89a69" filter="url(#fibres)" opacity=".38"/>
+<rect width="768" height="768" fill="url(#patina)"/>
+<g filter="url(#soften)">
+  <ellipse cx="72" cy="148" rx="112" ry="65" fill="url(#stain)"/>
+  <ellipse cx="690" cy="610" rx="128" ry="78" fill="url(#stain)"/>
+  <ellipse cx="430" cy="20" rx="154" ry="42" fill="url(#stain)"/>
+  <ellipse cx="18" cy="700" rx="94" ry="112" fill="url(#stain)"/>
+  <ellipse cx="760" cy="340" rx="54" ry="132" fill="url(#stain)"/>
+</g>
+<g fill="none" stroke-linecap="round">
+  <path d="M34 212 Q92 198 148 205 M580 92 Q634 80 710 99 M72 584 Q121 573 178 582 M486 720 Q552 706 620 718" stroke="#e2c99a" stroke-opacity=".28" stroke-width="1.5"/>
+  <path d="M112 356 Q168 348 207 354 M520 438 Q586 425 648 437 M282 42 Q331 35 375 43" stroke="#382719" stroke-opacity=".28" stroke-width="1"/>
+</g>
+</svg>

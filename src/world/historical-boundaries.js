@@ -36,9 +36,9 @@ export function selectHistoricalSnapshot(year, years) {
 
 export function isNonStateHistoricalRegion(feature) {
   const properties = feature?.properties ?? {};
-  const name = ["NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]
+  const name = ["NAME_FR", "name_fr", "name_french", "ADMIN_FR", "ADMIN_0_FR", "FORMAL_FR", "formal_fr", "NAME_1_FR", "name_1_fr", "NAME_ALT_FR", "NAME", "ADMIN", "name", "NAME_EN", "name_en", "SOVEREIGNT", "NAME_LONG"]
     .map(key => properties[key]).find(value => typeof value === "string" && value.trim()) ?? "";
-  return /(?:hunter[- ]gatherers?|foragers?|tribes?|tribal peoples?|cultures?|peoples?|nomads?|pastoralists?|farmers?|aboriginal|indigenous|inhabitants|ethnic groups?)/i.test(name);
+  return /(?:hunter[- ]gatherers?|foragers?|tribes?|tribal peoples?|cultures?|peoples?|nomads?|pastoralists?|farmers?|aboriginal|indigenous|inhabitants|ethnic groups?|peuples? autochtones?|peuples? indigenes?|peuples? premiers|nations? autochtones?|communautes? autochtones?|populations? tribales?|tribus?|nomades?|pasteurs? nomades?|chasseurs[- ]cueilleurs?|groupes? ethniques?|cultures?)/i.test(name.normalize("NFD").replace(/\p{M}/gu, ""));
 }
 
 export function selectHistoricalPoliticalTerritories(collection) {
@@ -169,13 +169,48 @@ async function loadAtlasPiSnapshot(year, fetcher) {
   };
 }
 
+
+/** Génère les traits politiques modernes depuis les arêtes communes des polygones nationaux.
+ * Les segments partagés sont dédupliqués afin qu'une limite ne soit dessinée qu'une fois.
+ * Cette extraction est volontairement réservée à la couche moderne.
+ */
+export function territoriesToSharedBoundaries(collection) {
+  if (collection?.type !== "FeatureCollection" || !Array.isArray(collection.features)) return null;
+  const keyPoint = p => Number(p[0]).toFixed(5) + "," + Number(p[1]).toFixed(5);
+  const edgeKey = (a,b) => [keyPoint(a),keyPoint(b)].sort().join("|");
+  const edges = new Map();
+  collection.features.forEach((feature, featureIndex) => {
+    const g=feature?.geometry;
+    const polygons=g?.type === "Polygon" ? [g.coordinates] : g?.type === "MultiPolygon" ? g.coordinates : [];
+    for(const polygon of polygons) for(const ring of polygon ?? []) {
+      if(!Array.isArray(ring)||ring.length<2)continue;
+      for(let i=0;i<ring.length-1;i++){
+        const a=ring[i],b=ring[i+1],key=edgeKey(a,b);
+        if(!edges.has(key))edges.set(key,{a,b,owners:new Set()});
+        edges.get(key).owners.add(featureIndex);
+      }
+    }
+  });
+  const lines=[];
+  for(const edge of edges.values())if(edge.owners.size>1)lines.push([edge.a,edge.b]);
+  return {type:"FeatureCollection",features:lines.length?[{type:"Feature",properties:{boundaryLayer:"political-modern-derived",source:"modern-territories"},geometry:{type:"MultiLineString",coordinates:lines}}]:[]};
+}
+
 export async function loadPoliticalBoundaries(year, fetcher = globalThis.fetch) {
   const numericYear = Number(year);
   if (!Number.isFinite(numericYear)) throw new TypeError("Année de frontière invalide.");
   if (numericYear >= 2026) {
     if (!modernPoliticalPromise) modernPoliticalPromise = readCollection(MODERN_POLITICAL_URL, "Frontières politiques actuelles", fetcher);
     if (!modernTerritoriesPromise) modernTerritoriesPromise = readCollection(MODERN_TERRITORIES_URL, "Pays modernes", fetcher);
-    return { collection: await modernPoliticalPromise, territories: await modernTerritoriesPromise, sourceYear: 2026, exact: numericYear === 2026, source: "Natural Earth 1:110m" };
+    const territories = await modernTerritoriesPromise;
+    const derivedBoundaries = territoriesToSharedBoundaries(territories);
+    return {
+      collection: derivedBoundaries?.features?.length ? derivedBoundaries : await modernPoliticalPromise,
+      territories,
+      sourceYear: 2026,
+      exact: numericYear === 2026,
+      source: "Natural Earth 1:110m · limites dérivées des pays"
+    };
   }
   if (numericYear === 1812) {
     try {

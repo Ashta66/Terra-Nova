@@ -30,14 +30,48 @@ test("three layer families preserve references and isolate revisions", () => {
   assert.equal(before.physical.land, land); assert.deepEqual(getChangedMapLayerFamilies(before, after), ["political"]);
 });
 test("visual frame scheduler coalesces calls and supports cancellation", () => {
-  const callbacks = new Map(); let next = 0, renders = 0;
-  const schedule = createMapFrameScheduler(() => renders++, callback => { callbacks.set(++next, callback); return next; }, id => callbacks.delete(id));
+  const callbacks = new Map(); let next = 0, renders = 0, firstCallback;
+  const schedule = createMapFrameScheduler(() => renders++, callback => { firstCallback ??= callback; callbacks.set(++next, callback); return next; }, id => callbacks.delete(id));
   assert.equal(schedule(), true); assert.equal(schedule(), false);
   const [id, callback] = [...callbacks.entries()][0]; callbacks.delete(id); callback();
-  assert.equal(renders, 1); schedule(); assert.equal(schedule.cancel(), true); assert.equal(callbacks.size, 0);
+  assert.equal(renders, 1); schedule();
+  assert.notEqual([...callbacks.values()][0], firstCallback); // chaque frame porte son jeton de génération.
+  assert.equal(schedule.cancel(), true); assert.equal(callbacks.size, 0);
 });
 test("weighted tile cache evicts least recently used entries within byte budget", () => {
   const cache = createMapTileCache({ maxBytes: 8, maxEntries: 3 });
   cache.set("a", new Uint8Array(4)); cache.set("b", new Uint8Array(4)); cache.get("a"); cache.set("c", new Uint8Array(4));
   assert.equal(cache.get("b"), null); assert.ok(cache.get("a")); assert.equal(cache.stats().bytes, 8);
+});
+test("tile ancestors are computed once per level and remain ordered from parent to root", () => {
+  const ancestors = getMapTileAncestors({ z: 3, x: 5, y: 2 });
+  assert.deepEqual(ancestors.map(tile => [tile.z, tile.x, tile.y, tile.key]), [
+    [2, 2, 1, "2/2/1"], [1, 1, 0, "1/1/0"], [0, 0, 0, "0/0/0"]
+  ]);
+});
+test("tile plans contain unique, bounded tile records with stable keys", () => {
+  const plan = getMapTilePyramidPlan({ zoom: 16, centerLongitude: -179, centerLatitude: 72 }, { maxTiles: 12 });
+  assert.equal(plan.tiles.length, 12);
+  assert.equal(new Set(plan.tiles.map(tile => tile.key)).size, plan.tiles.length);
+  assert.ok(plan.tiles.every(tile => tile.key === getMapTileKey(tile.z, tile.x, tile.y)));
+  assert.equal(plan.requestedTileCount >= plan.tiles.length, true);
+  assert.equal(plan.truncated, plan.requestedTileCount > plan.tiles.length);
+});
+
+test("le plan de tuiles conserve des clés normalisées et un ordre déterministe après optimisation",()=>{
+ const viewport={zoom:12,centerLongitude:180,centerLatitude:89.9};
+ const options={overscan:2.5,maxTiles:32};
+ const first=getMapTilePyramidPlan(viewport,options);
+ const second=getMapTilePyramidPlan(viewport,options);
+ assert.deepEqual(first.tiles.map(tile=>tile.key),second.tiles.map(tile=>tile.key));
+ assert.equal(new Set(first.tiles.map(tile=>tile.key)).size,first.tiles.length);
+ assert.ok(first.tiles.every(tile=>tile.key===tile.z+"/"+tile.x+"/"+tile.y));
+ assert.ok(first.tiles.every(tile=>tile.x>=0&&tile.x<2**tile.z&&tile.y>=0&&tile.y<2**tile.z));
+});
+test("les options de planification restent bornées pour les entrées extrêmes",()=>{
+ const plan=getMapTilePyramidPlan({zoom:1e9,centerLongitude:-540,centerLatitude:120},{overscan:99,maxTiles:9999});
+ assert.equal(plan.z,7);
+ assert.ok(plan.tiles.length<=256);
+ assert.ok(plan.overscan<=2.5);
+ assert.ok(plan.tiles.every(tile=>tile.y>=0&&tile.y<128));
 });

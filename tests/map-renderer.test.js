@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, selectMajorRiverFeatures, selectMajorLakeFeatures, filterSmallIslandComponents, filterMajorLakeFeatures } from "../src/world/map-renderer.js";
+import { getMapLabelLayout, fitMapLabelLayoutToViewport, isMapLabelLayoutGeometryConsistent, doMapLabelBoxesOverlap, getMapLabelStyle, getMapLabelKindPriority, getMapLabelCityPriority, getMapLabelCandidateProfile, getOceanDepthProfile, getMapLabelFontSize, renderWorldMap, buildTerritoryLabels, localizeMapLabel, territoryColor, classifyHistoricalTerritoryStyle, classifyPhysicalCellVisual, frenchTerritoryName, territoryName, isCityPermanentlySubmerged, getStaticLayerCacheStats, getProjectedPathCacheStats, getCityLabelLimit, getSecondaryDetailProfile, getLandCoastSimplificationProfile, getLakeCoastSimplificationProfile, getCoastSimplificationProfile, getCoastlineMaterialProfile, getTerritoryFillSimplificationProfile, getTerritoryOutlineSimplificationProfile, buildLandClipPath, drawWithinLandMask, selectMajorRiverFeatures, getRiverRenderStyle, selectMajorLakeFeatures, getLakeRenderStyle, getGlacierRenderStyle, selectMajorElevationFeatures, filterSmallIslandComponents, filterMajorLakeFeatures, partitionFeatures, simplifyClosedRing } from "../src/world/map-renderer.js";
 import { isNonStateHistoricalRegion, selectHistoricalPoliticalTerritories } from "../src/world/historical-boundaries.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex, selectGeoSpatialFeatures as selectVisibleFeatures, getGeoSpatialIndexStats } from "../src/world/geo-spatial-index.js";
-import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation } from "../src/world/terrain.js";
+import { calculateHillshade, classifyLandform, terrainColorForElevation, samplePhysicalElevation, applyLandformTint, applyCoastalTransitionTint, applyFoothillTransitionTint, classifyVegetationZone, applyVegetationZoneTint } from "../src/world/terrain.js";
+import { getChangedMapLayerFamilies } from "../src/world/map-layer-families.js";
+import { measureSharedCoastlineEdges, measureCoastlineProximity, analyzeCoastalClassificationSensitivity, collectCoastlineAlignmentCandidates, chainCoastlineAlignmentCandidates, analyzeCoastlineCandidateTopology, measureCoastlineCandidateCoverage, classifyCoastlineReconstructionCandidates, summarizeCoastlineAlignment } from "../src/world/coastline-alignment.js";
 
 function createCanvas() {
   const calls = [];
@@ -20,10 +22,18 @@ function createCanvas() {
     arc: (...args) => calls.push(["arc", ...args]),
     fillText: (...args) => calls.push(["fillText", ...args]),
     strokeText: (...args) => calls.push(["strokeText", ...args]),
-    measureText: (text) => ({ width: String(text).length * 6 }),
+    measureText: (text) => { calls.push(["measureText", text]); return { width: String(text).length * 6 }; },
     fill: (...args) => calls.push(["fill", ...args]),
     clip: (...args) => calls.push(["clip", ...args]),
     stroke: (...args) => calls.push(["stroke", ...args]),
+    createLinearGradient: (...args) => {
+      calls.push(["createLinearGradient", ...args]);
+      return { addColorStop: (...stops) => calls.push(["gradientStop", ...stops]) };
+    },
+    createRadialGradient: (...args) => {
+      calls.push(["createRadialGradient", ...args]);
+      return { addColorStop: (...stops) => calls.push(["radialGradientStop", ...stops]) };
+    },
     createImageData: (width, height) => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
     putImageData: (...args) => calls.push(["putImageData", ...args.slice(1)]),
     drawImage: (...args) => calls.push(["drawImage", ...args.slice(1)])
@@ -35,12 +45,253 @@ function createCanvas() {
 
 const land = { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] };
 
+test("le masque du relief exclut la géométrie antarctique", () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    constructor() { this.added = 0; }
+    addPath() { this.added++; }
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const antarctica = {
+      type: "Feature",
+      bbox: [-180, -90, 180, -63],
+      geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+    };
+    const ordinaryLand = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+    };
+    const path = buildLandClipPath({ type: "FeatureCollection", features: [ordinaryLand, antarctica] },
+      640, 320, { type: "equirectangular", viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 } });
+    assert.equal(path.added, 1, "seule la terre non antarctique doit entrer dans le masque du relief");
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
+
+test("la classification antarctique est mémorisée entre deux cellules de viewport", async () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+    const ring = Array.from({ length: 2400 }, (_, index) => {
+      const longitude = -180 + (index % 1200) * (360 / 1199);
+      const latitude = index < 1200 ? -70 : -89;
+      return [longitude, latitude];
+    });
+    ring.push(ring[0]);
+    const ordinaryLand = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] }
+    };
+    const antarctica = {
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [ring] }
+    };
+    const collection = { type: "FeatureCollection", features: [ordinaryLand, antarctica] };
+    const before = getProjectedPathCacheStats();
+    buildLandClipPath(collection, 640, 320,
+      { type: "equirectangular", viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 } });
+    const first = getProjectedPathCacheStats();
+    buildLandClipPath(collection, 640, 320,
+      { type: "equirectangular", viewport: { zoom: 2, centerLongitude: 0, centerLatitude: 0 } });
+    const second = getProjectedPathCacheStats();
+    assert.equal(first.antarcticClassificationCacheMisses - before.antarcticClassificationCacheMisses, 2);
+    assert.equal(second.antarcticClassificationCacheMisses, first.antarcticClassificationCacheMisses);
+    assert.ok(second.antarcticClassificationCacheHits > first.antarcticClassificationCacheHits);
+    assert.equal(second.antarcticClassificationCoordinatesScanned, first.antarcticClassificationCoordinatesScanned);
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
+
+test("la classification WebGL des terres est réutilisée pour une collection stable", () => {
+  const { canvas } = createCanvas();
+  const collection = { type: "FeatureCollection", features: [
+    land.features[0],
+    { type: "Feature", geometry: { type: "Polygon", coordinates: [[[20, 0], [30, 0], [30, 10], [20, 0]]] } }
+  ] };
+  let fillChecks = 0, coastChecks = 0;
+  const geographicWebGLRenderer = {
+    canvas: {},
+    supports: () => { fillChecks++; return true; },
+    supportsBoundary: () => { coastChecks++; return true; },
+    renderLayers: () => ({})
+  };
+  const previousDisableFill = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = false;
+  const options = {
+    width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    geographicWebGLRenderer
+  };
+  try {
+    renderWorldMap(canvas, collection, options);
+    const firstFillChecks = fillChecks, firstCoastChecks = coastChecks;
+    renderWorldMap(canvas, collection, options);
+    assert.equal(fillChecks, firstFillChecks);
+    assert.equal(coastChecks, firstCoastChecks);
+    assert.equal(firstFillChecks, collection.features.length);
+    assert.equal(firstCoastChecks, collection.features.length);
+
+    globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = true;
+    renderWorldMap(canvas, collection, options);
+    assert.equal(fillChecks, firstFillChecks,
+      "le drapeau de diagnostic doit invalider la classification sans rappeler supports()");
+    assert.equal(coastChecks, firstCoastChecks + collection.features.length,
+      "la classification des contours doit être recalculée avec la nouvelle clé d'options");
+  } finally {
+    if (previousDisableFill === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_POLYGON_FILL = previousDisableFill;
+  }
+});
+
+test("le remplissage terrestre utilise le même profil Canvas que le masque côtier", () => {
+  const { canvas } = createCanvas();
+  const renderCalls = [];
+  const geographicWebGLRenderer = {
+    canvas: {}, supports: () => true, supportsBoundary: () => true,
+    renderLayers: layers => { renderCalls.push(layers); return {}; }
+  };
+  const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+  const previousPath2D = globalThis.Path2D;
+  class MaskPath2D { addPath() {} moveTo() {} lineTo() {} closePath() {} }
+  globalThis.Path2D = MaskPath2D;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = false;
+  try {
+    renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1, terrainEnabled: false,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      territories: land, geographicWebGLRenderer
+    });
+    assert.equal(renderCalls.flat().some(layer => layer.key === "land-fill"), false,
+      "le remplissage terrestre ne doit pas contourner la simplification écran du masque côtier");
+  } finally {
+    if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
+  }
+});
+
+test("le masque Canvas de repli exclut aussi l'Antarctique sans Path2D", () => {
+  const previousPath2D = globalThis.Path2D;
+  const previousAntarcticBase = globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+  delete globalThis.Path2D;
+  globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = true;
+  const countMaskMoves = collection => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1, terrainEnabled: true,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 }
+    });
+    const clipIndex = calls.findIndex(call => call[0] === "clip");
+    return calls.slice(0, clipIndex).filter(call => call[0] === "moveTo").length;
+  };
+  const antarctica = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [-180, -70], [-90, -65], [0, -64], [90, -65], [180, -70],
+      [180, -89], [0, -89], [-180, -89], [-180, -70]
+    ]] }
+  };
+  try {
+    const ordinary = { type: "FeatureCollection", features: [land.features[0]] };
+    const mixed = { type: "FeatureCollection", features: [land.features[0], antarctica] };
+    assert.equal(countMaskMoves(mixed), countMaskMoves(ordinary),
+      "la géométrie antarctique ne doit pas être ajoutée au chemin de clip Canvas");
+  } finally {
+    if (previousPath2D === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previousPath2D;
+    if (previousAntarcticBase === undefined) delete globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+    else globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = previousAntarcticBase;
+  }
+});
+
+test("aucune couche de banquise antarctique indépendante n'est dessinée", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLatitude: -25, centerLongitude: 0 },
+    terrainEnabled: true
+  });
+  assert.ok(!calls.some(call => call[0] === "createLinearGradient"),
+    "aucun aplat de banquise ne doit être ajouté au-dessus de l'océan");
+});
+
+test("l'Antarctique n'est pas recoloré par la couche des territoires politiques", () => {
+  const { canvas } = createCanvas();
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    bbox: [-180, -90, 180, -63],
+    properties: { NAME: "Antarctica", ADMIN: "Antarctica", ADM0_A3: "ATA" },
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  }] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 3, centerLatitude: 0, centerLongitude: 0 },
+    territories: antarctica
+  });
+  assert.equal(result.territoryCount, 0,
+    "aucun aplat ni contour politique ne doit être appliqué au continent antarctique");
+});
+
+test("la couche d'aplat antarctique peut être isolée sans désactiver le relief", () => {
+  const { canvas, calls } = createCanvas();
+  globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE = true;
+  try {
+    renderWorldMap(canvas, { type: "FeatureCollection", features: [{
+      type: "Feature",
+      bbox: [-180, -90, 180, -63],
+      geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+    }] }, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: true
+    });
+  } finally {
+    delete globalThis.__TERRA_DISABLE_ANTARCTIC_LAND_BASE;
+  }
+  assert.ok(!calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "le diagnostic doit pouvoir désactiver uniquement l'aplat blanc antarctique");
+});
+
+test("le continent antarctique conserve un aplat visible même lorsque le relief est activé", () => {
+  const { canvas, calls } = createCanvas();
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    bbox: [-180, -90, 180, -63],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  }] };
+  renderWorldMap(canvas, antarctica, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    terrainEnabled: true
+  });
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "l'Antarctique doit garder un aplat neige opaque au zoom mondial");
+  assert.ok(calls.some(call => call[0] === "moveTo" && Math.abs(call[1]) < 0.01 && Math.abs(call[2] - 272) < 0.1),
+    "le contour antarctique doit rester dans les limites horizontales du planisphère au niveau de sa côte");
+});
+
 test("le moteur dessine une FeatureCollection et retourne son thème", () => {
   const { canvas, calls } = createCanvas();
   const result = renderWorldMap(canvas, land, { width: 640, height: 320, year: 1444, pixelRatio: 1 });
   assert.equal(result.featureCount, 1);
   assert.equal(result.landCount, 1);
-  assert.equal(result.theme.id, "manuscript");
+  assert.equal(result.theme.id, "exploration");
   assert.ok(calls.some(call => call[0] === "fillRect"));
   assert.ok(calls.some(call => call[0] === "fill" && call[1] === "evenodd"));
   assert.ok(calls.some(call => call[0] === "clip" && call[1] === "evenodd"));
@@ -55,6 +306,30 @@ test("le moteur dessine les lacs et les cours d'eau comme des couches distinctes
   assert.equal(result.riverCount, 1);
 });
 
+
+test("le style des glaciers hiérarchise remplissage et contour selon le rang", () => {
+  const major = getGlacierRenderStyle({ properties: { scalerank: 0 } });
+  const secondary = getGlacierRenderStyle({ properties: { SCALERANK: 1 } });
+  const minor = getGlacierRenderStyle({ properties: { min_zoom: 2 } });
+  const unknown = getGlacierRenderStyle({ properties: {} });
+  assert.ok(major.fillAlpha > secondary.fillAlpha && secondary.fillAlpha > minor.fillAlpha);
+  assert.ok(major.outlineAlpha > secondary.outlineAlpha && secondary.outlineAlpha > minor.outlineAlpha);
+  assert.ok(major.outlineWidth > secondary.outlineWidth && secondary.outlineWidth > minor.outlineWidth);
+  assert.equal(unknown.rank, 1);
+  assert.equal(unknown.fillAlpha, secondary.fillAlpha);
+});
+
+test("le style des lacs hiérarchise remplissage et contour selon le rang", () => {
+  const major = getLakeRenderStyle({ properties: { scalerank: 0 } });
+  const secondary = getLakeRenderStyle({ properties: { SCALERANK: 1 } });
+  const minor = getLakeRenderStyle({ properties: { min_zoom: 2 } });
+  const unknown = getLakeRenderStyle({ properties: {} });
+  assert.ok(major.fillAlpha > secondary.fillAlpha && secondary.fillAlpha > minor.fillAlpha);
+  assert.ok(major.outlineAlpha > secondary.outlineAlpha && secondary.outlineAlpha > minor.outlineAlpha);
+  assert.ok(major.outlineWidth > secondary.outlineWidth && secondary.outlineWidth > minor.outlineWidth);
+  assert.equal(unknown.rank, 1);
+  assert.equal(unknown.fillAlpha, secondary.fillAlpha);
+});
 
 test("la couche des lacs conserve au maximum 12 grands lacs, quel que soit le zoom", () => {
   const features = Array.from({ length: 30 }, (_, index) => ({
@@ -104,6 +379,30 @@ test("le moteur dessine les zones glaciaires et les repères de relief", () => {
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
 });
 
+test("la couche des glaciers exclut le polygone glaciaire continental antarctique", () => {
+  const { canvas } = createCanvas();
+  const antarcticGlacier = {
+    type: "Feature",
+    bbox: [-180, -89.998899, 179.999949, -63.27066],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [180, -63], [180, -90], [-180, -90], [-180, -63]]] }
+  };
+  const retainedGlacier = {
+    type: "Feature",
+    bbox: [-5, -5, 10, 10],
+    properties: { name: "glacier de contrôle" },
+    geometry: { type: "Polygon", coordinates: [[[-5, -5], [10, -5], [10, 10], [-5, -5]]] }
+  };
+  const glaciers = { type: "FeatureCollection", features: [antarcticGlacier, retainedGlacier] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, glaciers,
+    viewport: { zoom: 1, centerLatitude: 0, centerLongitude: 0 },
+    lodZoom: 3,
+    terrainEnabled: false
+  });
+  assert.equal(result.glacierCount, 1,
+    "un glacier ordinaire reste visible, mais le polygone continental antarctique est exclu");
+});
+
 test("le moteur rejette une entrée qui n'est pas une FeatureCollection", () => {
   const { canvas } = createCanvas();
   assert.throws(() => renderWorldMap(canvas, { type: "Topology", arcs: [] }), /FeatureCollection/);
@@ -115,6 +414,42 @@ test("le moteur ignore les géométries nulles sans interrompre le rendu", () =>
   const result = renderWorldMap(canvas, data, { width: 640, height: 320, pixelRatio: 1 });
   assert.equal(result.featureCount, 1);
   assert.equal(result.landCount, 0);
+});
+
+test("les noms des pays sont visibles au zoom minimal de lancement", () => {
+  const { canvas } = createCanvas();
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    properties: { NAME: "France", ADMIN: "France" },
+    geometry: { type: "Polygon", coordinates: [[[-5, 42], [8, 42], [8, 51], [-5, 51], [-5, 42]]] }
+  }] };
+  const labels = buildTerritoryLabels(territories);
+  assert.equal(labels.features[0].properties.minZoom, 1);
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 46 }
+  });
+  assert.ok(result.labelHits.some(label => label.name === "FRANCE"));
+});
+
+test("les noms des pays restent visibles au dézoom même avec de nombreux labels secondaires", () => {
+  const { canvas } = createCanvas();
+  const secondary = Array.from({ length: 60 }, (_, index) => ({
+    type: "Feature",
+    properties: { name: "Repère " + index, kind: "continent", minZoom: 1 },
+    geometry: { type: "Point", coordinates: [index * 4 + 180, 85] }
+  }));
+  const country = {
+    type: "Feature",
+    properties: { name: "France", kind: "country", minZoom: 1.25, priority: 90 },
+    geometry: { type: "Point", coordinates: [2, 46] }
+  };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    labels: { type: "FeatureCollection", features: [...secondary, country] },
+    viewport: { zoom: 1.25, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.ok(result.labelHits.some(label => label.name === "FRANCE"));
 });
 
 test("les labels géographiques apparaissent selon le niveau de zoom", () => {
@@ -187,16 +522,97 @@ test("la bathymétrie reste discrète et sans ombrage local marqué", () => {
 });
 
 
+test("la bathymétrie distingue les plateaux, talus, bassins abyssaux et fosses", () => {
+  const depths = [-11000, -8000, -6000, -4000, -2500, -1500, -800, -200, -50];
+  const colors = depths.map(depth => terrainColorForElevation(depth, 1));
+  const luminance = color => color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+  for (let index = 1; index < colors.length; index++) {
+    assert.ok(luminance(colors[index]) > luminance(colors[index - 1]),
+      `la remontée vers le plateau doit éclaircir progressivement la bathymétrie à ${depths[index]} m`);
+    assert.ok(Math.max(...colors[index].map((channel, i) => Math.abs(channel - colors[index - 1][i]))) < 18,
+      "les transitions bathymétriques restent continues");
+  }
+  assert.ok(new Set(colors.map(color => color.join(","))).size >= 8,
+    "les grands domaines de profondeur doivent rester visuellement différenciables");
+});
+
+test("la palette bathymétrique reste sombre et indépendante de l'ombrage terrestre", () => {
+  const deep = terrainColorForElevation(-11000, 1);
+  const shelf = terrainColorForElevation(-200, 1);
+  const strongShade = terrainColorForElevation(-200, 0.45);
+  assert.ok(deep[2] > deep[0], "les grands fonds conservent une dominante marine froide");
+  assert.ok(shelf[2] > shelf[0], "les plateaux conservent une dominante marine froide");
+  assert.ok(Math.max(...strongShade.map((channel, i) => Math.abs(channel - shelf[i]))) <= 2,
+    "l'ombrage terrestre ne doit pas creuser artificiellement les océans");
+  assert.ok(Math.max(...deep.map((channel, i) => Math.abs(channel - shelf[i]))) < 35,
+    "le contraste global reste contenu pour préserver la lecture stratégique");
+});
+
+test("le hillshade conserve un modelé lisible sur les pentes douces", () => {
+  const flat = calculateHillshade(500, 500, 500, 500, 45);
+  const gentle = calculateHillshade(450, 550, 525, 475, 45);
+  assert.equal(flat, 1, "une surface plane conserve son éclairage neutre");
+  assert.ok(Math.abs(gentle - 1) > 0.0001, "les faibles variations de pente restent perceptibles");
+  assert.ok(gentle >= 0.52 && gentle <= 1.48, "les nuances restent dans la plage douce");
+});
+
 test("le hillshade directionnel est neutre sur une surface plane et borné sur les pentes", () => {
   assert.equal(calculateHillshade(100, 100, 100, 100, 45), 1);
   const illuminatedSlope = calculateHillshade(0, 1800, 900, 0, 45);
   const oppositeSlope = calculateHillshade(1800, 0, 0, 900, 45);
   assert.notEqual(illuminatedSlope, 1);
   assert.notEqual(oppositeSlope, 1);
-  assert.ok(illuminatedSlope >= 0.48 && illuminatedSlope <= 1.52);
-  assert.ok(oppositeSlope >= 0.48 && oppositeSlope <= 1.52);
+  assert.ok(illuminatedSlope >= 0.52 && illuminatedSlope <= 1.48);
+  assert.ok(oppositeSlope >= 0.52 && oppositeSlope <= 1.48);
 });
 
+
+test("les chaînes de moyenne altitude sont reconnues par leur pente", () => {
+  assert.equal(classifyLandform(1450, 400, 2900, 1900, 1000, 35), "mountains");
+  assert.equal(classifyLandform(1450, 1430, 1470, 1460, 1440, 35), "plateaus");
+});
+
+test("la palette continentale détaille les transitions hypsométriques sans rupture", () => {
+  const elevations = [0, 180, 400, 700, 1000, 1300, 1600, 2000, 2300, 2600, 3000, 3400, 4000, 5000];
+  const colors = elevations.map(elevation => terrainColorForElevation(elevation, 1));
+  const luminance = color => color[0] * 0.2126 + color[1] * 0.7152 + color[2] * 0.0722;
+  for (let index = 1; index < colors.length; index++) {
+    assert.ok(luminance(colors[index]) >= luminance(colors[index - 1]),
+      `la palette hypsométrique ne doit pas s'assombrir à ${elevations[index]} m`);
+    assert.ok(Math.max(...colors[index].map((channel, i) => Math.abs(channel - colors[index - 1][i]))) < 35,
+      "les paliers d'altitude ne doivent pas produire de cassure chromatique");
+  }
+  assert.ok(new Set(colors.map(color => color.join(","))).size >= 12,
+    "les étages continentaux doivent conserver une lecture nuancée");
+});
+
+test("les matières des plaines, vallées, plateaux et collines restent distinctes", () => {
+  const elevation = 900;
+  const forms = ["plains", "valleys", "plateaus", "hills", "mountains"];
+  const colors = forms.map(form => terrainColorForElevation(elevation, 1, form, 42));
+  assert.equal(new Set(colors.map(color => color.join(","))).size, forms.length,
+    "chaque forme terrestre doit conserver une signature colorimétrique propre");
+  assert.ok(colors.every(color => color.every(channel => channel >= 0 && channel <= 255)));
+});
+
+test("la teinte minérale des montagnes progresse avec l'altitude", () => {
+  const base = [120, 125, 110];
+  const foothills = applyLandformTint(base, "mountains", 1200);
+  const highRange = applyLandformTint(base, "mountains", 4200);
+  const plains = applyLandformTint(base, "plains", 1200);
+  assert.notDeepEqual(foothills, base);
+  assert.notDeepEqual(highRange, foothills);
+  assert.notDeepEqual(highRange, plains);
+  assert.deepEqual(base, [120, 125, 110], "la palette source ne doit pas être mutée");
+});
+
+test("les terrains non montagneux conservent une modulation mesurée", () => {
+  const base = [120, 125, 110];
+  const plateau = applyLandformTint(base, "plateaus", 1600);
+  const plain = applyLandformTint(base, "plains", 100);
+  assert.notDeepEqual(plateau, plain);
+  assert.ok(plateau.every(channel => channel >= 0 && channel <= 255));
+});
 
 test("les classes de relief distinguent montagnes, plateaux, vallées et plaines", () => {
   assert.equal(classifyLandform(-2500, -2600, -2400, -2550, -2450, 35), "ocean");
@@ -204,6 +620,74 @@ test("les classes de relief distinguent montagnes, plateaux, vallées et plaines
   assert.equal(classifyLandform(1200, 1190, 1210, 1200, 1200, 30), "plateaus");
   assert.equal(classifyLandform(400, 700, 700, 700, 700, 40), "valleys");
   assert.equal(classifyLandform(100, 100, 100, 100, 100, 40), "plains");
+});
+
+test("les zones de végétation suivent des bandes latitudinales et l'altitude", () => {
+  assert.equal(classifyVegetationZone(120, 5), "tropical");
+  assert.equal(classifyVegetationZone(120, 28), "subtropical");
+  assert.equal(classifyVegetationZone(120, 45), "temperate");
+  assert.equal(classifyVegetationZone(120, 58), "boreal");
+  assert.equal(classifyVegetationZone(120, 70), "tundra");
+  assert.equal(classifyVegetationZone(3200, 20), "alpine");
+  assert.equal(classifyVegetationZone(4800, 20), "nival");
+});
+
+test("les zones polaires d'altitude élevée reçoivent une signature nivale", () => {
+  assert.equal(classifyVegetationZone(1000, 82), "nival");
+  assert.equal(classifyVegetationZone(1000, -82), "nival");
+  assert.equal(classifyVegetationZone(1000, 72), "tundra");
+});
+
+test("la classification végétale rejette les océans et les coordonnées invalides", () => {
+  assert.equal(classifyVegetationZone(-20, 0), "none");
+  assert.equal(classifyVegetationZone(100, NaN), "none");
+  assert.equal(classifyVegetationZone(100, 91), "none");
+  assert.equal(classifyVegetationZone(Infinity, 40), "none");
+});
+
+test("la teinte de végétation est légère et ne mute pas la couleur d'origine", () => {
+  const base = [120, 125, 110];
+  const tinted = applyVegetationZoneTint(base, "tropical");
+  assert.notDeepEqual(tinted, base);
+  assert.deepEqual(base, [120, 125, 110]);
+  assert.deepEqual(applyVegetationZoneTint(base, "unknown"), base);
+});
+
+test("la palette terrestre varie selon la latitude sans changer la bathymétrie", () => {
+  const tropical = terrainColorForElevation(250, 1, "plains", 5);
+  const temperate = terrainColorForElevation(250, 1, "plains", 45);
+  const boreal = terrainColorForElevation(250, 1, "plains", 60);
+  assert.notDeepEqual(tropical, temperate);
+  assert.notDeepEqual(temperate, boreal);
+  assert.deepEqual(
+    terrainColorForElevation(-2500, 1, "ocean", 5),
+    terrainColorForElevation(-2500, 1, "ocean", 60)
+  );
+});
+
+test("les signatures végétales différencient mieux les climats sans créer de classes de couverture", () => {
+  const base = [120, 125, 110];
+  const zones = ["tropical", "subtropical", "temperate", "boreal", "tundra", "alpine", "nival"];
+  const colors = zones.map(zone => applyVegetationZoneTint(base, zone));
+  assert.equal(new Set(colors.map(color => color.join(","))).size, zones.length,
+    "chaque grande zone climatique doit garder une nuance identifiable");
+  for (const color of colors) {
+    assert.equal(color.length, 3);
+    assert.ok(color.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255));
+    assert.ok(color.every((channel, index) => Math.abs(channel - base[index]) <= 12),
+      "la signature végétale ne doit pas écraser la matière hypsométrique");
+  }
+  assert.deepEqual(terrainColorForElevation(-2500, 1, "ocean", 5),
+    terrainColorForElevation(-2500, 1, "ocean", 60),
+    "les nouvelles nuances ne doivent jamais recolorer l'océan");
+});
+
+test("les teintes de végétation restent modestes aux hautes altitudes", () => {
+  const base = [180, 180, 180];
+  const alpine = applyVegetationZoneTint(base, "alpine");
+  const nival = applyVegetationZoneTint(base, "nival");
+  assert.ok(Math.abs(nival[0] - base[0]) <= 7);
+  assert.ok(Math.abs(alpine[1] - base[1]) <= 8);
 });
 
 test("les classes terrestres modulent discrètement la palette sans toucher la bathymétrie", () => {
@@ -280,6 +764,17 @@ test("l'index spatial conserve les grandes géométries et les géométries sans
   assert.deepEqual(visible.features.map(feature => feature.properties.id), ["world", "empty"]);
 });
 
+
+test("l'index spatial poursuit sa construction après une géométrie globale ou vide", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "global" }, geometry: { type: "Polygon", coordinates: [[[-179, -80], [179, -80], [179, 80], [-179, 80], [-179, -80]]] } },
+    { type: "Feature", properties: { id: "empty" }, geometry: null },
+    { type: "Feature", properties: { id: "local" }, geometry: { type: "Point", coordinates: [2, 48] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection);
+  const visible = queryGeoSpatialIndex(index, { zoom: 12, centerLongitude: 2, centerLatitude: 48 });
+  assert.deepEqual(visible.features.map(feature => feature.properties.id), ["global", "empty", "local"]);
+});
 
 test("les sélections spatiales sont réutilisées tant que le viewport reste dans les mêmes secteurs", () => {
   const collection = { type: "FeatureCollection", features: [
@@ -363,6 +858,7 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -371,18 +867,17 @@ test("les chemins Path2D sont réutilisés pour un viewport identique et invalid
   try {
     const { canvas } = createCanvas();
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
+    assert.equal(constructions, 2);
     // Une boucle complète de 360° présente exactement le même cadrage.
     renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 364, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
-    // Un petit pan reste dans la même cellule de cache et réutilise les chemins.
-    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
-    assert.equal(constructions, 1);
-    // Un déplacement plus large invalide bien le cadrage.
-    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
     assert.equal(constructions, 2);
+    // Tout déplacement réel reconstruit les chemins au centre exact du viewport.
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 4.1, centerLatitude: 5 } });
+    assert.equal(constructions, 4);
+    renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 2, centerLongitude: 5, centerLatitude: 5 } });
+    assert.equal(constructions, 6);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -395,6 +890,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
   let constructions = 0;
   class FakePath2D {
     constructor() { constructions++; }
+    addPath() {}
     moveTo() {}
     lineTo() {}
     closePath() {}
@@ -411,7 +907,7 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
     const pathsAfterFirstRender = constructions;
     assert.ok(pathsAfterFirstRender >= 1);
     renderWorldMap(canvas, land, options);
-    assert.equal(constructions, pathsAfterFirstRender);
+    assert.equal(constructions, pathsAfterFirstRender, "le masque composé et les chemins des features sont réutilisés");
     assert.ok(calls.some(call => call[0] === "stroke" && call[1] instanceof FakePath2D));
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
@@ -419,6 +915,49 @@ test("les chemins des rivières Path2D sont réutilisés entre deux rendus ident
   }
 });
 
+
+test("la hiérarchie hydrographique différencie largeur et opacité des cours d'eau", () => {
+  const major = getRiverRenderStyle({ properties: { scalerank: 0 } });
+  const primary = getRiverRenderStyle({ properties: { scalerank: 1 } });
+  const secondary = getRiverRenderStyle({ properties: { scalerank: 2 } });
+  const minor = getRiverRenderStyle({ properties: { scalerank: 3 } });
+  assert.ok(major.lineWidth > primary.lineWidth);
+  assert.ok(primary.lineWidth > secondary.lineWidth);
+  assert.ok(secondary.lineWidth > minor.lineWidth);
+  assert.ok(major.alpha > primary.alpha);
+  assert.ok(primary.alpha > secondary.alpha);
+  assert.ok(secondary.alpha > minor.alpha);
+});
+
+test("les cours d'eau sans rang conservent un style secondaire stable", () => {
+  const missing = getRiverRenderStyle({ properties: {} });
+  const explicit = getRiverRenderStyle({ properties: { scalerank: 1 } });
+  assert.deepEqual(missing, explicit);
+});
+
+test("les alias de rang Natural Earth conservent la même hiérarchie", () => {
+  assert.deepEqual(
+    getRiverRenderStyle({ properties: { SCALERANK: 0 } }),
+    getRiverRenderStyle({ properties: { scalerank: 0 } })
+  );
+  assert.deepEqual(
+    getRiverRenderStyle({ properties: { min_zoom: 1 } }),
+    getRiverRenderStyle({ properties: { scalerank: 1 } })
+  );
+});
+
+test("les rangs hydrographiques élevés restent plus discrets que les fleuves majeurs", () => {
+  const major = getRiverRenderStyle({ properties: { scalerank: 0 } });
+  const minor = getRiverRenderStyle({ properties: { scalerank: 4 } });
+  assert.ok(minor.lineWidth < major.lineWidth);
+  assert.ok(minor.alpha < major.alpha);
+});
+
+test("le style hydrographique accepte une largeur invalide sans produire de trait nul", () => {
+  const style = getRiverRenderStyle({ properties: { scalerank: 0 } }, 0);
+  assert.ok(style.lineWidth > 0);
+  assert.ok(style.alpha > 0 && style.alpha <= 1);
+});
 
 test("un MultiLineString conserve le nombre de segments hydrographiques avec Path2D", () => {
   const previous = globalThis.Path2D;
@@ -533,10 +1072,10 @@ test("le cache Path2D applique une limite globale même avec de nombreuses entit
     const stats = getProjectedPathCacheStats();
     assert.equal(result.landCount, 540);
     assert.ok(constructions >= 512, `Path2D créés : ${constructions}`);
-    assert.ok(stats.cachedPaths <= 512);
-    assert.equal(stats.maxCachedPaths, 512);
+    assert.ok(stats.cachedPaths <= 4096);
+    assert.equal(stats.maxCachedPaths, 4096);
     assert.ok(stats.cachedVertices <= stats.maxCachedVertices);
-    assert.equal(stats.maxCachedVertices, 250_000);
+    assert.equal(stats.maxCachedVertices, 750_000);
   } finally {
     if (previous === undefined) delete globalThis.Path2D;
     else globalThis.Path2D = previous;
@@ -604,17 +1143,17 @@ test("les rivières traversant l'antiméridien restent continues sans Path2D", (
   }
 });
 
-test("la simplification des côtes adapte le niveau de détail au zoom", async () => {
+test("la simplification des côtes restaure les détails lorsque le zoom augmente", async () => {
   const { getCoastSimplificationProfile } = await import("../src/world/map-renderer.js");
   const world = getCoastSimplificationProfile(1);
   const regional = getCoastSimplificationProfile(3);
   const close = getCoastSimplificationProfile(12);
-  assert.deepEqual(world, { tolerance: 1.3, minRingArea: 2.2 });
-  assert.deepEqual(regional, { tolerance: 1.65, minRingArea: 3.1 });
-  assert.deepEqual(close, { tolerance: 2.5, minRingArea: 6 });
-  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 2.05, minRingArea: 4.4 });
-  assert.ok(world.tolerance < regional.tolerance && regional.tolerance < close.tolerance);
-  assert.ok(world.minRingArea < regional.minRingArea && regional.minRingArea < close.minRingArea);
+  assert.deepEqual(world, { tolerance: 2.5, minRingArea: 6 });
+  assert.deepEqual(regional, { tolerance: 2.05, minRingArea: 4.4 });
+  assert.deepEqual(close, { tolerance: 1.3, minRingArea: 2.2 });
+  assert.deepEqual(getCoastSimplificationProfile(7), { tolerance: 1.65, minRingArea: 3.1 });
+  assert.ok(world.tolerance > regional.tolerance && regional.tolerance > close.tolerance);
+  assert.ok(world.minRingArea > regional.minRingArea && regional.minRingArea > close.minRingArea);
 });
 
 import { selectHistoricalSnapshot, historicalPolygonsToBoundaries } from "../src/world/historical-boundaries.js";
@@ -634,7 +1173,24 @@ test("les contours côtiers seuls ne sont pas confondus avec des frontières pol
   assert.equal(result.features.length, 0);
 });
 
-test("les frontières politiques et administratives sont rendues comme deux couches distinctes", () => {
+test("les contours côtiers des polygones nationaux ne sont pas redessinés comme frontières territoriales", () => {
+  const { canvas } = createCanvas();
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { NAME: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[-10, 0], [0, 0], [0, 10], [-10, 10], [-10, 0]]] } },
+    { type: "Feature", properties: { NAME: "Est" }, geometry: { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]] } }
+  ] };
+  const politicalBoundaries = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "LineString", coordinates: [[0, 0], [0, 10]] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 3.5 },
+    territories, politicalBoundaries
+  });
+  assert.equal(result.territoryOutlineCount, 0);
+  assert.ok(result.politicalBoundaryCount > 0);
+});
+
+test("les frontières nationales sont rendues sans tracer les limites administratives", () => {
   const { canvas, calls } = createCanvas();
   const politicalBoundaries = { type: "FeatureCollection", features: [
     { type: "Feature", properties: { BORDERPRECISION: 3 }, geometry: { type: "LineString", coordinates: [[0, 0], [5, 5]] } }
@@ -647,9 +1203,9 @@ test("les frontières politiques et administratives sont rendues comme deux couc
     politicalBoundaries, administrativeBoundaries
   });
   assert.equal(result.politicalBoundaryCount, 2);
-  assert.equal(result.administrativeBoundaryCount, 1);
+  assert.equal(result.administrativeBoundaryCount, 0);
   assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 0));
-  assert.ok(calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
+  assert.ok(!calls.some(call => call[0] === "setLineDash" && call[1].length === 2));
 });
 
 test("les frontières historiques ne conservent que les segments partagés entre territoires", () => {
@@ -677,15 +1233,14 @@ test("les noms des pays sont générés depuis les polygones territoriaux", () =
   assert.ok(Math.abs(labels.features[0].geometry.coordinates[1] - 2) < 0.01);
 });
 
-test("les provinces reçoivent des labels à partir de leurs lignes administratives", () => {
+test("les étiquettes infranationales ne sont pas générées pour la carte stratégique", () => {
   const provinces = { type: "FeatureCollection", features: [{
     type: "Feature", properties: { name: "Province test" },
     geometry: { type: "Polygon", coordinates: [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]] }
   }] };
-  const labels = buildTerritoryLabels(null, provinces);
-  assert.equal(labels.features.length, 1);
-  assert.equal(labels.features[0].properties.kind, "province");
-  assert.equal(labels.features[0].properties.name, "Province test");
+  const labels = buildTerritoryLabels(null);
+  assert.equal(labels.features.length, 0);
+  assert.equal(provinces.features.length, 1, "les données régionales restent disponibles hors du rendu stratégique");
 });
 
 
@@ -772,12 +1327,130 @@ test("le rendu physique conserve le relief ETOPO hors des cellules modifiées",(
 });
 
 
+test("la localisation couvre les champs formels, les libellés cartographiques et les variantes de lieux", () => {
+  assert.equal(territoryName({ NAME: "Kingdom of X", FORMAL_FR: "Royaume de X" }), "Royaume de X");
+  assert.equal(territoryName({ NAME_EN: "Republic of Annam", FORMAL_FR: "République de l’Annam" }), "République de l’Annam");
+  assert.equal(localizeMapLabel("Republic of Korea", "country"), "Corée du Sud");
+  assert.equal(localizeMapLabel("Province of Bavaria", "province"), "Province de Bavière");
+  assert.equal(localizeMapLabel("Beijing", "city"), "Pékin");
+  assert.equal(localizeMapLabel("Cairo", "city"), "Le Caire");
+  assert.equal(localizeMapLabel("Timbuktu", "city"), "Tombouctou");
+  assert.equal(localizeMapLabel("Samarkand", "city"), "Samarcande");
+  assert.equal(localizeMapLabel("Venice", "city"), "Venise");
+  assert.equal(localizeMapLabel("Genoa", "city"), "Gênes");
+  assert.equal(localizeMapLabel("London", "city"), "Londres");
+  assert.equal(localizeMapLabel("New York", "city"), "New York");
+  assert.equal(localizeMapLabel("Alexandria", "city"), "Alexandrie");
+  assert.equal(localizeMapLabel("Cape Town", "city"), "Le Cap");
+  assert.equal(localizeMapLabel("Ho Chi Minh City", "city"), "Hô Chi Minh-Ville");
+  assert.equal(localizeMapLabel("Shanghai", "city"), "Shanghai");
+  assert.equal(localizeMapLabel("Buenos Aires", "city"), "Buenos Aires");
+  assert.equal(localizeMapLabel("Johannesburg", "city"), "Johannesbourg");
+  assert.equal(localizeMapLabel("Delhi", "city"), "Delhi");
+  assert.equal(localizeMapLabel("Montreal", "city"), "Montréal");
+  assert.equal(localizeMapLabel("Atlantique", "ocean"), "Atlantique");
+  assert.equal(localizeMapLabel("", "city"), "");
+});
+
 test("les noms historiques sont francisés et les enclaves anglaises sont explicitement nommées",()=>{
  assert.equal(frenchTerritoryName("New France"),"Nouvelle-France");
  assert.equal(frenchTerritoryName("Aquitaine",{NAME:"Aquitaine",SUBJECTO:"Kingdom of England"}),"Aquitaine anglaise");
  assert.equal(frenchTerritoryName("British Raj"),"Inde britannique");
  assert.equal(frenchTerritoryName("Republic of Korea",{ADMIN:"Republic of Korea",ISO_A3:"KOR"}),"Corée du Sud");
  assert.equal(frenchTerritoryName("United Republic of Tanzania",{ADMIN:"United Republic of Tanzania",ISO_A3:"TZA"}),"Tanzanie");
+ assert.equal(frenchTerritoryName("Ivory Coast"),"Côte d’Ivoire");
+ assert.equal(frenchTerritoryName("Democratic Republic of the Congo"),"République démocratique du Congo");
+ assert.equal(frenchTerritoryName("Czechia"),"Tchéquie");
+ assert.equal(frenchTerritoryName("South Korea"),"Corée du Sud");
+ assert.equal(frenchTerritoryName("East Timor"),"Timor oriental");
+ assert.equal(frenchTerritoryName("Cape Verde"),"Cap-Vert");
+ assert.equal(frenchTerritoryName("United Arab Emirates"),"Émirats arabes unis");
+ assert.equal(frenchTerritoryName("Teutonic Knights"),"Chevaliers teutoniques");
+ assert.equal(frenchTerritoryName("Teutonic Order"),"Ordre Teutonique");
+ assert.equal(frenchTerritoryName("English territory"),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Polish-Lithuanian Commonwealth"),"République des Deux Nations");
+ assert.equal(frenchTerritoryName("Polish–Lithuanian Commonwealth"),"République des Deux Nations");
+ assert.equal(frenchTerritoryName("Polish Lithuanian Commonwealth"),"République des Deux Nations");
+ assert.equal(frenchTerritoryName("Teutonic-Knights"),"Chevaliers teutoniques");
+ assert.equal(frenchTerritoryName("English-Territory"),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Viceroyalty of New Spain"),"Vice-royauté de Nouvelle-Espagne");
+ assert.equal(frenchTerritoryName("British West Indies"),"Antilles britanniques");
+ assert.equal(frenchTerritoryName(null,{NAME:"Teutonic Knights",NAME_FR:"Chevaliers teutoniques"}),"Chevaliers teutoniques");
+ assert.equal(frenchTerritoryName("Polish-Lithuanian Commonwealth",{NAME_FR:"République des Deux Nations"}),"République des Deux Nations");
+ assert.equal(frenchTerritoryName("English territory",{ADMIN_FR:"Territoire anglais"}),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Teutonic Knights",{name_fr:"Chevaliers teutoniques"}),"Chevaliers teutoniques");
+ assert.equal(frenchTerritoryName("English territory",{NAME:"English territory",NAME_FR:"Territoire anglais"}),"Territoire anglais");
+ assert.equal(territoryName({NAME:"English Territory",NAME_FR:"Territoire anglais"}),"Territoire anglais");
+ assert.equal(frenchTerritoryName("Kingdom of Bavaria"),"Royaume de Bavière");
+ assert.equal(frenchTerritoryName("Kingdom of the Hellenes"), "Royaume de Grèce");
+ assert.equal(frenchTerritoryName("Austro-Hungarian Empire"), "Empire austro-hongrois");
+ assert.equal(frenchTerritoryName("Kingdom of Serbia"), "Royaume de Serbie");
+ assert.equal(frenchTerritoryName("Republic of Texas"), "République du Texas");
+ assert.equal(frenchTerritoryName("Khedivate of Egypt"), "Khédivat d’Égypte");
+ assert.equal(frenchTerritoryName("Sultanate of Zanzibar"), "Sultanat de Zanzibar");
+ assert.equal(frenchTerritoryName("Kingdom of Ryukyu"), "Royaume de Ryūkyū");
+ assert.equal(frenchTerritoryName("Free France"), "France libre");
+ assert.equal(frenchTerritoryName("Kingdom of the Franks"), "Royaume des Francs");
+ assert.equal(frenchTerritoryName("North German Federation"), "Confédération de l’Allemagne du Nord");
+ assert.equal(frenchTerritoryName("People's Republic of Bulgaria"), "République populaire de Bulgarie");
+ assert.equal(frenchTerritoryName("Republic of Biafra"), "République du Biafra");
+ assert.equal(frenchTerritoryName("Kingdom of Hejaz"), "Royaume du Hedjaz");
+ assert.equal(frenchTerritoryName("United Provinces of Central America"), "Provinces-Unies d’Amérique centrale");
+ assert.equal(frenchTerritoryName("Dutch East Indies"), "Indes orientales néerlandaises");
+ assert.equal(frenchTerritoryName("Kingdom of Lan Xang"), "Royaume du Lan Xang");
+ assert.equal(frenchTerritoryName("Grand Duchy of Finland"), "Grand-duché de Finlande");
+ assert.equal(frenchTerritoryName("Republic of Gran Colombia"), "Grande Colombie");
+ assert.equal(frenchTerritoryName("Union of South Africa"), "Union sud-africaine");
+ assert.equal(frenchTerritoryName("People's Republic of China"), "République populaire de Chine");
+ assert.equal(frenchTerritoryName("Blue Horde"), "Horde bleue");
+ assert.equal(frenchTerritoryName("White Horde"), "Horde blanche");
+ assert.equal(frenchTerritoryName("Black Horde"), "Horde noire");
+ assert.equal(frenchTerritoryName("Great Horde"), "Grande Horde");
+ assert.equal(frenchTerritoryName("Nogai Horde"), "Horde nogaï");
+ assert.equal(frenchTerritoryName("Kazan Khanate"), "Khanat de Kazan");
+ assert.equal(frenchTerritoryName("Republic of Ragusa"), "République de Raguse");
+ assert.equal(frenchTerritoryName("Papal States"), "États pontificaux");
+ assert.equal(frenchTerritoryName("Teutonic Order"), "Ordre Teutonique");
+ assert.equal(frenchTerritoryName("Livonian Order"), "Ordre de Livonie");
+ assert.equal(frenchTerritoryName("Duchy of Milan"), "Duché de Milan");
+ assert.equal(frenchTerritoryName("Principality of Wallachia"), "Principauté de Valachie");
+ assert.equal(frenchTerritoryName("Sultanate of Kilwa"), "Sultanat de Kilwa");
+ assert.equal(frenchTerritoryName("Kingdom of Dai Viet"), "Royaume du Đại Việt");
+ assert.equal(frenchTerritoryName("Mapuche Confederation"), "Confédération mapuche");
+ assert.equal(frenchTerritoryName("Kingdom of Araucania and Patagonia"), "Royaume d’Araucanie et de Patagonie");
+ assert.equal(frenchTerritoryName("Duchy of Burgundy"),"Duché de Bourgogne");
+ assert.equal(frenchTerritoryName("Khanate of Sibir"), "Khanat de Sibir");
+ assert.equal(frenchTerritoryName("Hafsid Caliphate"), "Califat hafside");
+ assert.equal(frenchTerritoryName("Mamluke Sultanate"), "Sultanat mamelouk");
+ assert.equal(frenchTerritoryName("Oirat Confederation"), "Confédération oïrate");
+ assert.equal(frenchTerritoryName("Sultanate of Delhi"), "Sultanat de Delhi");
+ assert.equal(frenchTerritoryName("Tsardom of Muscovy"), "Tsarat de Moscovie");
+ assert.equal(frenchTerritoryName("Bukara Khanate"), "Khanat de Boukhara");
+ assert.equal(frenchTerritoryName("Ming Chinese Empire"), "Empire chinois des Ming");
+ assert.equal(frenchTerritoryName("Grand Duchy of Hesse"), "Grand-duché de Hesse");
+ assert.equal(frenchTerritoryName("Republic of Kraków"), "République de Cracovie");
+ assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
+ assert.equal(frenchTerritoryName("Republic of Annam",{NAME:"Republic of Annam"}),"République de l’Annam");
+ assert.equal(frenchTerritoryName("Republic of Annam"),"République de l’Annam");
+ assert.equal(frenchTerritoryName("Sultanate of Oman"),"Sultanat d’Oman");
+ assert.equal(frenchTerritoryName("Kingdom of Wallachia"),"Royaume de Valachie");
+ assert.equal(frenchTerritoryName("Orange Free State"),"État libre d’Orange");
+ assert.equal(frenchTerritoryName("Province of Quebec"), "Province de Québec");
+ assert.equal(frenchTerritoryName("State of California"), "État de Californie");
+ assert.equal(frenchTerritoryName("Department of New South Wales"), "Département de Nouvelle-Galles du Sud");
+ assert.equal(territoryName({ NAME: "English Province", NAME_1_FR: "Province française" }), "Province française");
+ assert.equal(frenchTerritoryName("English Province", { NAME: "English Province", FORMAL_FR: "Province française" }), "Province française");
+ assert.equal(territoryName({ NAME: "English polity", ADMIN_0_FR: "Entité française" }), "Entité française");
+ assert.equal(frenchTerritoryName("English polity", { NAME: "English polity", NAME_ALT_FR: "Nom alternatif français" }), "Nom alternatif français");
+ assert.equal(frenchTerritoryName("Gold Coast"),"Côte-de-l’Or");
+ assert.equal(frenchTerritoryName("New South Wales"),"Nouvelle-Galles du Sud");
+ assert.equal(frenchTerritoryName("Kingdom of Ceylon"),"Royaume de Ceylan");
+ assert.equal(frenchTerritoryName("Kingdom of Bohemia"),"Royaume de Bohême");
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Kingdom",NAME_FR:"Peuples autochtones"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Peuples indigènes"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Communautés autochtones"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Chasseurs-cueilleurs"}}),true);
+ assert.equal(isNonStateHistoricalRegion({properties:{NAME:"Pasteurs nomades"}}),true);
 });
 test("les labels territoriaux utilisent le nom français et la métropole de l'enclave",()=>{
  const territories={type:"FeatureCollection",features:[
@@ -864,8 +1537,85 @@ test("les couches statiques sont mises en cache et réutilisées lors d'un rendu
 });
 
 
+test("les bascules WebGL des côtes, frontières et rivières invalident le cache statique", () => {
+  const previous = globalThis.OffscreenCanvas;
+  const previousCoast = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  const previousBoundaries = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
+  const previousRivers = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+  class MockOffscreenCanvas {
+    constructor(width, height) { this.width = width; this.height = height; this.context = createCanvas().canvas.getContext("2d"); }
+    getContext() { return this.context; }
+  }
+  globalThis.OffscreenCanvas = MockOffscreenCanvas;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
+  delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+  try {
+    const { canvas } = createCanvas();
+    const first = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+    const coastToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    const boundaryToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    const riverToggle = (globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = true,
+      renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 }));
+    assert.equal(first.staticCacheHit, false);
+    assert.equal(coastToggle.staticCacheHit, false);
+    assert.equal(boundaryToggle.staticCacheHit, false);
+    assert.equal(riverToggle.staticCacheHit, false);
+  } finally {
+    if (previous === undefined) delete globalThis.OffscreenCanvas;
+    else globalThis.OffscreenCanvas = previous;
+    if (previousCoast === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_LAND_COAST = previousCoast;
+    if (previousBoundaries === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_BOUNDARIES = previousBoundaries;
+    if (previousRivers === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL_RIVER_LINES = previousRivers;
+  }
+});;
+
 test("le nombre de villes affichées ne dépasse jamais cinq, quel que soit le zoom", () => {
   for (const zoom of [1, 2, 4, 8, 14, 35]) assert.equal(getCityLabelLimit(zoom), 5);
+});
+
+test("la priorité des villes normalise les rangs et populations absents ou invalides", () => {
+  const ranked = getMapLabelCityPriority({ properties: {
+    scalerank: "2", POP_MAX: "850000"
+  } });
+  assert.deepEqual(ranked, { rank: 2, population: 850000 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    MIN_ZOOM: "4", POP_EST: "120000"
+  } }), { rank: 4, population: 120000 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    scalerank: "invalide", POP_MAX: "NaN"
+  } }), { rank: 99, population: 0 });
+  assert.deepEqual(getMapLabelCityPriority({ properties: {
+    scalerank: -1, population: -500
+  } }), { rank: 99, population: 0 });
+  assert.deepEqual(getMapLabelCityPriority(null), { rank: 99, population: 0 });
+});
+
+test("le rang cartographique d'une ville prime sur sa population", () => {
+  const { canvas } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Mégapole secondaire", kind: "city", scalerank: 2, POP_MAX: 12000000 }, geometry: { type: "Point", coordinates: [24, 12] } },
+    { type: "Feature", properties: { name: "Capitale prioritaire", kind: "city", scalerank: 0, POP_MAX: 250000 }, geometry: { type: "Point", coordinates: [-24, -12] } }
+  ] };
+  const result = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, labels,
+    viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
+  });
+  assert.equal(result.labelHits[0]?.name, "Capitale prioritaire");
+});
+
+test("les métadonnées de priorité des villes ne sont jamais modifiées", () => {
+  const feature = { type: "Feature", properties: {
+    name: "Ville témoin", kind: "city", scalerank: "1", POP_MAX: "500000"
+  }, geometry: { type: "Point", coordinates: [0, 0] } };
+  const before = JSON.stringify(feature);
+  getMapLabelCityPriority(feature);
+  assert.equal(JSON.stringify(feature), before);
 });
 
 test("les villes les plus importantes sont prioritaires dans le tri des labels", () => {
@@ -889,31 +1639,99 @@ test("les fleuves sont limités aux grands axes à tous les niveaux de zoom", ()
     type: "Feature", properties: { name, scalerank: rank },
     geometry: { type: "LineString", coordinates: Array.from({ length: vertices }, (_, i) => [i, i / 10]) }
   });
-  const selected = selectMajorRiverFeatures({ type: "FeatureCollection", features: [
+  const collection = { type: "FeatureCollection", features: [
     river("petit affluent", 2, 80),
     river("grand fleuve", 1, 20),
     river("fleuve majeur", 0, 12),
     river("fleuve secondaire", 1, 60)
-  ] }, 1, 3);
+  ] };
+  const selected = selectMajorRiverFeatures(collection, 1, 3);
   assert.deepEqual(selected.map(feature => feature.properties.name), ["fleuve majeur", "fleuve secondaire", "grand fleuve"]);
+  assert.deepEqual(selectMajorRiverFeatures(collection, 1, 2).map(feature => feature.properties.name),
+    ["fleuve majeur", "fleuve secondaire"]);
+  assert.deepEqual(collection.features.map(feature => feature.properties.name),
+    ["petit affluent", "grand fleuve", "fleuve majeur", "fleuve secondaire"],
+    "le classement mis en cache ne doit pas réordonner la source");
 });
 
-test("les côtes physiques filtrent fortement les micro-îles à tous les niveaux de zoom", () => {
+test("les couches politiques sont exécutées à l'intérieur du masque continental", () => {
+  const calls = [];
+  const context = {
+    save: () => calls.push("save"),
+    clip: (path, rule) => calls.push(["clip", path, rule]),
+    restore: () => calls.push("restore")
+  };
+  const mask = { id: "land-mask" };
+  const result = drawWithinLandMask(context, mask, () => {
+    calls.push("draw");
+    return 7;
+  });
+  assert.equal(result, 7);
+  assert.deepEqual(calls, ["save", ["clip", mask, "evenodd"], "draw", "restore"]);
+});
+
+test("drawWithinLandMask active le masque avant le rendu des aplats territoriaux", () => {
+  const calls = [];
+  const mask = { kind: "canonical-land-mask" };
+  const context = {
+    save: () => calls.push("save"),
+    clip: (path, rule) => calls.push(["clip", path, rule]),
+    restore: () => calls.push("restore")
+  };
+  const territoryFill = () => calls.push("territory-fill");
+  drawWithinLandMask(context, mask, territoryFill);
+  const clipIndex = calls.findIndex(call => Array.isArray(call) && call[0] === "clip");
+  const fillIndex = calls.indexOf("territory-fill");
+  assert.ok(clipIndex >= 0, "le masque continental doit être appliqué");
+  assert.equal(calls[clipIndex][1], mask, "le masque canonique doit être transmis au contexte");
+  assert.equal(calls[clipIndex][2], "evenodd", "le découpage doit préserver les trous géographiques");
+  assert.ok(fillIndex > clipIndex, "le remplissage territorial doit intervenir sous le masque");
+  assert.deepEqual(calls[0], "save");
+  assert.equal(calls.at(-1), "restore");
+});
+
+
+test("le rendu politique reste compatible quand aucun masque Path2D n'est disponible", () => {
+  const calls = [];
+  const context = { save: () => calls.push("save"), restore: () => calls.push("restore") };
+  assert.equal(drawWithinLandMask(context, null, () => { calls.push("draw"); return 3; }), 3);
+  assert.deepEqual(calls, ["draw"]);
+});
+
+test("les côtes physiques gagnent en détail à mesure que le zoom augmente", () => {
   const expected = [
-    [1, { tolerance: 2.8, minRingArea: 14 }],
-    [3, { tolerance: 3.4, minRingArea: 24 }],
-    [8, { tolerance: 3.9, minRingArea: 40 }],
-    [20, { tolerance: 4.4, minRingArea: 60 }]
+    [1, { tolerance: 4.4, minRingArea: 60 }],
+    [3, { tolerance: 3.9, minRingArea: 40 }],
+    [8, { tolerance: 3.4, minRingArea: 24 }],
+    [20, { tolerance: 2.8, minRingArea: 14 }]
   ];
   for (const [zoom, profile] of expected) {
     const land = getLandCoastSimplificationProfile(zoom);
     assert.deepEqual(land, profile);
-    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), land);
+    assert.equal(getTerritoryFillSimplificationProfile(zoom), null);
     assert.deepEqual(getTerritoryOutlineSimplificationProfile(zoom), land);
   }
   assert.ok(getLandCoastSimplificationProfile(1).tolerance > getCoastSimplificationProfile(1).tolerance);
+  assert.ok(getLandCoastSimplificationProfile(20).tolerance > getCoastSimplificationProfile(20).tolerance);
 });
 
+
+test("la matière côtière se renforce avec le zoom sans multiplier les traits", () => {
+  const overview = getCoastlineMaterialProfile(1);
+  const detail = getCoastlineMaterialProfile(13);
+  assert.deepEqual(overview, { lineWidth: 0.62, alpha: 0.32, shadowBlur: 1.35 });
+  assert.ok(detail.lineWidth > overview.lineWidth && detail.lineWidth <= 0.7,
+    "le contact côtier gagne légèrement en présence au zoom rapproché");
+  assert.ok(detail.alpha > overview.alpha && detail.alpha <= 0.36,
+    "la matière reste discrète face aux frontières politiques");
+  assert.ok(detail.shadowBlur > overview.shadowBlur && detail.shadowBlur <= 1.66,
+    "le halo s'étend modérément sans produire une seconde ligne");
+  for (const zoom of [1, 2, 4, 8, 13, 40]) {
+    const profile = getCoastlineMaterialProfile(zoom);
+    assert.ok(Number.isFinite(profile.lineWidth) && Number.isFinite(profile.alpha)
+      && Number.isFinite(profile.shadowBlur));
+  }
+});
 
 test("les rives des lacs utilisent le même profil de simplification que les côtes marines", () => {
   for (const zoom of [1, 2, 4, 8, 20]) {
@@ -921,9 +1739,9 @@ test("les rives des lacs utilisent le même profil de simplification que les cô
   }
 });
 
-test("les aplats territoriaux orange suivent le même masque côtier que les terres", () => {
+test("les aplats pays conservent les sommets source avant clipping par le masque côtier canonique", () => {
   for (const zoom of [1, 2, 4, 8, 20]) {
-    assert.deepEqual(getTerritoryFillSimplificationProfile(zoom), getLandCoastSimplificationProfile(zoom));
+    assert.equal(getTerritoryFillSimplificationProfile(zoom), null);
   }
 });
 
@@ -941,7 +1759,7 @@ test("les sommets de montagnes ne dessinent plus de triangles mais gardent les n
     viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
   });
   assert.ok(calls.some(call => call[0] === "fillText" && call[1] === "Everest"));
-  assert.equal(calls.some(call => call[0] === "closePath"), false);
+  assert.equal(calls.filter(call => call[0] === "closePath").length, 0, "aucun triangle ni polygone de banquise ne doit être dessiné");
 });
 
 
@@ -959,4 +1777,1401 @@ test("la taille des textes évolue progressivement sans saut au seuil de zoom",(
   assert.ok(Math.abs(after-before)<0.03);
   assert.ok(getMapLabelFontSize("country",4,1)>getMapLabelFontSize("country",1,1));
   assert.ok(getMapLabelFontSize("city",20,1)>getMapLabelFontSize("city",1,1));
+});
+
+
+test("le contour externe de l'Antarctique n'ajoute pas de trait au nord du continent", () => {
+  const renderStrokeCount = collection => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: true
+    });
+    return calls.filter(call => call[0] === "stroke").length;
+  };
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [[
+      [-180, -70], [-90, -65], [0, -64], [90, -65], [180, -70],
+      [180, -89], [0, -89], [-180, -89], [-180, -70]
+    ]] }
+  }] };
+  assert.equal(renderStrokeCount(antarctica), renderStrokeCount({ type: "FeatureCollection", features: [] }),
+    "le contour de la géométrie antarctique ne doit pas être tracé");
+});
+
+test("la détection de l'Antarctique supporte les anneaux GeoJSON très détaillés sans débordement de pile", () => {
+  const { canvas, calls } = createCanvas();
+  const ring = Array.from({ length: 140000 }, (_, index) => {
+    const longitude = -180 + (index % 70000) * (360 / 69999);
+    const latitude = index < 70000 ? -70 : -89;
+    return [longitude, latitude];
+  });
+  ring.push(ring[0]);
+  const antarctica = { type: "FeatureCollection", features: [{
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [ring] }
+  }] };
+  assert.doesNotThrow(() => renderWorldMap(canvas, antarctica, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+    terrainEnabled: true
+  }));
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(248,251,252,0.98)"),
+    "l'anneau antarctique détaillé doit être reconnu et recevoir son aplat");
+});
+
+test("le remplissage terrestre ne soumet plus de géométrie brute au moteur WebGL", () => {
+  const { canvas } = createCanvas();
+  const antarcticaFeature = {
+    type: "Feature", bbox: [-180, -90, 180, -63],
+    geometry: { type: "Polygon", coordinates: [[[-180, -63], [-90, -70], [0, -63], [90, -70], [180, -70], [180, -90], [-180, -90], [-180, -63]]] }
+  };
+  const collection = { type: "FeatureCollection", features: [...land.features, antarcticaFeature] };
+  const renderedLayerBatches = [];
+  const geographicWebGLRenderer = {
+    canvas: {}, supports: () => true, supportsBoundary: () => true,
+    renderLayers: layers => { renderedLayerBatches.push(layers); return {}; }
+  };
+  const previousDisable = globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+  globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = false;
+  try {
+    renderWorldMap(canvas, collection, {
+      width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 1, centerLongitude: 0, centerLatitude: 0 },
+      terrainEnabled: true, geographicWebGLRenderer
+    });
+  } finally {
+    if (previousDisable === undefined) delete globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL;
+    else globalThis.__TERRA_DISABLE_GEOGRAPHIC_WEBGL = previousDisable;
+  }
+  const renderedLayers = renderedLayerBatches.flat();
+  assert.equal(renderedLayers.some(layer => layer.key === "land-fill"), false,
+    "le remplissage terrestre doit rester sur le chemin Canvas généralisé");
+});
+
+test("les repères d'altitude sont triés une seule fois par collection et conservent leur priorité", () => {
+  const mountain = { type: "Feature", properties: { elevation_m: 8848 }, geometry: { type: "Point", coordinates: [86, 28] } };
+  const hill = { type: "Feature", properties: { elevation_m: 1200 }, geometry: { type: "Point", coordinates: [10, 10] } };
+  const depression = { type: "Feature", properties: { elevation_m: -430 }, geometry: { type: "Point", coordinates: [20, 20] } };
+  const polygon = { type: "Feature", properties: { elevation_m: 9999 }, geometry: { type: "Polygon", coordinates: [] } };
+  const collection = { type: "FeatureCollection", features: [hill, polygon, depression, mountain] };
+  assert.deepEqual(selectMajorElevationFeatures(collection, 2), [mountain, hill]);
+  assert.deepEqual(selectMajorElevationFeatures(collection, 3), [mountain, hill, depression]);
+  assert.deepEqual(collection.features, [hill, polygon, depression, mountain],
+    "le tri en cache ne doit jamais réordonner la collection source");
+});
+
+test("les limites administratives nombreuses ne déclenchent aucun tracé Canvas", () => {
+  const administrativeBoundaries = {
+    type: "FeatureCollection",
+    features: Array.from({ length: 100 }, (_, index) => ({
+      type: "Feature", properties: { scalerank: 0 },
+      geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.4, 1]] }
+    }))
+  };
+  const emptyLand = { type: "FeatureCollection", features: [] };
+  const baseline = createCanvas();
+  renderWorldMap(baseline.canvas, emptyLand, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }
+  });
+  const withAdministrativeInput = createCanvas();
+  const result = renderWorldMap(withAdministrativeInput.canvas, emptyLand, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 }, administrativeBoundaries
+  });
+  assert.equal(result.administrativeBoundaryCount, 0);
+  assert.equal(
+    withAdministrativeInput.calls.filter(call => call[0] === "stroke").length,
+    baseline.calls.filter(call => call[0] === "stroke").length,
+    "l'injection de 100 limites administratives ne doit ajouter aucun tracé Canvas"
+  );
+});
+
+
+test("les métriques typographiques des labels sont réutilisées entre les rendus", () => {
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Label métrique réutilisable", kind: "country" }, geometry: { type: "Point", coordinates: [0, 0] } }
+  ] };
+  const render = () => {
+    const { canvas, calls } = createCanvas();
+    renderWorldMap(canvas, land, {
+      width: 640, height: 320, pixelRatio: 1, labels,
+      viewport: { zoom: 4, centerLongitude: 0, centerLatitude: 0 }
+    });
+    return calls;
+  };
+  const first = render();
+  const second = render();
+  assert.equal(first.filter(call => call[0] === "measureText").length, 1);
+  assert.equal(second.filter(call => call[0] === "measureText").length, 0,
+    "la seconde passe ne doit plus mesurer une largeur déjà mise en cache");
+  assert.equal(second.filter(call => call[0] === "fillText" && call[1] === "LABEL MÉTRIQUE RÉUTILISABLE").length, 1);
+});
+
+
+test("le classement des grands lacs est mis en cache par collection et rang", () => {
+  let rankReads = 0;
+  const features = Array.from({ length: 20 }, (_, index) => ({
+    type: "Feature",
+    properties: {
+      get scalerank() { rankReads++; return index < 15 ? 0 : 2; },
+      name: "Lac " + index
+    },
+    bbox: [0, 0, 20 - index, 15 - index * 0.3],
+    geometry: { type: "Polygon", coordinates: [] }
+  }));
+  const collection = { type: "FeatureCollection", features };
+  const first = selectMajorLakeFeatures(collection, 1, 12);
+  const readsAfterFirstSelection = rankReads;
+  const second = selectMajorLakeFeatures(collection, 1, 5);
+  assert.equal(first.length, 12);
+  assert.equal(second.length, 5);
+  assert.equal(rankReads, readsAfterFirstSelection,
+    "une seconde sélection avec le même rang réutilise le classement calculé");
+  assert.deepEqual(second, first.slice(0, 5));
+});
+
+
+test("l'index spatial traite les collections géométriques imbriquées sans récursion", () => {
+  const nested = { type: "Feature", properties: { id: "nested" }, geometry: {
+    type: "GeometryCollection", geometries: [
+      { type: "GeometryCollection", geometries: [
+        { type: "Point", coordinates: [4, 45] },
+        { type: "LineString", coordinates: [[5, 45], [6, 46]] }
+      ] }
+    ]
+  } };
+  const collection = { type: "FeatureCollection", features: [nested] };
+  const visible = queryGeoSpatialIndex(buildGeoSpatialIndex(collection), {
+    zoom: 5, centerLongitude: 5, centerLatitude: 45
+  });
+  assert.strictEqual(visible.features[0], nested);
+});
+
+test("les clés de tuiles numériques conservent la sélection autour de l'antiméridien", () => {
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { id: "est" }, geometry: { type: "Point", coordinates: [179, 0] } },
+    { type: "Feature", properties: { id: "ouest" }, geometry: { type: "Point", coordinates: [-179, 0] } },
+    { type: "Feature", properties: { id: "loin" }, geometry: { type: "Point", coordinates: [0, 0] } }
+  ] };
+  const index = buildGeoSpatialIndex(collection, 10);
+  const result = queryGeoSpatialIndex(index, { zoom: 8, centerLongitude: 180, centerLatitude: 0 });
+  assert.deepEqual(result.features.map(feature => feature.properties.id), ["est", "ouest"]);
+  assert.strictEqual(queryGeoSpatialIndex(index, { zoom: 8, centerLongitude: -180, centerLatitude: 0 }), result);
+});
+
+test("le plan de tuiles expose toujours des clés lisibles après indexation numérique", async () => {
+  const { getGeoSpatialTilePlan } = await import("../src/world/geo-spatial-index.js");
+  const collection = { type: "FeatureCollection", features: [
+    { type: "Feature", geometry: { type: "Point", coordinates: [2, 48] } }
+  ] };
+  const plan = getGeoSpatialTilePlan(collection, { zoom: 4, centerLongitude: 0, centerLatitude: 45 });
+  assert.ok(plan.tileKeys.length > 0);
+  assert.ok(plan.tileKeys.every(key => /^[0-9]+:[0-9]+$/.test(key)));
+  assert.equal(plan.visibleTileCount, plan.tileKeys.length);
+});
+
+
+test("le classement géographique des lacs supporte des anneaux très détaillés sans spread massif", () => {
+  const ring = Array.from({ length: 140000 }, (_, index) => [
+    -5 + (index % 70000) / 7000,
+    40 + Math.floor(index / 70000) * 2
+  ]);
+  ring.push(ring[0]);
+  const feature = { type: "Feature", geometry: { type: "Polygon", coordinates: [ring] } };
+  assert.doesNotThrow(() => selectMajorLakeFeatures({ features: [feature] }, 1, 1));
+});
+
+test("le calcul des surfaces de polygones ignore les coordonnées invalides sans contaminer l'aire", () => {
+  const valid = { type: "Feature", geometry: { type: "Polygon", coordinates: [
+    [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]
+  ] } };
+  const invalidHole = { type: "Feature", geometry: { type: "Polygon", coordinates: [
+    [[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]],
+    [[0.5, 0.5], [NaN, 1], [1, 1], [0.5, 0.5]]
+  ] } };
+  assert.equal(filterSmallIslandComponents({ features: [valid] }, 1).features.length, 1);
+  assert.equal(filterSmallIslandComponents({ features: [invalidHole] }, 1).features.length, 1);
+});
+
+test("le filtrage des composants insulaires conserve l'ordre source sans tri global", () => {
+  const ring = size => [[0, 0], [size, 0], [size, size], [0, size], [0, 0]];
+  const polygons = [ring(5), ring(0.02), ring(3), ring(0.01)];
+  const result = filterSmallIslandComponents({
+    features: [{ type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: polygons.map(polygon => [polygon]) } }]
+  }, 100);
+  assert.deepEqual(result.features[0].geometry.coordinates, [[polygons[0]], [polygons[2]]]);
+});
+
+test("le filtre des grands lacs conserve les rangs et l'ordre des entités", () => {
+  const makeLake = (name, rank, size) => ({
+    type: "Feature", properties: { name, scalerank: rank },
+    bbox: [0, 0, size, size],
+    geometry: { type: "Polygon", coordinates: [] }
+  });
+  const collection = { type: "FeatureCollection", features: [
+    makeLake("rang 1", 1, 8), makeLake("rang 3", 3, 20),
+    makeLake("rang absent", undefined, 7), makeLake("petit", 1, 0.1)
+  ] };
+  assert.deepEqual(filterMajorLakeFeatures(collection, 500).features.map(feature => feature.properties.name),
+    ["rang 1", "rang absent"]);
+});
+
+test("les familles cartographiques détectent les ajouts et retraits de couches sans Set temporaire", () => {
+  const previous = { physical: { land: {}, lakes: {}, rivers: {} }, political: { labels: {} } };
+  const next = { physical: { land: previous.physical.land, lakes: null, glaciers: {} }, political: { labels: previous.political.labels } };
+  assert.deepEqual(getChangedMapLayerFamilies(previous, next), ["physical"]);
+  assert.deepEqual(getChangedMapLayerFamilies(next, previous), ["physical"]);
+});
+
+
+test("le classement des fleuves ne relit pas les rangs pendant le tri", () => {
+  let rankReads = 0;
+  const features = Array.from({ length: 12 }, (_, index) => ({
+    type: "Feature",
+    properties: { get scalerank() { rankReads++; return index % 2; } },
+    geometry: { type: "LineString", coordinates: Array.from({ length: index + 2 }, (_, point) => [point, index]) }
+  }));
+  const selected = selectMajorRiverFeatures({ features }, 1, 12);
+  const readsAfterSort = rankReads;
+  assert.equal(selected.length, 12);
+  assert.ok(rankReads <= features.length, "le rang est lu une seule fois par entité");
+  selectMajorRiverFeatures({ features: [] }, 1, 12);
+  assert.equal(rankReads, readsAfterSort);
+});
+
+test("le classement des repères d'altitude lit chaque altitude une seule fois", () => {
+  let elevationReads = 0;
+  const features = Array.from({ length: 16 }, (_, index) => ({
+    type: "Feature",
+    properties: { get elevation_m() { elevationReads++; return index * 100; } },
+    geometry: { type: "Point", coordinates: [index, index] }
+  }));
+  const collection = { features };
+  const selected = selectMajorElevationFeatures(collection, 8);
+  assert.equal(selected.length, 8);
+  assert.equal(elevationReads, features.length);
+  selectMajorElevationFeatures(collection, 4);
+  assert.equal(elevationReads, features.length, "le classement mis en cache ne relit pas les altitudes");
+});
+
+test("le regroupement des frontières conserve deux styles de tirets sans allocation par entité", () => {
+  const { canvas, calls } = createCanvas();
+  const boundaries = { type: "FeatureCollection", features: Array.from({ length: 20 }, (_, index) => ({
+    type: "Feature",
+    properties: { BORDERPRECISION: index % 2 === 0 ? 2 : 3, scalerank: 0 },
+    geometry: { type: "LineString", coordinates: [[index, 0], [index + 0.5, 1]] }
+  })) };
+  renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1, viewport: { zoom: 9 },
+    politicalBoundaries: boundaries
+  });
+  const dashCalls = calls.filter(call => call[0] === "setLineDash");
+  assert.ok(dashCalls.length <= 4, "les deux passes de couleur réutilisent chacune les deux lots de motifs, indépendamment du nombre de frontières");
+});
+
+
+test("l’index physique met en cache les coordonnées normalisées des cellules", () => {
+  let longitudeReads = 0, latitudeReads = 0;
+  const cell = {
+    get longitude() { longitudeReads++; return 2.4; },
+    get latitude() { latitudeReads++; return 48.9; },
+    permanentlySubmerged: true
+  };
+  const world = { revision: 1, currentCells: [cell] };
+  const city = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+  assert.equal(isCityPermanentlySubmerged(city, world), true);
+  assert.equal(longitudeReads, 1);
+  assert.equal(latitudeReads, 1);
+});
+
+test("le cache de submersion est isolé par entité et réinitialisé à chaque révision", () => {
+  const world = { revision: 1, currentCells: [
+    { longitude: 2.4, latitude: 48.9, permanentlySubmerged: true }
+  ] };
+  const first = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  const second = { geometry: { type: "Point", coordinates: [2.35, 48.86] } };
+  assert.equal(isCityPermanentlySubmerged(first, world), true);
+  assert.equal(isCityPermanentlySubmerged(second, world), true);
+  world.currentCells[0].permanentlySubmerged = false;
+  world.revision++;
+  assert.equal(isCityPermanentlySubmerged(first, world), false);
+});
+
+
+test("les repères d'altitude partagent un seul encadrement d'état Canvas", () => {
+  const emptyLand = { type: "FeatureCollection", features: [] };
+  const options = {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 3, centerLongitude: 0, centerLatitude: 0 }
+  };
+  const baseline = createCanvas();
+  renderWorldMap(baseline.canvas, emptyLand, options);
+  const withMarkers = createCanvas();
+  const elevationPoints = {
+    type: "FeatureCollection",
+    features: Array.from({ length: 4 }, (_, index) => ({
+      type: "Feature",
+      properties: { kind: "mountain", elevation_m: 6000 + index, name: "Sommet " + index },
+      geometry: { type: "Point", coordinates: [index * 2, index] }
+    }))
+  };
+  renderWorldMap(withMarkers.canvas, emptyLand, { ...options, elevationPoints });
+  const baselineSaves = baseline.calls.filter(call => call[0] === "save").length;
+  const markerSaves = withMarkers.calls.filter(call => call[0] === "save").length;
+  assert.equal(markerSaves - baselineSaves, 1,
+    "le lot de repères doit ajouter un seul save, quel que soit le nombre de sommets");
+});
+
+
+test("le partitionnement des entités WebGL évalue chaque capacité une seule fois", () => {
+  const features = Array.from({ length: 40 }, (_, index) => ({ index }));
+  let supportChecks = 0;
+  const result = partitionFeatures(features, feature => {
+    supportChecks++;
+    return feature.index % 3 === 0;
+  });
+  assert.equal(supportChecks, features.length);
+  assert.equal(result.supported.length, 14);
+  assert.equal(result.unsupported.length, 26);
+  assert.deepEqual([...result.supported, ...result.unsupported].sort((a, b) => a.index - b.index), features);
+});
+
+test("les sélections cartographiques réutilisent les classements complets sans copie", () => {
+  const lakeCollection = { features: [{ type: "Feature", properties: { scalerank: 1 }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,0]]] } }] };
+  const riverCollection = { features: [{ type: "Feature", properties: { scalerank: 1 }, geometry: { type: "LineString", coordinates: [[0,0],[1,1]] } }] };
+  const elevationCollection = { features: [{ type: "Feature", properties: { elevation_m: 100 }, geometry: { type: "Point", coordinates: [0,0] } }] };
+  assert.strictEqual(selectMajorLakeFeatures(lakeCollection, 1, 10), selectMajorLakeFeatures(lakeCollection, 1, 10));
+  assert.strictEqual(selectMajorRiverFeatures(riverCollection, 1, 10), selectMajorRiverFeatures(riverCollection, 1, 10));
+  assert.strictEqual(selectMajorElevationFeatures(elevationCollection, 10), selectMajorElevationFeatures(elevationCollection, 10));
+});
+
+
+test("la simplification Douglas-Peucker conserve les extrémités et ferme les anneaux", () => {
+  const simplifiedRing = simplifyClosedRing([
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 },
+    { x: 0, y: 2 }, { x: 0, y: 0 }
+  ], 0.1);
+  assert.deepEqual(simplifiedRing[0], simplifiedRing[simplifiedRing.length - 1]);
+  assert.ok(simplifiedRing.length >= 4);
+  assert.deepEqual(simplifiedRing.slice(0, -1), [
+    { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }
+  ]);
+});
+
+test("le fond océanique reçoit une profondeur radiale douce", () => {
+  const { canvas, calls } = createCanvas();
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  const profile = getOceanDepthProfile(result.theme);
+  assert.ok(calls.filter(call => call[0] === "createRadialGradient").length >= 2);
+  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[1] === 1 && call[2] === `rgba(0,0,0,${profile.edgeAlpha})`));
+  assert.ok(calls.some(call => call[0] === "radialGradientStop" && call[2] === `rgba(255,255,255,${profile.shelfAlpha})`));
+});
+test("le moteur ajoute un liseré côtier discret après le remplissage terrestre", () => {
+  const { canvas, calls } = createCanvas();
+  const result = renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1 });
+  assert.equal(result.landCount, 1);
+  assert.ok(calls.some(call => call[0] === "strokeStyle" && call[1] === result.theme.colors.accent));
+  assert.ok(calls.some(call => call[0] === "fillStyle" && call[1] === "rgba(0,0,0,0)"));
+});
+test("le liseré côtier reste distinct des frontières politiques", () => {
+  const { canvas, calls } = createCanvas();
+  renderWorldMap(canvas, land, { width: 640, height: 320, pixelRatio: 1, territories: { type: "FeatureCollection", features: [] } });
+  assert.ok(calls.some(call => call[0] === "strokeStyle" && typeof call[1] === "string"));
+});
+
+
+test("les budgets des caches de géométrie restent bornés et dimensionnés pour les retours de vue", async () => {
+  const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+  const stats = getProjectedPathCacheStats();
+  assert.equal(stats.maxCachedPaths, 4096);
+  assert.equal(stats.maxCachedVertices, 750_000);
+  assert.equal(stats.maxCombinedLandMaskCacheEntries, 24);
+});
+
+test("les clés Path2D respectent la projection effective et les variations fines de zoom", async () => {
+  const previous = globalThis.Path2D;
+  class FakePath2D {
+    addPath() {}
+    moveTo() {}
+    lineTo() {}
+    closePath() {}
+  }
+  globalThis.Path2D = FakePath2D;
+  try {
+    const { getProjectedPathCacheStats } = await import("../src/world/map-renderer.js");
+    const { canvas } = createCanvas();
+    const collection = { type: "FeatureCollection", features: [{
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [[[-10, -5], [10, -5], [10, 5], [-10, -5]]] }
+    }] };
+    const before = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5, wrapLongitude: true } });
+    const first = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2, centerLongitude: 4, centerLatitude: 5, wrapLongitude: false } });
+    const second = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2.00001, centerLongitude: 4, centerLatitude: 5, wrapLongitude: false } });
+    const third = getProjectedPathCacheStats().projectedPathCacheMisses;
+    renderWorldMap(canvas, collection, { width: 640, height: 320, pixelRatio: 1,
+      viewport: { zoom: 2.00001, centerLongitude: 4.1, centerLatitude: 5.1, wrapLongitude: false } });
+    const fourth = getProjectedPathCacheStats().projectedPathCacheMisses;
+    assert.ok(first > before);
+    assert.equal(second, first, "le projecteur déplie déjà les longitudes : ce drapeau ne change pas le chemin effectif");
+    assert.ok(third > second, "une variation de zoom ne doit pas être masquée par un arrondi de clé");
+    assert.ok(fourth > third, "un déplacement inférieur à une demi-cellule doit garder son centre exact et reconstruire le chemin");
+  } finally {
+    if (previous === undefined) delete globalThis.Path2D;
+    else globalThis.Path2D = previous;
+  }
+});
+
+
+test("les labels cartographiques adoptent les polices et couleurs de l'ère active", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const exploration = getCartographicTheme(1500);
+  const future = getCartographicTheme(2150);
+  const explorationCountry = getMapLabelStyle("country", exploration, 14, 1);
+  const futureCountry = getMapLabelStyle("country", future, 14, 1);
+  const explorationCity = getMapLabelStyle("city", exploration, 10, 1);
+
+  assert.match(explorationCountry.font, /Cinzel/);
+  assert.match(futureCountry.font, /Orbitron/);
+  assert.equal(explorationCountry.fill, exploration.colors.text);
+  assert.equal(futureCountry.fill, future.colors.text);
+  assert.equal(explorationCountry.stroke, exploration.colors.surface);
+  assert.equal(explorationCity.fill, exploration.colors.accent);
+  assert.equal(explorationCity.markerFill, exploration.colors.accent);
+  assert.ok(explorationCountry.lineWidth > explorationCity.lineWidth);
+});
+
+test("la hiérarchie des labels garde les pays dominants et les océans secondaires", () => {
+  const theme = {
+    typography: { display: "Cormorant Garamond", body: "Libre Baskerville" },
+    colors: { text: "#eee8d8", accent: "#8b3944", surface: "#282a2b" }
+  };
+  const country = getMapLabelStyle("country", theme, 14, 1.5);
+  const continent = getMapLabelStyle("continent", theme, 13, 1.5);
+  const ocean = getMapLabelStyle("ocean", theme, 10, 1.5);
+  assert.match(country.font, /Cormorant Garamond/);
+  assert.match(ocean.font, /Libre Baskerville/);
+  assert.ok(country.alpha > continent.alpha);
+  assert.ok(continent.alpha > ocean.alpha);
+  assert.ok(Math.abs(country.shadowBlur - 4.8) < 1e-9);
+  assert.ok(ocean.shadowBlur > 0);
+});
+
+
+test("les emprises des labels unifient collision et zone interactive", () => {
+  const country = getMapLabelLayout("country", { x: 100, y: 80 }, 60, 14, 1);
+  const city = getMapLabelLayout("city", { x: 100, y: 80 }, 30, 10, 1);
+  const continent = getMapLabelLayout("continent", { x: 100, y: 80 }, 80, 13, 1);
+
+  assert.equal(country.textX, 70);
+  assert.equal(country.textY, 80);
+  assert.equal(country.box.left, 63);
+  assert.equal(country.box.right, 137);
+  assert.equal(country.hitBounds.left, country.box.left - 1.5);
+  assert.equal(city.textY, 85);
+  assert.ok(city.hitBounds.left < city.box.left);
+  assert.ok(city.marker);
+  assert.equal(continent.marker, null);
+  assert.ok(continent.box.left < country.box.left);
+});
+
+test("les emprises des labels restent proportionnelles au rendu haute densité", () => {
+  const normal = getMapLabelLayout("city", { x: 50, y: 60 }, 40, 10, 1);
+  const retina = getMapLabelLayout("city", { x: 50, y: 60 }, 40, 10, 2);
+  assert.equal(retina.marker.radius, normal.marker.radius * 2);
+  assert.equal(retina.marker.lineWidth, normal.marker.lineWidth * 2);
+  assert.equal(normal.box.left - retina.box.left, 6);
+  assert.equal(retina.box.top, normal.box.top);
+});
+
+test("les coordonnées invalides ne produisent pas de dimensions négatives", () => {
+  const layout = getMapLabelLayout("city", { x: NaN, y: Infinity }, -10, 0, 0);
+  assert.equal(layout.textX, 0);
+  assert.equal(layout.textY, 0.5);
+  assert.ok(layout.box.right >= layout.box.left);
+  assert.ok(layout.box.bottom >= layout.box.top);
+});
+
+
+test("la profondeur océanique adopte une signature discrète pour chaque ère", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const years = [1500, 1700, 1850, 1950, 2050, 2150];
+  const profiles = years.map(year => getOceanDepthProfile(getCartographicTheme(year)));
+  assert.equal(profiles.length, 6);
+  for (const profile of profiles) {
+    assert.ok(profile.centerAlpha >= 0 && profile.centerAlpha <= 0.02);
+    assert.ok(profile.middleAlpha > profile.centerAlpha);
+    assert.ok(profile.edgeAlpha > profile.middleAlpha);
+    assert.ok(profile.edgeAlpha <= 0.4);
+    assert.ok(profile.shelfAlpha >= 0 && profile.shelfAlpha <= 0.07);
+    assert.ok(profile.shelfRadius >= 0.45 && profile.shelfRadius <= 0.6);
+  }
+  assert.ok(profiles[5].edgeAlpha > profiles[0].edgeAlpha);
+});
+
+test("le budget des labels secondaires s'adapte au zoom et à la densité", () => {
+  const world = getMapLabelCandidateProfile(1, 1);
+  const regional = getMapLabelCandidateProfile(4, 1);
+  const close = getMapLabelCandidateProfile(10, 1);
+  const sparse = getMapLabelCandidateProfile(1, 0.5);
+  const dense = getMapLabelCandidateProfile(1, 1.1);
+  assert.equal(world.candidateLimit, 48);
+  assert.equal(regional.candidateLimit, 180);
+  assert.equal(close.candidateLimit, Infinity);
+  assert.equal(sparse.candidateLimit, 24);
+  assert.equal(dense.candidateLimit, 52);
+  assert.equal(world.cityLabelLimit, 5);
+  assert.equal(sparse.cityLabelLimit, 3);
+  assert.equal(dense.cityLabelLimit, 6);
+  assert.equal(getMapLabelCandidateProfile(1, 0).density, 1);
+  assert.equal(getMapLabelCandidateProfile(NaN, 1).candidateLimit, 48);
+});
+
+test("la taille maritime suit une hiérarchie lisible des océans aux détroits", () => {
+  const ocean = getMapLabelFontSize("ocean", 4);
+  const sea = getMapLabelFontSize("sea", 4);
+  const strait = getMapLabelFontSize("strait", 4);
+  assert.ok(ocean > sea);
+  assert.ok(sea > strait);
+  assert.ok(getMapLabelFontSize("sea", 4, 2) > sea);
+  assert.ok(Number.isFinite(getMapLabelFontSize("strait", NaN, NaN)));
+});
+
+test("la priorité de placement protège les repères maritimes des labels secondaires", () => {
+  assert.ok(getMapLabelKindPriority("continent") < getMapLabelKindPriority("ocean"));
+  assert.ok(getMapLabelKindPriority("ocean") < getMapLabelKindPriority("sea"));
+  assert.ok(getMapLabelKindPriority("sea") < getMapLabelKindPriority("strait"));
+  assert.ok(getMapLabelKindPriority("strait") < getMapLabelKindPriority("country"));
+  assert.ok(getMapLabelKindPriority("country") < getMapLabelKindPriority("province"));
+  assert.ok(getMapLabelKindPriority("province") < getMapLabelKindPriority("city"));
+  assert.equal(getMapLabelKindPriority("unknown"), 7);
+});
+
+test("les noms maritimes adoptent une typographie cursive et un contraste mesuré", async () => {
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const theme = getCartographicTheme(1700);
+  const ocean = getMapLabelStyle("ocean", theme, 12, 1.5);
+  const regionalSea = getMapLabelStyle("sea", theme, 12, 1.5);
+  const strait = getMapLabelStyle("strait", theme, 12, 1.5);
+  const country = getMapLabelStyle("country", theme, 14, 1.5);
+  assert.match(ocean.font, /^italic /);
+  assert.match(regionalSea.font, /^italic /);
+  assert.match(strait.font, /^italic /);
+  assert.ok(regionalSea.alpha < ocean.alpha);
+  assert.ok(strait.lineWidth < regionalSea.lineWidth);
+  assert.match(ocean.font, /Libre Baskerville/);
+  assert.equal(ocean.fill, theme.colors.text);
+  assert.ok(ocean.alpha < country.alpha);
+  assert.ok(ocean.lineWidth < country.lineWidth);
+  assert.ok(regionalSea.alpha < ocean.alpha);
+  assert.ok(strait.alpha < regionalSea.alpha);
+  assert.ok(strait.lineWidth < regionalSea.lineWidth);
+  assert.ok(ocean.shadowBlur > 0);
+});
+
+
+test("les collisions de labels distinguent chevauchement, contact et séparation", () => {
+  const base = { left: 10, right: 30, top: 10, bottom: 20 };
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 20, right: 40, top: 15, bottom: 25 }), true);
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 30.01, right: 40, top: 10, bottom: 20 }), false);
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 30, right: 40, top: 10, bottom: 20 }), true,
+    "un contact exact reste bloquant pour éviter les glyphes collés");
+  assert.equal(doMapLabelBoxesOverlap(base, { left: 10, right: 30, top: 20.01, bottom: 30 }), false);
+});
+
+test("les emprises invalides ne créent pas de collision cartographique", () => {
+  const valid = { left: 0, right: 10, top: 0, bottom: 10 };
+  assert.equal(doMapLabelBoxesOverlap(valid, null), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 12, right: 8, top: 0, bottom: 10 }), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: NaN, bottom: 10 }), false);
+  assert.equal(doMapLabelBoxesOverlap(valid, { left: 0, right: 10, top: 2, bottom: Infinity }), false);
+});
+
+
+test("les labels proches des bords sont recentrés sans dissocier leur géométrie", () => {
+  const original = getMapLabelLayout("city", { x: 4, y: 50 }, 30, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.ok(fitted);
+  assert.ok(fitted.box.left >= 8);
+  assert.ok(fitted.box.right <= 192);
+  assert.equal(fitted.textX, original.textX + fitted.viewportOffset.x);
+  assert.equal(fitted.marker.x, original.marker.x + fitted.viewportOffset.x);
+  assert.equal(fitted.hitBounds.left, original.hitBounds.left + fitted.viewportOffset.x);
+});
+
+test("les labels en bord inférieur déplacent ensemble texte, marqueur et emprise", () => {
+  const original = getMapLabelLayout("city", { x: 100, y: 99 }, 30, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.ok(fitted);
+  assert.ok(fitted.box.bottom <= 92);
+  assert.equal(fitted.marker.y, original.marker.y + fitted.viewportOffset.y);
+  assert.equal(fitted.textY, original.textY + fitted.viewportOffset.y);
+});
+
+test("les labels trop grands ou les viewports invalides sont écartés proprement", () => {
+  const oversized = getMapLabelLayout("country", { x: 50, y: 50 }, 300, 14, 1);
+  assert.equal(fitMapLabelLayoutToViewport(oversized, 200, 100, 8), null);
+  assert.equal(fitMapLabelLayoutToViewport(oversized, NaN, 100, 8), null);
+  assert.equal(fitMapLabelLayoutToViewport(null, 200, 100, 8), null);
+});
+
+test("un label déjà dans la zone sûre conserve exactement son placement", () => {
+  const original = getMapLabelLayout("continent", { x: 100, y: 50 }, 40, 12, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 200, 100, 8);
+  assert.deepEqual(fitted.viewportOffset, { x: 0, y: 0 });
+  assert.deepEqual(fitted.box, original.box);
+  assert.deepEqual(fitted.hitBounds, original.hitBounds);
+});
+
+
+test("la zone interactive complète reste dans la marge sûre du viewport", () => {
+  const original = getMapLabelLayout("city", { x: 3, y: 3 }, 24, 10, 1);
+  const fitted = fitMapLabelLayoutToViewport(original, 160, 90, 10);
+  assert.ok(fitted);
+  assert.ok(fitted.hitBounds.left >= 10);
+  assert.ok(fitted.hitBounds.top >= 10);
+  assert.ok(fitted.hitBounds.right <= 150);
+  assert.ok(fitted.hitBounds.bottom <= 80);
+});
+
+
+test("les collisions normalisent les coordonnées numériques avant comparaison", () => {
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: "10", right: "20", top: "10", bottom: "20" },
+    { left: "2", right: "12", top: "15", bottom: "25" }
+  ), true);
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: "10", right: "20", top: "10", bottom: "20" },
+    { left: "21", right: "30", top: "10", bottom: "20" }
+  ), false);
+});
+
+test("les emprises de collision acceptent les coordonnées négatives et rejettent les ordres invalides", () => {
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: -20, right: -10, top: -8, bottom: 2 },
+    { left: -15, right: -5, top: -4, bottom: 6 }
+  ), true);
+  assert.equal(doMapLabelBoxesOverlap(
+    { left: 10, right: 0, top: 0, bottom: 10 },
+    { left: 0, right: 10, top: 0, bottom: 10 }
+  ), false);
+});
+
+test("le placement viewport normalise les bornes numériques et les coordonnées du texte", () => {
+  const layout = {
+    textX: "4", textY: "50",
+    box: { left: "-2", right: "12", top: "40", bottom: "60" },
+    hitBounds: { left: "-4", right: "14", top: "38", bottom: "62" },
+    marker: { x: "4", y: "49", radius: "2", lineWidth: "1" }
+  };
+  const fitted = fitMapLabelLayoutToViewport(layout, 100, 100, 8);
+  assert.ok(fitted);
+  assert.equal(fitted.textX, 16);
+  assert.equal(fitted.marker.x, 16);
+  assert.equal(fitted.hitBounds.left, 8);
+  assert.equal(fitted.box.left, 10);
+});
+
+test("le placement viewport écarte les coordonnées de texte ou marqueurs non finies", () => {
+  const base = getMapLabelLayout("city", { x: 20, y: 20 }, 30, 10, 1);
+  assert.equal(fitMapLabelLayoutToViewport({ ...base, textX: NaN }, 100, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...base, marker: { ...base.marker, x: Infinity }
+  }, 100, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...base, marker: { ...base.marker, radius: -1 }
+  }, 100, 100), null);
+});
+
+test("les collisions utilisent les zones interactives complètes des labels", async () => {
+  const { canvas, calls } = createCanvas();
+  const labels = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { kind: "city", name: "Alpha", POP_MAX: 900000 }, geometry: { type: "Point", coordinates: [0, 0] } },
+    { type: "Feature", properties: { kind: "city", name: "Beta", POP_MAX: 800000 }, geometry: { type: "Point", coordinates: [1.2, 0] } }
+  ] };
+  const { getCartographicTheme } = await import("../src/world/cartographic-style.js");
+  const hits = renderWorldMap(canvas, land, {
+    width: 640, height: 320, pixelRatio: 1,
+    viewport: { zoom: 8, centerLongitude: 0, centerLatitude: 0 },
+    labels, theme: getCartographicTheme(2026)
+  });
+  const cityHits = hits.labelHits.filter(hit => hit.kind === "city");
+  assert.ok(cityHits.length >= 1);
+  if (cityHits.length > 1) {
+    for (let i = 0; i < cityHits.length; i++) {
+      for (let j = i + 1; j < cityHits.length; j++) {
+        assert.equal(doMapLabelBoxesOverlap(cityHits[i].bounds, cityHits[j].bounds), false);
+      }
+    }
+  }
+  assert.ok(calls.some(call => call[0] === "fillText"));
+});
+
+
+test("la zone interactive englobe intégralement le texte et l'emprise visuelle", () => {
+  const layout = getMapLabelLayout("city", { x: 80, y: 60 }, 42, 12, 1);
+  assert.equal(isMapLabelLayoutGeometryConsistent(layout), true);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, left: layout.box.left + 1 }
+  }), false);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, bottom: layout.box.bottom - 1 }
+  }), false);
+});
+
+test("la zone interactive englobe le cercle complet du marqueur et son contour", () => {
+  const layout = getMapLabelLayout("city", { x: 80, y: 60 }, 42, 12, 1);
+  assert.equal(isMapLabelLayoutGeometryConsistent(layout), true);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, left: layout.marker.x - 1 }
+  }), false);
+  assert.equal(isMapLabelLayoutGeometryConsistent({
+    ...layout,
+    marker: { ...layout.marker, radius: 100 }
+  }), false);
+});
+
+test("le placement viewport rejette les géométries internes incohérentes", () => {
+  const layout = getMapLabelLayout("city", { x: 50, y: 50 }, 36, 11, 1);
+  assert.ok(fitMapLabelLayoutToViewport(layout, 160, 100));
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...layout,
+    hitBounds: { ...layout.hitBounds, right: layout.box.right - 0.5 }
+  }, 160, 100), null);
+  assert.equal(fitMapLabelLayoutToViewport({
+    ...layout,
+    textY: layout.box.bottom + 2
+  }, 160, 100), null);
+});
+
+test("les profils de viewport projeté sont mutualisés et leur cache reste borné",()=>{
+ const previous=globalThis.Path2D;
+ class FakePath2D { addPath(){} moveTo(){} lineTo(){} closePath(){} }
+ globalThis.Path2D=FakePath2D;
+ try{
+  const {canvas}=createCanvas();
+  const before=getProjectedPathCacheStats();
+  for(let i=0;i<90;i++){
+   renderWorldMap(canvas,land,{width:640,height:320,pixelRatio:1,viewport:{zoom:2,centerLongitude:i*13,centerLatitude:(i%11)-5}});
+  }
+  const after=getProjectedPathCacheStats();
+  assert.ok(after.projectedViewportProfileHits>before.projectedViewportProfileHits);
+  assert.ok(after.projectedViewportProfileEntries<=after.maxProjectedViewportProfiles);
+  assert.equal(after.maxProjectedViewportProfiles,64);
+ }finally{
+  if(previous===undefined)delete globalThis.Path2D;
+  else globalThis.Path2D=previous;
+ }
+});
+
+
+test("la matière du relief terrestre renforce les montagnes sans effacer les plaines et plateaux", () => {
+  const base = [120, 125, 110];
+  const mountain = applyLandformTint(base, "mountains", 4200);
+  const plateau = applyLandformTint(base, "plateaus", 1600);
+  const valley = applyLandformTint(base, "valleys", 300);
+  const plain = applyLandformTint(base, "plains", 100);
+  const hills = applyLandformTint(base, "hills", 800);
+  const distance = color => color.reduce((sum, channel, index) => sum + Math.abs(channel - base[index]), 0);
+  assert.ok(distance(mountain) >= 28, "les hautes chaînes doivent recevoir une signature minérale perceptible");
+  assert.ok(distance(plateau) > distance(plain), "les plateaux doivent se distinguer des plaines");
+  assert.ok(distance(hills) > distance(plain), "les collines doivent conserver une matière distincte");
+  assert.notDeepEqual(valley, plain, "les vallées gardent leur teinte propre");
+  assert.deepEqual(base, [120, 125, 110], "la couleur d'origine reste immuable");
+});
+
+test("les plaines et plateaux gagnent un modelé chromatique progressif avec l'altitude", () => {
+  const base = [120, 125, 110];
+  const lowPlain = applyLandformTint(base, "plains", 20);
+  const highPlain = applyLandformTint(base, "plains", 420);
+  const lowPlateau = applyLandformTint(base, "plateaus", 750);
+  const highPlateau = applyLandformTint(base, "plateaus", 2200);
+  const distance = color => color.reduce((sum, channel, index) => sum + Math.abs(channel - base[index]), 0);
+  assert.ok(distance(highPlain) > distance(lowPlain),
+    "les plaines légèrement plus élevées reçoivent une nuance progressivement plus présente");
+  assert.ok(distance(highPlateau) > distance(lowPlateau),
+    "les hauts plateaux acquièrent une signature minérale plus affirmée");
+  for (const color of [lowPlain, highPlain, lowPlateau, highPlateau]) {
+    assert.ok(color.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255));
+    assert.ok(distance(color) <= 14, "le modelé reste subtil et ne transforme pas les surfaces en aplats saturés");
+  }
+  assert.deepEqual(base, [120, 125, 110], "la couleur source reste immuable");
+});
+
+test("la transition littorale ne nuance que les basses terres réellement voisines de la mer", () => {
+  const base = [112, 119, 83];
+  const coast = applyCoastalTransitionTint(base, 20, true);
+  const raisedCoast = applyCoastalTransitionTint(base, 220, true);
+  assert.notDeepEqual(coast, base, "les basses terres adjacentes à la mer reçoivent une nuance minérale");
+  assert.ok(coast[0] > base[0] && coast[2] > base[2],
+    "la transition réchauffe discrètement la matière sans devenir sable vif");
+  assert.ok(raisedCoast[0] > base[0] && raisedCoast[0] - base[0] < coast[0] - base[0],
+    "la nuance s'efface progressivement avec l'altitude");
+  assert.deepEqual(applyCoastalTransitionTint(base, 20, false), base,
+    "les basses terres intérieures restent inchangées");
+  assert.deepEqual(applyCoastalTransitionTint(base, 350, true), base,
+    "les reliefs élevés ne reçoivent pas la signature de basse côte");
+  assert.deepEqual(applyCoastalTransitionTint(base, -20, true), base,
+    "la bathymétrie n'est jamais modifiée");
+  assert.deepEqual(base, [112, 119, 83], "la couleur source reste immuable");
+});
+
+test("la transition des piémonts suit progressivement la pente et l'altitude ETOPO", () => {
+  const base = [112, 119, 83];
+  const foothill = applyFoothillTransitionTint(base, 900, -834, 834, 0, 0, 0, 1 / 6);
+  const higherFoothill = applyFoothillTransitionTint(base, 1400, -834, 834, 0, 0, 0, 1 / 6);
+  assert.notDeepEqual(foothill, base, "les pentes intermédiaires reçoivent une matière de piémont");
+  assert.ok(foothill[0] > base[0] && foothill[2] > base[2],
+    "la nuance reste minérale et chaude, sans créer de relief artificiel");
+  assert.ok(higherFoothill[0] > base[0] && higherFoothill[0] - base[0] < foothill[0] - base[0],
+    "la transition s'efface en remontant vers les reliefs élevés");
+  assert.deepEqual(applyFoothillTransitionTint(base, 900, 0, 0, 0, 0, 0), base,
+    "les surfaces planes restent inchangées");
+  assert.deepEqual(applyFoothillTransitionTint(base, 900, -2780, 2780, 0, 0, 0), base,
+    "les pentes abruptes ne reçoivent pas la nuance de piémont");
+  assert.deepEqual(applyFoothillTransitionTint(base, 2300, -834, 834, 0, 0, 0), base,
+    "les hautes montagnes conservent leur signature minérale propre");
+  assert.deepEqual(applyFoothillTransitionTint(base, -20, -834, 834, 0, 0, 0), base,
+    "la bathymétrie reste strictement inchangée");
+  assert.deepEqual(base, [112, 119, 83], "la couleur source reste immuable");
+});
+
+test("le renforcement des formes terrestres ne modifie pas les couleurs bathymétriques", () => {
+  for (const elevation of [-11000, -6000, -1500, -200, -1]) {
+    assert.deepEqual(
+      terrainColorForElevation(elevation, 1, "ocean"),
+      terrainColorForElevation(elevation, 1, "mountains"),
+      `la bathymétrie doit rester indépendante de la classe terrestre à ${elevation} m`
+    );
+  }
+});
+
+
+test("l'audit côtier compare les arêtes extérieures sans compter les trous", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[4,0],[4,4],[0,4],[0,0]],
+      [[1,1],[1,2],[2,2],[2,1],[1,1]]
+    ] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { NAME: "Pays test" },
+    geometry: { type: "MultiPolygon", coordinates: [
+      [[[4,4],[4,0],[0,0],[0,4],[4,4]]],
+      [[[10,0],[11,0],[10,1],[10,0]]]
+    ] }
+  }] };
+  const audit = measureSharedCoastlineEdges(land, territories, 5);
+  assert.equal(audit.landSegmentCount, 4);
+  assert.equal(audit.territorySegmentCount, 7);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.unmatchedSegmentCount, 3);
+  assert.equal(audit.exactMatchRatio, 4 / 7);
+  assert.deepEqual(audit.featureStats, [{
+    featureIndex: 0,
+    name: "Pays test",
+    segmentCount: 7,
+    matchedSegmentCount: 4,
+    unmatchedSegmentCount: 3,
+    exactMatchRatio: 4 / 7
+  }]);
+});
+
+test("l'audit côtier refuse les collections GeoJSON invalides", () => {
+  assert.throws(() => measureSharedCoastlineEdges(null, { type: "FeatureCollection", features: [] }), /FeatureCollections/);
+});
+
+
+test("la recherche côtière conserve les longs segments et compense la longitude aux hautes latitudes", () => {
+  const longLand = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[-170,-80],[170,80],[171,80],[-170,-80]]
+    ] }
+  }] };
+  const nearEquator = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test long segment" },
+    geometry: { type: "Polygon", coordinates: [
+      [[-0.01,-0.01],[0.01,-0.01],[0.01,0.01],[-0.01,0.01],[-0.01,-0.01]]
+    ] }
+  }] };
+  const longResult = measureCoastlineProximity(longLand, nearEquator, 1, 50);
+  assert.ok(Number.isFinite(longResult.featureStats[0].maxSampleDistanceKm));
+  assert.ok(longResult.featureStats[0].maxSampleDistanceKm < 5);
+
+  const polarLand = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[3.4,79.9],[3.4,80.1],[3.5,80.1],[3.5,79.9],[3.4,79.9]]
+    ] }
+  }] };
+  const polarTerritory = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test polaire" },
+    geometry: { type: "Polygon", coordinates: [
+      [[0.9,79.99],[0.91,79.99],[0.91,80.01],[0.9,80.01],[0.9,79.99]]
+    ] }
+  }] };
+  const polarResult = measureCoastlineProximity(polarLand, polarTerritory, 1, 50);
+  assert.ok(Number.isFinite(polarResult.featureStats[0].maxSampleDistanceKm));
+  assert.ok(polarResult.featureStats[0].maxSampleDistanceKm < 50);
+});
+
+test("la proximité côtière traite correctement les segments traversant l'antiméridien", () => {
+  const crossing = {
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [179.8, -1], [-179.8, -1], [-179.8, 1],
+          [179.8, 1], [179.8, -1]
+        ]]
+      }
+    }]
+  };
+  const audit = measureCoastlineProximity(crossing, crossing, 0.1, 50, 3, {
+    includeSegmentDetails: true
+  });
+  assert.equal(audit.territorySegmentCount, 4);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.proximityRatio, 1);
+  assert.ok(audit.featureStats[0].maxSampleDistanceKm < 1e-9, "le bruit flottant doit rester négligeable");
+  assert.equal(audit.segmentDetails.length, 4);
+  const crossingSegments = audit.segmentDetails.filter(segment =>
+    Math.abs(segment.coordinates[1][0] - segment.coordinates[0][0]) > 180
+  );
+  assert.equal(crossingSegments.length, 2);
+  for (const segment of crossingSegments) {
+    assert.ok(segment.sampleCoordinates.every(point => Math.abs(point[0]) >= 179.8));
+    assert.ok(segment.sampleDistancesKm.every(distance => distance < 1e-9));
+  }
+});
+
+test("la proximité côtière reconnaît un segment découpé différemment", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[1,0],[2,0],[2,1],[0,1],[0,0]]
+    ] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays segmenté" },
+    geometry: { type: "Polygon", coordinates: [
+      [[0,0],[2,0],[2,1],[0,1],[0,0]]
+    ] }
+  }] };
+  const audit = measureCoastlineProximity(land, territories, 0.1);
+  assert.equal(audit.territorySegmentCount, 4);
+  assert.equal(audit.matchedSegmentCount, 4);
+  assert.equal(audit.proximityRatio, 1);
+  assert.equal(audit.featureStats[0].name, "Pays segmenté");
+});
+
+test("la proximité côtière détecte un écart supérieur à la tolérance", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1],[0,1],[0,0.02]]] }
+  }] };
+  const audit = measureCoastlineProximity(land, territories, 0.1);
+  assert.ok(audit.unmatchedSegmentCount > 0);
+  assert.ok(audit.featureStats[0].maxSampleDistanceKm > 1);
+});
+
+
+test("l'extraction côtière isole les segments candidats sans modifier les géométries source", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays candidat" },
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const originalTerritories = structuredClone(territories);
+  const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  assert.equal(result.candidateCount, 4);
+  assert.ok(result.candidates.every(candidate => candidate.featureIndex === 0));
+  assert.ok(result.candidates.every(candidate => candidate.name === "Pays candidat"));
+  assert.ok(result.candidates.every(candidate => candidate.maxSampleDistanceKm <= 0.1));
+  assert.deepEqual(territories, originalTerritories);
+});
+
+test("l'extraction côtière écarte les segments éloignés du masque terrestre", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1],[0,1],[0,0.02]]] }
+  }] };
+  const result = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  assert.equal(result.candidateCount, 3);
+  assert.deepEqual(result.candidates.map(candidate => candidate.segmentIndex), [1, 2, 3]);
+});
+
+
+test("les segments côtiers candidats contigus forment une chaîne fermée sans pont artificiel", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays fermé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const candidates = collectCoastlineAlignmentCandidates(land, territories, 0.1);
+  const result = chainCoastlineAlignmentCandidates(candidates.candidates);
+  assert.equal(result.chainCount, 1);
+  assert.equal(result.closedChainCount, 1);
+  assert.equal(result.openChainCount, 0);
+  assert.deepEqual(result.chains[0].segmentIndices, [0, 1, 2, 3]);
+  assert.deepEqual(result.chains[0].coordinates[0], result.chains[0].coordinates.at(-1));
+});
+
+test("les chaînes côtières restent séparées lorsqu'un segment intermédiaire manque", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = chainCoastlineAlignmentCandidates(candidates);
+  assert.equal(result.chainCount, 2);
+  assert.equal(result.closedChainCount, 0);
+  assert.deepEqual(result.chains.map(chain => chain.segmentIndices), [[0], [2, 3]]);
+});
+
+test("les chaînes côtières rejoignent correctement les segments contigus autour de la fermeture", () => {
+  const candidates = [
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[-1,0]] },
+    { featureIndex: 1, ringIndex: 0, ringSegmentCount: 5, segmentIndex: 4, coordinates: [[-1,0],[0,0]] }
+  ];
+  const result = chainCoastlineAlignmentCandidates(candidates);
+  assert.equal(result.chainCount, 1);
+  assert.deepEqual(result.chains[0].segmentIndices, [3, 4, 0]);
+  assert.equal(result.chains[0].isClosed, false);
+  assert.deepEqual(result.chains[0].coordinates, [[0,1],[-1,0],[0,0],[1,0]]);
+});
+
+
+test("l'audit topologique reconnaît une boucle côtière sans ambiguïté", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[1,1]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.isUnambiguous, true);
+  assert.equal(audit.ringCount, 1);
+  assert.equal(audit.branchNodeCount, 0);
+  assert.deepEqual(audit.ringStats[0].endpointDegrees, [2,2,2,2]);
+});
+
+test("l'audit topologique signale les ruptures et les doublons de segments", () => {
+  const candidates = [
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[2,0],[3,0]] },
+    { featureIndex: 0, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[2,0]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.duplicateSegmentCount, 1);
+  assert.ok(audit.continuityBreakCount >= 1);
+  assert.equal(audit.isUnambiguous, false);
+});
+
+test("l'audit topologique détecte un nœud ramifié", () => {
+  const candidates = [
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 1, coordinates: [[1,0],[2,0]] },
+    { featureIndex: 2, ringIndex: 0, segmentIndex: 2, coordinates: [[1,0],[1,1]] }
+  ];
+  const audit = analyzeCoastlineCandidateTopology(candidates);
+  assert.equal(audit.branchNodeCount, 1);
+  assert.equal(audit.isUnambiguous, false);
+});
+
+
+test("la couverture côtière mesure un anneau entièrement candidat et fermé", () => {
+  const candidates = [
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 1, coordinates: [[1,0],[1,1]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 0, name: "Pays complet", ringIndex: 0, ringSegmentCount: 4, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = measureCoastlineCandidateCoverage(candidates);
+  assert.equal(result.coverageRatio, 1);
+  assert.equal(result.uncoveredSegmentCount, 0);
+  assert.equal(result.chainCount, 1);
+  assert.equal(result.closedChainCount, 1);
+  assert.equal(result.ringStats[0].longestChainSegmentCount, 4);
+  assert.equal(result.topology.isUnambiguous, true);
+});
+
+test("la couverture côtière distingue une couverture partielle sans fermer artificiellement l'anneau", () => {
+  const candidates = [
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 0, coordinates: [[0,0],[1,0]] },
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 2, coordinates: [[1,1],[0,1]] },
+    { featureIndex: 3, ringIndex: 1, ringSegmentCount: 5, segmentIndex: 3, coordinates: [[0,1],[0,0]] }
+  ];
+  const result = measureCoastlineCandidateCoverage(candidates);
+  assert.equal(result.sourceSegmentCount, 5);
+  assert.equal(result.coveredSegmentCount, 3);
+  assert.equal(result.uncoveredSegmentCount, 2);
+  assert.equal(result.coverageRatio, 0.6);
+  assert.equal(result.chainCount, 2);
+  assert.equal(result.closedChainCount, 0);
+});
+
+
+test("la classification côtière réserve les anneaux fermés et complets à une revue", () => {
+  const report = {
+    ringStats: [{
+      featureIndex: 0, name: "Île test", ringIndex: 0,
+      coverageRatio: 1, closedChainCount: 1, longestChainSegmentCount: 8
+    }],
+    topology: { ringStats: [{
+      featureIndex: 0, ringIndex: 0,
+      duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0
+    }] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report);
+  assert.equal(result.eligibleRingCount, 1);
+  assert.equal(result.rejectedRingCount, 0);
+  assert.equal(result.candidates[0].eligibleForReview, true);
+  assert.deepEqual(result.candidates[0].reasons, []);
+});
+
+test("la classification côtière refuse une couverture partielle et les ambiguïtés", () => {
+  const report = {
+    ringStats: [
+      { featureIndex: 0, ringIndex: 0, coverageRatio: 0.7, closedChainCount: 0, longestChainSegmentCount: 4 },
+      { featureIndex: 1, ringIndex: 0, coverageRatio: 1, closedChainCount: 1, longestChainSegmentCount: 8 }
+    ],
+    topology: { ringStats: [
+      { featureIndex: 0, ringIndex: 0, duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0 },
+      { featureIndex: 1, ringIndex: 0, duplicateSegmentIndices: [3], continuityBreaks: [], branchNodeCount: 1 }
+    ] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report);
+  assert.equal(result.eligibleRingCount, 0);
+  assert.ok(result.candidates[0].reasons.includes("coverage-below-threshold"));
+  assert.ok(result.candidates[1].reasons.includes("duplicate-segments"));
+  assert.ok(result.candidates[1].reasons.includes("branched-nodes"));
+});
+
+test("la classification côtière accepte des seuils explicites et valide le rapport", () => {
+  const report = {
+    ringStats: [{
+      featureIndex: 2, ringIndex: 1,
+      coverageRatio: 0.9, closedChainCount: 1, longestChainSegmentCount: 5
+    }],
+    topology: { ringStats: [{
+      featureIndex: 2, ringIndex: 1,
+      duplicateSegmentIndices: [], continuityBreaks: [], branchNodeCount: 0
+    }] }
+  };
+  const result = classifyCoastlineReconstructionCandidates(report, {
+    minCoverageRatio: 0.85, minChainSegments: 5
+  });
+  assert.equal(result.thresholds.minCoverageRatio, 0.85);
+  assert.equal(result.candidates[0].eligibleForReview, true);
+  assert.throws(() => classifyCoastlineReconstructionCandidates(null), /rapport de couverture/);
+});
+
+
+test("le résumé d'alignement agrège et classe les pays par couverture", () => {
+  const coverage = { ringStats: [
+    { featureIndex: 4, name: "Pays B", ringIndex: 0, sourceSegmentCount: 10, coveredSegmentCount: 5 },
+    { featureIndex: 4, name: "Pays B", ringIndex: 1, sourceSegmentCount: 10, coveredSegmentCount: 10 },
+    { featureIndex: 2, name: "Pays A", ringIndex: 0, sourceSegmentCount: 8, coveredSegmentCount: 2 }
+  ] };
+  const classification = { candidates: [
+    { featureIndex: 4, ringIndex: 0, eligibleForReview: false, reasons: ["coverage-below-threshold"] },
+    { featureIndex: 4, ringIndex: 1, eligibleForReview: true, reasons: [] },
+    { featureIndex: 2, ringIndex: 0, eligibleForReview: false, reasons: ["branched-nodes"] }
+  ] };
+  const result = summarizeCoastlineAlignment(coverage, classification);
+  assert.equal(result.featureCount, 2);
+  assert.equal(result.ringCount, 3);
+  assert.equal(result.eligibleRingCount, 1);
+  assert.equal(result.countries[0].name, "Pays A");
+  assert.equal(result.countries[0].coverageRatio, 0.25);
+  assert.deepEqual(result.countries[1].reasons, { "coverage-below-threshold": 1 });
+  assert.throws(() => summarizeCoastlineAlignment(null, classification), /rapports/);
+});
+
+test("l'audit des couches chargées produit un rapport complet sans modifier les sources", async () => {
+  const { auditLoadedCoastlineAlignment } = await import("../src/world/coastline-alignment.js");
+  const land = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] } }] };
+  const territories = { type: "FeatureCollection", features: [{ type: "Feature", properties: { ADMIN: "Pays chargé" }, geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] } }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = auditLoadedCoastlineAlignment(land, territories, { toleranceKm: 0.1 });
+  assert.equal(report.landFeatureCount, 1);
+  assert.equal(report.territoryFeatureCount, 1);
+  assert.equal(report.candidateSegmentCount, 4);
+  assert.equal(report.coverage.coverageRatio, 1);
+  assert.equal(report.summary.countries[0].name, "Pays chargé");
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+  assert.throws(() => auditLoadedCoastlineAlignment(null, territories), /doivent être chargées/);
+});
+
+
+test("la métrique côtière exclut les frontières terrestres intérieures du dénominateur", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { ADMIN: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] } },
+    { type: "Feature", properties: { ADMIN: "Est" }, geometry: { type: "Polygon", coordinates: [[[1,0],[2,0],[2,1],[1,1],[1,0]]] } }
+  ] };
+  const report = measureCoastlineProximity(land, territories, 0.1, 5);
+  assert.equal(report.territorySegmentCount, 8);
+  assert.equal(report.matchedSegmentCount, 6);
+  assert.equal(report.coastalSegmentCount, 6);
+  assert.equal(report.coastalMatchedSegmentCount, 6);
+  assert.equal(report.coastalUnmatchedSegmentCount, 0);
+  assert.equal(report.coastalProximityRatio, 1);
+  assert.equal(report.featureStats.reduce((sum, item) => sum + item.coastalSegmentCount, 0), 6);
+});
+
+test("l'audit chargé expose une métrique côtière distincte de la couverture topologique", async () => {
+  const { auditLoadedCoastlineAlignment } = await import("../src/world/coastline-alignment.js");
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[2,0],[2,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { ADMIN: "Ouest" }, geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] } },
+    { type: "Feature", properties: { ADMIN: "Est" }, geometry: { type: "Polygon", coordinates: [[[1,0],[2,0],[2,1],[1,1],[1,0]]] } }
+  ] };
+  const report = auditLoadedCoastlineAlignment(land, territories, { toleranceKm: 0.1, coastalSearchRadiusKm: 5, dataset: "fixture" });
+  assert.equal(report.dataset, "fixture");
+  assert.equal(report.coastalAlignment.coastalSegmentCount, 6);
+  assert.equal(report.coastalAlignment.matchedSegmentCount, 6);
+  assert.equal(report.coastalAlignment.proximityRatio, 1);
+  assert.equal(report.coastalAlignment.sampleCount, 30);
+  assert.equal(report.coastalAlignment.samplesWithinToleranceCount, 30);
+  assert.equal(report.coastalAlignment.sampleProximityRatio, 1);
+  assert.equal(report.coastalAlignment.sampleMedianDistanceKm, 0);
+  assert.equal(report.coastalAlignment.sampleP90DistanceKm, 0);
+  assert.equal(report.coastalAlignment.featureStats[0].sampleCount, 15);
+  assert.deepEqual(report.coastalAlignment.featureStats[0].propertyKeys, ["ADMIN"]);
+  assert.deepEqual(report.coastalAlignment.featureStats[0].propertySummary, { ADMIN: "Ouest" });
+  assert.equal(report.coastalAlignment.featureStats[0].geometryType, "Polygon");
+  assert.deepEqual(report.coastalAlignment.featureStats[0].bounds, [0, 0, 1, 1]);
+  assert.deepEqual(report.coastalAlignment.featureStats[0].boundsCenter, [0.5, 0.5]);
+  assert.equal(report.coverage.sourceSegmentCount, 8);
+});
+
+
+test("la sensibilité côtière compare les rayons et seuils sans modifier les sources", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays décalé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1.02],[0,1.02],[0,0.02]]] }
+  }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = analyzeCoastalClassificationSensitivity(land, territories, 1, [5, 10], [3, 5]);
+  assert.equal(report.rows.length, 4);
+  assert.deepEqual(report.rows.map(row => [row.searchRadiusKm, row.minimumSamples]), [
+    [5, 3], [5, 5], [10, 3], [10, 5]
+  ]);
+  assert.ok(report.rows.every(row => row.sampleCount === row.coastalSegmentCount * 5));
+  assert.ok(report.rows[0].coastalSegmentCount >= report.rows[1].coastalSegmentCount);
+  assert.ok(report.rows[2].coastalSegmentCount >= report.rows[3].coastalSegmentCount);
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+  assert.throws(() => analyzeCoastalClassificationSensitivity(land, territories, 1, [], [3]), /listes non vides/);
+});
+
+test("le diagnostic détaillé expose les segments côtiers les plus éloignés sans modifier les sources", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Pays décalé" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.02],[1,0.02],[1,1.02],[0,1.02],[0,0.02]]] }
+  }] };
+  const originalLand = structuredClone(land);
+  const originalTerritories = structuredClone(territories);
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 2 });
+  assert.equal(report.segmentDetails.length, 2);
+  assert.equal(report.segmentDetails[0].name, "Pays décalé");
+  assert.ok(report.segmentDetails[0].maxSampleDistanceKm >= report.segmentDetails[1].maxSampleDistanceKm);
+  assert.equal(report.segmentDetails[0].sampleCoordinates.length, 5);
+  assert.equal(report.segmentDetails[0].sampleDistancesKm.length, 5);
+  assert.equal(report.segmentDetailsTruncated, true);
+  assert.deepEqual(land, originalLand);
+  assert.deepEqual(territories, originalTerritories);
+});
+
+
+test("la recherche spatiale indexée retrouve la référence exhaustive à travers le wrap longitude", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[-179.9,0],[-179.8,0],[-179.8,1],[-179.9,1],[-179.9,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test antimeridien" },
+    geometry: { type: "Polygon", coordinates: [[[180.1,0],[180.2,0],[180.2,1],[180.1,1],[180.1,0]]] }
+  }] };
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 20, exhaustiveCompare: true });
+  assert.ok(report.exhaustiveCompare.length > 0);
+  for (const comparison of report.exhaustiveCompare) {
+    comparison.sampleDistancesKm.forEach((distance, index) => {
+      assert.ok(Math.abs(distance - comparison.exhaustiveSampleDistancesKm[index]) < 1e-6,
+        "distance indexée et exhaustive doivent être identiques");
+    });
+  }
+});
+
+
+test("la recherche côtière adaptative retrouve les voisins au-delà du rayon de classification", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Décalage 20 km" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.18],[1,0.18],[1,1.18],[0,1.18],[0,0.18]]] }
+  }] };
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 20, exhaustiveCompare: true });
+  assert.ok(report.exhaustiveCompare.length > 0);
+  for (const comparison of report.exhaustiveCompare) {
+    comparison.sampleDistancesKm.forEach((distance, index) => {
+      assert.ok(Math.abs(distance - comparison.exhaustiveSampleDistancesKm[index]) < 1e-6,
+        "la recherche adaptative doit retrouver la distance exhaustive même au-delà de 5 km");
+    });
+  }
 });

@@ -23,7 +23,7 @@ function hillshade(west, east, north, south, latitude, cellSizeDegrees) {
     lit += Math.max(0, normalEast * light.east + normalNorth * light.north + normalUp * light.up) * light.weight;
   }
   const steepness = Math.min(1, Math.hypot(slopeEast, slopeNorth));
-  return clamp(1 + (lit - flatLight) * 1.3 - steepness * 0.12, 0.48, 1.52);
+  return clamp(1 + (lit - flatLight) * 1.35 - steepness * 0.10, 0.52, 1.48);
 }
 
 self.addEventListener("message", event => {

@@ -7,6 +7,38 @@ const clampPositive = (value, fallback = 1) => {
  * Calcule la taille et le viewport de rendu d'une scène avec une marge d'overscan.
  * Le zoom de rendu ne descend jamais sous 1, limite imposée par projectEquirectangular.
  */
+export function fitMapFrame(width, height, aspectRatio = 2) {
+  const availableWidth = clampPositive(width);
+  const availableHeight = clampPositive(height);
+  const ratio = clampPositive(aspectRatio, 2);
+  const maxWidth = Math.floor(Math.min(availableWidth, availableHeight * ratio));
+  // Pour le ratio 2:1, une largeur paire garantit des dimensions entières
+  // strictement cohérentes, sans un pixel de débordement vertical.
+  const fittedWidth = ratio === 2 && maxWidth >= 2
+    ? maxWidth - (maxWidth % 2)
+    : Math.max(1, maxWidth);
+  const fittedHeight = Math.max(1, Math.floor(fittedWidth / ratio));
+  return { width: fittedWidth, height: fittedHeight };
+}
+
+/**
+ * En zoom, couvre le cadre sans déformer la projection : le côté long
+ * déborde sous overflow:hidden. Le cadrage initial reste en mode contain.
+ */
+export function coverMapFrame(width, height, aspectRatio = 2) {
+  const availableWidth = clampPositive(width);
+  const availableHeight = clampPositive(height);
+  const ratio = clampPositive(aspectRatio, 2);
+  if (availableWidth / availableHeight < ratio) {
+    return { width: Math.max(1, Math.ceil(availableHeight * ratio)), height: Math.ceil(availableHeight) };
+  }
+  if (ratio === 2) {
+    const fittedWidth = Math.ceil(availableWidth / 2) * 2;
+    return { width: fittedWidth, height: fittedWidth / 2 };
+  }
+  return { width: Math.ceil(availableWidth), height: Math.max(1, Math.ceil(availableWidth / ratio)) };
+}
+
 export function sceneRenderParams(view = {}, width, height, overscan = 1.4) {
   const W = Math.max(1, Math.round(clampPositive(width)));
   const H = Math.max(1, Math.round(clampPositive(height)));
@@ -45,23 +77,31 @@ export function composeRects(view = {}, sceneViewport = {}, sceneSize = {}, widt
   const viewZoom = clampPositive(view.zoom);
   const sceneWidth = Math.max(1, Number(sceneSize.w) || W);
   const sceneHeight = Math.max(1, Number(sceneSize.h) || H);
-  const k = viewZoom / sceneZoom;
+  // La bitmap de scène est déjà rendue avec Ws/Hs pixels et son zoom interne.
+  // La mise à l'échelle de composition doit comparer les densités pixel/degree,
+  // et non simplement le rapport des zooms (qui double-compte l'overscan).
+  const scaleX = W * viewZoom / (sceneWidth * sceneZoom);
+  const scaleY = H * viewZoom / (sceneHeight * sceneZoom);
   const dLon = normalizeLongitudeDelta(
     (Number(sceneViewport.centerLongitude) || 0) - (Number(view.centerLongitude) || 0)
   );
   const dLat = (Number(sceneViewport.centerLatitude) || 0) - (Number(view.centerLatitude) || 0);
-  const dx = W / 2 + (dLon / 360) * W * viewZoom - (sceneWidth / 2) * k;
-  const dy = H / 2 - (dLat / 180) * H * viewZoom - (sceneHeight / 2) * k;
-  const dw = sceneWidth * k;
-  const dh = sceneHeight * k;
+  const dx = W / 2 + (dLon / 360) * W * viewZoom - (sceneWidth / 2) * scaleX;
+  const dy = H / 2 - (dLat / 180) * H * viewZoom - (sceneHeight / 2) * scaleY;
+  const dw = sceneWidth * scaleX;
+  const dh = sceneHeight * scaleY;
   const base = { x: dx, y: dy, w: dw, h: dh };
   const coversWorld = Number(sceneSize.f) >= sceneZoom - 1e-6;
 
   if (coversWorld) {
     const period = W * viewZoom;
-    const rects = [-period, 0, period]
-      .map(offset => ({ ...base, x: base.x + offset }))
-      .filter(rect => intersectsScreen(rect, W, H));
+    const rects = [];
+    for (let index = -1; index <= 1; index++) {
+      const x = base.x + index * period;
+      if (base.x + base.w + index * period <= 0 || x >= W
+        || base.y + base.h <= 0 || base.y >= H) continue;
+      rects.push({ x, y: base.y, w: base.w, h: base.h });
+    }
     return {
       rects,
       covered: dy <= 0 && dy + dh >= H

@@ -6,6 +6,8 @@ const REGIONAL_ASSETS = [
   { key: "ne_10m_rivers.geojson", source: "ne_10m_rivers_lake_centerlines.geojson", label: "Rivières" },
   { key: "ne_10m_map_labels.geojson", source: "ne_10m_populated_places_simple.geojson", label: "Villes et repères" }
 ];
+const REGIONAL_ASSET_BY_KEY = new Map(REGIONAL_ASSETS.map(asset => [asset.key, asset]));
+const REGIONAL_ASSET_IN_FLIGHT = new Map();
 const NATURAL_EARTH_BASE = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/";
 const MAP_ASSET_CACHE = "terra-nova-map-assets-v1";
 export const MAP_PACK_CORE_ASSETS = [
@@ -96,7 +98,11 @@ function openCache() {
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains("assets")) request.result.createObjectStore("assets", { keyPath: "key" });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => reject(new Error("Le stockage cartographique est bloqué par un autre onglet."));
+    request.onsuccess = () => {
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
     request.onerror = () => reject(request.error || new Error("Impossible d’ouvrir le stockage local."));
   });
 }
@@ -137,7 +143,7 @@ function parseFeatureCollection(text, label) {
   } catch {
     throw new Error("Le fichier " + label + " n’est pas un GeoJSON lisible.");
   }
-  if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features) || !collection.features.length) {
+  if (!collection || typeof collection !== "object" || collection.type !== "FeatureCollection" || !Array.isArray(collection.features) || !collection.features.length) {
     throw new Error("Le fichier " + label + " ne contient pas de données géographiques valides.");
   }
   return collection;
@@ -160,7 +166,8 @@ export function buildRegionalCityLabels(places) {
     const properties = feature.properties || {};
     const geometry = feature.geometry;
     const name = property(properties, "name", "NAME", "nameascii");
-    if (!name || !geometry || geometry.type !== "Point" || !Array.isArray(geometry.coordinates)) continue;
+    if (!name || !geometry || geometry.type !== "Point" || !Array.isArray(geometry.coordinates)
+      || !Number.isFinite(Number(geometry.coordinates[0])) || !Number.isFinite(Number(geometry.coordinates[1]))) continue;
     const rank = Number(property(properties, "scalerank", "SCALERANK") || 99);
     const population = Number(property(properties, "pop_max", "POP_MAX") || 0);
     if (!Number.isFinite(rank) || !Number.isFinite(population) || (rank > 7 && population < 300000)) continue;
@@ -198,28 +205,45 @@ export function selectLandDetailLevel(zoom, worldFeatures, regionalFeatures = nu
   return selectMapLayerDetailLevel(zoom, worldFeatures, regionalFeatures);
 }
 
+/** Sélectionne un LOD terrestre uniquement si les territoires disposent du même niveau de détail. */
+export function selectAlignedLandDetailLevel(zoom, worldFeatures, regionalLandFeatures = null, regionalTerritories = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
+  const hasMatchingRegionalTerritories = regionalTerritories?.type === "FeatureCollection"
+    && Array.isArray(regionalTerritories.features)
+    && regionalTerritories.features.length > 0;
+  return selectMapLayerDetailLevel(zoom, worldFeatures,
+    hasMatchingRegionalTerritories ? regionalLandFeatures : null, threshold);
+}
+
 export async function loadOptionalGeoJson(url, fetcher = globalThis.fetch) {
   if (typeof fetcher !== "function") return null;
-  const key = url.split("/").pop();
-  try {
-    const cached = await readCachedText(key);
-    if (cached) return parseFeatureCollection(cached, key);
-  } catch (error) {
-    if (globalThis.indexedDB) console.warn("Cache cartographique indisponible :", error);
-  }
-  const asset = REGIONAL_ASSETS.find(item => item.key === key);
-  const sourceUrl = asset ? NATURAL_EARTH_BASE + asset.source : url;
-  try {
-    const response = await fetcher(sourceUrl);
-    if (!response || !response.ok) return null;
-    let collection = await response.json();
-    if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) return null;
-    if (asset?.key === "ne_10m_map_labels.geojson") collection = buildRegionalCityLabels(collection);
-    try { await writeCachedText(key, JSON.stringify(collection)); } catch { /* cache facultatif */ }
-    return collection;
-  } catch {
-    return null;
-  }
+  const key = String(url).split(/[?#]/, 1)[0].split("/").pop();
+  const inFlightKey = key + "|" + String(url);
+  const pending = REGIONAL_ASSET_IN_FLIGHT.get(inFlightKey);
+  if (pending) return pending;
+  const request = (async () => {
+    try {
+      const cached = await readCachedText(key);
+      if (cached) return parseFeatureCollection(cached, key);
+    } catch (error) {
+      if (globalThis.indexedDB) console.warn("Cache cartographique indisponible :", error);
+    }
+    const asset = REGIONAL_ASSET_BY_KEY.get(key);
+    const sourceUrl = asset ? NATURAL_EARTH_BASE + asset.source : url;
+    try {
+      const response = await fetcher(sourceUrl);
+      if (!response || !response.ok) return null;
+      let collection = await response.json();
+      if (!collection || collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) return null;
+      if (asset?.key === "ne_10m_map_labels.geojson") collection = buildRegionalCityLabels(collection);
+      try { await writeCachedText(key, JSON.stringify(collection)); } catch { /* cache facultatif */ }
+      return collection;
+    } catch {
+      return null;
+    }
+  })();
+  REGIONAL_ASSET_IN_FLIGHT.set(inFlightKey, request);
+  try { return await request; }
+  finally { if (REGIONAL_ASSET_IN_FLIGHT.get(inFlightKey) === request) REGIONAL_ASSET_IN_FLIGHT.delete(inFlightKey); }
 }
 
 export async function getRegionalCacheStatus() {
@@ -232,12 +256,19 @@ export async function getRegionalCacheStatus() {
 }
 
 let regionalWarmupPromise = null;
+const regionalWarmupListeners = new Set();
 
 /** Télécharge en arrière-plan les quatre couches régionales et les conserve dans IndexedDB. */
 export function warmRegionalMapCache(onProgress = () => {}, fetcher = globalThis.fetch) {
+  if (typeof onProgress === "function") regionalWarmupListeners.add(onProgress);
   if (regionalWarmupPromise) return regionalWarmupPromise;
-  regionalWarmupPromise = downloadRegionalMapData(onProgress, fetcher)
-    .catch(error => { regionalWarmupPromise = null; throw error; });
+  const notify = progress => {
+    for (const listener of regionalWarmupListeners) {
+      try { listener(progress); } catch (error) { console.warn("Suivi du préchargement cartographique indisponible :", error); }
+    }
+  };
+  regionalWarmupPromise = downloadRegionalMapData(notify, fetcher)
+    .finally(() => { regionalWarmupPromise = null; regionalWarmupListeners.clear(); });
   return regionalWarmupPromise;
 }
 
@@ -269,8 +300,54 @@ export async function downloadRegionalMapData(onProgress = () => {}, fetcher = g
   return { count: total };
 }
 
-export const REGIONAL_LAND_DATA_PATH = "./data/ne_10m_land.geojson";
+export const REGIONAL_LAND_DATA_PATH = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson";
+export const REGIONAL_TERRITORIES_DATA_PATH = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson";
+
+/** Charge le couple terre/pays 1:10m. Aucun des deux niveaux n'est activé seul. */
+export async function loadAlignedRegionalMapData(fetcher = globalThis.fetch) {
+  const [land, territories] = await Promise.all([
+    loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH, fetcher),
+    loadOptionalGeoJson(REGIONAL_TERRITORIES_DATA_PATH, fetcher)
+  ]);
+  if (!land?.features?.length || !territories?.features?.length) return null;
+  return { land, territories, level: "regional-10m" };
+}
+
 export const REGIONAL_LAKES_DATA_PATH = "./data/ne_10m_lakes.geojson";
 export const REGIONAL_RIVERS_DATA_PATH = "./data/ne_10m_rivers.geojson";
 export const REGIONAL_LABELS_DATA_PATH = "./data/ne_10m_map_labels.geojson";
 export const REGIONAL_ZOOM_THRESHOLD_VALUE = REGIONAL_ZOOM_THRESHOLD;
+
+
+/**
+ * Stabilise les changements de source LOD autour d'un seuil.
+ * Le niveau régional est activé légèrement après le seuil nominal et conservé
+ * jusqu'au passage sous le seuil inverse, ce qui évite les bascules répétées
+ * lorsque le zoom oscille de quelques centièmes autour de la limite.
+ */
+export function createMapLayerLodSelector(hysteresis = 0.18) {
+  const margin = Number.isFinite(hysteresis) ? Math.max(0, hysteresis) / 2 : 0.09;
+  const levels = new Map();
+
+  function select(zoom, worldFeatures, regionalFeatures = null, threshold = REGIONAL_ZOOM_THRESHOLD) {
+    const hasRegional = regionalFeatures?.type === "FeatureCollection" && Array.isArray(regionalFeatures.features);
+    const current = levels.get(threshold);
+    let useRegional = current === "regional-10m"
+      ? Number.isFinite(zoom) && zoom >= threshold - margin
+      : Number.isFinite(zoom) && zoom >= threshold + margin;
+    if (!hasRegional) useRegional = false;
+    const level = useRegional ? "regional-10m" : "world-110m";
+    levels.set(threshold, level);
+    return {
+      level,
+      features: useRegional ? regionalFeatures : worldFeatures,
+      isFallback: !useRegional && Number.isFinite(zoom) && zoom >= threshold
+    };
+  }
+
+  function reset() {
+    levels.clear();
+  }
+
+  return { select, reset };
+}

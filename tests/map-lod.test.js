@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRegionalCityLabels, loadOptionalGeoJson, selectLandDetailLevel, selectMapLayerDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH } from "../src/world/map-lod.js";
+import { buildRegionalCityLabels, loadOptionalGeoJson, loadAlignedRegionalMapData, selectLandDetailLevel, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile, MAP_PACK_CORE_ASSETS, REGIONAL_ZOOM_THRESHOLD_VALUE, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, REGIONAL_LAND_DATA_PATH, REGIONAL_TERRITORIES_DATA_PATH } from "../src/world/map-lod.js";
 import { projectEquirectangular, constrainEquirectangularViewport } from "../src/world/projection.js";
 import { buildGeoSpatialIndex, queryGeoSpatialIndex } from "../src/world/geo-spatial-index.js";
 
@@ -152,4 +152,114 @@ test("le préchauffage ne change pas les seuils de rendu des couches régionales
   assert.equal(selectMapLayerDetailLevel(6, world, regional, 6).features, regional);
   assert.equal(selectMapLayerDetailLevel(7.9, world, regional, 8).features, world);
   assert.equal(selectMapLayerDetailLevel(8, world, regional, 8).features, regional);
+});
+
+
+test("le sélecteur LOD applique une hystérésis autour du seuil régional", async () => {
+  const { createMapLayerLodSelector } = await import("../src/world/map-lod.js");
+  const selector = createMapLayerLodSelector(0.2);
+  assert.equal(selector.select(6.05, world, regional, 6).level, "world-110m");
+  assert.equal(selector.select(6.11, world, regional, 6).level, "regional-10m");
+  assert.equal(selector.select(6.02, world, regional, 6).level, "regional-10m");
+  assert.equal(selector.select(5.89, world, regional, 6).level, "world-110m");
+});
+
+test("le sélecteur LOD conserve le repli mondial si les données régionales manquent", async () => {
+  const { createMapLayerLodSelector } = await import("../src/world/map-lod.js");
+  const selector = createMapLayerLodSelector(0.2);
+  assert.equal(selector.select(8, world, null, 6).features, world);
+  assert.equal(selector.select(8, world, regional, 6).level, "regional-10m");
+  selector.reset();
+  assert.equal(selector.select(6.05, world, regional, 6).level, "world-110m");
+});
+
+
+test("les requêtes GeoJSON concurrentes pour une même ressource sont mutualisées", async () => {
+  let calls = 0;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const fetcher = async () => {
+    calls++;
+    await gate;
+    return { ok: true, json: async () => regional };
+  };
+  const first = loadOptionalGeoJson("./shared-regional.geojson", fetcher);
+  const second = loadOptionalGeoJson("./shared-regional.geojson", fetcher);
+  await Promise.resolve();
+  release();
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(calls, 1);
+  assert.equal(a, b);
+  assert.equal(a.features[0].id, "regional");
+});
+
+test("une URL régionale avec paramètres conserve la bonne clé de ressource", async () => {
+  let requested = "";
+  const loaded = await loadOptionalGeoJson("./data/ne_10m_rivers.geojson?v=2", async url => {
+    requested = url;
+    return { ok: true, json: async () => regional };
+  });
+  assert.ok(requested.endsWith("ne_10m_rivers_lake_centerlines.geojson"));
+  assert.equal(loaded, regional);
+});
+
+test("les labels régionaux ignorent les coordonnées non finies", () => {
+  const places = { type: "FeatureCollection", features: [
+    { type: "Feature", properties: { name: "Paris", scalerank: 2, pop_max: 2000000 }, geometry: { type: "Point", coordinates: [2.3, 48.8] } },
+    { type: "Feature", properties: { name: "Coordonnée invalide", scalerank: 1, pop_max: 5000000 }, geometry: { type: "Point", coordinates: [NaN, 48] } },
+    { type: "Feature", properties: { name: "Latitude absente", scalerank: 1, pop_max: 5000000 }, geometry: { type: "Point", coordinates: [2] } }
+  ] };
+  const labels = buildRegionalCityLabels(places);
+  assert.deepEqual(labels.features.map(feature => feature.properties.name), ["Paris"]);
+});
+
+test("les réponses GeoJSON mal formées sont ignorées sans fuite de requête en attente", async () => {
+  const url = "./malformed-regional.geojson";
+  assert.equal(await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => null })), null);
+  const recovered = await loadOptionalGeoJson(url, async () => ({ ok: true, json: async () => regional }));
+  assert.equal(recovered, regional);
+});
+
+
+test("le LOD terrestre régional exige une couche territoriale régionale correspondante", () => {
+  const selected = selectAlignedLandDetailLevel(8, world, regional, null, 6);
+  assert.equal(selected.level, "world-110m");
+  assert.equal(selected.features, world);
+  assert.equal(selected.isFallback, true);
+});
+
+test("les terres et territoires régionaux peuvent basculer ensemble", () => {
+  const regionalTerritories = { type: "FeatureCollection", features: [{ id: "regional-country" }] };
+  const selected = selectAlignedLandDetailLevel(8, world, regional, regionalTerritories, 6);
+  assert.equal(selected.level, "regional-10m");
+  assert.equal(selected.features, regional);
+  assert.equal(selected.isFallback, false);
+});
+
+test("le niveau mondial reste sélectionné sous le seuil même avec deux couches régionales", () => {
+  const regionalTerritories = { type: "FeatureCollection", features: [{ id: "regional-country" }] };
+  const selected = selectAlignedLandDetailLevel(5.99, world, regional, regionalTerritories, 6);
+  assert.equal(selected.level, "world-110m");
+  assert.equal(selected.features, world);
+});
+
+
+test("le niveau régional exige simultanément les terres et les pays 1:10m", async () => {
+  const requested = [];
+  const loaded = await loadAlignedRegionalMapData(async url => {
+    requested.push(url);
+    return { ok: true, json: async () => regional };
+  });
+  assert.deepEqual(requested.sort(), [REGIONAL_LAND_DATA_PATH, REGIONAL_TERRITORIES_DATA_PATH].sort());
+  assert.equal(loaded.level, "regional-10m");
+  assert.equal(loaded.land, regional);
+  assert.equal(loaded.territories, regional);
+});
+
+test("le chargement régional apparié refuse d'activer une seule des deux couches", async () => {
+  const loaded = await loadAlignedRegionalMapData(async url => ({
+    ok: true,
+    json: async () => url === REGIONAL_LAND_DATA_PATH ? regional : null
+  }));
+  assert.equal(loaded, null);
 });

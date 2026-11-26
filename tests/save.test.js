@@ -18,4 +18,5 @@ test("compacte les cellules physiques modifiées et restaure un état identique"
  assert.equal(raw.physicalWorld.currentCells,undefined);
  assert.equal(raw.physicalWorld.compactCells.changedCells.length,1);
  assert.equal(JSON.stringify(loadGame(storage).physicalWorld.currentCells),expected);
+ assert.equal(JSON.stringify(state.physicalWorld.currentCells),expected);
 });

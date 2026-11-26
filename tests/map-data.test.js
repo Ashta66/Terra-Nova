@@ -41,3 +41,44 @@ test("les points d'altitude disposent de valeurs numériques plausibles", async 
     assert.ok(feature.properties.elevation_m >= -500 && feature.properties.elevation_m <= 9000);
   }
 });
+
+test("les libellés cartographiques locaux sont francisés", async () => {
+  const collection = JSON.parse(await readFile(new URL("../data/ne_110m_map_labels.geojson", import.meta.url), "utf8"));
+  const names = collection.features.map(feature => feature.properties.name);
+  assert.ok(names.includes("Amérique du Nord"));
+  assert.ok(names.includes("Océan Atlantique"));
+  const regionalSeas = [
+    "Mer Méditerranée", "Mer des Caraïbes", "Mer du Nord", "Mer Baltique",
+    "Mer Rouge", "Mer Noire", "Mer d'Arabie", "Mer de Chine méridionale",
+    "Mer du Japon", "Mer de Béring"
+  ];
+  for (const name of regionalSeas) assert.ok(names.includes(name), `label maritime manquant : ${name}`);
+  const regionalFeatures = collection.features.filter(feature => feature.properties.kind === "sea");
+  assert.equal(regionalFeatures.length, regionalSeas.length + 11);
+  for (const feature of regionalFeatures) {
+    assert.ok(feature.properties.minZoom >= 3 && feature.properties.minZoom <= 5);
+    assert.equal(feature.properties.source, "curated-cartographic-anchor");
+    assert.equal(feature.geometry.type, "Point");
+  }
+  const detailedNames = [
+    "Golfe du Mexique", "Golfe de Guinée", "Golfe Persique", "Golfe d'Aden",
+    "Golfe d'Alaska", "Golfe de Californie", "Baie du Bengale", "Mer Adriatique",
+    "Mer Égée", "Mer de Corail", "Mer des Philippines"
+  ];
+  for (const name of detailedNames) assert.ok(names.includes(name), `repère maritime manquant : ${name}`);
+  const straits = collection.features.filter(feature => feature.properties.kind === "strait");
+  assert.deepEqual(straits.map(feature => feature.properties.name).sort(), [
+    "Canal du Mozambique", "Détroit de Gibraltar", "Détroit de Malacca", "La Manche"
+  ]);
+  for (const feature of straits) {
+    assert.equal(feature.properties.minZoom, 6);
+    assert.equal(feature.properties.source, "curated-cartographic-anchor");
+    assert.equal(feature.geometry.type, "Point");
+    const [longitude, latitude] = feature.geometry.coordinates;
+    assert.ok(longitude >= -180 && longitude <= 180);
+    assert.ok(latitude >= -90 && latitude <= 90);
+  }
+  assert.ok(names.includes("Pékin"));
+  assert.ok(names.includes("Le Caire"));
+  assert.ok(!names.some(name => /^(North America|South America|Africa|Asia|Oceania|Antarctica|Atlantic Ocean|Pacific Ocean|Indian Ocean|Arctic Ocean)$/.test(name)));
+});

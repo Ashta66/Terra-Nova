@@ -1,3 +1,824 @@
+## Lot 54 — rétablissement du littoral de référence au premier plan
+
+- [x] Identifier les sources distinctes : continents Natural Earth 1:110m, territoires politiques historiques/modernes, limites politiques Natural Earth ou historiques.
+- [x] Confirmer que les territoires sont pré-généralisés indépendamment du LOD terrestre (tolérance politique 0,0035 contre LOD terrestre 0,04 / 0,02 / 0,008).
+- [x] Recomposer le trait côtier exclusivement depuis les géométries terrestres actives, après les aplats et frontières politiques.
+- [x] Réutiliser le même profil projeté de côte que le fond terrestre pour cette recomposition.
+- [ ] Vérifier localement l'alignement à plusieurs zooms et sur les zones insulaires.
+- [ ] Si le décalage subsiste sous le trait côtier, auditer séparément l'alignement du raster ETOPO et du LOD terrestre.
+
+Note technique : les frontières historiques peuvent légitimement diverger du littoral Natural Earth, car elles proviennent de sources et d'époques différentes. Le trait côtier physique reste désormais la référence visuelle prioritaire ; les frontières intérieures conservent leurs géométries historiques.
+
+## 25 novembre 2026 — alignement des couches politiques sur la géométrie continentale
+
+### Référence géométrique unique
+- [x] Construire un masque d'alignement à partir des géométries continentales sources, sans simplification ni seuil d'aire.
+- [x] Découper les aplats territoriaux par ce masque avant composition.
+- [x] Découper les contours territoriaux par le même masque.
+- [x] Découper les frontières politiques Canvas/WebGL au moment de leur composition, sans translater ni déformer leurs coordonnées.
+- [x] Préserver un fallback sans Path2D : le rendu reste disponible si le masque ne peut pas être construit.
+- [x] Ajouter des tests sur l'ordre save/clip/draw/restore et sur le fallback.
+
+### Portée
+Cette correction utilise les contours GeoJSON continentaux non simplifiés comme limite physique de référence. Les géométries politiques ne sont pas réécrites ; seules leurs parties situées hors du masque terrestre sont masquées à l'affichage. Les frontières intérieures restent issues de leurs données historiques.
+
+### Validation
+- [ ] Validation locale : `npm test` à confirmer.
+- [ ] Contrôle visuel requis à plusieurs zooms, notamment sur les littoraux et les frontières côtières.
+
+## 25 novembre 2026 — lot 49 : simplification géométrique à allocations réduites
+
+### Ramer-Douglas-Peucker
+- [x] Remplacer la pile de paires de tableaux par un buffer typé contigu.
+- [x] Éliminer les allocations de tableaux lors de chaque subdivision récursive simulée.
+- [x] Conserver le parcours en profondeur et l'ordre de traitement des segments.
+- [x] Borner la capacité de la pile à partir du nombre de points du chemin.
+- [x] Conserver le seuil de distance au carré et les calculs de distance existants.
+- [x] Préserver les extrémités des lignes.
+- [x] Préserver les points d'ancrage partagés entre frontières.
+- [x] Conserver le comportement des chemins trop courts et des tolérances nulles.
+- [x] Ne modifier ni les seuils, ni les coordonnées, ni les règles historiques.
+
+### Tests
+- [x] Ajouter un test de simplification d'une ligne de 12 000 sommets.
+- [x] Vérifier la conservation des extrémités.
+- [x] Vérifier la réduction effective du nombre de sommets.
+- [x] Vérifier l'immuabilité des coordonnées sources.
+- [x] Vérifier la conservation des ancrages partagés.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les allocations temporaires du parcours Ramer-Douglas-Peucker. La sélection des sommets et les seuils de simplification restent identiques.
+
+## 25 novembre 2026 — lot 48 : construction des rubans géographiques
+
+### Déduplication des jonctions
+- [x] Remplacer les clés de jonction textuelles par une indexation numérique à deux niveaux.
+- [x] Éviter la création d'une chaîne par extrémité de segment.
+- [x] Éviter le tableau temporaire de coordonnées pour chaque extrémité unique.
+- [x] Préserver l'égalité exacte des coordonnées Float32.
+- [x] Préserver les jonctions distinctes lorsque deux extrémités sont proches mais différentes.
+- [x] Préserver les latitudes distinctes partageant une même longitude.
+- [x] Préallouer le buffer final à partir du nombre exact de jonctions uniques.
+- [x] Conserver l'isolation des groupes de tracés et leurs ancrages longitudinaux.
+- [x] Conserver les disques de raccord et leur tessellation à 12 secteurs.
+- [x] Conserver le nombre de sommets et l'ordre des segments existants.
+
+### Tests
+- [x] Tester les sommets partagés entre segments consécutifs.
+- [x] Tester les segments disjoints.
+- [x] Tester les extrémités proches mais numériquement distinctes.
+- [x] Tester les groupes indépendants.
+- [x] Tester les latitudes distinctes pour une même longitude.
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les allocations temporaires lors de la déduplication des extrémités de lignes géographiques. Il ne modifie ni les coordonnées projetées, ni la géométrie des rubans, ni les règles de raccordement.
+
+## 25 novembre 2026 — lot 47 : projection préconfigurée et sélection LOD
+
+### Projection des grandes géométries
+- [x] Ajouter un projecteur scalaire préconfiguré pour les parcours intensifs de coordonnées.
+- [x] Résoudre le type de projection une seule fois à la création du projecteur.
+- [x] Pré-calculer le facteur horizontal et les constantes de cadrage dépendant du zoom.
+- [x] Pré-calculer l'origine verticale équirectangulaire.
+- [x] Pré-calculer la latitude centrale et l'ordonnée Mercator de référence.
+- [x] Pré-calculer le sinus et le cosinus de la latitude centrale orthographique.
+- [x] Pré-calculer le rayon orthographique selon les dimensions du canevas.
+- [x] Éviter la création d'un tableau [longitude, latitude] pour chaque sommet projeté.
+- [x] Conserver l'enveloppement des longitudes et l'option wrapLongitude=false.
+- [x] Conserver le masquage de l'hémisphère arrière en orthographique.
+- [x] Refuser immédiatement les types de projection inconnus.
+- [x] Réutiliser un contexte de projection pour tous les anneaux d'un Polygon/MultiPolygon.
+- [x] Réutiliser un contexte de projection pour les lignes d'une même géométrie.
+- [x] Réinitialiser le suivi de continuité à chaque anneau ou ligne.
+- [x] Conserver le déroulement continu des longitudes au passage de l'antiméridien.
+- [x] Conserver la validation des coordonnées avant leur projection.
+- [x] Ne modifier ni les tolérances de simplification ni les seuils de surface des anneaux.
+
+### Profils de viewport et niveaux de détail
+- [x] Mettre en cache les profils de projection viewport partagés par les chemins d'une même vue.
+- [x] Réutiliser le profil et son objet de projection lorsque la clé de vue est identique.
+- [x] Rafraîchir l'ordre LRU lors d'une réutilisation.
+- [x] Borner le cache de profils à 64 entrées.
+- [x] Exposer les compteurs de hits, misses et la taille du cache.
+- [x] Remplacer le parcours linéaire des seuils LOD par une recherche binaire.
+- [x] Accélérer également la recherche du palier LOD adjacent lors d'un zoom arrière.
+- [x] Préserver exactement le comportement aux seuils, les tolérances et le fallback du niveau de base.
+
+### Tests
+- [x] Comparer le projecteur préconfiguré à l'API historique en équirectangulaire.
+- [x] Comparer le projecteur préconfiguré à l'API historique en Mercator.
+- [x] Comparer le projecteur préconfiguré à l'API historique en orthographique.
+- [x] Tester le mode de longitude non enveloppée.
+- [x] Tester le rejet des projections inconnues.
+- [x] Tester les seuils LOD exacts avec une configuration non triée.
+- [x] Tester les zooms invalides sans génération parasite.
+- [x] Tester le bornage et la réutilisation du cache de profils viewport.
+- [x] CI GitHub Actions : 749 tests réussis, 0 échec (run 45539001930).
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit les calculs de configuration répétés par sommet et par anneau, ainsi que les recherches de niveaux LOD. Les coordonnées projetées, la continuité des tracés, la topologie, les règles historiques et les profils de simplification restent inchangés.
+
+## 25 novembre 2026 — lot 46 : files de tuiles et invalidation géographique
+
+### File de travaux des workers
+- [x] Remplacer le décalage du tableau à chaque dépilement par un curseur amorti O(1).
+- [x] Stocker le curseur par instance de file avec une WeakMap.
+- [x] Avancer le curseur sans déplacer les références restantes.
+- [x] Sauter les travaux devenus invalides, déjà en cache ou déjà en attente.
+- [x] Libérer les références de la file dès que celle-ci est épuisée.
+- [x] Exposer un test de présence compatible avec le curseur.
+- [x] Adapter la pompe du worker pour ne plus dépendre de queue.length comme indicateur de travail.
+- [x] Adapter les statistiques pour ne compter que les travaux non consommés.
+- [x] Préserver la priorité déterministe définie par le plan de tuiles.
+- [x] Préserver le plafond de concurrence existant.
+- [x] Repartir d'un curseur neuf après réconciliation du plan.
+- [x] Gérer l'ajout de travaux en fin de file sans perdre la position courante.
+- [x] Garder le comportement des files invalides ou épuisées.
+- [x] Tester les entrées sautées et la libération finale des références.
+- [x] Tester l'indépendance des curseurs entre deux files successives.
+
+### Invalidation géographique et planification
+- [x] Remplacer le Set d'invalidation par une bitmap de taille fixe correspondant à la grille 10°.
+- [x] Dédupliquer les cellules touchées directement lors du marquage.
+- [x] Compter les tuiles uniques au moment du premier marquage.
+- [x] Préallouer exactement le tableau de clés invalidées.
+- [x] Générer les clés par un parcours linéaire déterministe ligne/colonne.
+- [x] Supprimer la copie des indices et le tri de l'ensemble invalidé.
+- [x] Préserver le halo borné et les limites polaires.
+- [x] Préserver le passage de l'antiméridien.
+- [x] Conserver l'immuabilité de l'objet de révisions fourni en entrée.
+- [x] Éviter une normalisation modulo/floor redondante pour les clés des tuiles déjà bornées dans le plan viewport.
+- [x] Tester la stabilité de l'ordre des plans et les limites de zoom extrêmes.
+- [x] Tester les invalidations invalides, répétées, polaires et trans-antiméridien.
+
+### Vérification
+- [x] Ajouter des tests de curseur, statistiques et cycle de vie de file.
+- [x] Ajouter des tests d'invalidation bitmap et de déduplication.
+- [x] Ajouter des tests de planification déterministe et de bornage.
+- [x] CI GitHub Actions : 743 tests réussis, 0 échec (run 45538533119).
+- [ ] Validation locale : `npm test` à confirmer.
+
+Ce lot réduit le coût de dépilement des travaux, les allocations d'invalidation géographique et les normalisations répétées de clés. Il ne modifie ni la géométrie des tuiles, ni les priorités de planification, ni les coordonnées, ni les règles de simulation.
+
+## 25 novembre 2026 — lot 45 : index spatial et généralisation géométrique
+
+### Index spatial — fusion et requêtes viewport
+- [x] Fusionner les listes d'entités globales et locales déjà triées.
+- [x] Remplacer le tri complet des entités d'une cellule par une fusion linéaire.
+- [x] Conserver l'ordre source sans modifier les FeatureCollections.
+- [x] Retirer le marquage temporaire devenu inutile pour la construction d'une cellule.
+- [x] Conserver un marquage dédié à la déduplication des requêtes multi-cellules.
+- [x] Isoler le compteur de génération des marques de requête.
+- [x] Préserver la remise à zéro des marques en cas de débordement Uint32.
+- [x] Préallouer le tableau des clés de cellules visibles à sa taille exacte.
+- [x] Calculer une seule fois la largeur de chaque intervalle longitudinal.
+- [x] Conserver le parcours ligne par ligne de la grille.
+- [x] Préserver le découpage en deux intervalles autour de l'antiméridien.
+- [x] Préserver le cache LRU des cellules et des requêtes viewport.
+- [x] Conserver les budgets maximaux de 256 cellules et 64 requêtes.
+- [x] Réutiliser le Set des clés actives du rendu pour le nettoyage LRU WebGL.
+- [x] Parcourir directement les clés LRU sans créer de copie de tableau.
+
+### Généralisation GeoJSON — allocations
+- [x] Ajouter un comptage direct des sommets des Polygon.
+- [x] Ajouter un comptage direct des sommets des MultiPolygon.
+- [x] Ajouter un comptage direct des sommets des LineString et MultiLineString.
+- [x] Parcourir récursivement les GeometryCollection pour compter les sommets.
+- [x] Supprimer les collections temporaires de chemins pour le comptage avant simplification.
+- [x] Supprimer les collections temporaires de chemins pour le comptage après simplification.
+- [x] Remplacer le filtre callback de simplification par une boucle d'écriture explicite.
+- [x] Ignorer les conteneurs de coordonnées mal formés dans les compteurs.
+- [x] Préserver les références de coordonnées et les géométries sources non modifiées.
+- [x] Conserver les statistiques de sommets retirés et de features modifiées.
+
+### Vérification
+- [x] Tester la fusion des entités globales et locales dans l'ordre source.
+- [x] Tester la réutilisation des cellules et des requêtes identiques.
+- [x] Tester la sélection multi-cellules autour de l'antiméridien.
+- [x] Tester les limites LRU après des déplacements répétés.
+- [x] Tester les compteurs de géométries composites.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Ce lot réduit les tris, les allocations intermédiaires et les copies de clés sur les chemins de sélection géographique. Il ne change ni les coordonnées, ni les seuils de simplification, ni la topologie des frontières, ni les règles historiques.
+
+## 25 novembre 2026 — lot 44 : fluidité du rendu et réduction des coûts par frame
+
+### Cache polygonal géographique
+- [x] Ajouter un chemin rapide lorsque la même collection de features est rendue à nouveau.
+- [x] Reconnaître également une nouvelle liste contenant les mêmes références de features.
+- [x] Éviter le regroupement des features par compartiment sur un cache inchangé.
+- [x] Éviter le tri des compartiments lors d'une frame identique.
+- [x] Éviter la reconstruction des Maps temporaires de compartiments sur le chemin rapide.
+- [x] Ne déclencher aucune allocation de buffer GPU lors d'un cache polygonal inchangé.
+- [x] Retourner des métriques nulles de construction et de transfert pour un cache réutilisé.
+- [x] Préserver les références de buffers et de compartiments pendant la réutilisation.
+- [x] Conserver le chemin incrémental existant lorsqu'une seule partie des features change.
+- [x] Mettre en cache le nombre maximal d'attributs vertex au lieu de le relire à chaque frame.
+
+### Soumission WebGL
+- [x] Supprimer la création d'un Set temporaire pour chaque remise à zéro des attributs.
+- [x] Conserver la désactivation des attributs non utilisés entre programmes polygonaux et linéaires.
+- [x] Mettre en cache l'emplacement de l'uniforme d'opacité du relief.
+- [x] Éviter les recherches répétées d'uniformes à chaque rendu de tuiles.
+- [x] Calculer le niveau LOD demandé une seule fois par rendu.
+- [x] Réutiliser ce niveau demandé pour diagnostiquer les limitations de capacité de l'atlas.
+
+### Préparation des tuiles terrain
+- [x] Remplacer la déduplication quadratique des précharges prédictives par un Set.
+- [x] Préserver la priorité des tuiles LOD adjacentes sur les précharges spatiales.
+- [x] Arrêter la collecte dès que les douze précharges maximales sont retenues.
+- [x] Éviter de fusionner les deux listes prédictives dans un tableau temporaire.
+- [x] Résoudre l'entrée GPU de chaque tuile une seule fois pendant la préparation du batch.
+- [x] Calculer chaque rectangle étendu une seule fois au lieu de le recalculer pendant l'écriture.
+- [x] Filtrer les rectangles invalides pendant cette unique passe de préparation.
+- [x] Allouer le buffer Float32 final une seule fois à partir du nombre de sommets validés.
+- [x] Préserver exactement l'ordre des tuiles, les UV atlas, les halos et les six sommets par rectangle.
+
+### Vérification
+- [x] Tester le chemin rapide sans nouvelle allocation GPU.
+- [x] Tester la réutilisation avec une nouvelle liste de références inchangées.
+- [x] Tester les rectangles invalides et les tuiles sans entrée GPU.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot réduit le travail CPU et les allocations temporaires sur les chemins de rendu récurrents. Il ne modifie ni les données géographiques, ni les shaders d'apparence, ni la simulation, ni l'interpolation historique. Les gains de temps réels restent à mesurer sur le matériel cible.
+
+## 25 novembre 2026 — lot 43 : pipeline GPU, atlas et stabilité des buffers
+
+### Atlas de tuiles terrain — allocation et transfert
+- [x] Borner la dimension de l'atlas à la capacité maximale de texture du GPU.
+- [x] Vérifier le budget réel en octets avant allocation.
+- [x] Libérer la texture si l'allocation initiale échoue.
+- [x] Valider les dimensions et la longueur des données d'altitude avant encodage.
+- [x] Accepter les buffers d'altitude signés natifs utilisés par le magasin terrain.
+- [x] Restaurer le slot libre lorsqu'un transfert texSubImage2D échoue.
+- [x] Distinguer les échecs de construction et les échecs de transfert dans les statistiques.
+- [x] Isoler les exceptions de construction et d'encodage des tuiles.
+- [x] Remplacer les entrées d'une ancienne révision sans conserver de texture obsolète.
+- [x] Préserver le comportement LRU et les slots protégés en cas de pression GPU.
+
+### File de chargement et cycle de vie atlas
+- [x] Borner le nombre de tuiles en attente.
+- [x] Promouvoir une demande déjà présente sans créer de doublon.
+- [x] Remplacer une précharge de faible priorité par une tuile visible plus urgente.
+- [x] Choisir de manière déterministe la précharge à abandonner lorsque la file est pleine.
+- [x] Annuler le scheduler idle ou timeout lorsque la file est vidée.
+- [x] Invalider les callbacks de scheduler devenus obsolètes après clear ou dispose.
+- [x] Reprendre avec setTimeout si requestIdleCallback échoue.
+- [x] Isoler les exceptions du callback de disponibilité UI.
+- [x] Éviter de réallouer intégralement la texture lors d'un clear logique.
+- [x] Rendre dispose idempotent et interdire les accès après destruction.
+
+### Buffers géographiques et publication atomique
+- [x] Libérer les buffers partiellement créés lors d'un échec d'allocation.
+- [x] Libérer les buffers partiellement transférés lors d'un échec bufferData.
+- [x] Construire tous les compartiments polygonaux avant de publier un nouveau cache.
+- [x] Conserver l'ancien cache tant que tous les nouveaux compartiments n'ont pas été construits.
+- [x] Poursuivre le nettoyage même si une suppression GPU isolée échoue.
+
+### Vérification
+- [x] Ajouter des tests d'allocation, de budget, de LRU, de slots protégés et de révisions.
+- [x] Ajouter des tests de file bornée, priorité, annulation et callbacks tardifs.
+- [x] Ajouter des tests de restauration après échec de transfert et de reconstruction atomique.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot optimise la gestion des ressources et la robustesse du pipeline ; il ne modifie pas les shaders d'apparence, les matériaux historiques, la simulation ou l'interpolation temporelle. Aucun gain FPS n'est annoncé sans mesure sur matériel réel.
+
+## 25 novembre 2026 — lot 42 : cycle de vie WebGL et surfaces de rendu
+
+### Cycle de vie des contextes
+- [x] Centraliser les transitions de perte et de restauration WebGL.
+- [x] Prévenir le comportement de perte par défaut du navigateur.
+- [x] Ignorer les événements de perte dupliqués.
+- [x] Ignorer les restaurations sans perte préalable.
+- [x] Exposer un indicateur fiable de disponibilité du contexte.
+- [x] Incrémenter une génération à chaque transition pour invalider les références GPU périmées.
+- [x] Isoler les exceptions des callbacks de cycle de vie.
+- [x] Rendre la destruction idempotente.
+- [x] Retirer les écouteurs à la destruction.
+- [x] Couvrir les événements tardifs après destruction.
+
+### Intégration des moteurs
+- [x] Basculer le rendu géographique sur Canvas pendant la perte du contexte.
+- [x] Réinitialiser l'instance géographique après restauration.
+- [x] Relancer un rendu de carte après restauration.
+- [x] Nettoyer les écouteurs du moteur géographique à la fermeture définitive de la page.
+- [x] Unifier le suivi de perte/restauration du relief WebGL.
+- [x] Vider les requêtes de mesure GPU devenues invalides lors d'une perte.
+- [x] Invalider l'atlas de tuiles terrain après perte du contexte.
+- [x] Recréer le moteur terrain après restauration.
+- [x] Libérer shaders, programmes et buffers partiellement créés lors d'un échec d'initialisation du moteur terrain.
+- [x] Éviter les tentatives répétées d'initialisation géographique après échec de compilation.
+
+### Surfaces et non-régression
+- [x] Centraliser le calcul des dimensions physiques Canvas.
+- [x] Borner le DPR maximal et le nombre total de pixels.
+- [x] Rejeter les dimensions invalides ou dont l'aire déborde les nombres finis.
+- [x] Intégrer le dimensionnement borné au canvas d'affichage principal.
+- [x] Tester transitions, callbacks, destruction, DPR, budget pixels et cas limites.
+
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le lot ne change ni les règles de simulation ni l'interpolation historique. Les surfaces restent en Canvas 2D si WebGL est indisponible ; aucune promesse de récupération instantanée n'est faite, car la restauration dépend du navigateur et du pilote graphique.
+
+## 25 novembre 2026 — lot 41 : stabilité mémoire et charge adaptative des tuiles
+
+### Profil matériel et charge
+- [x] Détecter la mémoire matérielle exposée par le navigateur sans rendre cette API obligatoire.
+- [x] Utiliser le nombre de cœurs comme signal secondaire lorsque la mémoire n'est pas exposée.
+- [x] Définir un profil contraint pour les appareils de faible capacité.
+- [x] Définir un profil équilibré pour les appareils intermédiaires.
+- [x] Conserver le budget historique sur les appareils standards.
+- [x] Autoriser un profil généreux mais plafonné sur les appareils haut de gamme.
+- [x] Limiter à une seule tâche worker simultanée les profils contraints et équilibrés.
+- [x] Adapter le nombre de tuiles planifiées au profil matériel.
+- [x] Préserver le comportement par défaut lorsque les capacités sont inconnues.
+- [x] Éviter toute dépendance à une API propriétaire ou à une mesure mémoire non standard.
+
+### Cache et pression mémoire
+- [x] Rendre le budget mémoire du cache ajustable à chaud.
+- [x] Rendre le nombre maximal d'entrées ajustable à chaud.
+- [x] Évacuer les entrées LRU jusqu'au respect simultané des deux limites.
+- [x] Mesurer le pic historique d'octets retenus.
+- [x] Compter les évictions cumulées.
+- [x] Distinguer les causes capacité, remplacement, suppression et vidage.
+- [x] Compter les insertions rejetées.
+- [x] Comptabiliser les appels de fermeture de ressources sans prétendre mesurer la mémoire GPU réelle.
+- [x] Exposer un instantané de statistiques sans exposer la Map interne.
+- [x] Rendre le cache définitivement inactif après dispose et fermer les ressources tardives rejetées.
+
+### Robustesse et non-régression
+- [x] Préserver l'ordre LRU lors des consultations.
+- [x] Préserver les ressources déjà détenues lorsqu'une même instance est réinsérée.
+- [x] Maintenir le nettoyage même si une méthode close ou un observateur échoue.
+- [x] Tester les limites dynamiques, les pics, les causes d'éviction, les rejets et le dispose.
+- [x] Tester les profils matériels, les capacités manquantes et les combinaisons mémoire/CPU.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les profils sont des plafonds conservateurs fondés sur les capacités déclarées par le navigateur, pas une mesure de mémoire disponible en temps réel. Le lot n'annonce aucun gain FPS ni consommation GPU mesurée. Les règles de simulation et l'interpolation historique ne sont pas modifiées.
+
+## 25 novembre 2026 — lot 40 : cycle de vie mémoire des tuiles physiques
+
+- [x] Refuser les bitmaps de taille nulle, inconnue, négative ou non finie afin de ne pas sous-estimer le budget.
+- [x] Fermer immédiatement les ressources reçues mais rejetées, notamment lorsqu'elles dépassent le budget.
+- [x] Conserver une ressource déjà détenue lorsque la même instance est réinsérée sous sa clé.
+- [x] Centraliser la suppression, l'éviction LRU, le remplacement et le vidage dans un chemin de libération unique.
+- [x] Signaler la cause de chaque éviction via un callback isolé des erreurs d'observateur.
+- [x] Synchroniser le cycle de vie des animations de fondu avec l'éviction de leur bitmap.
+- [x] Ne démarrer un fondu que si le bitmap a effectivement été retenu dans le cache.
+- [x] Ajouter une méthode `dispose()` idempotente pour libérer le cache entier.
+- [x] Réduire à zéro le backing store de l'OffscreenCanvas après transfert du bitmap depuis le worker.
+- [x] Nettoyer worker, temporisations, file et bitmaps à la fermeture définitive de la page, sans casser le retour depuis le bfcache.
+- [x] Étendre les tests du cache aux tailles invalides, aux rejets, aux callbacks et au nettoyage.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le cache prend explicitement possession des ressources acceptées et ferme celles qu'il rejette ou évince. Les animations ne conservent plus d'état pour des bitmaps évincés ; la fermeture définitive de la page libère aussi le worker et ses ressources graphiques, tout en préservant une page placée dans le cache de navigation du navigateur.
+
+## 25 novembre 2026 — lot 39 : reprise après incident du worker de tuiles
+
+- [x] Associer chaque réponse à l'identifiant exact de sa requête active.
+- [x] Empêcher une réponse tardive de libérer une requête plus récente pour la même tuile.
+- [x] Ignorer les messages mal formés et les identifiants non sûrs.
+- [x] Fermer les ImageBitmap reçus d'un worker devenu obsolète ou d'une réponse rejetée.
+- [x] Ajouter un délai maximal à l'initialisation et aux calculs en vol pour détecter un worker bloqué.
+- [x] Centraliser la reprise après erreur, messageerror, échec d'envoi ou dépassement du délai.
+- [x] Terminer le worker défaillant et nettoyer ses temporisations et requêtes en attente.
+- [x] Reconstruire la file depuis le dernier plan visible et redemander une composition.
+- [x] Réinitialiser les références de couches pour que le worker recréé reçoive un nouvel init.
+- [x] Ajouter cinq tests sur l'identité des réponses, la libération et les cas mal formés.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le worker est désormais remplacé après une erreur ou un blocage détecté. Les réponses d'une ancienne instance ne peuvent ni modifier le cache ni libérer les requêtes de la nouvelle instance. Le délai de garde de 20 secondes couvre aussi l'absence de confirmation d'initialisation ; les tâches déjà exécutées dans l'ancien worker sont abandonnées avec son arrêt.
+ 
+## 25 novembre 2026 — lot 38 : priorisation de la file des workers cartographiques
+
+- [x] Extraire la réconciliation de la file de travaux dans un module pur.
+- [x] Remplacer les travaux en attente par le plan de tuiles visible le plus récent.
+- [x] Préserver l'ordre de priorité centre-vers-périphérie calculé par le planificateur.
+- [x] Dédupliquer les clés de tuiles avant leur mise en file.
+- [x] Écarter les tuiles déjà présentes dans le cache ou déjà en cours de calcul.
+- [x] Revalider cache et état pending au moment de dépiler, pas seulement à l'insertion.
+- [x] Conserver la limite stricte de deux travaux simultanés.
+- [x] Continuer à traiter la file après une erreur d'envoi au worker.
+- [x] Ajouter cinq tests sur priorité, obsolescence, doublons et états concurrents.
+- [x] CI GitHub Actions : succès, 637/637 tests (run 45522466038).
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les travaux non démarrés qui ne correspondent plus au plan visible sont abandonnés. Les calculs déjà envoyés au worker restent bornés et leurs résultats peuvent alimenter le cache sans imposer de composition si la tuile n'est plus pertinente.
+
+## 25 novembre 2026 — lot 37 : résultats asynchrones cartographiques obsolètes
+
+- [x] Détecter si une tuile reçue appartient encore au plan visible ou à l'une de ses générations parentes.
+- [x] Mettre en cache les tuiles terminées hors écran sans déclencher de composition inutile.
+- [x] Ne rafraîchir les couches régionales que si leur famille reste pertinente au zoom courant.
+- [x] Conserver les données régionales chargées pour une réutilisation ultérieure, même si la vue a changé.
+- [x] Ignorer les réponses de frontières historiques dont l'année ne correspond plus à l'année simulée.
+- [x] Relancer la demande de frontières pour l'année courante après la fin d'une requête devenue obsolète.
+- [x] Centraliser les décisions d'acceptation dans `map-async-result.js`.
+- [x] Ajouter cinq tests ciblés sur les tuiles, les couches régionales et les années historiques.
+- [x] CI GitHub Actions : succès, 632/632 tests (run 45521662946).
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les résultats asynchrones utiles restent réutilisables en cache, mais seuls ceux qui peuvent améliorer la vue courante provoquent une nouvelle composition. Les réponses historiques périmées ne peuvent plus remplacer les frontières de l'année active.
+
+## 25 novembre 2026 — lot 36 : cycle de vie du rendu et callbacks RAF
+
+- [x] Regrouper les demandes de composition dans une frame unique.
+- [x] Invalider les callbacks RAF annulés avec un jeton de génération.
+- [x] Empêcher un callback tardif d'effacer ou d'exécuter une frame plus récente.
+- [x] Autoriser une nouvelle frame demandée pendant un rendu.
+- [x] Rendre l'annulation et la destruction idempotentes.
+- [x] Ajouter des tests ciblés sur annulation tardive, réentrance et destruction.
+- [x] CI GitHub Actions : succès (run 45464349758).
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+## 24 novembre 2026 — lot 35 : robustesse des gestes pointeur
+
+- [x] Extraire les règles de démarrage et de propriété d'un geste pointeur.
+- [x] Refuser les clics droits souris comme initiateurs de déplacement.
+- [x] Refuser les pointeurs secondaires et les gestes concurrents.
+- [x] Associer le déplacement au seul identifiant du pointeur propriétaire.
+- [x] Encadrer la capture du pointeur pour tolérer les refus du navigateur.
+- [x] Libérer explicitement la capture lorsque le geste se termine.
+- [x] Gérer pointerup, pointercancel, perte de focus et touche Échap.
+- [x] Restaurer le curseur selon le mode d'interaction courant.
+- [x] Éviter la suppression d'un clic ultérieur après une annulation.
+- [x] Ajouter neuf tests ciblés dans `map-pointer-gesture.test.js`.
+- [x] CI GitHub Actions : succès (run 45464349758).
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Les gestes tactiles et souris ont maintenant un propriétaire explicite. Les événements d'un autre pointeur ne peuvent plus déplacer ou terminer le geste actif ; les annulations et pertes de focus nettoient l'état sans laisser de suppression de clic résiduelle.
+
+## 24 novembre 2026 — lot 34 : cohérence de la navigation cartographique
+
+- [x] Extraire le calcul du zoom ancré dans une fonction pure.
+- [x] Conserver la coordonnée géographique sous le pointeur lors du zoom.
+- [x] Respecter les bornes de zoom minimale et maximale.
+- [x] Centraliser le déplacement horizontal dans une fonction pure.
+- [x] Centraliser le déplacement vertical dans une fonction pure.
+- [x] Utiliser les dimensions réelles du cadre pour convertir les mouvements écran.
+- [x] Normaliser les zooms non finis et les centres géographiques invalides.
+- [x] Ignorer les facteurs de zoom, deltas et dimensions de cadre invalides.
+- [x] Préserver les métadonnées du viewport pendant sa normalisation.
+- [x] Intégrer les fonctions communes aux interactions molette et glisser.
+- [x] Ajouter dix tests de navigation et de robustesse dans `projection.test.js`.
+- [x] CI GitHub Actions : succès (run 45463864038).
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Les interactions de zoom et de déplacement partagent désormais les mêmes conversions géographiques et les mêmes garde-fous. Le zoom conserve son point d'ancrage tant que les limites du monde ne nécessitent pas de recentrage.
+
+## 24 novembre 2026 — lot 33 : cycle de vie des infobulles et capture du pointeur
+
+- [x] Extraire un descripteur pur pour les contenus des infobulles.
+- [x] Stabiliser la clé du descripteur pour reconnaître un contenu inchangé.
+- [x] Éviter de reconstruire les nœuds DOM lorsque le pointeur se déplace sur un même label.
+- [x] Mettre à jour le contenu lorsque le label, la sélection ou les métadonnées changent.
+- [x] Nettoyer les titres vides et fournir un nom de remplacement.
+- [x] Tolérer les métadonnées de campagne partielles sans injecter de HTML.
+- [x] Garantir un texte de remplacement pour les coordonnées absentes ou invalides.
+- [x] Rendre l'arrêt du glisser idempotent face aux événements de capture répétés.
+- [x] Gérer la perte de capture du pointeur et la perte de focus de la fenêtre.
+- [x] Masquer l'infobulle au redimensionnement avant de recalculer la carte.
+- [x] Ajouter dix tests sur les descripteurs et les contenus partiels.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Le déplacement du pointeur sur un label inchangé ne reconstruit plus son DOM. Les interruptions de capture et de focus terminent proprement le glisser sans déclencher plusieurs nettoyages.
+
+## 24 novembre 2026 — lot 32 : stabilité et placement des infobulles cartographiques
+
+- [x] Extraire le calcul de position des infobulles dans un module pur et testable.
+- [x] Positionner l'infobulle à proximité du pointeur lorsque l'espace est disponible.
+- [x] Inverser horizontalement le placement près du bord droit.
+- [x] Inverser verticalement le placement près du bord inférieur.
+- [x] Contraindre la position aux marges du cadre cartographique.
+- [x] Limiter la largeur et la hauteur aux dimensions réellement disponibles.
+- [x] Refuser les dimensions et coordonnées de placement non finies ou négatives.
+- [x] Valider et formater les coordonnées géographiques avant affichage.
+- [x] Afficher un libellé de remplacement lorsque les coordonnées sont absentes ou invalides.
+- [x] Masquer l'infobulle pendant le début d'un glisser ou un zoom à la molette et rétablir le curseur au relâchement.
+- [x] Ajouter dix tests de placement, de limites et de robustesse des coordonnées.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Les infobulles restent désormais dans le cadre de la carte, s'adaptent aux bords et ne supposent plus que chaque label possède des coordonnées valides.
+
+## 24 novembre 2026 — lot 31 : publication atomique des interactions cartographiques
+
+- [x] Construire les nouvelles zones de labels dans une collection temporaire dédiée.
+- [x] Construire l'index spatial à partir de cette collection complète avant publication.
+- [x] Publier ensemble la nouvelle collection et son index correspondant.
+- [x] Ne plus vider puis repeupler en place la collection consultée par les événements de pointeur.
+- [x] Éviter de publier des géométries transformées lorsque les facteurs d'échelle sont invalides.
+- [x] Rejeter les emprises transformées non finies ou inversées avant leur insertion.
+- [x] Conserver un snapshot vide pendant le glisser, sans exposer les anciennes zones cliquables.
+- [x] Détecter une collection reconstruite de même longueur grâce à l'identité du snapshot.
+- [x] Revenir à la recherche linéaire lorsqu'un bucket spatial est mal formé.
+- [x] Ajouter dix tests sur la cohérence des snapshots, les buckets et les emprises dégénérées.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+La composition ne modifie plus en place la collection consultée par le pointeur : chaque rendu publie un couple cohérent « zones interactives + index spatial ».
+
+## 24 novembre 2026 — lot 30 : cohérence de recherche et garde-fous de l'index
+
+- [x] Détecter les coordonnées de pointeur dont l'indice de cellule sort de la plage des entiers sûrs.
+- [x] Basculer sur une recherche linéaire sûre lorsque le calcul de cellule n'est pas représentable.
+- [x] Ignorer les indices locaux mal formés, négatifs ou hors collection.
+- [x] Ignorer les indices de débordement invalides sans interrompre le ciblage.
+- [x] Préserver l'ordre de dessin lors de l'alternance entre candidats locaux et débordement.
+- [x] Vérifier l'équivalence entre grille et recherche linéaire avec des cellules fractionnaires.
+- [x] Couvrir explicitement les collections vides.
+- [x] Ajouter un test différentiel déterministe sur 180 labels et 600 positions de pointeur.
+- [x] Ajouter des tests sur les coordonnées extrêmes positives et négatives avec index actif.
+- [x] Ajouter dix tests de régression sur les index mal formés, les limites et l'équivalence.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Le ciblage indexé garde un chemin de repli déterministe pour les coordonnées non représentables et ignore les références d'index invalides sans interrompre les interactions.
+
+## 24 novembre 2026 — lot 29 : bornes extrêmes et cycle de vie de l'index spatial
+
+- [x] Vérifier que les coordonnées de cellule restent des entiers sûrs avant toute boucle d'indexation.
+- [x] Déporter les coordonnées trop grandes ou trop petites vers la liste de débordement.
+- [x] Borner le nombre de cellules par emprise avant de créer les buckets.
+- [x] Rejeter les dimensions de grille nulles, négatives ou non sûres.
+- [x] Éviter les boucles à incrément non progressif aux magnitudes numériques extrêmes.
+- [x] Mémoriser la longueur de la collection lors de la construction de l'index.
+- [x] Revenir automatiquement à la recherche linéaire si la collection change de longueur.
+- [x] Préserver le ciblage des emprises ponctuelles et des coordonnées négatives.
+- [x] Tester les tailles de cellule invalides et sous-normales.
+- [x] Ajouter dix tests de régression sur les limites numériques et la mutation de collection.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Les coordonnées extrêmes ne peuvent plus provoquer une boucle d'indexation non terminante ou une explosion du nombre de cellules. Les cas atypiques restent ciblables via le chemin de débordement.
+
+## 24 novembre 2026 — lot 28 : consultation sans allocation de l'index spatial
+
+- [x] Supprimer la création d'un tableau de candidats à chaque mouvement du pointeur.
+- [x] Supprimer le `Set` temporaire et le tri des candidats pendant le survol.
+- [x] Fusionner à rebours les indices de cellule et de débordement déjà ordonnés.
+- [x] Préserver strictement la priorité du dernier label dessiné.
+- [x] Éviter la création d'objets de bornes temporaires pendant les tests de collision au pointeur.
+- [x] Garder une recherche linéaire sans allocation de collection temporaire en l'absence d'index valide.
+- [x] Conserver le comportement des labels géants placés dans la liste de débordement.
+- [x] Couvrir les deux ordres de priorité entre labels locaux et labels de débordement.
+- [x] Tester les limites exactes des cellules et les index mal formés.
+- [x] Ajouter cinq tests de régression ciblés.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+La consultation de l'index ne construit plus de collection temporaire et ne trie plus les candidats à chaque événement de pointeur.
+## 24 novembre 2026 — lot 27 : index spatial du ciblage des labels
+
+- [x] Construire une grille spatiale sur les emprises interactives visibles.
+- [x] Conserver l'indice de dessin original afin de préserver la priorité du dernier label composé.
+- [x] Limiter les candidats du survol à la cellule du pointeur.
+- [x] Gérer les coordonnées et cellules négatives.
+- [x] Répartir les emprises qui traversent plusieurs cellules.
+- [x] Placer les emprises anormalement grandes dans une liste de débordement bornée.
+- [x] Ignorer les emprises invalides lors de la construction de l'index.
+- [x] Revenir à la recherche linéaire si l'index ne correspond pas à la collection interrogée.
+- [x] Reconstruire l'index avec les zones visibles à chaque composition de scène.
+- [x] Ajouter neuf tests couvrant équivalence, bords, chevauchements et cas atypiques.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+L'index accélère la recherche spatiale sans modifier les emprises ni la priorité de sélection existantes.
+## 24 novembre 2026 — lot 26 : fiabilité du ciblage des labels
+
+- [x] Extraire la résolution du label sous le pointeur dans un module dédié et testable.
+- [x] Préserver la priorité du dernier label composé lorsque plusieurs zones se recouvrent.
+- [x] Rendre les quatre bords et les coins des zones interactives inclusifs.
+- [x] Normaliser les coordonnées numériques textuelles du pointeur et des emprises.
+- [x] Rejeter les coordonnées de pointeur non finies ou non numériques.
+- [x] Ignorer les rectangles inversés, incomplets ou non finis sans bloquer les labels valides.
+- [x] Continuer la recherche lorsqu'une zone invalide est rencontrée au-dessus d'une zone valide.
+- [x] Retourner proprement null pour les entrées absentes, vides ou non tabulaires.
+- [x] Connecter le helper au ciblage existant sans modifier les événements ni leur ordre.
+- [x] Ajouter dix tests ciblés sur les cas nominaux, limites et dégradés.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le comportement de priorité visuelle existant est conservé ; ce lot fiabilise uniquement la résolution géométrique du pointeur.
+## 24 novembre 2026 — lot 25 : cohérence interne des géométries de labels
+
+- [x] Extraire un validateur déterministe de cohérence entre emprise visuelle, ancre de texte et zone interactive.
+- [x] Vérifier que la zone interactive englobe entièrement l'emprise visuelle.
+- [x] Vérifier que l'ancre typographique reste dans l'emprise déclarée.
+- [x] Inclure le rayon et l'épaisseur du contour du marqueur dans le contrôle d'inclusion.
+- [x] Rejeter les marqueurs non finis, négatifs ou sortant de leur zone interactive.
+- [x] Appliquer le validateur avant tout ajustement au viewport pour éviter de propager une géométrie incohérente.
+- [x] Préserver le placement des labels valides sans modification.
+- [x] Ajouter des tests sur les inclusions, les débordements du marqueur et les géométries incohérentes.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Le contrôle porte sur la cohérence des données géométriques, pas sur le contenu historique ni sur les règles d'apparition des labels.
+## 24 novembre 2026 — lot 24 : intégrité des emprises et collisions interactives
+
+- [x] Normaliser les coordonnées numériques avant les comparaisons d'emprises, y compris lorsqu'elles sont fournies sous forme de chaînes.
+- [x] Conserver les coordonnées négatives valides et rejeter les rectangles inversés ou non finis.
+- [x] Valider les coordonnées du texte et du marqueur avant tout ajustement au viewport.
+- [x] Normaliser les bornes et les métriques du marqueur avant de calculer les décalages.
+- [x] Utiliser les zones interactives complètes pour détecter les collisions, pas seulement les rectangles typographiques.
+- [x] Inscrire ces mêmes zones interactives dans la grille spatiale afin que placement et ciblage restent cohérents.
+- [x] Préserver ensemble texte, marqueur, emprise visuelle et zone de clic lors du repositionnement.
+- [x] Ajouter des tests sur les chaînes numériques, coordonnées négatives, valeurs invalides et collisions de labels rendus.
+- [ ] CI GitHub Actions : à confirmer.
+- [ ] Validation locale du joueur : `npm test` à confirmer.
+
+Ce lot privilégie la cohérence des interactions : deux labels ne peuvent plus se superposer uniquement parce que leurs glyphes sont séparés alors que leurs zones de clic se recouvrent.
+
+## 24 novembre 2026 — lot 23 : placement sûr dans le viewport
+
+- [x] Ajuster ensemble texte, marqueur, emprise et zone interactive aux marges du viewport.
+- [x] Rejeter les labels trop grands ou les viewports invalides.
+- [x] Garantir que la zone interactive complète reste dans la marge sûre.
+- [x] Ajouter des tests sur les bords gauche, inférieur, les emprises excessives et le placement sans décalage.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+## 24 novembre 2026 — lot 22 : robustesse des collisions de labels
+
+- [x] Centraliser le chevauchement des rectangles dans un helper déterministe.
+- [x] Considérer le contact exact entre deux emprises comme une collision.
+- [x] Rejeter les emprises absentes, inversées ou non finies.
+- [x] Ajouter des tests de chevauchement, séparation, contact et géométries invalides.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+## 24 novembre 2026 — lot 21 : robustesse du classement des villes
+
+- [x] Extraire la normalisation du rang cartographique des villes dans un helper déterministe.
+- [x] Accepter les variantes de casse des champs de rang et les seuils de zoom comme repli.
+- [x] Normaliser les rangs absents, négatifs ou non numériques sans produire de comparaisons NaN.
+- [x] Reconnaître plusieurs conventions de champs de population (POP_MAX, POP_EST et variantes).
+- [x] Neutraliser les populations absentes, négatives ou invalides.
+- [x] Conserver la priorité du rang cartographique avant la population.
+- [x] Préserver le tri alphabétique et l'ordre source comme derniers critères déterministes.
+- [x] Ne modifier aucune propriété des entités géographiques.
+- [x] Ajouter des tests unitaires sur les valeurs valides, invalides et les arbitrages de priorité.
+- [ ] CI GitHub Actions : à confirmer.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Le lot fiabilise uniquement le classement des labels urbains. Il ne change ni les coordonnées, ni les seuils d'apparition, ni les données historiques des villes.
+
+## 24 novembre 2026 — lot 20 : densité adaptative et finesse des labels
+
+- [x] Extraire le calcul du budget de labels secondaires dans un profil déterministe testable.
+- [x] Conserver les plafonds progressifs de candidats selon les niveaux de zoom.
+- [x] Normaliser les valeurs de densité et protéger les entrées non finies.
+- [x] Ne compter dans le budget que les labels éligibles, nommés et présents dans le viewport.
+- [x] Éviter que les repères hors écran ou masqués par leur seuil de zoom consomment le budget visible.
+- [x] Préserver la priorité illimitée des noms de pays.
+- [x] Conserver un plafond indépendant pour les noms de villes.
+- [x] Différencier progressivement la taille des océans, mers régionales et détroits.
+- [x] Réduire légèrement le contraste et l'épaisseur des mers puis des détroits pour limiter la compétition visuelle.
+- [x] Ajouter des tests sur les profils de densité, les entrées invalides, les tailles et le contraste maritime.
+- [x] CI GitHub Actions : syntaxe et tests réussis (run 45453918378).
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+Le budget est désormais consommé par les candidats effectivement visibles dans le viewport. Le classement, les seuils d'apparition et les priorités de placement restent les arbitres des collisions.
+
+## 24 novembre 2026 — lot 19 : hiérarchie de placement des labels maritimes
+
+- [x] Donner aux océans une priorité de placement supérieure aux labels ordinaires.
+- [x] Placer les mers régionales après les océans, mais avant les labels terrestres secondaires.
+- [x] Donner aux détroits une priorité explicite, après les mers et avant les pays.
+- [x] Maintenir les pays au-dessus des provinces et des villes.
+- [x] Définir une priorité de repli déterministe pour les catégories inconnues.
+- [x] Centraliser la résolution de priorité pour éviter les valeurs implicites dispersées.
+- [x] Préserver le tri secondaire des villes par rang et population.
+- [x] Ne pas modifier les seuils de zoom, les budgets de densité ni les géométries.
+- [x] Ajouter des tests sur l'ordre complet et la catégorie inconnue.
+- [x] Documenter la règle de placement et ses limites.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel de la hiérarchie et des collisions aux zooms 2 à 7.
+
+Cette hiérarchie agit uniquement sur l'ordre de placement et la résolution des collisions ; elle ne garantit pas l'affichage de tous les labels lorsqu'ils se chevauchent.
+
+## 24 novembre 2026 — lot 18 : golfes, baies et détroits
+
+- [x] Étendre la nomenclature aux grands golfes et baies stratégiques.
+- [x] Ajouter les golfes du Mexique, de Guinée, Persique, d'Aden, d'Alaska et de Californie.
+- [x] Ajouter la baie du Bengale et les mers Adriatique, Égée, de Corail et des Philippines.
+- [x] Ajouter des passages maritimes majeurs : Manche, Gibraltar, Malacca et Mozambique.
+- [x] Définir des seuils de zoom progressifs, plus élevés pour les passages étroits.
+- [x] Conserver des ancres ponctuelles indicatives et distinctes des données hydrographiques.
+- [x] Réutiliser le style maritime commun sans accentuer artificiellement ces labels.
+- [x] Préserver les repères océaniques et régionaux déjà présents.
+- [x] Ajouter des tests de présence, catégorie, coordonnées et seuils d'apparition.
+- [x] CI GitHub Actions : syntaxe et tests réussis (run 45362993858).
+- [x] Documenter le rôle cartographique indicatif des nouvelles entrées.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des densités et collisions aux zooms 4 à 7.
+
+Les ancres des golfes, baies et passages sont des points d'étiquetage, non des géométries de navigation ou des limites maritimes.
+
+## 24 novembre 2026 — lot 17 : nomenclature des mers et bassins régionaux
+
+- [x] Étendre les toponymes maritimes au-delà des seuls océans.
+- [x] Ajouter des labels dédiés à la Méditerranée, aux mers des Caraïbes, du Nord, Baltique, Rouge, Noire, d'Arabie, de Chine méridionale, du Japon et de Béring.
+- [x] Positionner les noms sur des points géographiques représentatifs, distincts des côtes et des grands centres urbains.
+- [x] Réserver leur apparition à une échelle régionale pour préserver la lecture du planisphère.
+- [x] Conserver les deux occurrences du Pacifique sur les côtés opposés de la carte.
+- [x] Réutiliser le style maritime discret défini au lot 16 pour les océans et mers régionales.
+- [x] Garder les données de labels indépendantes des frontières et de la simulation.
+- [x] Ajouter des tests de couverture, d'identifiants et de seuils de zoom.
+- [x] Préserver le format GeoJSON et les métadonnées de provenance.
+- [x] Documenter le caractère indicatif des points d'ancrage.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des collisions aux zooms 1, 3 et 5.
+
+Les points sont des ancres typographiques indicatives et non des limites hydrographiques. Les labels régionaux apparaissent progressivement afin de ne pas encombrer la vue mondiale.
+
+## 24 novembre 2026 — lot 16 : profondeur océanique et toponymie maritime
+
+- [x] Définir un profil de profondeur océanique par ère historique.
+- [x] Renforcer progressivement la profondeur périphérique sans assombrir brutalement le centre.
+- [x] Ajouter une lumière diffuse évoquant les plateaux continentaux, sans prétendre représenter une bathymétrie réelle.
+- [x] Conserver un profil discret pour les ères anciennes et une profondeur plus marquée pour le futur.
+- [x] Borner les opacités et rayons pour éviter les aplats trop contrastés.
+- [x] Adapter la typographie des noms maritimes avec une variante italique.
+- [x] Utiliser la couleur de texte thématique pour garder un contraste stable selon l'époque.
+- [x] Réduire l'emphase des mers et océans par rapport aux pays.
+- [x] Préserver les dimensions de rendu et le cache statique existants.
+- [x] Ajouter des tests sur les six profils et la hiérarchie typographique maritime.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des océans sur les six ères, aux zooms monde et régional.
+
+La lumière ajoutée est un traitement graphique d'ambiance, pas une donnée scientifique de profondeur. Aucune géométrie, donnée hydrographique ou règle de simulation n'est modifiée.
+
+## 24 novembre 2026 — lot 15 : précision des emprises et interactions des labels
+
+- [x] Centraliser le calcul de position des textes, marges de collision et emprises interactives.
+- [x] Distinguer les marges des pays, villes et labels secondaires.
+- [x] Élargir légèrement les zones interactives sans augmenter artificiellement les collisions.
+- [x] Faire correspondre les hitboxes à la géométrie réellement dessinée.
+- [x] Définir une géométrie de marqueur de ville issue du même calcul de layout.
+- [x] Éviter que l'ombre du texte se propage au marqueur de ville.
+- [x] Mettre les dimensions à l'échelle du rendu haute densité.
+- [x] Borner les mesures invalides pour éviter les rectangles NaN ou infinis.
+- [x] Préserver les priorités et l'ordre de collision existants.
+- [x] Ajouter des tests pour pays, villes, continents, échelles et valeurs invalides.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des clics/infobulles sur les labels.
+
+Le lot ne modifie ni les données géographiques, ni les priorités de sélection, ni les règles d'apparition des noms. La qualité de ciblage doit être confirmée dans le navigateur.
+
+## 24 novembre 2026 — lot 14 : typographie cartographique des six ères
+
+- [x] Utiliser la police d'affichage de l'ère pour les noms de pays et de continents.
+- [x] Utiliser la police de lecture de l'ère pour les villes et labels secondaires.
+- [x] Conserver les polices historiques et futuristes déjà chargées dans la page.
+- [x] Adapter la couleur des textes à la palette de l'ère active.
+- [x] Utiliser la surface thématique comme halo sombre pour détacher les noms du relief.
+- [x] Faire ressortir les noms de pays avec une graisse et un contour supérieurs.
+- [x] Maintenir les continents à un niveau intermédiaire de hiérarchie.
+- [x] Réduire l'opacité des labels océaniques et secondaires.
+- [x] Accorder les marqueurs de villes à l'accent coloré de l'époque.
+- [x] Ajouter des tests sur les six ères, la hiérarchie, les contrastes et l'échelle de rendu.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Contrôle visuel des six ères à plusieurs niveaux de zoom.
+
+Le changement ne touche ni les coordonnées, ni les priorités de collision, ni les règles d'apparition des labels. La lisibilité réelle doit être confirmée sur la carte en contexte.
+
+## 24 novembre 2026 — lot 13 : budgets et réutilisation des géométries
+
+- [x] Porter le cache des chemins projetés à 4 096 entrées, 10 variantes par feature et 750 000 sommets estimés (24 Mo estimés).
+- [x] Porter le cache LRU des masques terrestres composés à 24 entrées.
+- [x] Ajouter un test de non-régression des plafonds de cache.
+- [x] Validation locale du joueur : `npm test` confirmé.
+- [ ] Refaire un benchmark PC zoom 20 (cache chaud, même viewport/DPR, 60–70 secondes) et comparer médiane/p95, évictions, constructions et heap JS.
+- [ ] Vérifier en navigation aller-retour que les vues récemment visitées réutilisent les chemins sans dérive visuelle.
+
+Les budgets restent plafonnés ; les 24 Mo des chemins sont une estimation logicielle et non une mesure native Path2D. Un panoramique continu peut toujours créer de nouvelles clés de projection. Aucun gain de performance n'est présumé avant le prochain relevé.
+
+## 21 novembre 2026 — intégration du moteur cartographique (PR #46)
+
+Cette tranche d'intégration est développée sur `integration/unified-map-engine-main` et proposée à `main` via PR #46, maintenue en brouillon.
+
+- [x] Porter le relief WebGL tuilé et le renderer géographique WebGL sans écraser les systèmes de simulation de `main`.
+- [x] Ajouter la persistance IndexedDB, le préchargement des tuiles et les fallbacks Canvas.
+- [x] Ajouter le cache WebGL polygonal incrémental par huit compartiments stables, le budget de buffers et l'observabilité des reconstructions/uploads.
+- [x] Porter le cache de chemins projetés à 2 048 entrées / 500 000 sommets estimés (16 Mo max estimés) et conserver 12 masques composés.
+- [x] Maintenir le Worker LOD persistant pour les niveaux mondiaux/régionaux.
+- [x] Ajouter aux exports de benchmark les métadonnées écran/viewport/DPR/tactiles pour détecter les essais involontairement réalisés en émulation mobile.
+- [x] CI vérifiée sur le commit `9583552642ee3f863952cd5338eba51e31065c9b` : 494 tests réussis, 0 échec ; syntaxe et scripts shell validés.
+- [ ] Valider visuellement dans un navigateur PC réel : continuité des tuiles, transitions parent/enfant, frontières, relief, labels, couches physiques et fallbacks.
+- [ ] Refaire le benchmark de référence sur navigateur PC en mode bureau (cache chaud, zoom 20, même viewport et durée), sans comparer avec les mesures Pixel 10.
+- [ ] Réaliser un test séparé du préchauffage LOD aux zooms 3–5 et vérifier les compteurs du Worker.
+- [ ] Comparer la fluidité, les uploads WebGL et la mémoire sur une session prolongée avant toute fusion.
+
+Les tests automatisés ne remplacent pas les essais visuels et matériels. PR #46 reste en brouillon jusqu'à validation et accord explicite.
+
+
 ## 20 novembre 2026 — remplacement progressif des tuiles parentes
 - La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
 - Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.
@@ -404,3 +1225,651 @@ L'hydrographie secondaire, les petits lacs, les glaciers et les repères d'altit
 - Interpolation continue des tailles de labels et réduction des ruptures typographiques.
 - Côtes terrestres un peu moins simplifiées aux faibles zooms pour limiter les espaces visuellement trop vides.
 - À valider dans le navigateur : fluidité à ×20, mémoire consommée et rendu des petits archipels.
+
+
+## 21 novembre 2026 — bilan des principes inspirés des moteurs cartographiques grand public
+
+Cette synthèse formalise les principes déjà traduits dans le moteur. Elle ne remplace pas le compte rendu source de l'analyse comparative initiale, qui n'a pas été retrouvé dans les ressources accessibles.
+
+| Principe | Implémentation présente | État réel |
+|---|---|---|
+| Pyramide multi-échelle | Planificateur de tuiles et niveaux LOD mondiaux/régionaux | Intégré, validation visuelle à poursuivre |
+| Raffinement progressif | Affichage des parents puis fondu des enfants | Intégré, raccords visuels à valider |
+| Préchargement spatial prédictif | Secteurs voisins, direction du pan, zooms anticipés | Intégré, réglage matériel à poursuivre |
+| Cache et persistance | LRU mémoire, IndexedDB pour les tuiles physiques modifiées | Intégré, mémoire réelle longue durée à mesurer |
+| Séparation des familles | Physique, politique/historique, dynamique | Architecture intégrée, indépendance complète des pipelines non achevée |
+| Rendu GPU | Relief tuilé WebGL et renderer géographique WebGL avec fallbacks Canvas | Partiel, bandes visuelles à diagnostiquer |
+| Généralisation par échelle | Simplification GeoJSON et filtres par rang/zoom | Intégrée, contrôle visuel nécessaire |
+| Calculs asynchrones | Worker de préchargement et Worker LOD persistant | Partiel ; les métriques LOD nulles au zoom 3–5 restent à expliquer |
+| Labels adaptatifs | Plafonds par zoom et priorités de catégories | Partiel ; collision/placement global à approfondir |
+| Adaptation aux appareils | Pixel ratio plafonné et budgets de caches | Partiel ; profils adaptatifs CPU/GPU non généralisés |
+
+### Écarts prioritaires
+- [ ] Corriger et tester les lignes persistantes observées pendant et après le panoramique ; vérifier halos, coordonnées UV, limites de l'atlas et raccords entre rangées de tuiles.
+- [ ] Instrumenter le cycle de vie du préchauffage LOD (planifié, annulé, démarré, terminé) pour expliquer les compteurs nuls aux zooms 3–5.
+- [ ] Terminer la séparation des pipelines physiques, politiques et dynamiques sans transférer d'objets vivants (store de tuiles, contexte WebGL) par structured clone.
+- [ ] Compléter le placement des labels : priorité, collision, stabilité pendant le pan et transitions entre niveaux.
+- [ ] Définir des profils de qualité selon résolution, DPR, mémoire et capacités WebGL, puis les valider sur PC et mobile.
+- [ ] Réaliser la validation visuelle et les mesures longues avant de sortir la PR #46 du brouillon.
+
+Les tests automatisés prouvent les invariants du code, pas l'absence d'artefacts visuels sur le matériel réel. Les lignes signalées par le joueur restent donc un défaut ouvert jusqu'à reproduction et correction confirmée.
+
+
+## Cadrage du viewport et diagnostics LOD — 21 novembre 2026
+
+- [x] Centraliser le calcul d'un rectangle de carte au ratio géographique 2:1, contenu dans les dimensions réelles du cadre (`fitMapFrame`).
+- [x] Synchroniser les dimensions CSS du canvas visible avec les dimensions utilisées par la composition interne, afin que `width: 100%` ne puisse plus étirer le canvas au-delà de la hauteur disponible.
+- [x] Ajouter des tests de cadrage sur des conteneurs paysage, carrés et portrait ; les pôles doivent rester dans le cadre.
+- [x] Ajouter des compteurs de cycle de vie LOD (planifié, démarré, terminé, généré, annulé, échoué) pour distinguer une tâche simplement programmée d'un Worker réellement exécuté.
+- [x] Ajouter les métriques correspondantes à l'export benchmark et leurs tests.
+- [ ] Exécuter la CI sur le dernier commit et confirmer le résultat.
+- [ ] Vérifier le cadrage sur le navigateur Live Preview, en grand écran et fenêtre réduite.
+- [ ] Identifier et corriger les lignes persistantes du relief avec une reproduction et un test de continuité des tuiles ; aucun correctif visuel n'est encore revendiqué.
+- [ ] Continuer le découplage des couches et les optimisations GPU après validation du cadrage et diagnostic des artefacts.
+
+**Attention :** le cadrage 2:1 garantit que la carte complète tient dans le rectangle calculé par le moteur. La validation visuelle dans le navigateur reste nécessaire, notamment après redimensionnement de la fenêtre.
+
+
+## 21 novembre 2026 — lot d'optimisations moteur (PR #46)
+
+### Rendu du relief et continuité des tuiles
+- [x] Correction du filtrage des altitudes encodées sur 16 bits dans l'atlas WebGL : le sampler utilise désormais `NEAREST`, chaque échantillon est décodé avant interpolation bilinéaire.
+- [x] Aligner les UV sur les centres des texels et borner les lectures aux centres du halo périphérique.
+- [x] Ajouter des tests sur le décodage avant interpolation, les centres UV, le halo et le mode de filtrage.
+- [ ] Valider visuellement sur Live Preview que les lignes horizontales persistantes ont disparu ; le correctif cible une cause technique avérée dans le chemin d'échantillonnage, mais l'absence d'artefact reste à confirmer sur navigateur.
+
+### Cycle de vie LOD
+- [x] Ne plus déclencher un nouveau rendu au milieu de la chaîne de préchauffage : les niveaux courant et adjacent sont d'abord traités, puis le rendu est invalidé une seule fois.
+- [x] Distinguer les tâches planifiées, démarrées, terminées, générées, annulées et échouées.
+- [ ] Refaire une mesure dédiée entre les zooms 3 et 5 et confirmer les transferts de collection et jobs Worker.
+
+### Séparation des familles de rendu
+- [x] Exposer des durées agrégées distinctes pour les familles physique, politique et dynamique.
+- [x] Inclure les passes WebGL de frontières et de détails dans les durées mesurées, pas seulement les fallbacks Canvas.
+- [ ] Poursuivre l'extraction des surfaces indépendantes sans cloner les services vivants (store et contexte WebGL).
+
+### Mémoire et transferts GPU
+- [x] Réutiliser un VBO terrain à capacité croissante plutôt que réallouer son stockage à chaque passe ; transférer les sommets avec `bufferSubData`.
+- [x] Exporter capacité, volume transféré et nombre d'allocations dans les benchmarks.
+- [ ] Comparer les nouvelles mesures sur PC et Pixel 10 avant de modifier les budgets d'atlas ou de caches.
+
+### Labels et qualité adaptative
+- [x] Départager les labels de même priorité de façon déterministe, y compris les villes de population équivalente.
+- [x] Adapter le ratio de pixels, la qualité du relief et la densité des labels aux capacités déclarées du navigateur/appareil.
+- [x] Ajouter des tests aux profils bas, équilibré et élevé.
+- [ ] Vérifier visuellement la stabilité des labels et calibrer les profils sur les mesures réelles, sans déduire la mémoire GPU native à partir des seuls tableaux CPU.
+
+### Validation technique
+- [x] CI GitHub Actions verte sur le lot initial d'optimisations.
+- [ ] Confirmer la CI du dernier commit après les tests complémentaires.
+- [ ] Validation visuelle utilisateur obligatoire avant de sortir la PR #46 du brouillon.
+
+
+## Point d'étape et priorités de reprise — 24 novembre 2026
+
+Ce point sert de repère durable pour les prochaines sessions de développement.
+
+### État validé
+- Socle technique, optimisations de simulation/rendu et principaux correctifs cartographiques : validés par les tests du joueur.
+- Carte mondiale et préparation de campagne : structure fonctionnelle avancée, sélection des nations, fiche stratégique, choix Stratégie/Sandbox et séquence de lancement intégrés.
+- Francisation des noms de pays : largement avancée ; les identifiants internes restent inchangés.
+- Insignes : affichage des drapeaux/blasons et masquage après échec des deux sources corrigés ; le dernier correctif a été confirmé par le joueur.
+- Les validations locales et visuelles restent à effectuer par le joueur après chaque lot ; les tests automatisés ne valent pas validation visuelle.
+- PR #46 reste en brouillon et ne doit pas être fusionnée sans accord explicite.
+
+### Ordre prioritaire de reprise
+1. **Fiabilisation de la préparation de campagne** : sources d'insignes réellement disponibles, sélection, fiche pays, dates, accessibilité et états vides.
+2. **Finition fonctionnelle de la campagne** : cohérence des données affichées, navigation clavier, responsive et robustesse des interactions.
+3. **Refonte artistique de la carte et de l'interface** : matériaux riches et tactiles, textures organiques, contraste maîtrisé, six identités historiques distinctes.
+4. **HUD en partie** : chronologie, panneaux d'information, événements et contrôles de simulation.
+5. **Systèmes de grande stratégie** : populations, ressources, économie, diplomatie, IA, exploration et conflits.
+6. **Simulation historique** : événements, conséquences systémiques, monde divergent et outils d'édition.
+7. **Stabilité et diffusion** : sauvegardes longues, compatibilité, performances mesurées, accessibilité et préparation de version.
+
+### Contraintes de réalisation
+- Avancer par lots d'environ dix améliorations cohérentes, avec tests de non-régression.
+- Après chaque lot, attendre le retour « tests ok » avant de poursuivre.
+- Ne pas modifier l'interpolation temporelle ni les règles historiques pendant les chantiers purement visuels.
+- La refonte artistique doit éviter les interfaces trop claires, trop sobres ou saturées de filets et de lignes décoratives : privilégier des matériaux crédibles, une hiérarchie nette et des détails utiles.
+- Ne pas annoncer de validation locale, de FPS ou de résultat visuel qui n'a pas été mesuré sur l'environnement du joueur.
+
+
+### Lot prioritaire 1 — fiabilisation des insignes de campagne (24 novembre 2026)
+- [x] Valider les codes de drapeaux contre une liste explicite de codes ISO et l'exception FlagCDN `gb-sct`.
+- [x] Ignorer les placeholders et codes réservés, sans fabriquer d'URL d'image.
+- [x] Continuer à chercher un autre champ ISO si le premier est invalide.
+- [x] Valider également les codes issus des alias historiques.
+- [x] Retourner un état explicite `none` lorsqu'aucune image n'est déterminable.
+- [x] Garantir une URL et un texte alternatif vides pour cet état.
+- [x] Conserver le repli blason → drapeau sur une seule tentative, puis masquer l'image si tout échoue.
+- [x] Ajouter `referrerPolicy="no-referrer"` aux images distantes de la liste et de la fiche.
+- [x] Étendre les tests aux placeholders, codes valides, alias régional et champs de repli.
+- [x] Documenter les règles de disponibilité et les limites des fournisseurs externes.
+- [x] Validation locale du joueur : `npm test` confirmé ; le contrôle visuel des cas d’insigne reste à faire séparément.
+
+
+### Lot prioritaire 2 — cohérence fonctionnelle de la sélection de campagne (24 novembre 2026)
+- [x] Refuser les clés de nation absentes du catalogue sans altérer la sélection.
+- [x] Synchroniser les sélecteurs de nation de préparation et de sandbox via un contrôleur commun.
+- [x] Effacer une éventuelle erreur de validation après une sélection valide.
+- [x] Maintenir le dossier stratégique, le titre cartographique et les sélecteurs cohérents.
+- [x] Restaurer le focus sur la nation choisie après une activation clavier.
+- [x] Appliquer une navigation de liste à tabulation unique avec flèches, Début et Fin.
+- [x] Faire circuler la navigation clavier en haut et en bas de la liste.
+- [x] Annoncer le nombre de résultats et rendre l'état vide perceptible aux lecteurs d'écran.
+- [x] Actualiser les insignes historiques lorsque la nouvelle date est validée, sans reconstruire toute la liste à chaque mouvement du curseur.
+- [x] Annoncer l'année initiale et l'année courante du curseur, et signaler vocalement la nation sélectionnée.
+- [x] Validation locale du joueur : `npm test`, puis contrôle clavier (Tab, flèches, Début/Fin, Entrée) et changement de nation en sandbox.
+
+
+### Lot prioritaire 3 — finition responsive et robustesse de la campagne (24 novembre 2026)
+- [x] Empêcher les débordements horizontaux dans les panneaux, listes, noms et métadonnées de nations.
+- [x] Isoler le défilement du panneau et des dossiers pour éviter la propagation involontaire.
+- [x] Garantir que les champs de recherche et filtres rétrécissent dans les petits conteneurs.
+- [x] Conserver une cible tactile confortable pour le lancement.
+- [x] Renforcer l'indication de focus clavier dans la fiche.
+- [x] Adapter la fiche et la frise aux largeurs intermédiaires (761–1100 px).
+- [x] Compacter la préparation sur les écrans desktop de faible hauteur.
+- [x] Respecter les zones sûres mobiles et borner la hauteur du panneau.
+- [x] Prévoir un agencement distinct pour les téléphones en paysage.
+- [x] Traiter les très petits écrans et respecter la préférence de mouvement réduit.
+- [x] Validation locale du joueur : `npm test` et contrôle visuel confirmés.
+
+
+### Lot prioritaire 4 — direction artistique de l'atlas et cadres des six ères (24 novembre 2026)
+- [x] Donner au titre de carte une signature éditoriale avec filet lumineux adapté à l'accent d'époque.
+- [x] Renforcer le fond atmosphérique du cadre sans toucher au rendu géographique.
+- [x] Ajouter un grain de surface décoratif, limité au cadre et non interactif.
+- [x] Confiner les ornements de l'overlay à leur zone de carte.
+- [x] Donner de la profondeur à la rose des vents et à ses repères.
+- [x] Structurer la légende par une séparation matérielle cohérente.
+- [x] Unifier les commandes cartographiques en instrument tactile.
+- [x] Distinguer l'encadrement portulan des ères Exploration et Westphalie.
+- [x] Différencier les cadres Révolution et Ère industrielle.
+- [x] Créer des signatures contemporaines et futuristes sans éclaircir excessivement la carte.
+- [x] Adapter les outils de carte aux petits écrans.
+- [x] Respecter la préférence de mouvement réduit.
+- [x] Validation locale du joueur : `npm test` et contrôle visuel des six ères confirmés.
+
+## Lot prioritaire 5 — matières de surface et profondeur de l'atlas (24 novembre 2026)
+- [x] Renforcer la profondeur du cadre par un vignettage doux et une lumière rasante, sans modifier le canvas.
+- [x] Isoler les textures dans l'overlay décoratif non interactif.
+- [x] Appliquer un parchemin fibrosé à l'ère des explorations.
+- [x] Appliquer une matière vélin à l'ère de Westphalie.
+- [x] Ajouter le grain de presse et une trame de points discrète à l'ère révolutionnaire.
+- [x] Ajouter une texture militaire et des courbes topographiques à l'ère industrielle.
+- [x] Appliquer un verre fumé au présent.
+- [x] Appliquer une matière obsidienne et une trame HUD au futur.
+- [x] Maintenir les repères cartographiques au-dessus des textures et préserver leur lisibilité.
+- [x] Atténuer les matières sur mobile et respecter le mouvement réduit.
+- [x] Ajouter des tests de non-régression dédiés aux six traitements matériels.
+- [x] Validation locale du joueur : `npm test` et contrôle visuel des six textures et du relief topographique confirmés.
+## Lot prioritaire 6 — profondeur des océans et lecture des côtes (24 novembre 2026)
+- [x] Ajouter un dégradé radial de profondeur aux océans, sans éclaircir excessivement la surface.
+- [x] Conserver le rendu océanique de chaque thème comme couleur de base.
+- [x] Ajouter un liseré côtier très discret pour détacher les continents de la mer.
+- [x] Maintenir le trait de côte distinct des frontières politiques.
+- [x] Réutiliser les profils de simplification et les chemins géographiques déjà calculés.
+- [x] Garder l'Antarctique hors du liseré côtier terrestre standard.
+- [x] Ne modifier ni les données géographiques, ni les projections, ni les règles de simulation.
+- [x] Conserver le rendu Canvas existant lorsque le dégradé radial n'est pas disponible.
+- [x] Ajouter des tests pour la profondeur océanique et le liseré côtier.
+- [x] Validation locale du joueur : `npm test`, puis contrôle visuel des océans et des côtes à plusieurs niveaux de zoom.
+
+
+
+## Lot prioritaire 7 — relief terrestre et chaînes montagneuses (24 novembre 2026)
+- [x] Élargir avec prudence la détection des chaînes de moyenne altitude à partir de la pente et de l'altitude combinées.
+- [x] Renforcer la signature minérale des montagnes sans blanchir les sommets ni modifier les océans.
+- [x] Faire progresser la teinte des reliefs montagneux avec l'altitude, sans aplat uniforme.
+- [x] Distinguer davantage les montagnes, plateaux, vallées, collines et plaines dans la palette existante.
+- [x] Préserver les données ETOPO sources et le calcul du hillshade.
+- [x] Conserver la modulation de palette dans le chemin raster tuilé et le fallback Canvas.
+- [x] Ne pas ajouter de tracés de chaînes artificiels ni de lignes décoratives supplémentaires.
+- [x] Ajouter des tests sur les seuils montagneux, les teintes par altitude et l'absence de mutation de la palette source.
+- [x] Validation locale du joueur : `npm test` confirmé.
+
+
+## Chantier transversal — carte stratégique sans subdivisions administratives (24 novembre 2026)
+- [x] Ne plus télécharger les frontières administratives mondiales 1:110m ni régionales 1:10m lors de l'initialisation de la carte.
+- [x] Ne plus télécharger les polygones destinés aux noms de provinces et régions pour le rendu stratégique.
+- [x] Ne plus générer d'étiquettes de provinces/régions sur la carte stratégique.
+- [x] Retirer les tracés administratifs du chemin Canvas et du chemin WebGL.
+- [x] Conserver les frontières nationales et les territoires politiques historiques.
+- [x] Garder les fonctions et données de chargement administratives disponibles pour une éventuelle carte régionale dédiée.
+- [x] Ajouter des tests garantissant zéro trait administratif et zéro label infranational sur la carte stratégique.
+- [x] Validation locale : `npm test` et contrôle visuel à faible et fort zoom, en particulier Europe occidentale et France, confirmés par le joueur.
+
+---
+
+## Lot prioritaire 8 — signatures climatiques et végétales du relief (24 novembre 2026)
+- [x] Ajouter une classification latitudinale prudente des grandes zones de végétation.
+- [x] Distinguer les bandes tropicale, subtropicale, tempérée, boréale et toundra.
+- [x] Distinguer les domaines alpins et nival par l'altitude, sans blanchir uniformément les montagnes.
+- [x] Exclure les océans et les coordonnées invalides de la classification végétale.
+- [x] Appliquer une modulation colorimétrique discrète, sans remplacer l'hypsométrie ni le hillshade.
+- [x] Préserver intégralement la palette bathymétrique.
+- [x] Intégrer la signature végétale dans le rendu raster tuilé et le fallback raster compact.
+- [x] Préserver les altérations physiques, la neige d'altitude et le mode diagnostic.
+- [x] Ajouter des tests sur les seuils latitudinaux, l'altitude, les couleurs, la non-mutation et les océans.
+- [x] Documenter la limite des données : sans couche de précipitations ou d'occupation des sols, ces teintes sont un proxy climatique régional et non une carte scientifique des forêts, savanes ou déserts.
+- [x] Validation locale du joueur : npm test confirmé.
+
+---
+
+## Lot prioritaire 9 — hiérarchie visuelle du réseau hydrographique (24 novembre 2026)
+- [x] Introduire un style de cours d'eau dérivé du rang hydrographique Natural Earth.
+- [x] Renforcer la largeur des grands fleuves par rapport aux cours d'eau secondaires.
+- [x] Réduire progressivement l'opacité des rangs moins importants.
+- [x] Garder les rangs absents sur un style secondaire stable et visible.
+- [x] Reconnaître les variantes de propriétés `SCALERANK` et `min_zoom`.
+- [x] Arrondir les extrémités et jonctions du rendu Canvas pour une lecture plus organique.
+- [x] Appliquer la hiérarchie dans le chemin Canvas de repli.
+- [x] Répartir les cours d'eau WebGL par rang avec largeur et alpha cohérents.
+- [x] Conserver les filtres de sélection, les plafonds de détails et le comptage des segments existants.
+- [x] Ajouter des tests sur l'ordre visuel, les alias, les rangs manquants et les largeurs invalides.
+- [x] Validation locale du joueur : npm test confirmé.
+
+
+
+## Lot prioritaire 10 — hiérarchie visuelle des lacs (24 novembre 2026)
+- [x] Définir un profil de remplissage et de contour selon le rang cartographique du lac.
+- [x] Donner la priorité visuelle aux grands lacs sans uniformiser les plans d’eau secondaires.
+- [x] Reconnaître les variantes de propriétés de rang déjà présentes dans les données.
+- [x] Garder un style stable et lisible pour les rangs absents.
+- [x] Appliquer les niveaux d’opacité aux remplissages WebGL par groupes de rang.
+- [x] Appliquer les niveaux de contour au rendu Canvas de complément.
+- [x] Préserver le chemin de repli Canvas lorsque WebGL géographique est indisponible.
+- [x] Réutiliser la simplification côtière et les plafonds de détails existants.
+- [x] Ajouter des tests sur l’ordre de remplissage, de contour, les alias et les rangs absents.
+- [x] Validation locale du joueur : npm test et contrôle visuel des grands lacs et plans d’eau secondaires confirmés.
+
+ 
+## Lot prioritaire 11 — lecture de la cryosphère et hiérarchie des glaciers (24 novembre 2026)
+- [x] Définir un profil de remplissage et de contour pour les glaciers selon leur rang cartographique.
+- [x] Mettre en avant les principaux ensembles glaciaires sans uniformiser toutes les surfaces.
+- [x] Reconnaître les alias de rang présents dans les propriétés Natural Earth.
+- [x] Appliquer des contours plus nets aux ensembles majeurs et plus discrets aux glaciers secondaires.
+- [x] Regrouper les remplissages WebGL par rang pour éviter un style uniforme.
+- [x] Appliquer la hiérarchie au rendu Canvas de complément et au repli intégral.
+- [x] Conserver la teinte froide des glaces sans introduire de blanc éblouissant.
+- [x] Préserver le filtrage de détail et l’exclusion de l’Antarctique.
+- [x] Ajouter des tests sur les rangs, alias et propriétés absentes.
+- [x] Validation locale du joueur : npm test et contrôle visuel des glaciers alpins, groenlandais et des hautes latitudes à plusieurs niveaux de zoom confirmés.
+
+## Lot prioritaire 12 — optimisation du masque terrestre au zoom rapproché (24 novembre 2026)
+
+- [x] Mémoriser la classification Antarctique/non-Antarctique par identité de feature.
+- [x] Éviter les nouveaux parcours de coordonnées pour les géométries déjà classées.
+- [x] Mettre en cache la séparation des terres côtières et de l'Antarctique par tableau de features.
+- [x] Réutiliser l'ensemble des terres côtières pour les tests d'appartenance.
+- [x] Mémoriser la classification des remplissages terrestres WebGL par renderer et collection.
+- [x] Mémoriser séparément la compatibilité des contours WebGL.
+- [x] Inclure les options de diagnostic dans la clé de classification pour éviter les caches incohérents.
+- [x] Préserver explicitement l'exclusion de l'Antarctique dans le masque Canvas de repli sans Path2D.
+- [x] Exporter les compteurs de hits, misses et coordonnées parcourues dans les benchmarks.
+- [x] Ajouter des tests de réutilisation, d'invalidation par options et d'exclusion antarctique.
+- [ ] Validation locale du joueur : npm test et contrôle visuel du masque terrestre, des côtes et de l'Antarctique à zoom 1, 5 et 20.
+- [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer surtout `land-mask-path`, `land-feature-classification`, médiane et p95.
+
+**Précaution :** les caches s'appuient sur l'immuabilité des features GeoJSON et des tableaux de features. Si une collection est modifiée en place, elle doit être remplacée par une nouvelle collection afin de déclencher une nouvelle classification. Aucun gain chiffré n'est revendiqué avant le prochain benchmark local.
+
+
+## Lot prioritaire 13 — cohérence du cache géométrique au zoom rapproché (24 novembre 2026)
+- [x] Centraliser le profil de projection utilisé pour les clés des chemins et des masques composés.
+- [x] Construire les clés selon les paramètres de projection réellement effectifs, sans invalider sur un drapeau de longitude neutralisé par le projecteur.
+- [x] Conserver la précision effective du zoom dans les clés pour éviter les collisions dues à l'arrondi à quatre décimales.
+- [x] Réutiliser le même profil de vue pour construire le masque composé et ses chemins enfants.
+- [x] Réduire les tableaux temporaires du parcours des géométries polygonales et linéaires.
+- [x] Ajouter des compteurs de constructions et d'évictions pour les deux niveaux de cache.
+- [x] Exporter ces compteurs dans le collecteur de benchmark.
+- [x] Ajouter des tests de non-régression sur les variations de projection et les nouvelles métriques.
+- [x] CI GitHub Actions sur le code du lot : 501 tests réussis, 0 échec (run 45358956818 ; les commits suivants de cette séquence ne modifient que la documentation).
+- [ ] Validation locale du joueur : npm test et contrôle visuel du masque, des côtes et de l'Antarctique aux zooms 1, 5 et 20.
+- [ ] Nouveau benchmark PC zoom 20, cache chaud, 60 à 70 secondes ; comparer médiane/p95, reconstructions, évictions et pics mémoire.
+
+Précaution : le centre reste volontairement quantifié à une cellule de 1 / zoom degré. Les nouvelles clés éliminent les collisions de paramètres non équivalents, mais ne suppriment pas ce compromis de quantification déjà présent. Les compteurs de construction et d'éviction sont cumulatifs depuis l'initialisation du module.
+
+## Lot 22 — robustesse des collisions de labels (24 novembre 2026)
+- [x] Extraire une fonction publique et testable de chevauchement entre deux emprises.
+- [x] Valider les coordonnées et l'ordre des limites avant le calcul.
+- [x] Définir le contact exact entre deux boîtes comme collision afin d'éviter les glyphes accolés.
+- [x] Réutiliser cette règle dans le placement des labels sans changer leur ordre de priorité.
+- [x] Ajouter des tests sur chevauchement, séparation, contact et emprises invalides.
+- [ ] Validation locale : `npm test` et contrôle visuel aux zooms 1, 3, 5 et 10.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+## Lot 23 — placement sûr des labels en bord de carte (24 novembre 2026)
+- [x] Ajouter un ajustement géométrique des labels dans les marges sûres du viewport.
+- [x] Déplacer ensemble le texte, le marqueur et les emprises de collision/interaction.
+- [x] Prendre en compte les zones interactives, pas seulement les glyphes visibles.
+- [x] Écarter proprement les labels dont l'emprise ne peut pas tenir dans le viewport.
+- [x] Préserver exactement le placement des labels déjà dans la zone sûre.
+- [x] Ajouter des tests de bord gauche, bord inférieur, dimensions excessives et emprises interactives.
+- [ ] Validation locale : `npm test` et contrôle visuel aux quatre bords de la carte, en particulier sur petits écrans.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+
+
+## Lot 36 — cycle de vie sûr des frames de composition (24 novembre 2026)
+
+- [x] Identifier le risque de callback RAF obsolète après une annulation, notamment si le navigateur a déjà dépilé le callback.
+- [x] Ajouter un jeton de génération pour invalider explicitement les callbacks annulés.
+- [x] Empêcher un callback obsolète de déclencher un rendu.
+- [x] Empêcher un ancien callback de remettre à zéro l'identifiant d'une frame plus récente.
+- [x] Préserver le regroupement des demandes concurrentes dans une seule frame.
+- [x] Autoriser un rendu à programmer proprement une frame suivante.
+- [x] Rendre la destruction du scheduler idempotente et définitive.
+- [x] Ajouter des tests de course, d'identifiant réutilisé, de réentrance et de destruction.
+- [x] CI GitHub Actions : 627 tests réussis, 0 échec (run 45476588771).
+- [ ] Validation locale du joueur : `npm test`.
+
+
+## Lot 50 — parcours géométrique sans collection intermédiaire (25 novembre 2026)
+
+- [x] Remplacer la construction du tableau global de chemins par un parcours direct des géométries.
+- [x] Compter les occurrences de coordonnées pendant le parcours, sans conserver simultanément toutes les références de chemins.
+- [x] Préserver le traitement distinct des Polygon, MultiPolygon, LineString, MultiLineString et GeometryCollection.
+- [x] Conserver la déduplication des coordonnées répétées à l'intérieur d'un même chemin avant de détecter les ancrages partagés.
+- [x] Ajouter un test de charge sur une grande collection composite et vérifier la conservation des ancrages et l'immuabilité des sources.
+- [ ] Validation locale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Portée :** cette modification réduit les allocations temporaires de références de chemins pendant la préparation des ancrages. Elle ne change ni les clés de coordonnées, ni les seuils RDP, ni la géométrie simplifiée ; aucun gain chiffré n'est revendiqué sans benchmark.
+
+
+## Lot 51 — réutilisation de la pile de calcul des emprises spatiales (25 novembre 2026)
+
+- [x] Identifier l'allocation d'une pile de parcours distincte pour chaque feature lors de la construction de l'index.
+- [x] Réutiliser une pile temporaire unique pendant le calcul séquentiel des bornes.
+- [x] Réinitialiser explicitement cette pile avant chaque géométrie et conserver le parcours itératif, y compris pour les GeometryCollection imbriquées.
+- [x] Ajouter un test sur les géométries composites imbriquées, les points isolés et les géométries vides.
+- [ ] Validation locale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Portée :** suppression des allocations répétées de tableaux de pile pendant la construction de l'index. Les bornes calculées, le classement des entités globales et la sélection spatiale restent inchangés ; aucun gain chiffré n'est revendiqué sans benchmark.
+
+
+## Lot 52 — clôture des optimisations sûres du moteur cartographique (25 novembre 2026)
+
+- [x] Auditer les modules de rendu, projection, index spatial, tuilage, files de travaux, cache et hit-testing.
+- [x] Retirer le tableau temporaire créé par `Object.values` lors de la normalisation des emprises de labels.
+- [x] Remplacer le callback `forEach` de construction de l'index de labels par une boucle indexée, en conservant les indices source et l'ordre de dessin.
+- [x] Ajouter des tests sur les bornes numériques textuelles, les entrées invalides et la priorité du dernier label.
+- [ ] Validation locale finale du joueur : `npm test`.
+- [ ] CI GitHub Actions du lot à confirmer.
+
+**Bilan d'audit :** les autres parcours examinés disposent déjà de caches bornés, de parcours itératifs, de déduplication sans allocations intermédiaires, de files à curseur ou de sélections limitées par budget. Les modifications plus profondes restantes toucheraient à l'ordre de tri des tuiles, à la géométrie ou aux stratégies de rendu ; elles nécessitent des benchmarks représentatifs avant d'être considérées comme des optimisations sûres. La phase d'optimisation est donc considérée comme clôturée sous réserve de la validation finale et des mesures locales. Aucun gain de FPS ou de mémoire chiffré n'est revendiqué.
+
+
+## Lot artistique 6 — finition des instruments de commandement (25 novembre 2026)
+
+- [x] Renforcer la hiérarchie des titres et des panneaux latéraux avec les variables du thème actif.
+- [x] Différencier les matières des panneaux pour les six époques.
+- [x] Donner à l'orbe du Centre de Veille une finition adaptée à chaque période.
+- [x] Améliorer les états actifs de la frise et des commandes, sans modifier leur comportement.
+- [x] Respecter la préférence de réduction des animations.
+- [x] Ajouter des assertions de présence des finitions et des textures par époque.
+- [x] Corriger les assertions initiales suréchappées après retour des tests locaux.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** finitions CSS uniquement ; aucun changement aux contrôles, à la chronologie ou aux systèmes de simulation.
+
+## Lot artistique 7 — langage cartographique par époque (25 novembre 2026)
+
+- [x] Ajouter une rose nautique discrète pour l'époque des explorations.
+- [x] Ajouter un cartouche de grille gravé pour Westphalie.
+- [x] Renforcer la trame d'imprimerie de la période révolutionnaire.
+- [x] Développer le motif topographique et de quadrillage militaire pour l'époque moderne.
+- [x] Ajouter une microgrille de coordonnées pour l'époque contemporaine.
+- [x] Ajouter un réticule orbital pour l'époque futuriste.
+- [x] Conserver les overlays en `pointer-events:none` et hors du canvas interactif.
+- [x] Adapter leur intensité aux petits écrans et conserver le respect des préférences de mouvement.
+- [x] Ajouter des tests sur les six motifs, le balisage et l'absence d'interception des interactions.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** motifs CSS décoratifs au-dessus de la carte. Les géométries, les couleurs des territoires, les couches physiques et les interactions du canvas ne sont pas modifiées.
+
+
+## Lot artistique 8 — matière et lecture du relief physique (25 novembre 2026)
+
+- [x] Auditer la chaîne ETOPO existante, les classes de formes terrestres et l'ombrage directionnel.
+- [x] Renforcer la signature minérale des montagnes, progressivement avec l'altitude.
+- [x] Mieux différencier plateaux, collines, vallées et plaines par des teintes de matière mesurées.
+- [x] Préserver l'immuabilité des couleurs source.
+- [x] Ajouter des tests de contraste des formes terrestres et d'indépendance de la bathymétrie.
+- [ ] Validation locale du joueur : `npm test`.
+
+**Portée :** ajustement de la restitution colorimétrique des formes terrestres existantes. Aucune altitude, classification, donnée ETOPO, profondeur océanique, frontière ou règle de simulation n'est modifiée. Aucun gain de performance n'est revendiqué.
+
+
+## Lot artistique 9 — bathymétrie stratifiée et matière des grands fonds (25 novembre 2026)
+
+- [x] Auditer la palette ETOPO et vérifier la présence du dégradé océanique décoratif déjà existant.
+- [x] Identifier les domaines visuels à mieux séparer : plateau continental, talus, bassin profond, plaine abyssale et fosses.
+- [x] Ajouter des points de contrôle bathymétriques intermédiaires sans modifier les valeurs physiques.
+- [x] Renforcer la dominante froide des grands fonds sans recourir à un aplat monochrome.
+- [x] Donner au plateau continental une teinte plus lisible sans le confondre avec la terre.
+- [x] Préserver une progression continue entre les seuils de profondeur.
+- [x] Garder une palette sombre, adaptée à la carte stratégique et aux thèmes historiques.
+- [x] Préserver l'indépendance de la bathymétrie vis-à-vis de la classe de relief terrestre.
+- [x] Préserver l'indépendance de la bathymétrie vis-à-vis de l'ombrage directionnel terrestre.
+- [x] Ne modifier aucune profondeur ETOPO, coordonnée, donnée côtière ou classification physique.
+- [x] Ne pas ajouter de fausses dorsales, fosses ou courbes bathymétriques géographiques.
+- [x] Conserver le dégradé océanique décoratif et ses profils par époque.
+- [x] Conserver le liseré côtier existant sans le confondre avec les frontières politiques.
+- [x] Vérifier la continuité colorimétrique entre les profondeurs successives.
+- [x] Vérifier que les domaines bathymétriques restent différenciables.
+- [x] Vérifier que le contraste global entre grands fonds et plateau reste mesuré.
+- [x] Vérifier la dominante froide des profondeurs et des plateaux.
+- [x] Préserver les couleurs sources et l'absence de mutation des tableaux.
+- [x] Conserver les chemins raster tuilé et Canvas de repli.
+- [x] Ajouter des tests sur la progression de luminance.
+- [x] Ajouter des tests sur les transitions entre seuils.
+- [x] Ajouter des tests sur la différenciation des profondeurs.
+- [x] Ajouter des tests de non-régression sur l'indépendance du hillshade.
+- [x] Ajouter des tests de non-régression sur le contraste stratégique maximal.
+- [ ] Validation locale du joueur : `npm test` et contrôle visuel des océans à zoom mondial, régional et rapproché.
+
+**Portée :** palette de restitution uniquement. Les profondeurs, données ETOPO, géométries côtières, relief terrestre, règles de simulation et résultats géographiques restent inchangés.
+
+
+## Lot artistique 10 — matière continentale et relief hypsométrique (25 novembre 2026)
+
+- [x] Auditer les seuils de couleurs continentales existants.
+- [x] Conserver les classes géomorphologiques dérivées du MNT.
+- [x] Ajouter des nuances intermédiaires dans les basses terres.
+- [x] Distinguer visuellement les plaines basses et les plaines d'altitude.
+- [x] Lisser la montée chromatique des collines.
+- [x] Renforcer la lecture minérale des plateaux.
+- [x] Donner davantage de présence aux vallées sans dessiner de faux cours d'eau.
+- [x] Conserver la signature minérale progressive des montagnes.
+- [x] Garder les sommets élevés dans une gamme pierre/neige, sans blanc uniforme prématuré.
+- [x] Préserver la progression lumineuse générale avec l'altitude.
+- [x] Éviter les ruptures chromatiques entre paliers hypsométriques.
+- [x] Maintenir une palette terrestre sombre et organique aux basses altitudes.
+- [x] Éviter les verts saturés et les beiges trop lumineux.
+- [x] Renforcer les matières par mélange colorimétrique, sans motif géométrique artificiel.
+- [x] Ne pas ajouter de bruit aléatoire au raster.
+- [x] Ne pas modifier les altitudes ETOPO.
+- [x] Ne pas modifier la classification des formes terrestres.
+- [x] Ne pas modifier les coordonnées, côtes ou géométries.
+- [x] Préserver intégralement la palette bathymétrique du lot 9.
+- [x] Préserver l'indépendance du relief terrestre et de l'ombrage océanique.
+- [x] Conserver le rendu Canvas et les tuiles WebGL existantes.
+- [x] Tester la progression de luminance de la palette continentale.
+- [x] Tester la continuité des transitions hypsométriques.
+- [x] Tester la distinction des signatures colorimétriques des formes terrestres.
+- [ ] Validation locale et contrôle visuel à plusieurs niveaux de zoom.
+
+**Portée :** restitution colorimétrique du raster terrestre uniquement. Aucune donnée physique, géométrie ou règle de simulation n'est modifiée.
+
+
+## Lot artistique 11 — modelé directionnel du relief (25 novembre 2026)
+
+- [x] Auditer le calcul du hillshade synchrone et son équivalent Worker.
+- [x] Conserver l'éclairage principal nord-ouest et sa faible composante secondaire.
+- [x] Rehausser légèrement la réponse lumineuse des pentes modérées.
+- [x] Réduire la pénalité uniforme appliquée aux pentes fortes.
+- [x] Resserer les bornes extrêmes pour éviter les ombres bouchées et les versants brûlés.
+- [x] Garder un éclairage strictement neutre sur une surface plane.
+- [x] Appliquer la même formule dans le thread principal et le Worker.
+- [x] Ne pas modifier l'exagération verticale du relief.
+- [x] Ne pas modifier les altitudes, les classes de terrain ou la palette hypsométrique.
+- [x] Ne pas modifier la bathymétrie.
+- [x] Conserver la préparation asynchrone et le cache de hillshade.
+- [x] Tester la neutralité des surfaces planes.
+- [x] Tester les limites de contraste sur les versants.
+- [x] Tester la perception des pentes douces.
+- [x] Préserver l'indépendance de l'ombrage océanique.
+- [x] Ne pas ajouter de bruit, de lignes ni de faux détails géographiques.
+- [x] Ne pas changer l'ordre de rendu des couches.
+- [x] Ne pas changer les dimensions des tuiles.
+- [x] Conserver les chemins de rendu Worker et synchrone.
+- [x] Vérifier la cohérence des paramètres de calcul dans les deux implémentations.
+- [x] Garder une réponse modérée adaptée à la lecture stratégique.
+- [x] Conserver les garde-fous de réduction des animations et les réglages utilisateur existants.
+- [x] Documenter les limites visuelles de l'ombrage calculé depuis le MNT.
+- [x] Préserver les tests existants du raster et des changements physiques.
+- [ ] Validation locale et comparaison visuelle à plusieurs niveaux de zoom.
+
+**Portée :** ajustement du calcul d'éclairage du relief terrestre uniquement. Aucune géométrie, donnée physique ou règle de simulation n'est modifiée.
+
+
+## Lot artistique 12 — matière du contact terre-mer (25 novembre 2026)
+
+- [x] Auditer le liseré côtier existant et les chemins Canvas/WebGL qui le précèdent.
+- [x] Renforcer légèrement la présence du contact terre-mer sur les palettes sombres.
+- [x] Ajouter un halo diffus à l'unique arête côtière, sans tracer de seconde ligne.
+- [x] Conserver le code couleur d'accent de l'époque active.
+- [x] Garder le halo dans la couche statique et respecter l'échelle de rendu.
+- [x] Préserver les simplifications côtières, les chemins mis en cache et les replis Canvas/WebGL.
+- [x] Ne modifier aucune géométrie, coordonnée, altitude, profondeur ou donnée physique.
+- [x] Ne modifier ni les frontières politiques ni l'ordre des couches.
+- [x] Ajouter un test sur l'épaisseur, l'opacité et la discrétion du halo.
+- [ ] Validation locale : `npm test` et contrôle visuel des côtes aux zooms mondial, régional et rapproché.
+
+**Portée :** finition de la restitution visuelle du littoral uniquement. Aucun changement géographique ou comportemental.
+
+
+## Lot artistique 13 — signatures végétales et matières climatiques (25 novembre 2026)
+
+- [x] Auditer les signatures végétales existantes et leurs limites de données.
+- [x] Conserver les classes tropicale, subtropicale, tempérée, boréale, toundra, alpine et nivale.
+- [x] Renforcer les nuances tropicales et boréales sans basculer vers des aplats saturés.
+- [x] Différencier les signatures tempérées et subtropicales.
+- [x] Garder les transitions de haute altitude plus minérales et mesurées.
+- [x] Adapter l'intensité par zone climatique plutôt que d'appliquer une force uniforme.
+- [x] Préserver intégralement les couleurs bathymétriques.
+- [x] Ne pas déduire de forêts, déserts, biomes locaux ou précipitations absents des données.
+- [x] Ne modifier ni les altitudes, ni la classification du relief, ni les données ETOPO.
+- [x] Tester la distinction des sept signatures et leurs limites colorimétriques.
+- [ ] Validation locale : `npm test` et comparaison visuelle des continents sous plusieurs latitudes.
+
+**Portée :** enrichissement colorimétrique des signatures climatiques terrestres existantes. Aucune nouvelle géographie ni donnée écologique n'est inventée.
+
+
+## Lot artistique 14 — modelé des plaines et plateaux (25 novembre 2026)
+
+- [x] Auditer les teintes de formes terrestres déjà dérivées du relief ETOPO.
+- [x] Renforcer modérément la signature des plaines sans les saturer.
+- [x] Donner aux plateaux une matière minérale progressive avec l'altitude.
+- [x] Faire varier l'intensité des nuances de façon continue, sans bandes ni frontières artificielles.
+- [x] Préserver les signatures distinctes des vallées, collines et montagnes.
+- [x] Conserver les palettes hypsométriques et les classes de relief existantes.
+- [x] Ne modifier aucune altitude, géométrie, donnée physique ou règle de simulation.
+- [x] Ajouter des tests de progression, d'amplitude et d'immuabilité de la couleur source.
+- [x] Garantir que les couleurs bathymétriques restent indépendantes.
+- [ ] Validation locale : `npm test` et contrôle visuel des plaines et plateaux à plusieurs niveaux de zoom.
+
+**Portée :** modulation colorimétrique légère des classes existantes, sans ajout de détails cartographiques fictifs.
+
+
+## Lot artistique 15 — matière côtière adaptative et lecture des îles (25 novembre 2026)
+
+- [x] Auditer le filtrage des petites composantes insulaires et la simplification côtière existants.
+- [x] Conserver les seuils géographiques et la géométrie des îles : aucune masse terrestre ajoutée ou supprimée par ce chantier.
+- [x] Adapter légèrement l'épaisseur, l'opacité et le halo du contact terre-mer au niveau de zoom.
+- [x] Préserver le profil actuel à l'échelle générale et renforcer progressivement la matière en vue rapprochée.
+- [x] Borner les valeurs pour éviter un liseré trop lumineux ou un effet de double contour.
+- [x] Ajouter des tests de progression, de bornes et de stabilité aux différents zooms.
+- [ ] Validation locale : `npm test`, puis contrôle visuel des archipels et côtes à petite et grande échelle.
+
+**Portée :** finition du rendu du littoral existant uniquement ; aucune modification des données géographiques, des seuils de filtrage ou des règles de simulation.
+
+
+## Lot artistique 16 — transition minérale des basses terres côtières (25 novembre 2026)
+
+- [x] Repérer les pixels terrestres dont au moins un voisin cardinal échantillonné est sous le niveau marin.
+- [x] Appliquer une nuance minérale chaude et discrète uniquement à ces basses terres adjacentes à la mer.
+- [x] Faire décroître continûment cette nuance entre 0 et 300 mètres d'altitude.
+- [x] Laisser inchangées les basses terres intérieures, les reliefs élevés et les pixels océaniques.
+- [x] Exclure les modes de diagnostic d'altitude et de hillshade seul.
+- [x] Ajouter des tests sur l'adjacence marine, l'atténuation avec l'altitude, l'immuabilité de la couleur source et la préservation de la bathymétrie.
+- [ ] Validation locale : `npm test` et inspection des littoraux à plusieurs niveaux de zoom.
+
+**Portée :** nuance de transition raster fondée sur l'adjacence réelle à l'océan dans les échantillons ETOPO ; aucune plage, île ou géométrie fictive n'est créée.
+
+## Lot artistique 17 — matière progressive des piémonts (25 novembre 2026)
+
+- [x] Calculer une signature de piémont depuis la pente locale réellement échantillonnée dans ETOPO.
+- [x] Faire apparaître la nuance sur les pentes intermédiaires et la faire disparaître progressivement vers les plaines et les hautes montagnes.
+- [x] Garder une réponse douce sur les pentes abruptes afin de préserver la lecture des escarpements.
+- [x] Appliquer la même matière aux rendus raster tuilé et de repli, sans modifier les géométries ni l'altitude.
+- [x] Appliquer également la transition littorale dans le chemin tuilé pour conserver une restitution cohérente entre les deux moteurs raster.
+- [x] Isoler les modes de diagnostic et le hillshade seul de ces nuances colorimétriques.
+- [x] Ajouter des tests de progression, de limites, d'immuabilité et de préservation de la bathymétrie.
+- [ ] Validation locale : `npm test` et comparaison visuelle des piémonts, plaines et chaînes montagneuses à plusieurs zooms.
+
+**Portée :** nuance colorimétrique dérivée de la pente et de l'altitude ETOPO existantes. Aucune nouvelle forme de terrain, géométrie, altitude, donnée géographique ou règle de simulation n'est créée ou modifiée.
+
+## Chantier transversal — réalignement des couches cartographiques (25 novembre 2026)
+
+### Lot A — centre de projection exact dans le cache vectoriel
+
+- [x] Supprimer l'arrondi indépendant du centre longitude/latitude dans le profil de cache des chemins projetés.
+- [x] Construire les chemins Canvas avec le centre exact reçu par le renderer, comme les frontières directes et les couches raster/WebGL.
+- [x] Conserver une clé de cache à précision suffisante sur le zoom et les deux coordonnées du centre.
+- [x] Ajouter une régression couvrant un déplacement inférieur à une demi-cellule de l'ancien arrondi.
+- [ ] Validation locale et contrôle visuel comparatif sur la côte atlantique, à zoom régional, après déplacement et redimensionnement.
+
+**Diagnostic :** l'ancien cache pouvait réutiliser un chemin calculé sur un centre arrondi alors que les couches directes utilisaient le centre courant. Le cadrage principal arrondissait déjà son centre en amont, mais les appels directs/sandbox au renderer pouvaient conserver cette divergence. Le correctif retire cette seconde quantification. Il ne modifie aucune donnée ni géométrie géographique.
+
+### Lot B — cache de projection cyclique et audit des moteurs
+
+- [x] Canonicaliser les longitudes du cache vectoriel modulo 360 sans arrondir latitude, longitude ou zoom.
+- [x] Préserver la réutilisation du cache pour 4° et 364°, qui représentent le même centre géographique.
+- [x] Adapter le test Path2D : un déplacement réel, même faible, doit reconstruire le chemin exact.
+- [x] Vérifier les contrats d'appel : relief tuilé, polygones WebGL, frontières WebGL et couches Canvas reçoivent le même `projection.viewport` dans `renderWorldMap`.
+- [x] Ajouter une cinquième capture facultative après dessin des frontières politiques, dans le même repère pixel que les quatre étapes physiques et territoriales.
+- [ ] Validation locale du test et capture comparative des couches.
+- [ ] Isoler le décalage restant entre données géographiques, limites politiques et masque physique avant de modifier leur projection.
+
+**Point de diagnostic :** le rendu final est composé depuis une scène unique ; les appels raster et vectoriels reçoivent le même viewport. Le désalignement restant ne doit donc pas être corrigé par un offset visuel global. Il faut distinguer un écart de projection d'un écart entre sources/géométries ou d'un chemin WebGL spécifique.
+
+### Correctif lot 54.1 — portée du profil côtier
+- Le rendu final du liseré côtier calculait désormais son profil dans `renderWorldMap`, au lieu de référencer la variable locale à `drawStaticLayers`.
+- Le profil de simplification est construit localement depuis le zoom LOD effectif (avec repli sur le zoom du viewport), sans modifier les données ni les coordonnées géographiques.
+- Validation locale en attente après récupération du correctif.
+
+### Correctif lot 54.2 — réutilisation du profil LOD côtier
+- Le liseré final réutilise désormais exactement le profil de simplification des côtes terrestres (`getLandCoastSimplificationProfile`) déjà employé par le fond terrestre.
+- Cela évite une seconde entrée de cache Path2D avec une tolérance différente et conserve le nombre de constructions attendu pour un viewport stable.
+- Validation locale en attente.
+
+### Lot 55 — masque continental strictement partagé
+- Le diagnostic du lot 54 laissait encore deux profils distincts : le masque des couches politiques était construit sans simplification secondaire, tandis que le relief utilisait le profil LOD côtier.
+- Le relief réutilise maintenant le même `landAlignmentClipPath` que les couches politiques ; en l'absence de ce masque préconstruit, il le construit avec une tolérance nulle.
+- Le liseré côtier final est tracé avec ce même niveau de fidélité (tolérance nulle), sur la géométrie terrestre LOD déjà sélectionnée. Aucune donnée géographique source ni géométrie historique n'est modifiée.
+- Validation visuelle et tests locaux en attente.
+
+### Correctif lot 55.1 — profil partagé et cache Path2D
+- Le masque continental et le liseré final réutilisent désormais le profil LOD côtier commun au fond terrestre.
+- Le passage temporaire à une tolérance nulle créait une troisième variante de chemin Path2D et faisait échouer le test de réutilisation du cache. Cette variante distincte est supprimée.
+- Le masque reste commun aux couches concernées dans le même repère projeté ; aucune donnée géographique n'est modifiée.
+- Validation locale en attente.
+
+### Correctif lot 55.2 — profil partagé dans le fallback du masque
+- Le test a révélé un second chemin de construction : lorsque le masque anticipé n'existe pas (absence de couche politique), le fallback du relief construisait encore un masque à tolérance nulle.
+- Ce fallback utilise maintenant lui aussi `sharedLandCoastProfile`. Les trois chemins d'entrée (masque anticipé, fallback relief, contour final) partagent donc la même clé Path2D.
+- Validation locale en attente.

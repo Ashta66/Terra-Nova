@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,buildOceanConnectivityMask,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects} from "../src/world/physical-geography.js";
+import {createPhysicalWorld,applyPhysicalEvent,getPhysicalStateAtDate,buildPhysicalCellsFromTerrainGrid,buildOceanConnectivityMask,refinePhysicalWorldForImpact,expirePhysicalSurfaceEffects,getNextPhysicalSurfaceExpiryDate} from "../src/world/physical-geography.js";
 import {createSocietyState,applyPhysicalConsequences,planAiResponses,applyAiResponses} from "../src/world/society-engine.js";
 import {advanceWorldSimulation} from "../src/world/world-simulation.js";
 const cells=[{id:"coast",longitude:0,latitude:0,elevationM:3,coastalDistanceKm:2,regionId:"delta"},{id:"inland",longitude:.1,latitude:0,elevationM:120,coastalDistanceKm:35,regionId:"delta"},{id:"far",longitude:25,latitude:10,elevationM:800,coastalDistanceKm:300,regionId:"upland"},{id:"ocean",longitude:.02,latitude:0,elevationM:-80,coastalDistanceKm:0,regionId:"sea"}];
@@ -35,6 +35,8 @@ test("un impact affine temporairement la grille autour du point d'impact",()=>{
  const base=createPhysicalWorld(buildPhysicalCellsFromTerrainGrid(grid,{step:12,maxCoastSearchCells:1}));
  const event={id:"local-refinement",type:"meteor-impact",date:"1444-01-01",longitude:0,latitude:0,radiusKm:1000,craterDepthM:900,lavaRadiusKm:100,noManLandRadiusKm:150};
  const refined=refinePhysicalWorldForImpact(base,grid,event,2);
+ const refinedIds=refined.currentCells.map(cell=>cell.id);
+ assert.equal(new Set(refinedIds).size,refinedIds.length,"les cellules raffinées conservent des identifiants uniques");
  assert.ok(refined.currentCells.some(cell=>cell.gridStep===2));
  assert.ok(refined.revision>base.revision);
  const impact=applyPhysicalEvent(refined,event);
@@ -138,4 +140,63 @@ test("le masque de connexion réelle à l'océan exclut les lacs intérieurs iso
  const ocean=buildOceanConnectivityMask({width:5,height:5,values},1);
  assert.equal(ocean.mask[0],1);
  assert.equal(ocean.mask[12],0);
+});
+
+test("l'expiration conserve la référence du monde tant qu'aucune échéance n'est atteinte",()=>{
+ const world=createPhysicalWorld(cells);
+ const withImpact=applyPhysicalEvent(world,{id:"future-expiry-fast-path",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ assert.equal(expirePhysicalSurfaceEffects(withImpact,"1900-01-02"),withImpact);
+});
+test("l'expiration clone le monde uniquement lorsqu'une échéance est atteinte",()=>{
+ const world=createPhysicalWorld(cells);
+ const withWave=applyPhysicalEvent(world,{id:"due-expiry-fast-path",type:"tsunami",date:"1900-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100}).world;
+ const expired=expirePhysicalSurfaceEffects(withWave,"1900-02-02");
+ assert.notEqual(expired,withWave);
+ assert.equal(expired.currentCells[0].tsunamiWaterDepthM,0);
+});
+
+test("l'échéancier physique identifie la prochaine expiration sans parcourir le monde à chaque tick",()=>{
+ const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-impact",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:3}).world;
+ assert.equal(getNextPhysicalSurfaceExpiryDate(impact),"1900-04-01");
+ const first=expirePhysicalSurfaceEffects(impact,"1900-01-02");
+ assert.equal(first,impact);
+ const stillBeforeSurfaceExpiry=expirePhysicalSurfaceEffects(first,"1900-02-01");
+ assert.equal(stillBeforeSurfaceExpiry,impact);
+ const expired=expirePhysicalSurfaceEffects(impact,"1900-04-02");
+ assert.notEqual(expired,impact);
+ assert.equal(getNextPhysicalSurfaceExpiryDate(expired),null);
+});
+
+test("l'échéancier prend en compte l'expiration mensuelle des effets de surface",()=>{
+ const impact=applyPhysicalEvent(createPhysicalWorld(cells),{id:"indexed-surface",type:"meteor-impact",date:"1900-01-01",longitude:0,latitude:0,radiusKm:80,craterDepthM:500,surfaceDurationMonths:1}).world;
+ assert.equal(getNextPhysicalSurfaceExpiryDate(impact),"1900-02-01");
+ const afterVisual=expirePhysicalSurfaceEffects(impact,"1900-02-02");
+ assert.notEqual(afterVisual,impact);
+ assert.equal(getNextPhysicalSurfaceExpiryDate(afterVisual),null);
+});
+
+test("la reconstruction historique trie les événements sans muter leur ordre source",()=>{
+ const world=createPhysicalWorld(cells);
+ world.events=[
+  {id:"late-uplift",type:"tectonic-uplift",date:"1700-01-01",longitude:0,latitude:0,radiusKm:100,upliftM:30},
+  {id:"early-uplift",type:"tectonic-uplift",date:"1500-01-01",longitude:0,latitude:0,radiusKm:100,upliftM:10}
+ ];
+ const first=getPhysicalStateAtDate(world,"1600-01-01");
+ const second=getPhysicalStateAtDate(world,"1600-01-01");
+ assert.equal(first.currentCells[0].elevationDeltaM,10);
+ assert.equal(second.currentCells[0].elevationDeltaM,10);
+ assert.equal(world.events[0].id,"late-uplift");
+});
+
+
+test("les constantes d'événement sont pré-calculées sans changer les résultats physiques",()=>{
+ const world=createPhysicalWorld(cells);
+ const quake=applyPhysicalEvent(world,{id:"quake-context",type:"earthquake",date:"1602-01-01",longitude:0,latitude:0,radiusKm:150,magnitude:8,ruptureOffsetM:2,ruptureBearingDeg:35});
+ const center=quake.world.currentCells.find(cell=>cell.id==="coast");
+ assert.ok(center.damage>0);
+ assert.equal(center.currentElevationM,center.baseElevationM+center.elevationDeltaM);
+ const tsunami=applyPhysicalEvent(world,{id:"wave-context",type:"tsunami",date:"1603-01-01",longitude:0,latitude:0,radiusKm:250,waveHeightM:12,maxCoastalDistanceKm:100});
+ const flooded=tsunami.world.currentCells.find(cell=>cell.id==="coast");
+ assert.equal(flooded.waterExpiresAt,"1603-02-01");
+ assert.ok(flooded.tsunamiWaterDepthM>0);
 });

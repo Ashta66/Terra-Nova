@@ -76,7 +76,8 @@ export function collectMapTileRenderStack(plan, hasTile) {
   const stack = new Map();
   for (const requested of plan.tiles) {
     const ancestors = requested.ancestors ?? [];
-    for (const parent of [...ancestors].reverse()) {
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const parent = ancestors[i];
       if (hasTile(parent.key)) stack.set(parent.key, { ...parent, fallback: true, ancestors });
     }
     if (hasTile(requested.key)) stack.set(requested.key, { ...requested, fallback: false });

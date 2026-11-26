@@ -9,7 +9,9 @@ function compactPhysicalWorld(world) {
   for (let index = 0; index < world.currentCells.length; index++) {
     const current = world.currentCells[index];
     const base = world.baseCells[index];
-    if (!base || JSON.stringify(current) !== JSON.stringify(base)) changedCells.push([index, current]);
+    if (current !== base && (!base || JSON.stringify(current) !== JSON.stringify(base))) {
+      changedCells.push([index, current]);
+    }
   }
   return {
     ...world,
@@ -32,8 +34,10 @@ function expandPhysicalWorld(world) {
 
 export function saveGame(state, storage = globalThis.localStorage) {
   validateGameState(state);
-  const payload = clone({ ...state, schemaVersion: SAVE_VERSION, savedAt: new Date().toISOString() });
-  if (payload.physicalWorld) payload.physicalWorld = compactPhysicalWorld(payload.physicalWorld);
+  const saveState = state.physicalWorld
+    ? { ...state, physicalWorld: compactPhysicalWorld(state.physicalWorld) }
+    : state;
+  const payload = clone({ ...saveState, schemaVersion: SAVE_VERSION, savedAt: new Date().toISOString() });
   storage.setItem(SAVE_KEY, JSON.stringify(payload));
   return payload.savedAt;
 }

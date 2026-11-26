@@ -1,36 +1,88 @@
-import { advanceClock, createClock, formatDate, SPEEDS } from "./core/clock.js";
+import { advanceClock, createClock, formatDate, SPEEDS, MAX_SIMULATION_YEAR } from "./core/clock.js";
 import { getMapTilePyramidPlan } from "./world/map-tile-system.js";
+import { auditLoadedCoastlineAlignment } from "./world/coastline-alignment.js";
 import { createMapLayerFamilies, getChangedMapLayerFamilies } from "./world/map-layer-families.js";
 import { createMapFrameScheduler } from "./world/map-frame-scheduler.js";
 import { createMapTileCache } from "./world/map-tile-cache.js";
+import { getMapTileResourceProfile } from "./world/map-tile-resource-profile.js";
+import { isMapTileRelevantToPlan, shouldRefreshRegionalLayer, isMapYearRequestCurrent } from "./world/map-async-result.js";
+import { reconcileMapTileWorkQueue, takeNextMapTileWork, hasMapTileWork } from "./world/map-tile-work-queue.js";
+import { releaseMapTileWorkerReply } from "./world/map-tile-worker-state.js";
 import { findAvailableTile } from "./world/map-tile-system.js";
 import { getMapTileScreenRect, collectMapTileRenderStack } from "./world/map-tile-renderer.js";
-import { simplifyGeoJsonCollection } from "./world/geometry-generalization.js";
+import { simplifyGeoJsonCollection, createGeoJsonLodSet, collectSharedGeometryAnchors } from "./world/geometry-generalization.js";
 import { INTERACTION_PREVIEW_INTERVAL_MS, INTERACTION_SETTLE_DELAY_MS } from "./world/interaction-refresh.js";
 import { loadGame, saveGame } from "./core/save.js";
 import { createGameState, validateGameState } from "./game/state.js";
 import { buildCountryDossier } from "./game/country-dossier.js";
-import { isNonStateHistoricalRegion } from "./world/historical-boundaries.js";
-import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
+import { resolveCountryInsignia } from "./game/country-insignia.js";
+import { isNonStateHistoricalRegion, territoriesToSharedBoundaries } from "./world/historical-boundaries.js";
+import { renderWorldMap, buildTerritoryLabels, frenchTerritoryName, territoryName, filterSmallIslandComponents, filterMajorLakeFeatures } from "./world/map-renderer.js";
+import { createMapLabelHitIndex, findMapLabelHitAtPoint } from "./world/map-label-hit-testing.js";
+import { getMapTooltipPosition, getMapTooltipDescriptor } from "./world/map-tooltip-layout.js";
 import { prefetchGeoSpatialFeatures } from "./world/geo-spatial-index.js";
-import { constrainEquirectangularViewport } from "./world/projection.js";
-import { sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
+import { zoomEquirectangularViewportAtPoint, panEquirectangularViewport } from "./world/projection.js";
+import { shouldStartMapPointerGesture, shouldHandleMapPointerGesture, getMapPointerGestureEndState } from "./world/map-pointer-gesture.js";
+import { fitMapFrame, coverMapFrame, sceneRenderParams, composeRects, shouldRecenterScene, snapSceneViewportCenter } from "./world/scene-compose.js";
 import { createTerrainGrid, prepareTerrainHillshade } from "./world/terrain.js";
+import { createTerrainTileStore } from "./world/terrain-tiles.js";
+import { getTerrainWebGLTileStats } from "./world/terrain-webgl.js";
+import { calculateZoomTilePlan } from "./world/terrain-preload-worker.js";
+import { createTerrainPreloadCoordinator } from "./world/terrain-preload-client.js";
+import { createTerrainTilePersistence } from "./world/terrain-tile-storage.js";
+import { createGeographicWebGLRenderer } from "./world/geographic-webgl-renderer.js";
+import { createWebGLContextLifecycle, getCanvasBackingSize } from "./world/webgl-context-lifecycle.js";
 import { buildPhysicalCellsFromTerrainGrid, createPhysicalWorld, applyPhysicalEvent, refinePhysicalWorldForImpact, expirePhysicalSurfaceEffects } from "./world/physical-geography.js";
-import { loadPoliticalBoundaries, loadAdministrativeBoundaries, loadAdministrativeRegions } from "./world/historical-boundaries.js";
-import { loadOptionalGeoJson, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_LAND_DATA_PATH, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+import { loadPoliticalBoundaries } from "./world/historical-boundaries.js";
+import { getMapQualityProfile } from "./world/map-quality-profile.js";
+import { createMapBenchmarkCollector } from "./world/map-benchmark.js";
+import { getCartographicTheme } from "./world/cartographic-style.js";
+import { createDateScopedExpiry } from "./core/date-scoped-expiry.js";
+import { shouldRenderMapAfterClockAdvance } from "./core/simulation-frame-policy.js";
+import { loadOptionalGeoJson, loadAlignedRegionalMapData, fetchMapAsset, downloadFullMapPack, getMapPackStatus, purgeObsoleteLakeCaches, REGIONAL_RIVERS_DATA_PATH, REGIONAL_LABELS_DATA_PATH, selectMapLayerDetailLevel, selectAlignedLandDetailLevel, getRegionalWarmupProfile } from "./world/map-lod.js";
+
+const mapBenchmarkCollector = createMapBenchmarkCollector();
+
+// Expose le collecteur pour les sessions de mesure manuelles depuis DevTools.
+// Les échantillons ne sont enregistrés qu'à la fin d'un rendu cartographique.
+if (typeof window !== "undefined") {
+  window.collectMapBenchmark = options => mapBenchmarkCollector.start(options);
+  window.exportMapBenchmark = options => mapBenchmarkCollector.exportResults(options);
+  window.clearMapBenchmark = () => mapBenchmarkCollector.clear();
+  // Audit manuel des géométries réellement sélectionnées par le dernier rendu.
+  window.auditLoadedCoastlineAlignment = options => {
+    const layers = activeCoastlineAuditLayers ?? {
+      land: worldFeatures,
+      territories: territoryFeatures,
+      level: "base",
+      zoom: null
+    };
+    return auditLoadedCoastlineAlignment(layers.land, layers.territories, {
+      ...options,
+      dataset: { level: layers.level, zoom: layers.zoom }
+    });
+  };
+}
+const createLandLodWorker = () => typeof Worker === "function"
+  ? new Worker(new URL("./world/geometry-generalization-worker.js", import.meta.url), { type: "module" })
+  : null;
 
 let state = createGameState();
 let interval = null;
 let worldFeatures = null;
+let worldSourceFeatures = null;
+let worldLandLod = null;
 let lakeFeatures = null;
 let riverFeatures = null;
 let glacierFeatures = null;
 let elevationPoints = null;
 let mapLabels = null;
 let politicalBoundaryFeatures = null;
-let administrativeBoundaryFeatures = null;
 let territoryFeatures = null;
+let activeCoastlineAuditLayers = null;
+let territoryLandLod = null;
+let cachedBoundaryTerritorySource = null;
+let cachedBoundaryLodCollection = null;
 let territoryLabelFeatures = null;
 let previewCountry = "";
 let playerCountry = "";
@@ -38,14 +90,26 @@ let boundaryRequestedKey = null;
 let boundaryLoadPromise = null;
 let boundarySourceLabel = "frontières en attente";
 let terrainGrid = null;
-let regionalLandFeatures = null;
-let regionalLandLoadPromise = null;
-let regionalLandLoadAttempted = false;
+let terrainTileStore = null;
+let terrainTilePersistence = null;
+let terrainPreloadCoordinator = null;
+let lastTerrainStorePreloadKey = null;
+let geographicWebGLRenderer = null;
+let geographicWebGLRendererUnavailable = false;
+let geographicWebGLSurface = null;
+let geographicWebGLLifecycle = null;
 let regionalRiverFeatures = null;
 let regionalLabelFeatures = null;
+let regionalLandFeatures = null;
+let regionalTerritoryFeatures = null;
+let regionalLandLod = null;
+let regionalTerritoryLod = null;
+let regionalPoliticalPairLoadAttempted = false;
 let regionalRiverLoadAttempted = false;
 let regionalLabelLoadAttempted = false;
 let mapLabelHits = [];
+let mapLabelHitIndex = null;
+let mapTooltipDescriptorKey = null;
 let mapRenderFrame = null;
 let mapPrefetchHandle = null;
 let mapPrefetchUsesIdleCallback = false;
@@ -57,7 +121,25 @@ let interactionPreviewTimer = null;
 let interactionRenderAllowed = false;
 let lastDragMoved = false;
 let mapInteractionActive = false;
+let landLodWarmupHandle = null;
+let landLodWarmupUsesIdleCallback = false;
+let landLodWarmupToken = 0;
+let lastLandLodWarmupZoom = null;
+let landLodWarmupScheduled = false;
+let landLodWarmupRunningToken = null;
+let landLodWarmupCompleted = 0;
+const landLodWarmupDiagnostics = { scheduled: 0, started: 0, completed: 0, generated: 0, cancelled: 0, failed: 0 };
+let landLodCrossfadeSkippedForMemory = 0;
 const sceneCanvas = document.createElement("canvas");
+const previousSceneCanvas = document.createElement("canvas");
+let previousSceneViewport = null;
+let previousSceneSize = null;
+let sceneLandDetailLevel = null;
+let pendingLandLodTransition = false;
+let landLodTransitionStartedAt = 0;
+let landLodTransitionFrame = null;
+const LAND_LOD_CROSSFADE_MS = 220;
+const LAND_LOD_CROSSFADE_MAX_BYTES = 48 * 1024 * 1024;
 let sceneViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let sceneSize = { w: 0, h: 0, f: 1 };
 let sceneOcean = "#10232c";
@@ -76,16 +158,30 @@ let mapTileWorkerLayers = null;
 let mapTileWorkerQueue = [];
 let mapTileWorkerPending = new Map();
 let mapTileWorkerSequence = 0;
+const MAP_TILE_WORKER_REQUEST_TIMEOUT_MS = 20000;
+const mapTileWorkerRequestTimers = new Map();
+let mapTileWorkerReadyTimer = null;
 const mapTileFadeStarts = new Map();
 let mapTileFadeFrame = null;
-const mapTileCache = createMapTileCache({ maxBytes: 64 * 1024 * 1024, maxEntries: 192 });
+const MAP_TILE_LAYER_KEYS = ["land", "lakes", "rivers", "glaciers", "elevationPoints", "terrain"];
+const MAP_TILE_HORIZONTAL_OFFSETS = [-1, 0, 1];
+const mapTileResourceProfile = getMapTileResourceProfile({
+  deviceMemory: globalThis.navigator?.deviceMemory,
+  hardwareConcurrency: globalThis.navigator?.hardwareConcurrency
+});
+const mapTileCache = createMapTileCache({
+  maxBytes: mapTileResourceProfile.maxBytes,
+  maxEntries: mapTileResourceProfile.maxEntries,
+  onEvict: key => mapTileFadeStarts.delete(key)
+});
 let sceneRecenterPending = false;
 let lastSceneRecenterAt = 0;
 const OVERSCAN = 1.4;
 // Le rendu cartographique est volontairement plafonné à 1,25× : sur les écrans
 // Retina, cela réduit fortement le nombre de pixels à composer sans dégrader
 // sensiblement la lecture à l'échelle normale.
-const MAP_PIXEL_RATIO = Math.min(1.25, Math.max(1, Number(globalThis.devicePixelRatio) || 1));
+const MAP_QUALITY_PROFILE = getMapQualityProfile();
+const MAP_PIXEL_RATIO = MAP_QUALITY_PROFILE.pixelRatio;
 let combinedLabelSources = { base: null, territories: null, collection: null };
 function getCombinedLabelCollection(base, territories) {
   if (combinedLabelSources.base !== base || combinedLabelSources.territories !== territories) {
@@ -99,17 +195,25 @@ function getCombinedLabelCollection(base, territories) {
 let activeGeoEventMode = null;
 const mapViewport = { zoom: 1, centerLongitude: 0, centerLatitude: 0 };
 let mapDrag = null;
+let activeMapPointerId = null;
 let mapCanvas = null;
 function viewSize() {
   const frame = mapCanvas?.parentElement;
   const availableWidth = frame?.clientWidth || mapCanvas?.clientWidth || 960;
   const availableHeight = frame?.clientHeight || availableWidth * 0.5;
-  const width = Math.max(1, Math.floor(Math.min(availableWidth, availableHeight * 2)));
-  return { width, height: Math.max(1, Math.round(width * 0.5)) };
+  // À l'échelle monde, conserver le planisphère entier. Dès le zoom,
+  // couvrir le cadre en débordant sur son axe long : aucune bande résiduelle
+  // et aucune déformation de la projection (le cadre masque le débordement).
+  return mapViewport.zoom > 1.001
+    ? coverMapFrame(availableWidth, availableHeight, 2)
+    : fitMapFrame(availableWidth, availableHeight, 2);
 }
 const MIN_MAP_ZOOM = 1;
 const MAX_MAP_ZOOM = 20;
 const $ = (id) => document.getElementById(id);
+let lastThemeYear = null;
+let cachedYearButtons = null;
+let cachedSpeedButtons = null;
 let initialLoadingFinished=false;
 let loadingProgressValue=5,loadingProgressTarget=5,loadingAnimationFrame=null;
 let mapWarmupPromise=null,mapIndexWarmupStarted=false;
@@ -151,7 +255,10 @@ function startMapWarmup(){
 function scheduleMapIndexWarmup(){
   if(mapIndexWarmupStarted)return;
   mapIndexWarmupStarted=true;
-  const collections=[worldFeatures,lakeFeatures,riverFeatures,mapLabels,territoryFeatures].filter(collection=>collection?.features?.length);
+  const collections = [];
+  for (const collection of [worldFeatures, lakeFeatures, riverFeatures, mapLabels, territoryFeatures]) {
+    if (collection?.features?.length) collections.push(collection);
+  }
   let cursor=0;
   const idle=deadline=>{
     let didWork=false;
@@ -186,6 +293,42 @@ function failInitialLoading(error){
   $("loading-retry").addEventListener("click",()=>location.reload(),{once:true});
 }
 
+function getGeographicWebGLRenderer() {
+  if (geographicWebGLRenderer || geographicWebGLRendererUnavailable) return geographicWebGLRenderer;
+  try {
+    const surface = geographicWebGLSurface ?? document.createElement("canvas");
+    geographicWebGLSurface = surface;
+    if (!geographicWebGLLifecycle) {
+      geographicWebGLLifecycle = createWebGLContextLifecycle(surface, {
+        onLost: () => {
+          geographicWebGLRenderer = null;
+          geographicWebGLRendererUnavailable = true;
+          requestCompose();
+        },
+        onRestored: () => {
+          geographicWebGLRenderer = null;
+          geographicWebGLRendererUnavailable = false;
+          renderMap();
+        }
+      });
+    }
+    if (!geographicWebGLLifecycle.canRender()) return null;
+    const gl = surface.getContext("webgl", {
+      alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true
+    });
+    if (!gl) {
+      geographicWebGLRendererUnavailable = true;
+      return null;
+    }
+    geographicWebGLRenderer = createGeographicWebGLRenderer(gl);
+    if (!geographicWebGLRenderer) geographicWebGLRendererUnavailable = true;
+  } catch (error) {
+    geographicWebGLRendererUnavailable = true;
+    console.info("Renderer géographique WebGL indisponible : rendu Canvas conservé.", error);
+  }
+  return geographicWebGLRenderer;
+}
+
 function updateMapControls() {
   $("map-zoom-level").textContent = Math.round(mapViewport.zoom * 100) + " %";
   $("map-zoom-out").disabled = mapViewport.zoom <= MIN_MAP_ZOOM;
@@ -197,17 +340,13 @@ function zoomMap(factor, anchorX, anchorY, shouldRender = true, rectOverride = n
   const rect = rectOverride ?? canvas.getBoundingClientRect();
   const x = anchorX ?? rect.width / 2;
   const y = anchorY ?? rect.height / 2;
-  const ratioX = rect.width ? x / rect.width - 0.5 : 0;
-  const ratioY = rect.height ? y / rect.height - 0.5 : 0;
-  const oldZoom = mapViewport.zoom;
-  const newZoom = Math.min(MAX_MAP_ZOOM, Math.max(MIN_MAP_ZOOM, oldZoom * factor));
-  if (newZoom === oldZoom) return;
-  const longitudeAtAnchor = mapViewport.centerLongitude + ratioX * 360 / oldZoom;
-  const latitudeAtAnchor = mapViewport.centerLatitude - ratioY * 180 / oldZoom;
-  mapViewport.zoom = newZoom;
-  mapViewport.centerLongitude = longitudeAtAnchor - ratioX * 360 / newZoom;
-  mapViewport.centerLatitude = latitudeAtAnchor + ratioY * 180 / newZoom;
-  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
+  const nextViewport = zoomEquirectangularViewportAtPoint(
+    mapViewport, factor, x, y, rect.width, rect.height, MAX_MAP_ZOOM
+  );
+  if (nextViewport.zoom === mapViewport.zoom
+    && nextViewport.centerLongitude === mapViewport.centerLongitude
+    && nextViewport.centerLatitude === mapViewport.centerLatitude) return;
+  Object.assign(mapViewport, nextViewport);
   if (shouldRender) renderMap();
   updateMapControls();
 }
@@ -226,8 +365,9 @@ function resetMapView() {
   updateMapControls();
 }
 
+const expirePhysicalWorldForDate = createDateScopedExpiry(expirePhysicalSurfaceEffects);
 function renderMap() {
-  if (state.physicalWorld) state.physicalWorld = expirePhysicalSurfaceEffects(state.physicalWorld, state.clock.date);
+  if (state.physicalWorld) state.physicalWorld = expirePhysicalWorldForDate(state.physicalWorld, state.clock.date);
   if (!worldFeatures || mapRenderFrame !== null) return;
   mapRenderFrame = requestAnimationFrame(() => {
     mapRenderFrame = null;
@@ -256,7 +396,7 @@ function scheduleMapPrefetch(collections) {
   lastMapPrefetchViewport = { ...mapViewport };
   // Pyramide de tuiles avec marge et priorité directionnelle. Les index GeoJSON
   // existants restent le moteur de sélection pendant cette étape de transition.
-  const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: 48 });
+  const tilePlan = getMapTilePyramidPlan(mapViewport, { previousViewport: previous, overscan: 1.6, maxTiles: mapTileResourceProfile.maxPlannedTiles });
   lastMapTilePlan = tilePlan;
   requestMapPhysicalTiles(tilePlan, { land: collections[0], lakes: collections[1], rivers: collections[2], glaciers: glacierFeatures, elevationPoints, terrain: terrainGrid });
   if (mapViewport.zoom <= 1.001) return;
@@ -305,21 +445,60 @@ function animateMapTileRefinements() {
   mapTileFadeFrame = requestAnimationFrame(tick);
 }
 
+function clearMapTileWorkerRequestTimer(key) {
+  const timer = mapTileWorkerRequestTimers.get(key);
+  if (timer !== undefined) clearTimeout(timer);
+  mapTileWorkerRequestTimers.delete(key);
+}
+
+function recoverMapTileWorker(worker, reason) {
+  if (!worker || mapTileWorker !== worker) return;
+  console.warn("Worker de tuiles redémarré ; reprise du plan visible.", reason);
+  try { worker.terminate(); } catch {}
+  mapTileWorker = null;
+  mapTileWorkerReady = false;
+  mapTileWorkerLayers = null;
+  if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+  mapTileWorkerReadyTimer = null;
+  for (const timer of mapTileWorkerRequestTimers.values()) clearTimeout(timer);
+  mapTileWorkerRequestTimers.clear();
+  mapTileWorkerPending.clear();
+  mapTileWorkerQueue = reconcileMapTileWorkQueue(
+    lastMapTilePlan?.tiles,
+    [],
+    key => mapTileCache.has(key),
+    () => false
+  );
+  requestCompose();
+}
+
 function pumpMapTileWorkerQueue() {
-  if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= 2) return;
-  while (mapTileWorkerQueue.length) {
-    const tile = mapTileWorkerQueue.shift();
+  if (!mapTileWorker || !mapTileWorkerReady || mapTileWorkerPending.size >= mapTileResourceProfile.workerConcurrency) return;
+  while (hasMapTileWork(mapTileWorkerQueue) && mapTileWorkerPending.size < mapTileResourceProfile.workerConcurrency) {
+    const tile = takeNextMapTileWork(
+      mapTileWorkerQueue,
+      key => mapTileCache.has(key),
+      key => mapTileWorkerPending.has(key)
+    );
+    if (!tile) break;
     const key = tile.key;
-    if (mapTileCache.get(key) || mapTileWorkerPending.has(key)) continue;
     const requestId = ++mapTileWorkerSequence;
+    const worker = mapTileWorker;
     mapTileWorkerPending.set(key, requestId);
+    const timer = setTimeout(() => {
+      if (mapTileWorker === worker && mapTileWorkerPending.get(key) === requestId) {
+        recoverMapTileWorker(worker, new Error("Délai de rendu d'une tuile dépassé"));
+      }
+    }, MAP_TILE_WORKER_REQUEST_TIMEOUT_MS);
+    mapTileWorkerRequestTimers.set(key, timer);
     try {
-      mapTileWorker.postMessage({ type: "render-tile", requestId, tile });
+      worker.postMessage({ type: "render-tile", requestId, tile });
     } catch (error) {
+      clearMapTileWorkerRequestTimer(key);
       mapTileWorkerPending.delete(key);
-      console.warn("Préparation de tuile impossible :", error);
+      recoverMapTileWorker(worker, error);
+      break;
     }
-    if (mapTileWorkerPending.size >= 2) break;
   }
 }
 
@@ -327,39 +506,46 @@ function requestMapPhysicalTiles(plan, layers) {
   if (typeof Worker !== "function" || typeof OffscreenCanvas !== "function" || !layers?.land?.features) return;
   try {
     if (!mapTileWorker) {
-      mapTileWorker = new Worker(new URL("./world/map-tile-worker.js", import.meta.url), { type: "module" });
-      mapTileWorker.addEventListener("message", event => {
+      const worker = new Worker(new URL("./world/map-tile-worker.js", import.meta.url), { type: "module" });
+      mapTileWorker = worker;
+      worker.addEventListener("message", event => {
+        if (mapTileWorker !== worker) {
+          event.data?.bitmap?.close?.();
+          return;
+        }
         const message = event.data ?? {};
         if (message.type === "ready") {
+          if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+          mapTileWorkerReadyTimer = null;
           mapTileWorkerReady = true;
           pumpMapTileWorkerQueue();
           return;
         }
-        if (message.type === "tile-ready") {
-          mapTileWorkerPending.delete(message.tile?.key);
-          if (message.bitmap) {
-            mapTileCache.set(message.tile.key, message.bitmap);
-            mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
-            requestCompose();
-            animateMapTileRefinements();
+        if (message.type === "tile-ready" || message.type === "tile-error") {
+          if (!releaseMapTileWorkerReply(message, mapTileWorkerPending)) {
+            message.bitmap?.close?.();
+            return;
+          }
+          clearMapTileWorkerRequestTimer(message.tile.key);
+          if (message.type === "tile-ready" && message.bitmap) {
+            const cached = mapTileCache.set(message.tile.key, message.bitmap);
+            if (cached && isMapTileRelevantToPlan(message.tile.key, lastMapTilePlan)) {
+              mapTileFadeStarts.set(message.tile.key, globalThis.performance?.now?.() ?? Date.now());
+              requestCompose();
+              animateMapTileRefinements();
+            }
+          } else if (message.type === "tile-error") {
+            console.info("Tuile physique non disponible :", message.error);
           }
           pumpMapTileWorkerQueue();
-          return;
-        }
-        if (message.type === "tile-error") {
-          mapTileWorkerPending.delete(message.tile?.key);
-          console.info("Tuile physique non disponible :", message.error);
-          pumpMapTileWorkerQueue();
         }
       });
-      mapTileWorker.addEventListener("error", error => {
-        console.warn("Worker de tuiles indisponible ; le rendu de scène classique reste actif.", error);
-        mapTileWorker.terminate();
-        mapTileWorker = null;
-        mapTileWorkerReady = false;
-        mapTileWorkerPending.clear();
-        mapTileWorkerQueue = [];
-      });
+      const onWorkerFailure = error => recoverMapTileWorker(worker, error);
+      worker.addEventListener("error", onWorkerFailure);
+      worker.addEventListener("messageerror", onWorkerFailure);
+      mapTileWorkerReadyTimer = setTimeout(() => {
+        recoverMapTileWorker(worker, new Error("Le worker de tuiles n'a pas confirmé son initialisation"));
+      }, MAP_TILE_WORKER_REQUEST_TIMEOUT_MS);
     }
     const nextLayers = {
       land: layers.land,
@@ -369,15 +555,28 @@ function requestMapPhysicalTiles(plan, layers) {
       elevationPoints: layers.elevationPoints,
       terrain: layers.terrain
     };
-    const changed = !mapTileWorkerLayers || Object.keys(nextLayers).some(key => mapTileWorkerLayers[key] !== nextLayers[key]);
+    let changed = !mapTileWorkerLayers;
+    if (!changed) {
+      for (const key of MAP_TILE_LAYER_KEYS) {
+        if (mapTileWorkerLayers[key] !== nextLayers[key]) { changed = true; break; }
+      }
+    }
     if (changed) {
       mapTileWorkerLayers = nextLayers;
       mapTileWorker.postMessage({ type: "init", layers: nextLayers });
     }
-    mapTileWorkerQueue = (plan?.tiles ?? []).filter(tile => !mapTileCache.get(tile.key) && !mapTileWorkerPending.has(tile.key));
+    // Le plan est déjà ordonné du centre vers la périphérie : il devient
+    // l'unique source de priorité et remplace les travaux en attente obsolètes.
+    mapTileWorkerQueue = reconcileMapTileWorkQueue(
+      plan?.tiles,
+      mapTileWorkerQueue,
+      key => mapTileCache.has(key),
+      key => mapTileWorkerPending.has(key)
+    );
     pumpMapTileWorkerQueue();
   } catch (error) {
-    console.warn("Initialisation du moteur de tuiles impossible :", error);
+    if (mapTileWorker) recoverMapTileWorker(mapTileWorker, error);
+    else console.warn("Initialisation du moteur de tuiles impossible :", error);
   }
 }
 
@@ -400,12 +599,15 @@ function drawMapTileFallbacks(context, width, height, composition) {
     const rect = getMapTileScreenRect(tile, mapViewport, width, height);
     const period = width * mapViewport.zoom;
     const startedAt = mapTileFadeStarts.get(tile.key);
-    const hasParent = tile.ancestors?.some(parent => mapTileCache.has(parent.key)) ?? false;
+    let hasParent = false;
+    for (const parent of tile.ancestors ?? []) {
+      if (mapTileCache.has(parent.key)) { hasParent = true; break; }
+    }
     const alpha = startedAt !== undefined && hasParent
       ? Math.max(0, Math.min(1, (now - startedAt) / 180))
       : 1;
-    for (const offset of [-period, 0, period]) {
-      const x = rect.x + offset;
+    for (const multiplier of MAP_TILE_HORIZONTAL_OFFSETS) {
+      const x = rect.x + multiplier * period;
       if (x + rect.width < 0 || x > width) continue;
       context.globalAlpha = alpha;
       context.drawImage(bitmap, x, rect.y, rect.width, rect.height);
@@ -419,6 +621,8 @@ function updateMapDiagnostics(result) {
   const layers = $("map-perf-layers");
   if (!total || !layers) return;
   total.textContent = (result.totalRenderMs ?? 0).toFixed(1) + " ms";
+  const mapCanvas = $("world-map");
+  if (mapCanvas?.dataset) mapCanvas.dataset.terrainRenderer = result.terrainRenderer ?? "canvas2d";
   const labels = {
     "relief-base": "Relief de base", "terres-et-cotes": "Terres et côtes",
     territoires: "Territoires", "ombrage-multidirectionnel": "Ombrage du relief",
@@ -426,14 +630,18 @@ function updateMapDiagnostics(result) {
     "frontieres-politiques": "Frontières politiques",
     "frontieres-administratives": "Frontières administratives", etiquettes: "Étiquettes"
   };
-  layers.replaceChildren(...Object.entries(result.renderTimings ?? {}).map(([key, value]) => {
+  const fragments = document.createDocumentFragment();
+  for (const key in (result.renderTimings ?? {})) {
+    if (!Object.hasOwn(result.renderTimings, key)) continue;
     const item = document.createElement("span");
-    item.textContent = (labels[key] ?? key) + " : " + value.toFixed(1) + " ms";
-    return item;
-  }));
+    item.textContent = (labels[key] ?? key) + " : " + result.renderTimings[key].toFixed(1) + " ms";
+    fragments.append(item);
+  }
+  layers.replaceChildren(fragments);
 }
 
 const MAP_WORKER_LAYER_FAMILIES = ["physical", "political", "dynamic"];
+let mapRenderWorkerTerrainFallbackLogged = false;
 function getMapRenderWorker() {
   if (mapRenderWorkerDisabled || typeof Worker !== "function" || typeof OffscreenCanvas !== "function") return null;
   if (mapRenderWorker) return mapRenderWorker;
@@ -511,9 +719,25 @@ function dispatchMapWorkerRender(job) {
     lakes, rivers, glaciers, elevationPoints, labels, territories, physicalWorld,
     politicalBoundaries, administrativeBoundaries, terrain, ...options
   } = job.options;
+  // Ces services sont des objets vivants du thread principal : le store de
+  // tuiles expose des méthodes (getTile/getTileAt) et le renderer WebGL détient
+  // un contexte GPU. Ni l'un ni l'autre ne doit entrer dans structured clone.
+  // Le rendu local les conserve intégralement ; surtout, ne désactivons pas le
+  // Worker pour une limite de transfert attendue.
+  const requiresMainThreadServices = Boolean(job.options.terrainTileStore || job.options.geographicWebGLRenderer);
+  if (requiresMainThreadServices) {
+    if (!mapRenderWorkerTerrainFallbackLogged) {
+      console.info("Rendu cartographique local conservé : les services de terrain/WebGL restent attachés au thread principal.");
+      mapRenderWorkerTerrainFallbackLogged = true;
+    }
+    job.onFallback();
+    return;
+  }
   try {
     mapRenderWorker.postMessage({ id: job.id, familyUpdates, options });
-    for (const family of Object.keys(familyUpdates)) mapRenderWorkerLayerRefs[family] = job.families[family];
+    for (const family in familyUpdates) {
+      if (Object.hasOwn(familyUpdates, family)) mapRenderWorkerLayerRefs[family] = job.families[family];
+    }
     mapRenderWorkerBusy = true;
     mapRenderWorkerActive = job;
   } catch (error) {
@@ -541,21 +765,176 @@ function renderMapOffThread(land, options, onDone, onFallback) {
   else dispatchMapWorkerRender(job);
   return true;
 }
+function prepareLandLodTransition(nextLevel) {
+  pendingLandLodTransition = Boolean(sceneReady && sceneLandDetailLevel && nextLevel !== sceneLandDetailLevel);
+  if (!pendingLandLodTransition || !sceneCanvas.width || !sceneCanvas.height) return false;
+  const estimatedBytes = sceneCanvas.width * sceneCanvas.height * 4;
+  const memoryBudget = Number(globalThis.navigator?.deviceMemory) > 0 && Number(globalThis.navigator.deviceMemory) <= 4
+    ? LAND_LOD_CROSSFADE_MAX_BYTES / 2
+    : LAND_LOD_CROSSFADE_MAX_BYTES;
+  if (estimatedBytes > memoryBudget) {
+    pendingLandLodTransition = false;
+    landLodCrossfadeSkippedForMemory += 1;
+    return false;
+  }
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  landLodTransitionFrame = null;
+  previousSceneCanvas.width = 1;
+  previousSceneCanvas.height = 1;
+  previousSceneViewport = null;
+  previousSceneSize = null;
+  previousSceneCanvas.width = sceneCanvas.width;
+  previousSceneCanvas.height = sceneCanvas.height;
+  const previousContext = previousSceneCanvas.getContext("2d");
+  if (!previousContext) {
+    pendingLandLodTransition = false;
+    return false;
+  }
+  previousContext.clearRect(0, 0, previousSceneCanvas.width, previousSceneCanvas.height);
+  previousContext.drawImage(sceneCanvas, 0, 0);
+  previousSceneViewport = { ...sceneViewport };
+  previousSceneSize = { ...sceneSize };
+  return true;
+}
+
+function animateLandLodTransition() {
+  if (landLodTransitionFrame !== null) cancelAnimationFrame(landLodTransitionFrame);
+  const tick = now => {
+    landLodTransitionFrame = null;
+    if (!previousSceneCanvas.width || !previousSceneCanvas.height) return;
+    if (now - landLodTransitionStartedAt < LAND_LOD_CROSSFADE_MS) {
+      requestCompose();
+      landLodTransitionFrame = requestAnimationFrame(tick);
+      return;
+    }
+    previousSceneCanvas.width = 1;
+    previousSceneCanvas.height = 1;
+    previousSceneViewport = null;
+    previousSceneSize = null;
+    requestCompose();
+  };
+  landLodTransitionFrame = requestAnimationFrame(tick);
+}
+
+function cancelLandLodWarmup() {
+  landLodWarmupToken += 1;
+  if (landLodWarmupHandle !== null || landLodWarmupRunningToken !== null) {
+    landLodWarmupDiagnostics.cancelled += 1;
+  }
+  landLodWarmupRunningToken = null;
+  landLodWarmupScheduled = false;
+  if (landLodWarmupHandle === null) return;
+  if (landLodWarmupUsesIdleCallback && typeof cancelIdleCallback === "function") cancelIdleCallback(landLodWarmupHandle);
+  else clearTimeout(landLodWarmupHandle);
+  landLodWarmupHandle = null;
+}
+
+function scheduleLandLodWarmup(lodSet, zoom) {
+  cancelLandLodWarmup();
+  landLodWarmupScheduled = false;
+  if (!lodSet?.getAdjacentZoom || (!lodSet.prepareAdjacentAsync && !lodSet.prepareAdjacent) || mapInteractionActive) return;
+  const previousZoom = lastLandLodWarmupZoom;
+  const direction = previousZoom === null || zoom >= previousZoom ? 1 : -1;
+  lastLandLodWarmupZoom = zoom;
+  const targetZoom = lodSet.getAdjacentZoom?.(zoom, direction);
+  if ((targetZoom === null || targetZoom === undefined) && !lodSet.prepareZoomAsync) return;
+  const token = landLodWarmupToken;
+  const run = deadline => {
+    landLodWarmupHandle = null;
+    if (token !== landLodWarmupToken) return;
+    if (mapInteractionActive) {
+      landLodWarmupScheduled = false;
+      return;
+    }
+    if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 8) {
+      landLodWarmupUsesIdleCallback = true;
+      landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+      return;
+    }
+    landLodWarmupDiagnostics.started += 1;
+    landLodWarmupRunningToken = token;
+    const startedAt = globalThis.performance?.now?.() ?? Date.now();
+    const prepareCurrent = lodSet.prepareZoomAsync
+      ? lodSet.prepareZoomAsync(zoom)
+      : Promise.resolve(false);
+    let currentGenerated = false;
+    Promise.resolve(prepareCurrent).then(result => {
+      if (token !== landLodWarmupToken) return false;
+      currentGenerated = Boolean(result);
+      // Ne pas relancer renderMap ici : il invaliderait le jeton du préchauffage
+      // avant que le niveau adjacent ait pu être préparé et comptabilisé.
+      if (lodSet.prepareAdjacentAsync && targetZoom !== null && targetZoom !== undefined) {
+        return lodSet.prepareAdjacentAsync(zoom, direction);
+      }
+      return false;
+    }).then(adjacentGenerated => {
+      if (token !== landLodWarmupToken) return;
+      const generatedCount = Number(currentGenerated) + Number(Boolean(adjacentGenerated));
+      landLodWarmupCompleted += generatedCount;
+      landLodWarmupDiagnostics.completed += 1;
+      landLodWarmupDiagnostics.generated += generatedCount;
+      landLodWarmupRunningToken = null;
+      landLodWarmupScheduled = false;
+      const elapsed = (globalThis.performance?.now?.() ?? Date.now()) - startedAt;
+      if (elapsed > 24) console.info("Préparation LOD asynchrone :", elapsed.toFixed(1), "ms");
+      if (generatedCount > 0 && !mapInteractionActive) {
+        lastRenderedMapSignature = null;
+        renderMap();
+      }
+    }).catch(error => {
+      if (token !== landLodWarmupToken) return;
+      landLodWarmupRunningToken = null;
+      landLodWarmupScheduled = false;
+      landLodWarmupDiagnostics.failed += 1;
+      console.warn("Préparation LOD impossible :", error);
+    });
+  };
+  landLodWarmupScheduled = true;
+  landLodWarmupDiagnostics.scheduled += 1;
+  if (typeof requestIdleCallback === "function") {
+    landLodWarmupUsesIdleCallback = true;
+    landLodWarmupHandle = requestIdleCallback(run, { timeout: 1200 });
+  } else {
+    landLodWarmupUsesIdleCallback = false;
+    landLodWarmupHandle = setTimeout(() => run(null), 240);
+  }
+}
+
 function completeMapRender(result, context) {
   if (!result) return;
+  const shouldCrossfadeLandLod = Boolean(context.landLodTransition && pendingLandLodTransition && previousSceneCanvas.width > 1);
+  pendingLandLodTransition = false;
   sceneViewport = context.sceneViewport;
   sceneSize = context.sceneSize;
   sceneOcean = result.theme.colors.ocean;
   sceneLabelHits = result.labelHits ?? [];
   sceneReady = true;
+  sceneLandDetailLevel = context.landDetail?.level ?? sceneLandDetailLevel;
   sceneRecenterPending = false;
+  if (shouldCrossfadeLandLod) {
+    landLodTransitionStartedAt = globalThis.performance?.now?.() ?? Date.now();
+    animateLandLodTransition();
+  }
   requestCompose();
   updateMapDiagnostics(result);
+  scheduleLandLodWarmup(context.landLodSet, context.sceneViewport.zoom);
+  mapBenchmarkCollector.record({
+    ...result,
+    lodStats: context.landLodSet?.getStats?.(),
+    lodWarmupDiagnostics: { ...landLodWarmupDiagnostics, completedJobs: landLodWarmupCompleted },
+    lodTransitionMs: context.landLodTransition ? LAND_LOD_CROSSFADE_MS : 0,
+    lodCrossfadeBytes: context.landLodTransition ? previousSceneCanvas.width * previousSceneCanvas.height * 4 : 0,
+    lodWarmupScheduled: landLodWarmupScheduled
+  }, { geographicRendererMode: geographicWebGLRenderer ? "webgl" : "canvas", zoom: mapViewport.zoom, qualityProfile: MAP_QUALITY_PROFILE });
   if (territoryFeatures) completeInitialLoading();
   $("map-era").textContent = result.theme.label;
   const terrainStatus = result.terrainEnabled ? " · relief ETOPO actif" : " · relief ETOPO non installé";
-  const regionalLayerCount = [context.landDetail, context.riverDetail, context.labelDetail].filter(layer => layer.level === "regional-10m").length;
-  const fallbackLayerCount = [context.landDetail, context.riverDetail, context.labelDetail].filter(layer => layer.isFallback).length;
+  const regionalLayerCount = Number(context.landDetail.level === "regional-10m")
+    + Number(context.riverDetail.level === "regional-10m")
+    + Number(context.labelDetail.level === "regional-10m");
+  const fallbackLayerCount = Number(Boolean(context.landDetail.isFallback))
+    + Number(Boolean(context.riverDetail.isFallback))
+    + Number(Boolean(context.labelDetail.isFallback));
   const detailStatus = regionalLayerCount
     ? ` · ${regionalLayerCount}/3 couches régionales 1:10m${fallbackLayerCount ? ` (${fallbackLayerCount} en repli)` : ""}`
     : fallbackLayerCount ? " · données régionales absentes : fond mondial" : " · fond mondial";
@@ -565,72 +944,147 @@ function completeMapRender(result, context) {
 }
 
 function renderMapFrame() {
+  const year = Number(String(state.clock.date).slice(0, 4));
   // Un chargement régional ou une invalidation asynchrone ne doit jamais
   // lancer un rendu complet pendant que le joueur manipule la carte.
   if (!worldFeatures || (mapInteractionActive && !interactionRenderAllowed)) return;
   if (mapInteractionActive) interactionRenderAllowed = false;
   const regionalWarmup = getRegionalWarmupProfile(mapViewport.zoom);
-  if (regionalWarmup.land && !regionalLandFeatures && !regionalLandLoadAttempted) {
-    regionalLandLoadAttempted = true;
-    regionalLandLoadPromise = loadOptionalGeoJson(REGIONAL_LAND_DATA_PATH).then(features => {
-      regionalLandFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(features,100,false),0.0018);
-      if (features) {
-        lastRenderedMapSignature = null;
-        renderMap();
-      } else {
-        console.info("Fond régional Natural Earth absent : conservation du fond mondial.");
-      }
-    });
-  }
   // Les couches sont demandées selon leur utilité visuelle : les noms de villes
   // arrivent avant les détails physiques, les réseaux hydrographiques plus tard.
-  const activateRegionalLayer = (loader, assign, label) => loader.then(features => {
+  const activateRegionalLayer = (loader, assign, label, layer) => loader.then(features => {
     if (!features) return;
     assign(features);
+    if (!shouldRefreshRegionalLayer(layer, getRegionalWarmupProfile(mapViewport.zoom))) return;
     lastRenderedMapSignature = null;
     renderMap();
   }).catch(error => console.warn("Couche régionale " + label + " indisponible :", error));
+  if (year >= 2026 && regionalWarmup.land && !regionalPoliticalPairLoadAttempted) {
+    regionalPoliticalPairLoadAttempted = true;
+    loadAlignedRegionalMapData().then(pair => {
+      if (!pair) return;
+      // Les sommets côtiers présents dans les deux sources deviennent des ancres
+      // communes : les LOD indépendants ne peuvent plus supprimer un point d'un seul côté.
+      const regionalLandSource = filterSmallIslandComponents(pair.land, 100, false);
+      const regionalTerritorySource = filterSmallIslandComponents(pair.territories, 100, false);
+      const regionalSharedAnchors = collectSharedGeometryAnchors([regionalLandSource, regionalTerritorySource]);
+      regionalLandFeatures = simplifyGeoJsonCollection(regionalLandSource, 0.0008, regionalSharedAnchors);
+      regionalTerritoryFeatures = simplifyGeoJsonCollection(regionalTerritorySource, 0.0008, regionalSharedAnchors);
+      const regionalLodLevels = [
+        { maxZoom: 8, tolerance: 0.004 },
+        { maxZoom: 12, tolerance: 0.002 },
+        { maxZoom: 20, tolerance: 0.0008 }
+      ];
+      regionalLandLod = createGeoJsonLodSet(regionalLandFeatures, regionalLodLevels, 0.0008, { sharedAnchors: regionalSharedAnchors });
+      regionalTerritoryLod = createGeoJsonLodSet(regionalTerritoryFeatures, regionalLodLevels, 0.0008, { sharedAnchors: regionalSharedAnchors });
+      cachedBoundaryTerritorySource = null;
+      cachedBoundaryLodCollection = null;
+      lastRenderedMapSignature = null;
+      renderMap();
+    }).catch(error => console.warn("Couple terre/pays régional indisponible ; niveau mondial conservé.", error));
+  }
   if (regionalWarmup.labels && !regionalLabelLoadAttempted) {
     regionalLabelLoadAttempted = true;
-    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels");
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_LABELS_DATA_PATH), features => { regionalLabelFeatures = features; }, "labels", "labels");
   }
   if (regionalWarmup.rivers && !regionalRiverLoadAttempted) {
     regionalRiverLoadAttempted = true;
-    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières");
+    activateRegionalLayer(loadOptionalGeoJson(REGIONAL_RIVERS_DATA_PATH), features => { regionalRiverFeatures = simplifyGeoJsonCollection(features,0.0015); }, "rivières", "rivers");
   }
   const { width, height } = viewSize();
   const { f, Ws, Hs, renderViewport } = sceneRenderParams(mapViewport, width, height, OVERSCAN);
   const snappedSceneViewport = snapSceneViewportCenter(mapViewport, renderViewport.zoom);
   renderViewport.centerLongitude = snappedSceneViewport.centerLongitude;
   renderViewport.centerLatitude = snappedSceneViewport.centerLatitude;
-  const year = Number(String(state.clock.date).slice(0, 4));
-  const administrativeDetail = mapViewport.zoom >= 7 ? "regional" : "world";
-  const boundaryRequestKey = year + ":" + administrativeDetail;
+  if (terrainTileStore) {
+    const preloadKey = [renderViewport.zoom, renderViewport.centerLongitude, renderViewport.centerLatitude].join(":");
+    if (preloadKey !== lastTerrainStorePreloadKey) {
+      lastTerrainStorePreloadKey = preloadKey;
+      if (!terrainPreloadCoordinator) {
+        terrainPreloadCoordinator = createTerrainPreloadCoordinator({
+          calculate: calculateZoomTilePlan,
+          onWorkerError: error => console.info("Worker de préchargement du relief indisponible ; calcul local conservé.", error)
+        });
+      }
+      const preloadInput = {
+        width: terrainTileStore.width,
+        height: terrainTileStore.height,
+        tileSize: terrainTileStore.tileSize,
+        viewport: renderViewport,
+        zoomLevels: [renderViewport.zoom * 1.35, Math.max(1, renderViewport.zoom / 1.35)],
+        padding: 0.55
+      };
+      terrainPreloadCoordinator.request(preloadInput, (tileIds, requestId) => {
+        void terrainTileStore.preloadTileIds(tileIds, {
+          batchSize: 12,
+          shouldCancel: () => !terrainPreloadCoordinator?.isCurrent(requestId)
+        }).then(result => {
+          if (!terrainPreloadCoordinator?.isCurrent(requestId) || result.cancelled) return;
+          terrainTileStore.evictUnused(tileIds);
+        }).catch(error => {
+          console.info("Préchargement des tuiles de relief interrompu ; le rendu courant reste actif.", error);
+        });
+      }, error => console.warn("Planification des tuiles de relief impossible :", error));
+    }
+  }
+  const boundaryRequestKey = String(year);
   if (boundaryRequestedKey !== boundaryRequestKey && !boundaryLoadPromise) {
-    boundaryRequestedKey = boundaryRequestKey;
+    const requestedYear = boundaryRequestKey;
+    boundaryRequestedKey = requestedYear;
     boundaryLoadPromise = Promise.all([
-      loadPoliticalBoundaries(year),
-      loadAdministrativeBoundaries(year, mapViewport.zoom),
-      loadAdministrativeRegions(year).catch(error => {
-        console.warn("Noms des provinces indisponibles :", error);
-        return null;
-      })
-    ]).then(([political, administrative, administrativeRegions]) => {
-      politicalBoundaryFeatures = simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
-      territoryFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(political?.territories ?? null,100,true),0.0035);
+      loadPoliticalBoundaries(year)
+    ]).then(([political]) => {
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
+      // Les sommets côtiers exactement partagés entre le fond terrestre et les pays
+      // sont protégés dans les deux généralisations, y compris à chaque palier LOD.
+      const territorySourceFeatures = filterSmallIslandComponents(political?.territories ?? null, 100, false);
+      const sharedCoastAnchors = year >= 2026 && worldSourceFeatures
+        ? collectSharedGeometryAnchors([worldSourceFeatures, territorySourceFeatures])
+        : null;
+      territoryFeatures = simplifyGeoJsonCollection(territorySourceFeatures, 0.008, sharedCoastAnchors);
+      if (year >= 2026 && worldSourceFeatures) {
+        worldFeatures = simplifyGeoJsonCollection(worldSourceFeatures, 0.008, sharedCoastAnchors);
+        worldLandLod?.dispose?.();
+        worldLandLod = createGeoJsonLodSet(worldFeatures, [
+          { maxZoom: 1.8, tolerance: 0.04 },
+          { maxZoom: 3.5, tolerance: 0.02 },
+          { maxZoom: 6, tolerance: 0.008 }
+        ], 0.008, { createWorker: createLandLodWorker, sharedAnchors: sharedCoastAnchors });
+      }
+      territoryLandLod = createGeoJsonLodSet(territoryFeatures, [
+        { maxZoom: 1.8, tolerance: 0.04 },
+        { maxZoom: 3.5, tolerance: 0.02 },
+        { maxZoom: 6, tolerance: 0.008 }
+      ], 0.008, { sharedAnchors: sharedCoastAnchors });
+      cachedBoundaryTerritorySource = null;
+      cachedBoundaryLodCollection = null;
+      // Derive modern borders from the exact simplified polygon geometry used for fills.
+      // Historical boundary sources remain untouched.
+      politicalBoundaryFeatures = year >= 2026 && territoryFeatures
+        ? territoriesToSharedBoundaries(territoryFeatures)
+        : simplifyGeoJsonCollection(political?.collection ?? null,0.0035);
       populateCampaignCountries();
-      administrativeBoundaryFeatures = simplifyGeoJsonCollection(administrative,0.0045);
-      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures, administrativeRegions);
+      territoryLabelFeatures = buildTerritoryLabels(territoryFeatures);
       boundarySourceLabel = political?.sourceYear
         ? (political.exact ? String(political.sourceYear) : "≈ " + political.sourceYear)
         : "indisponible";
       lastRenderedMapSignature = null;
       renderMap();
     }).catch(error => {
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) return;
       console.warn("Couches de frontières indisponibles :", error);
       boundarySourceLabel = "indisponibles";
       failInitialLoading(error);
-    }).finally(() => { boundaryLoadPromise = null; });
+    }).finally(() => {
+      boundaryLoadPromise = null;
+      const currentYear = String(String(state.clock.date).slice(0, 4));
+      if (!isMapYearRequestCurrent(requestedYear, currentYear)) {
+        boundaryRequestedKey = null;
+        renderMap();
+      }
+    });
   }
   const signature = [
     width, height, year, state.physicalWorld?.revision ?? 0, mapViewport.zoom.toFixed(4),
@@ -644,7 +1098,35 @@ function renderMapFrame() {
     return;
   }
   lastRenderedMapSignature = signature;
-  const landDetail = selectMapLayerDetailLevel(mapViewport.zoom, worldFeatures, regionalLandFeatures, 6);
+  const selectedLandDetail = selectAlignedLandDetailLevel(
+    mapViewport.zoom, worldFeatures, regionalLandFeatures, regionalTerritoryFeatures, 6
+  );
+  const useRegionalPoliticalPair = year >= 2026 && selectedLandDetail.level === "regional-10m";
+  const landLod = useRegionalPoliticalPair ? regionalLandLod : worldLandLod;
+  cancelLandLodWarmup();
+  const landDetail = {
+    ...selectedLandDetail,
+    features: landLod ? landLod.getForZoom(mapViewport.zoom) : selectedLandDetail.features
+  };
+  // Les territoires et frontières modernes basculent avec le même couple de
+  // données et le même profil LOD que le fond terrestre.
+  const territoryDetailFeatures = useRegionalPoliticalPair
+    ? regionalTerritoryLod?.getForZoom(mapViewport.zoom) ?? regionalTerritoryFeatures
+    : territoryLandLod?.getForZoom(mapViewport.zoom) ?? territoryFeatures;
+  activeCoastlineAuditLayers = {
+    land: landDetail.features,
+    territories: territoryDetailFeatures,
+    level: useRegionalPoliticalPair ? "regional-10m" : "world-110m",
+    zoom: mapViewport.zoom
+  };
+  let renderPoliticalBoundaryFeatures = politicalBoundaryFeatures;
+  if (year >= 2026 && territoryDetailFeatures) {
+    if (cachedBoundaryTerritorySource !== territoryDetailFeatures) {
+      cachedBoundaryTerritorySource = territoryDetailFeatures;
+      cachedBoundaryLodCollection = territoriesToSharedBoundaries(territoryDetailFeatures);
+    }
+    renderPoliticalBoundaryFeatures = cachedBoundaryLodCollection ?? politicalBoundaryFeatures;
+  }
   const lakeDetail = selectMapLayerDetailLevel(mapViewport.zoom, lakeFeatures, null, Infinity);
   const riverDetail = selectMapLayerDetailLevel(mapViewport.zoom, riverFeatures, regionalRiverFeatures, 8);
   const labelDetail = selectMapLayerDetailLevel(mapViewport.zoom, mapLabels, regionalLabelFeatures, 4);
@@ -659,23 +1141,28 @@ function renderMapFrame() {
     glaciers: glacierFeatures,
     elevationPoints,
     labels: getCombinedLabelCollection(labelDetail.features, territoryLabelFeatures),
-    territories: territoryFeatures,
+    territories: territoryDetailFeatures,
     physicalWorld: state.physicalWorld,
     selectedCountry: playerCountry || previewCountry,
-    politicalBoundaries: politicalBoundaryFeatures,
-    administrativeBoundaries: administrativeBoundaryFeatures,
+    politicalBoundaries: renderPoliticalBoundaryFeatures,
+    administrativeBoundaries: null,
     terrain: terrainGrid,
+    terrainTileStore,
+    onTerrainTileReady: () => { lastRenderedMapSignature = null; renderMap(); },
+    geographicWebGLRenderer: getGeographicWebGLRenderer(),
     terrainEnabled: true,
-    terrainQuality: mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9,
+    terrainQuality: (mapViewport.zoom < 2.5 ? 0.75 : mapViewport.zoom < 6 ? 0.85 : 0.9) * MAP_QUALITY_PROFILE.terrainQualityMultiplier,
+    qualityProfile: MAP_QUALITY_PROFILE,
     terrainMode: $("terrain-mode")?.value ?? "political",
     countryOpacity: Number($("country-opacity")?.value ?? 52) / 100,
     pixelRatio: MAP_PIXEL_RATIO,
     interactive: false,
     physicalOverlayContext: null,
   };
+  const landLodTransition = prepareLandLodTransition(landDetail.level);
   const completionContext = {
-    sceneViewport: { ...mapViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
-    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail
+    sceneViewport: { ...renderViewport, centerLongitude: snappedSceneViewport.centerLongitude, centerLatitude: snappedSceneViewport.centerLatitude },
+    sceneSize: { w: Ws, h: Hs, f }, landDetail, lakeDetail, riverDetail, labelDetail, landLodTransition, landLodSet: landLod
   };
   const fallback = () => {
     try { completeMapRender(renderWorldMap(sceneCanvas, landDetail.features, renderOptions), completionContext); }
@@ -692,7 +1179,6 @@ async function installFullMapPack() {
     await downloadFullMapPack(progress => {
       status.textContent = "Pack cartographique " + progress.current + "/" + progress.total + " : " + progress.label + (progress.cached ? " · déjà en cache" : " · téléchargement") + "…";
     });
-    regionalLandFeatures = null;
     regionalRiverFeatures = null;
     regionalLabelFeatures = null;
     regionalLandLoadAttempted = false;
@@ -727,7 +1213,14 @@ async function loadWorldMap() {
     }
     [worldFeatures, lakeFeatures, riverFeatures, glacierFeatures, elevationPoints, mapLabels] =
       await Promise.all(responses.map(response => response.json()));
-    worldFeatures = simplifyGeoJsonCollection(filterSmallIslandComponents(worldFeatures,100,false),0.008);
+    worldSourceFeatures = filterSmallIslandComponents(worldFeatures, 100, false);
+    worldFeatures = simplifyGeoJsonCollection(worldSourceFeatures, 0.008);
+    worldLandLod = createGeoJsonLodSet(worldFeatures, [
+      { maxZoom: 1.8, tolerance: 0.04 },
+      { maxZoom: 3.5, tolerance: 0.02 },
+      { maxZoom: 6, tolerance: 0.008 }
+    ], 0.008, { createWorker: createLandLodWorker });
+    lastLandLodWarmupZoom = null;
     lakeFeatures = simplifyGeoJsonCollection(filterMajorLakeFeatures(lakeFeatures,500),0.006);
     riverFeatures = simplifyGeoJsonCollection(riverFeatures,0.005);
     glacierFeatures = simplifyGeoJsonCollection(glacierFeatures,0.008);
@@ -737,6 +1230,33 @@ async function loadWorldMap() {
       const terrainResponse = await fetchMapAsset("./data/terrain/etopo_global_10m_i16.bin");
       if (terrainResponse.ok) {
         terrainGrid = createTerrainGrid(await terrainResponse.arrayBuffer());
+        terrainTileStore = createTerrainTileStore(terrainGrid, { tileSize: 180, maxTiles: 96, maxBytes: 48 * 1024 * 1024 });
+        try {
+          terrainTilePersistence = await createTerrainTilePersistence();
+          if (terrainTilePersistence) {
+            const savedTiles = await terrainTilePersistence.loadAll(terrainGrid, terrainTileStore.tileSize);
+            let restoredTiles = 0;
+            for (const tile of savedTiles) {
+              if (terrainTileStore.restoreTile(tile)) restoredTiles++;
+            }
+            terrainTileStore.setOnTileChange(snapshot =>
+              terrainTilePersistence.saveTile(snapshot, terrainGrid, terrainTileStore.tileSize)
+                .then(revision => {
+                  terrainTileStore.markPersisted(snapshot.id, revision);
+                  return revision;
+                })
+            );
+            if (restoredTiles) console.info("Tuiles de relief restaurées depuis IndexedDB :", restoredTiles);
+            window.addEventListener("pagehide", () => {
+              void terrainTilePersistence?.flush().catch(error =>
+                console.warn("Synchronisation du cache de relief interrompue :", error)
+              );
+            }, { once: true });
+          }
+        } catch (persistenceError) {
+          terrainTilePersistence = null;
+          console.warn("Cache persistant du relief indisponible ; utilisation du cache mémoire :", persistenceError);
+        }
         prepareTerrainHillshade(terrainGrid).then(ready => { if (ready) { lastRenderedMapSignature = null; renderMap(); } });
         if (!state.physicalWorld?.currentCells?.length) {
           const physicalCells = buildPhysicalCellsFromTerrainGrid(terrainGrid, { step: 12, maxCoastSearchCells: 4 });
@@ -768,49 +1288,276 @@ async function loadWorldMap() {
 const COUNTRY_MAJOR=new Set(["France","England","Castile","Portugal","Ottoman Empire","Ming","Ming Dynasty","Timurid Empire","Mamluk Sultanate","Mali Empire","Poland","Lithuania","Muscovy","Venice","Burgundy","Aragon","Vijayanagara","Delhi Sultanate","Ethiopia","Japan","Holy Roman Empire"]);
 const COUNTRY_REGIONAL=new Set(["Scotland","Denmark","Sweden","Norway","Hungary","Bohemia","Novgorod","Golden Horde","Aq Qoyunlu","Qara Qoyunlu","Songhai","Benin","Kongo","Ayutthaya","Majapahit","Korea","Joseon","Chagatai Khanate","Morocco","Tunis","Granada"]);
 const COUNTRY_HARD=new Set(["Byzantine Empire","Trebizond","Granada","Irish clans","Novgorod","Mali Empire","Ethiopia","Kongo","Ternate","Theodoro"]),COUNTRY_EASY=new Set(["France","Ming","Ottoman Empire","Castile","Portugal","Muscovy"]);
+const CAMPAIGN_EXCLUDED_STATUSES=new Set(["influence","unclaimed","influence-zone"]);
 let campaignCountries=[],selectedCountryFilter={query:"",region:"all",difficulty:"all"};
-function countryRegion(feature){const p=feature.properties??{},raw=String(p.CONTINENT||p.continent||p.REGION_UN||p.region||p.SUBREGION||"").toLowerCase();if(/europe/.test(raw))return"Europe";if(/asia/.test(raw))return"Asie";if(/africa/.test(raw))return"Afrique";if(/north america/.test(raw))return"Amérique du Nord";if(/south america/.test(raw))return"Amérique du Sud";if(/oceania|australia/.test(raw))return"Océanie";const pts=[];const walk=v=>{if(!Array.isArray(v))return;if(v.length>=2&&Number.isFinite(v[0])&&Number.isFinite(v[1]))pts.push(v);else v.forEach(walk)};walk(feature.geometry?.coordinates);const lon=pts.length?pts.reduce((n,p)=>n+p[0],0)/pts.length:0,lat=pts.length?pts.reduce((n,p)=>n+p[1],0)/pts.length:0;if(lon< -30&&lat>8)return"Amérique du Nord";if(lon< -30)return"Amérique du Sud";if(lon>110&&lat< -5)return"Océanie";if(lon> -20&&lon<55&&lat<38)return"Afrique";if(lon>55||(lon>25&&lat>35))return"Asie";return"Europe";}
+function countryRegion(feature) {
+  const p = feature.properties ?? {};
+  const raw = String(p.CONTINENT || p.continent || p.REGION_UN || p.region || p.SUBREGION || "").toLowerCase();
+  if (/europe/.test(raw)) return "Europe";
+  if (/asia/.test(raw)) return "Asie";
+  if (/africa/.test(raw)) return "Afrique";
+  if (/north america/.test(raw)) return "Amérique du Nord";
+  if (/south america/.test(raw)) return "Amérique du Sud";
+  if (/oceania|australia/.test(raw)) return "Océanie";
+  // Accumulation directe : aucun tableau de coordonnées ni réduction intermédiaire.
+  const pending = [feature.geometry?.coordinates];
+  let longitudeSum = 0, latitudeSum = 0, coordinateCount = 0;
+  while (pending.length) {
+    const value = pending.pop();
+    if (!Array.isArray(value)) continue;
+    if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
+      longitudeSum += value[0];
+      latitudeSum += value[1];
+      coordinateCount++;
+      continue;
+    }
+    for (let i = value.length - 1; i >= 0; i--) pending.push(value[i]);
+  }
+  const lon = coordinateCount ? longitudeSum / coordinateCount : 0;
+  const lat = coordinateCount ? latitudeSum / coordinateCount : 0;
+  if (lon < -30 && lat > 8) return "Amérique du Nord";
+  if (lon < -30) return "Amérique du Sud";
+  if (lon > 110 && lat < -5) return "Océanie";
+  if (lon > -20 && lon < 55 && lat < 38) return "Afrique";
+  if (lon > 55 || (lon > 25 && lat > 35)) return "Asie";
+  return "Europe";
+}
 function countryDifficulty(raw,region,feature){if(COUNTRY_EASY.has(raw))return 1;if(COUNTRY_HARD.has(raw))return 5;if(COUNTRY_MAJOR.has(raw))return 2;if(COUNTRY_REGIONAL.has(raw))return 3;const p=feature.properties??{},pop=Number(p.POP_EST??p.pop_est??0),area=Number(p.AREA??p.area??0);if(pop>30000000||area>1800000)return 2;if(pop>8000000||area>450000)return 3;return region==="Océanie"||region==="Amérique du Sud"?4:3;}
 function countryRank(raw,difficulty,feature){if(COUNTRY_MAJOR.has(raw))return"Puissance majeure";if(COUNTRY_REGIONAL.has(raw))return"Puissance régionale";const p=feature.properties??{};if(Number(p.POP_EST??p.pop_est??0)>30000000||Number(p.AREA??p.area??0)>1800000)return"Grande nation";return difficulty>=4?"Défi historique":"Nation émergente";}
-function renderCountryPicker(){const list=$("country-results"),count=$("country-result-count");if(!list)return;const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr"),items=campaignCountries.filter(x=>(!q||x.label.toLocaleLowerCase("fr").includes(q)||x.raw.toLocaleLowerCase("fr").includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));count.textContent=items.length+" nation"+(items.length>1?"s":"")+" disponible"+(items.length>1?"s":"");list.replaceChildren();const groups=new Map();for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x)}for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){const group=groups.get(region);if(!group?.length)continue;const head=document.createElement("div");head.className="country-region-heading";head.textContent=region+" · "+group.length;list.append(head);group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));for(const x of group){const btn=document.createElement("button");btn.type="button";btn.className="country-result"+(x.raw===$("player-country").value?" is-selected":"");btn.setAttribute("aria-pressed",String(x.raw===$("player-country").value));const name=document.createElement("span");name.className="country-result-name";name.textContent=x.label;const meta=document.createElement("span");meta.className="country-result-meta";const rank=document.createElement("span");rank.className="country-rank";rank.textContent=x.rank;const diff=document.createElement("span");diff.className="country-difficulty";diff.textContent="Difficulté "+x.difficulty+"/5";meta.append(rank,diff);btn.append(name,meta);btn.addEventListener("click",()=>selectCampaignCountry(x.raw));list.append(btn)}}}
+function renderCountryPicker(){
+ const list=$("country-results"),count=$("country-result-count");
+ if(!list||!count)return;
+ const q=selectedCountryFilter.query.trim().toLocaleLowerCase("fr");
+ const items=campaignCountries.filter(x=>(!q||x.searchLabel.includes(q)||x.searchRaw.includes(q))&&(selectedCountryFilter.region==="all"||x.region===selectedCountryFilter.region)&&(selectedCountryFilter.difficulty==="all"||String(x.difficulty)===selectedCountryFilter.difficulty));
+ const selectedRaw=$("player-country").value;
+ const activeRaw=items.some(x=>x.raw===selectedRaw)?selectedRaw:items[0]?.raw;
+ count.textContent=items.length+" / "+campaignCountries.length+" nation"+(campaignCountries.length>1?"s":"")+" · "+(items.length?"résultat"+(items.length>1?"s":""):"aucun résultat");
+ list.setAttribute("aria-label","Nations jouables · "+items.length+" résultat"+(items.length>1?"s":""));
+ list.setAttribute("aria-busy","false");
+ list.replaceChildren();
+ if(!items.length){
+  const empty=document.createElement("p");
+  empty.className="country-empty-state";
+  empty.setAttribute("role","status");
+  empty.textContent=q?"Aucune nation ne correspond à cette recherche.":"Aucune nation ne correspond à ces filtres.";
+  list.append(empty);
+  return;
+ }
+ const groups=new Map();
+ for(const x of items){if(!groups.has(x.region))groups.set(x.region,[]);groups.get(x.region).push(x);}
+ for(const region of ["Europe","Asie","Afrique","Amérique du Nord","Amérique du Sud","Océanie"]){
+  const group=groups.get(region);
+  if(!group?.length)continue;
+  const head=document.createElement("div");
+  head.className="country-region-heading";
+  head.textContent=region+" · "+group.length;
+  list.append(head);
+  group.sort((x,y)=>x.tier-y.tier||x.label.localeCompare(y.label,"fr"));
+  for(const x of group){
+   const isSelected=x.raw===selectedRaw;
+   const btn=document.createElement("button");
+   btn.type="button";
+   btn.className="country-result"+(isSelected?" is-selected":"");
+   btn.setAttribute("role","option");
+   btn.setAttribute("aria-selected",String(isSelected));
+   btn.setAttribute("aria-pressed",String(isSelected));
+   btn.tabIndex=x.raw===activeRaw?0:-1;
+   btn.dataset.country=x.raw;
+   btn.dataset.region=x.region;
+   btn.dataset.difficulty=String(x.difficulty);
+   btn.title=x.label+" · "+x.region+" · Difficulté "+x.difficulty+"/5";
+   const identity=document.createElement("span");
+   identity.className="country-result-heading";
+   const insigniaData=resolveCountryInsignia(x.feature,Number(state.clock.date.slice(0,4)));
+   const insignia=document.createElement("img");
+   insignia.className="country-result-insignia"+(insigniaData.type==="coat"?" is-crest":" is-flag");
+   insignia.alt="";
+   insignia.setAttribute("aria-hidden","true");
+   insignia.loading="lazy";
+   insignia.decoding="async";
+   insignia.referrerPolicy="no-referrer";
+   if(insigniaData.src)insignia.src=insigniaData.src;else insignia.hidden=true;
+   insignia.onerror=()=>{
+    if(insigniaData.fallback&&insigniaData.fallback!==insigniaData.src&&insignia.dataset.fallbackAttempted!=="true"){
+     insignia.dataset.fallbackAttempted="true";
+     insignia.className="country-result-insignia is-flag";
+     insignia.src=insigniaData.fallback;
+     return;
+    }
+    insignia.hidden=true;
+    insignia.removeAttribute("src");
+   };
+   const name=document.createElement("span");
+   name.className="country-result-name";
+   name.textContent=x.label;
+   identity.append(insignia,name);
+   const meta=document.createElement("span");
+   meta.className="country-result-meta";
+   const rank=document.createElement("span");
+   rank.className="country-rank";
+   rank.textContent=x.rank;
+   const diff=document.createElement("span");
+   diff.className="country-difficulty";
+   diff.textContent="Difficulté "+x.difficulty+"/5";
+   meta.append(rank,diff);
+   btn.append(identity,meta);
+   btn.addEventListener("click",event=>selectCampaignCountry(x.raw,{restoreFocus:event.detail===0}));
+   btn.addEventListener("keydown",event=>{
+    const buttons=[...list.querySelectorAll(".country-result")];
+    const index=buttons.indexOf(btn);
+    let target=null;
+    if(event.key==="ArrowDown")target=buttons[(index+1)%buttons.length];
+    else if(event.key==="ArrowUp")target=buttons[(index-1+buttons.length)%buttons.length];
+    else if(event.key==="Home")target=buttons[0];
+    else if(event.key==="End")target=buttons.at(-1);
+    if(target){event.preventDefault();target.focus();}
+   });
+   list.append(btn);
+  }
+ }
+}
 function renderCountryDossier(item){
  const root=$("country-dossier");if(!root)return;root.replaceChildren();if(!item){root.hidden=true;return;}root.hidden=false;
  const dossier=buildCountryDossier(item.feature,Number(state.clock.date.slice(0,4)),{rank:item.rank,difficulty:item.difficulty,region:item.region});
  const hero=document.createElement("div");hero.className="dossier-hero";
- const emblem=document.createElement("span");emblem.className="dossier-emblem";emblem.textContent=dossier.emblem;
+ const insigniaData=dossier.insignia;const emblem=document.createElement("img");emblem.className="dossier-emblem"+(insigniaData.type==="coat"?" dossier-emblem--crest":" dossier-emblem--flag");emblem.alt=insigniaData.alt;emblem.title=insigniaData.alt+" · Source : "+insigniaData.source;emblem.loading="eager";emblem.decoding="async";emblem.referrerPolicy="no-referrer";if(insigniaData.src)emblem.src=insigniaData.src;else emblem.hidden=true;emblem.onerror=()=>{if(insigniaData.fallback&&insigniaData.fallback!==insigniaData.src&&emblem.dataset.fallbackAttempted!=="true"){emblem.dataset.fallbackAttempted="true";emblem.className="dossier-emblem dossier-emblem--flag";emblem.src=insigniaData.fallback;emblem.alt="Drapeau de "+item.label;return;}emblem.hidden=true;emblem.removeAttribute("src");};
  const heading=document.createElement("div");heading.className="dossier-identity";
  const name=document.createElement("strong");name.textContent=item.label;const subtitle=document.createElement("span");subtitle.textContent=dossier.subtitle;heading.append(name,subtitle);hero.append(emblem,heading);root.append(hero);
  const metrics=document.createElement("div");metrics.className="dossier-metrics";
  for(const metric of dossier.metrics){const cell=document.createElement("div");cell.className="dossier-metric";const label=document.createElement("span");label.textContent=metric.label;const value=document.createElement("strong");value.textContent=metric.value;const note=document.createElement("small");note.textContent=metric.note;cell.append(label,value,note);metrics.append(cell);}root.append(metrics);
- const diplomacy=document.createElement("div");diplomacy.className="dossier-diplomacy";const dlabel=document.createElement("span");dlabel.textContent="SITUATION DIPLOMATIQUE";const dtext=document.createElement("p");dtext.textContent=dossier.diplomacy;diplomacy.append(dlabel,dtext);root.append(diplomacy);
+ const status=document.createElement("div");status.className="dossier-status";const statusLabel=document.createElement("span");statusLabel.textContent="STATUT POLITIQUE";const statusValue=document.createElement("strong");statusValue.textContent=dossier.stateStatus;status.append(statusLabel,statusValue);root.append(status);
+ const situation=document.createElement("div");situation.className="dossier-situation";const situationTitle=document.createElement("h4");situationTitle.textContent="Position stratégique";const situationText=document.createElement("p");situationText.textContent=dossier.territory+" "+dossier.diplomacy;situation.append(situationTitle,situationText);root.append(situation);
+ const lens=document.createElement("div");lens.className="dossier-historical-lens";const lensLabel=document.createElement("span");lensLabel.textContent="LECTURE DE L'ÉPOQUE · "+dossier.year;const lensText=document.createElement("p");lensText.textContent=dossier.historicalLens;lens.append(lensLabel,lensText);root.append(lens);
  const objectives=document.createElement("div");objectives.className="dossier-objectives";const title=document.createElement("h4");title.textContent="Vos objectifs de campagne";objectives.append(title);
  dossier.objectives.forEach((objective,index)=>{const row=document.createElement("div");row.className="dossier-objective";const number=document.createElement("span");number.textContent=String(index+1).padStart(2,"0");const text=document.createElement("p");text.textContent=objective;row.append(number,text);objectives.append(row);});root.append(objectives);
  const note=document.createElement("p");note.className="dossier-data-note";note.textContent=dossier.dataNote;root.append(note);
 }
-function selectCampaignCountry(raw){$("player-country").value=raw;previewCountry=raw;const x=campaignCountries.find(v=>v.raw===raw);$("country-selected-name").textContent=x?.label??"Nation sélectionnée";$("country-selected-detail").textContent=x?x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region:"";renderCountryDossier(x);renderCountryPicker();if(!mapWarmupPromise)void startMapWarmup();scheduleMapIndexWarmup();renderMap();}
-function populateCampaignCountries(){const select=$("player-country");if(!select||!territoryFeatures?.features)return;const names=territoryFeatures.features.map(feature=>{const p=feature.properties??{},raw=p.NAME||p.ADMIN||p.name||p.NAME_EN||p.SOVEREIGNT||p.NAME_LONG,status=String(p.historicalStatus??p.status??p.STATUS??"").toLowerCase();if(typeof raw!=="string"||!raw.trim()||["influence","unclaimed","influence-zone"].includes(status)||isNonStateHistoricalRegion(feature))return null;const name=raw.trim(),label=frenchTerritoryName(name,p),region=countryRegion(feature),difficulty=countryDifficulty(name,region,feature),tier=COUNTRY_MAJOR.has(name)?0:COUNTRY_REGIONAL.has(name)?1:2;return{raw:name,label,region,difficulty,tier,rank:countryRank(name,difficulty,feature),feature}}).filter(Boolean);campaignCountries=[...new Map(names.map(x=>[x.raw,x])).values()];const previous=playerCountry||previewCountry||select.value,options='<option value="">Choisir une nation…</option>'+campaignCountries.map(x=>{const safe=x.raw.replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));return'<option value="'+safe+'">'+x.label+'</option>'}).join("");select.innerHTML=options;const sandbox=$("sandbox-country");if(sandbox)sandbox.innerHTML=options;const preferred=campaignCountries.find(x=>/france/i.test(x.raw)||x.label==="France"),restored=campaignCountries.find(x=>x.raw===previous)||preferred||campaignCountries[0]||null;select.value=restored?.raw??"";if(!playerCountry)previewCountry=restored?.raw??"";if(sandbox)sandbox.value=playerCountry||restored?.raw||"";if(restored)selectCampaignCountry(restored.raw);else renderCountryPicker();}
-$("country-search").addEventListener("input",e=>{selectedCountryFilter.query=e.target.value;renderCountryPicker()});$("country-region-filter").addEventListener("change",e=>{selectedCountryFilter.region=e.target.value;renderCountryPicker()});$("country-difficulty-filter").addEventListener("change",e=>{selectedCountryFilter.difficulty=e.target.value;renderCountryPicker()});
+function selectCampaignCountry(raw,{restoreFocus=false}={}){
+ const x=campaignCountries.find(item=>item.raw===raw);
+ if(!x)return false;
+ $("player-country").value=x.raw;
+ const sandboxSelect=$("sandbox-country");
+ if(sandboxSelect)sandboxSelect.value=x.raw;
+ $("player-country").setCustomValidity("");
+ previewCountry=x.raw;
+ $("country-selected-name").textContent=x.label;
+ $("country-selected-detail").textContent=x.rank+" · difficulté "+x.difficulty+"/5 · "+x.region;
+ if(!document.body.classList.contains("campaign-started"))$("map-title").textContent=x.label+" · "+state.clock.date.slice(0,4);
+ renderCountryDossier(x);
+ renderCountryPicker();
+ if(restoreFocus)[...$("country-results").querySelectorAll(".country-result")].find(button=>button.dataset.country===x.raw)?.focus();
+ if(!mapWarmupPromise)void startMapWarmup();
+ scheduleMapIndexWarmup();
+ renderMap();
+ return true;
+}
+function populateCampaignCountries() {
+  const select = $("player-country");
+  if (!select || !territoryFeatures?.features) return;
+  // Déduplique au fil du parcours, sans tableaux intermédiaires.
+  const uniqueCountries = new Map();
+  for (const feature of territoryFeatures.features) {
+    const p = feature.properties ?? {};
+    const raw = p.NAME || p.ADMIN || p.name || p.NAME_EN || p.SOVEREIGNT || p.NAME_LONG || territoryName(p);
+    const status = String(p.historicalStatus ?? p.status ?? p.STATUS ?? "").toLowerCase();
+    if (typeof raw !== "string" || !raw.trim()
+      || CAMPAIGN_EXCLUDED_STATUSES.has(status)
+      || isNonStateHistoricalRegion(feature)) continue;
+    const name = raw.trim();
+    if (uniqueCountries.has(name)) continue;
+    const label = frenchTerritoryName(territoryName(p) || name, p);
+    const region = countryRegion(feature);
+    const difficulty = countryDifficulty(name, region, feature);
+    uniqueCountries.set(name, {
+      raw: name, label, searchLabel: label.toLocaleLowerCase("fr"),
+      searchRaw: name.toLocaleLowerCase("fr"), region, difficulty,
+      tier: COUNTRY_MAJOR.has(name) ? 0 : COUNTRY_REGIONAL.has(name) ? 1 : 2,
+      rank: countryRank(name, difficulty, feature), feature
+    });
+  }
+  campaignCountries = [...uniqueCountries.values()];
+  const previous = playerCountry || previewCountry || select.value;
+  const options = '<option value="">Choisir une nation…</option>' + campaignCountries.map(x => {
+    const safe = x.raw.replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[ch]));
+    return '<option value="' + safe + '">' + x.label + '</option>';
+  }).join("");
+  select.innerHTML = options;
+  const sandbox = $("sandbox-country");
+  if (sandbox) sandbox.innerHTML = options;
+  const preferred = campaignCountries.find(x => /france/i.test(x.raw) || x.label === "France");
+  const restored = campaignCountries.find(x => x.raw === previous)
+    || preferred || campaignCountries[0] || null;
+  select.value = restored?.raw ?? "";
+  if (!playerCountry) previewCountry = restored?.raw ?? "";
+  if (sandbox) sandbox.value = playerCountry || restored?.raw || "";
+  if (restored) selectCampaignCountry(restored.raw);
+  else renderCountryPicker();
+}
+$("country-search").addEventListener("input",e=>{selectedCountryFilter.query=e.target.value;renderCountryPicker()});$("country-search").addEventListener("keydown",event=>{if(event.key==="Escape"&&event.currentTarget.value){event.preventDefault();event.currentTarget.value="";selectedCountryFilter.query="";renderCountryPicker();}});$("country-region-filter").addEventListener("change",e=>{selectedCountryFilter.region=e.target.value;$("country-results").scrollTop=0;renderCountryPicker()});$("country-difficulty-filter").addEventListener("change",e=>{selectedCountryFilter.difficulty=e.target.value;$("country-results").scrollTop=0;renderCountryPicker()});
 $("player-country").addEventListener("change", event => {
   selectCampaignCountry(event.target.value);
   renderMap();
 });
 $("sandbox-country").addEventListener("change", event => {
-  if (!event.target.value) return;
-  playerCountry = event.target.value;
-  previewCountry = playerCountry;
-  $("map-title").textContent = frenchTerritoryName(event.target.value) + " · " + state.clock.date.slice(0,4);
-  $("save-status").textContent = "Sandbox : nation active — " + event.target.value;
-  renderMap();
+  const raw=event.target.value;
+  if(!selectCampaignCountry(raw))return;
+  playerCountry=raw;
+  $("save-status").textContent="Sandbox : nation active — "+frenchTerritoryName(raw);
 });
-$("start-year").addEventListener("input", event => {
+const startYearSlider = $("start-year");
+function updateStartYearSliderProgress() {
+  const min = Number(startYearSlider.min);
+  const max = Number(startYearSlider.max);
+  const value = Number(startYearSlider.value);
+  const progress = (value - min) / Math.max(1, max - min) * 100;
+  startYearSlider.style.setProperty("--start-year-progress", `${Math.max(0, Math.min(100, progress))}%`);
+}
+updateStartYearSliderProgress();
+startYearSlider.setAttribute("aria-valuetext","Année "+startYearSlider.value);
+startYearSlider.addEventListener("change", () => renderCountryPicker());
+startYearSlider.addEventListener("input", event => {
   const year = Number(event.target.value);
+  updateStartYearSliderProgress();
   $("start-year-value").textContent = String(year);
   state.clock.date = year + "-01-01";
   state.clock.day = 1;
-  $("map-title").textContent = "Le monde en " + year;
+  $("map-title").textContent = (campaignCountries.find(item => item.raw === previewCountry)?.label || "Le monde") + " · " + year;
+  startYearSlider.setAttribute("aria-valuetext", "Année "+year);
+  const selectedPreview = campaignCountries.find(item => item.raw === previewCountry);
+  if (selectedPreview) renderCountryDossier(selectedPreview);
   render();
 });
+document.querySelectorAll("[data-campaign-mode]").forEach(button => button.addEventListener("click", () => {
+  const mode = button.dataset.campaignMode;
+  if (!["grand-strategy", "sandbox"].includes(mode)) return;
+  $("campaign-mode").value = mode;
+  document.querySelectorAll("[data-campaign-mode]").forEach(option => {
+    const active = option === button;
+    option.classList.toggle("is-active", active);
+    option.setAttribute("aria-pressed", String(active));
+  });
+  $("begin-campaign").firstChild.textContent = mode === "sandbox" ? "Explorer le monde " : "Entrer dans l’Histoire ";
+}));
+const launchOverlay = $("campaign-launch");
+let campaignLaunchInProgress = false;
+function finishCampaignLaunch() {
+  if (!campaignLaunchInProgress) return;
+  campaignLaunchInProgress = false;
+  document.body.classList.remove("campaign-launching");
+  document.body.classList.add("campaign-started");
+  launchOverlay.hidden = true;
+  launchOverlay.setAttribute("aria-hidden", "true");
+  $("begin-campaign").removeAttribute("aria-busy");
+  $("map-title").focus({ preventScroll: true });
+}
+launchOverlay.addEventListener("animationend", event => {
+  if (event.target === launchOverlay && event.animationName === "campaign-launch-fade") finishCampaignLaunch();
+});
+
 $("begin-campaign").addEventListener("click", () => {
+  if (campaignLaunchInProgress || document.body.classList.contains("campaign-started")) return;
   const year = Number($("start-year").value);
   const mode = $("campaign-mode").value;
   const country = $("player-country").value;
@@ -823,22 +1570,44 @@ $("begin-campaign").addEventListener("click", () => {
   $("player-country").setCustomValidity("");
   playerCountry = country;
   previewCountry = country;
+  campaignLaunchInProgress = true;
+  const selected = campaignCountries.find(item => item.raw === country);
+  const theme = getCartographicTheme(year);
+  const launchTitles = {
+    exploration: "Chambre des Cartographes",
+    westphalia: "Chancellerie",
+    revolution: "La Gazette",
+    modern: "État-Major",
+    present: "Centre de Veille",
+    future: "Console Orbitale"
+  };
+  $("launch-era").textContent = launchTitles[theme.id] || "Chroniques du monde";
+  $("launch-country").textContent = selected?.label || frenchTerritoryName(country);
+  $("launch-year").textContent = String(year);
+  $("launch-mode").textContent = mode === "sandbox" ? "SANDBOX · EXPLORATION LIBRE" : "GRANDE STRATÉGIE";
+  $("launch-caption").textContent = mode === "sandbox"
+    ? "Le monde s’ouvre. Explorez les siècles à votre rythme."
+    : "Les frontières sont tracées. Votre histoire commence.";
+  launchOverlay.hidden = false;
+  launchOverlay.setAttribute("aria-hidden", "false");
+  $("begin-campaign").setAttribute("aria-busy", "true");
+  document.body.classList.add("campaign-launching");
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) finishCampaignLaunch();
   const month = Number(state.clock.date.slice(5,7));
   const day = Number(state.clock.date.slice(8,10));
   const safeDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
   state.clock.date = new Date(Date.UTC(year, month - 1, safeDay)).toISOString().slice(0,10);
   state.clock.day = 1;
   state.clock.paused = true;
-  document.body.classList.add("campaign-started");
   document.body.classList.toggle("sandbox-mode", mode === "sandbox");
   $("map-title").textContent = frenchTerritoryName(country) + " · " + year;
   $("sandbox-country").value = country;
-  $("save-status").textContent = "Campagne : " + country + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
+  $("save-status").textContent = "Campagne : " + frenchTerritoryName(country) + " · " + year + (mode === "sandbox" ? " · Sandbox" : "");
   schedule();
   render();
 });
 
-function render() {
+function render(updateMap = true) {
   $("current-date").textContent = formatDate(state.clock.date);
   if (document.body.classList.contains("campaign-started")) $("map-title").textContent = "Le monde en " + state.clock.date.slice(0, 4);
   $("elapsed-days").textContent = "Jour " + state.clock.day.toLocaleString("fr-FR");
@@ -846,19 +1615,49 @@ function render() {
   $("toggle-clock-label").textContent = state.clock.paused ? "Reprendre le temps" : "Mettre en pause";
   const year = Number(state.clock.date.slice(0, 4));
   $("clock-year").textContent = String(year);
-  const era = year < 1492 ? "Âge des royaumes" : year < 1648 ? "Explorations & empires" : year < 1789 ? "Équilibre des puissances" : year < 1914 ? "Révolutions & nations" : year < 2026 ? "Ère contemporaine" : "Ère future";
-  $("era-name").textContent = era;
-  $("map-era").textContent = era;
-  document.querySelectorAll("[data-year]").forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
-  $("year-scrubber").value = String(Number(state.clock.date.slice(0, 4)));
+  if (lastThemeYear !== year) {
+    const theme = getCartographicTheme(year);
+    const visuals = theme.visuals;
+    document.body.dataset.cartographicEra = theme.id;
+    document.body.style.setProperty("--theme-surface", visuals.surface);
+    document.body.style.setProperty("--theme-panel", visuals.panel);
+    document.body.style.setProperty("--theme-border", visuals.border);
+    document.body.style.setProperty("--theme-accent", theme.colors.accent);
+    document.body.style.setProperty("--theme-text", theme.colors.text);
+    document.body.style.setProperty("--theme-radius", visuals.borderRadius + "px");
+    document.body.style.setProperty("--theme-map-filter", visuals.mapFilter);
+    document.body.style.setProperty("--theme-display-font", '"' + theme.typography.display + '", Georgia, serif');
+    document.body.style.setProperty("--theme-body-font", '"' + theme.typography.body + '", ui-sans-serif, system-ui, sans-serif');
+    $("era-name").textContent = theme.label;
+    $("map-era").textContent = theme.label;
+    const aiTitle = $("ai-title");
+    if (aiTitle) aiTitle.textContent = theme.interfaceTitle;
+    const aiSubtitle = $("ai-subtitle");
+    if (aiSubtitle) aiSubtitle.textContent = theme.interfaceSubtitle;
+    const aiMessage = $("ai-era-message");
+    if (aiMessage) aiMessage.textContent = theme.interfaceMessage;
+    const eventPrompt = $("event-prompt");
+    if (eventPrompt) eventPrompt.placeholder = theme.interfacePrompt;
+    lastThemeYear = year;
+  }
+  if (cachedYearButtons === null) cachedYearButtons = [...document.querySelectorAll("[data-year]")];
+  cachedYearButtons.forEach(button => button.classList.toggle("is-active", Number(button.dataset.year) === year));
+  const yearScrubber = $("year-scrubber");
+  yearScrubber.max = String(MAX_SIMULATION_YEAR);
+  yearScrubber.value = String(Math.min(MAX_SIMULATION_YEAR, Number(state.clock.date.slice(0, 4))));
+  $("timeline-range").textContent = MIN_SIMULATION_YEAR + " — " + MAX_SIMULATION_YEAR;
+  const timelineProgress = (Number(yearScrubber.value) - Number(yearScrubber.min))
+    / Math.max(1, Number(yearScrubber.max) - Number(yearScrubber.min)) * 100;
+  yearScrubber.style.setProperty("--timeline-progress", `${Math.max(0, Math.min(100, timelineProgress))}%`);
   if (!document.body.classList.contains("campaign-started")) {
     $("start-year").value = String(year);
     $("start-year-value").textContent = String(year);
   }
-  document.querySelectorAll("[data-speed]").forEach(button => {
+  if (cachedSpeedButtons === null) cachedSpeedButtons = [...document.querySelectorAll("[data-speed]")];
+  cachedSpeedButtons.forEach(button => {
     button.classList.toggle("is-active", Number(button.dataset.speed) === state.clock.speed);
   });
-  renderMap();
+  if (updateMap) renderMap();
 }
 
 function stopTimer() {
@@ -868,8 +1667,27 @@ function stopTimer() {
 function schedule() {
   stopTimer();
   if (!state.clock.paused) interval = setInterval(() => {
+    const previousDate = state.clock.date;
+    const previousDay = state.clock.day;
+    const previousPhysicalWorld = state.physicalWorld;
     state.clock = advanceClock(state.clock, state.clock.speed);
-    render();
+    if (state.clock.date > MAX_SIMULATION_DATE) {
+      const previous = new Date(previousDate + "T00:00:00Z");
+      const limit = new Date(MAX_SIMULATION_DATE + "T00:00:00Z");
+      state.clock.date = MAX_SIMULATION_DATE;
+      state.clock.day = previousDay + Math.round((limit - previous) / 86400000);
+    }
+    if (state.clock.date >= MAX_SIMULATION_DATE) {
+      state.clock.paused = true;
+      stopTimer();
+    }
+    if (state.physicalWorld) {
+      state.physicalWorld = expirePhysicalWorldForDate(state.physicalWorld, state.clock.date);
+    }
+    const mapNeedsRefresh = shouldRenderMapAfterClockAdvance(
+      previousDate, state.clock.date, previousPhysicalWorld, state.physicalWorld
+    );
+    render(mapNeedsRefresh);
   }, 1000);
 }
 
@@ -879,30 +1697,59 @@ $("toggle-clock").addEventListener("click", () => {
   render();
 });
 $("advance-day").addEventListener("click", () => {
-  state.clock = advanceClock(state.clock);
-  render();
+  moveClockToDate(new Date(Date.parse(state.clock.date + "T00:00:00Z") + 86400000));
 });
+const MIN_SIMULATION_YEAR = 1444;
+const MAX_SIMULATION_DATE = MAX_SIMULATION_YEAR + "-12-31";
+function moveClockToDate(nextDate) {
+  const oldDate = new Date(state.clock.date + "T00:00:00Z");
+  const limit = new Date(MAX_SIMULATION_DATE + "T00:00:00Z");
+  const boundedDate = nextDate > limit ? limit : nextDate;
+  const delta = Math.round((boundedDate - oldDate) / 86400000);
+  state.clock.date = boundedDate.toISOString().slice(0, 10);
+  state.clock.day = Math.max(1, state.clock.day + delta);
+  if (state.clock.date === MAX_SIMULATION_DATE && !state.clock.paused) {
+    state.clock.paused = true;
+    stopTimer();
+  }
+  render();
+}
 function moveClockToYear(year) {
   const month = Number(state.clock.date.slice(5, 7));
   const day = Number(state.clock.date.slice(8, 10));
-  const monthIndex = month - 1;
+  const nextDate = new Date(0);
+  nextDate.setUTCHours(0, 0, 0, 0);
+  nextDate.setUTCFullYear(year, month - 1, 1);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const nextDate = new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay)));
-  const oldDate = new Date(state.clock.date + "T00:00:00Z");
-  const delta = Math.round((nextDate - oldDate) / 86400000);
-  state.clock.date = nextDate.toISOString().slice(0, 10);
-  state.clock.day = Math.max(1, state.clock.day + delta);
-  render();
+  nextDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(nextDate);
+}
+function moveClockByMonths(amount) {
+  const [year, month, day] = state.clock.date.split("-").map(Number);
+  const monthDate = new Date(0);
+  monthDate.setUTCHours(0, 0, 0, 0);
+  monthDate.setUTCFullYear(year, month - 1 + amount, 1);
+  const targetYear = monthDate.getUTCFullYear();
+  const targetMonth = monthDate.getUTCMonth();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  monthDate.setUTCDate(Math.min(day, lastDay));
+  moveClockToDate(monthDate);
 }
 $("advance-year").addEventListener("click", () => {
-  moveClockToYear(Math.min(2100, Number(state.clock.date.slice(0, 4)) + 1));
+  const year = Number(state.clock.date.slice(0, 4));
+  if (year < MAX_SIMULATION_YEAR) moveClockToYear(year + 1);
+});
+$("advance-month").addEventListener("click", () => {
+  const year = Number(state.clock.date.slice(0, 4));
+  const month = Number(state.clock.date.slice(5, 7));
+  if (year < MAX_SIMULATION_YEAR || month < 12) moveClockByMonths(1);
 });
 document.querySelectorAll("[data-year]").forEach(button => button.addEventListener("click", () => {
   const year = Number(button.dataset.year);
-  if (Number.isFinite(year)) moveClockToYear(Math.max(1444, Math.min(2100, year)));
+  if (Number.isFinite(year)) moveClockToYear(Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, year)));
 }));
 $("year-scrubber").addEventListener("input", event => {
-  const year = Math.max(1444, Math.min(2100, Number(event.target.value)));
+  const year = Math.max(MIN_SIMULATION_YEAR, Math.min(MAX_SIMULATION_YEAR, Number(event.target.value)));
   moveClockToYear(year);
 });
 document.querySelectorAll("[data-speed]").forEach(button => button.addEventListener("click", () => {
@@ -947,21 +1794,27 @@ $("map-zoom-out").addEventListener("click", () => zoomMap(1 / 1.5));
 $("map-reset").addEventListener("click", resetMapView);
 
 mapCanvas.addEventListener("pointerdown", (event) => {
-  if (event.button !== 0) return;
+  if (!shouldStartMapPointerGesture(event, activeMapPointerId)) return;
+  activeMapPointerId = event.pointerId;
+  hideMapTooltip();
+  mapCanvas.style.cursor = "grabbing";
   mapDrag = { x: event.clientX, y: event.clientY, centerLongitude: mapViewport.centerLongitude, centerLatitude: mapViewport.centerLatitude };
   mapInteractionActive = true;
   cancelMapPrefetch();
   mapCanvas.classList.add("is-dragging");
-  mapCanvas.setPointerCapture?.(event.pointerId);
+  try {
+    if (mapCanvas.setPointerCapture && event.pointerId != null) mapCanvas.setPointerCapture(event.pointerId);
+  } catch (error) {
+    // Le geste reste utilisable si le navigateur refuse exceptionnellement la capture.
+  }
 });
 mapCanvas.addEventListener("pointermove", (event) => {
+  if (mapDrag && !shouldHandleMapPointerGesture(event, activeMapPointerId)) return;
   if (!mapDrag) {
     const rect = mapCanvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const hit = [...mapLabelHits].reverse().find(label =>
-      x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
-    );
+    const hit = findMapLabelHit(x, y);
     mapCanvas.style.cursor = hit ? "pointer" : "grab";
     if (hit) showMapTooltip(hit, x, y, false);
     else hideMapTooltip();
@@ -971,9 +1824,10 @@ mapCanvas.addEventListener("pointermove", (event) => {
   const dx = event.clientX - mapDrag.x;
   const dy = event.clientY - mapDrag.y;
   if (Math.abs(dx) + Math.abs(dy) > 3) mapDrag.moved = true;
-  mapViewport.centerLongitude = mapDrag.centerLongitude - dx / rect.width * 360 / mapViewport.zoom;
-  mapViewport.centerLatitude = mapDrag.centerLatitude + dy / rect.height * 180 / mapViewport.zoom;
-  Object.assign(mapViewport, constrainEquirectangularViewport(mapViewport, MAX_MAP_ZOOM));
+  Object.assign(mapViewport, panEquirectangularViewport(
+    { ...mapViewport, centerLongitude: mapDrag.centerLongitude, centerLatitude: mapDrag.centerLatitude },
+    dx, dy, rect.width, rect.height, MAX_MAP_ZOOM
+  ));
   requestCompose();
   scheduleInteractionRender();
 });
@@ -1009,61 +1863,153 @@ function setGeoEventPlacementMode(type) {
 }
 for(const [id,type] of [["meteor-test","meteor-impact"],["tsunami-test","tsunami"],["earthquake-test","earthquake"]]) $(id).addEventListener("click",()=>setGeoEventPlacementMode(type));
 
+const MAP_LABEL_KIND_NAMES = Object.freeze({
+  continent: "Continent", ocean: "Océan", city: "Ville historique",
+  country: "Pays / territoire", province: "Province ou région"
+});
+function findMapLabelHit(x, y) {
+  return findMapLabelHitAtPoint(mapLabelHits, x, y, mapLabelHitIndex);
+}
+function normalizeCampaignCountryName(value) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function findCampaignCountryForMapHit(hit) {
+  const hitName = String(hit?.name ?? "").toLocaleLowerCase("fr").trim();
+  const name = normalizeCampaignCountryName(hitName);
+  if (!name) return null;
+  return campaignCountries.find(item => {
+    const labelMatches = item.label.toLocaleLowerCase("fr") === hitName;
+    const candidates = [item.raw, item.label, frenchTerritoryName(item.raw)];
+    return labelMatches || candidates.some(candidate => {
+      const normalized = normalizeCampaignCountryName(candidate);
+      return normalized === name || (normalized.length > 5 && name.length > 5
+        && (normalized.startsWith(name) || name.startsWith(normalized)));
+    });
+  }) ?? null;
+}
 function showMapTooltip(label, x, y, selected) {
   const tooltip = $("map-tooltip");
-  const kindNames = { continent: "Continent", ocean: "Océan", city: "Ville historique", country: "Pays / territoire", province: "Province ou région" };
-  tooltip.replaceChildren();
-  const title = document.createElement("strong");
-  title.textContent = label.name;
-  const subtitle = document.createElement("span");
-  subtitle.textContent = selected
-    ? `${kindNames[label.kind] ?? "Lieu"} · ${label.coordinates[1].toFixed(2)}°, ${label.coordinates[0].toFixed(2)}°`
-    : `${kindNames[label.kind] ?? "Lieu"} · Cliquez pour afficher les coordonnées`;
-  tooltip.append(title, subtitle);
+  const frame = mapCanvas?.parentElement;
+  if (!tooltip || !frame || !label || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+    hideMapTooltip();
+    return;
+  }
+  const campaignPreview = !document.body.classList.contains("campaign-started")
+    && label.kind === "country" ? findCampaignCountryForMapHit(label) : null;
+  const descriptor = getMapTooltipDescriptor(label, selected, campaignPreview, MAP_LABEL_KIND_NAMES);
+  if (!descriptor) {
+    hideMapTooltip();
+    return;
+  }
+  if (descriptor.key !== mapTooltipDescriptorKey) {
+    tooltip.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = descriptor.title;
+    const subtitle = document.createElement("span");
+    subtitle.textContent = descriptor.subtitle;
+    tooltip.append(title, subtitle);
+    if (descriptor.detail) {
+      const detail = document.createElement("span");
+      detail.className = "map-tooltip-country-detail";
+      detail.textContent = descriptor.detail;
+      tooltip.append(detail);
+    }
+    mapTooltipDescriptorKey = descriptor.key;
+  }
+  tooltip.classList.toggle("is-selected", descriptor.selected);
+  tooltip.classList.toggle("is-campaign-country", descriptor.campaign);
   tooltip.hidden = false;
-  tooltip.classList.toggle("is-selected", selected);
-  tooltip.style.left = `${Math.min(Math.max(8, x + 14), mapCanvas.parentElement.clientWidth - 190)}px`;
-  tooltip.style.top = `${Math.max(8, y + 14)}px`;
+  const position = getMapTooltipPosition(
+    x, y, frame.clientWidth, frame.clientHeight,
+    tooltip.offsetWidth, tooltip.offsetHeight
+  );
+  if (!position) {
+    hideMapTooltip();
+    return;
+  }
+  tooltip.style.maxWidth = position.maxWidth + "px";
+  tooltip.style.maxHeight = position.maxHeight + "px";
+  tooltip.style.overflowY = tooltip.scrollHeight > position.maxHeight ? "auto" : "";
+  tooltip.style.left = position.left + "px";
+  tooltip.style.top = position.top + "px";
 }
 function hideMapTooltip() {
-  $("map-tooltip").hidden = true;
+  const tooltip = $("map-tooltip");
+  if (tooltip) tooltip.hidden = true;
 }
 function composeScene() {
   if (!sceneReady || !mapCanvas || !sceneCanvas.width || !sceneCanvas.height) return;
   const { width, height } = viewSize();
-  const backingWidth = Math.max(1, Math.round(width * MAP_PIXEL_RATIO));
-  const backingHeight = Math.max(1, Math.round(height * MAP_PIXEL_RATIO));
-  if (mapCanvas.width !== backingWidth) mapCanvas.width = backingWidth;
-  if (mapCanvas.height !== backingHeight) mapCanvas.height = backingHeight;
+  // Les dimensions CSS suivent exactement le viewport 2:1 calculé dans le cadre.
+  // Sans cette synchronisation, le CSS width:100% peut étirer le canvas en largeur
+  // alors que le moteur compose une scène plus étroite, coupant les pôles verticalement.
+  if (mapCanvas.style.width !== width + "px") mapCanvas.style.width = width + "px";
+  if (mapCanvas.style.height !== height + "px") mapCanvas.style.height = height + "px";
+  const zoomedFrame = mapViewport.zoom > 1.001;
+  mapCanvas.style.maxWidth = zoomedFrame ? "none" : "100%";
+  mapCanvas.style.maxHeight = zoomedFrame ? "none" : "100%";
+  const backing = getCanvasBackingSize(width, height, MAP_PIXEL_RATIO, { maxPixelRatio: 2, maxPixels: 16_777_216 });
+  if (mapCanvas.width !== backing.width) mapCanvas.width = backing.width;
+  if (mapCanvas.height !== backing.height) mapCanvas.height = backing.height;
   const context = mapCanvas.getContext("2d");
   if (!context) return;
-  context.setTransform(MAP_PIXEL_RATIO, 0, 0, MAP_PIXEL_RATIO, 0, 0);
+  context.setTransform(backing.pixelRatio, 0, 0, backing.pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
   context.fillStyle = sceneOcean;
   context.fillRect(0, 0, width, height);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = mapInteractionActive ? "low" : "high";
   const composition = composeRects(mapViewport, sceneViewport, sceneSize, width, height);
-  for (const rect of composition.rects) {
-    context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+  const transitionProgress = previousSceneViewport && landLodTransitionStartedAt
+    ? Math.min(1, Math.max(0, ((globalThis.performance?.now?.() ?? Date.now()) - landLodTransitionStartedAt) / LAND_LOD_CROSSFADE_MS))
+    : 1;
+  if (transitionProgress < 1 && previousSceneCanvas.width > 1 && previousSceneViewport && previousSceneSize) {
+    const previousComposition = composeRects(mapViewport, previousSceneViewport, previousSceneSize, width, height);
+    context.globalAlpha = 1 - transitionProgress;
+    for (const rect of previousComposition.rects) {
+      context.drawImage(previousSceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
   }
-  drawMapTileFallbacks(context, width, height, composition);
+  context.globalAlpha = transitionProgress;
+  if (globalThis.__TERRA_BYPASS_SCENE_COMPOSITION === true) {
+    // Diagnostic A/B : affiche directement le bitmap de scène à l'échelle du viewport,
+    // sans calcul de rectangles, répétition longitudinale ni recadrage intermédiaire.
+    context.drawImage(sceneCanvas, 0, 0, width, height);
+  } else {
+    for (const rect of composition.rects) {
+      context.drawImage(sceneCanvas, rect.x, rect.y, rect.w, rect.h);
+    }
+  }
+  context.globalAlpha = 1;
+  // Diagnostic A/B : isole les bitmaps de tuiles physiques superposés à la scène.
+  if (globalThis.__TERRA_DISABLE_MAP_TILE_FALLBACKS !== true) {
+    drawMapTileFallbacks(context, width, height, composition);
+  }
   // Les hitboxes ne servent qu'au survol/clic au repos. Les reconstruire à
   // chaque mouvement de souris pendant un glisser est du travail inutile.
-  mapLabelHits = [];
+  // Construire un nouveau snapshot puis publier hits et index ensemble :
+  // aucun lecteur ne peut observer une collection partiellement reconstruite.
+  const nextMapLabelHits = [];
   if (!mapDrag) {
     for (const rect of composition.rects) {
       const scaleX = rect.w / sceneSize.w;
       const scaleY = rect.h / sceneSize.h;
+      if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY)
+        || scaleX <= 0 || scaleY <= 0) continue;
       for (const hit of sceneLabelHits) {
+        const sourceBounds = hit?.bounds;
+        if (!sourceBounds) continue;
         const bounds = {
-          left: rect.x + hit.bounds.left * scaleX,
-          right: rect.x + hit.bounds.right * scaleX,
-          top: rect.y + hit.bounds.top * scaleY,
-          bottom: rect.y + hit.bounds.bottom * scaleY
+          left: rect.x + sourceBounds.left * scaleX,
+          right: rect.x + sourceBounds.right * scaleX,
+          top: rect.y + sourceBounds.top * scaleY,
+          bottom: rect.y + sourceBounds.bottom * scaleY
         };
-        if (bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
-        mapLabelHits.push({
+        if (![bounds.left, bounds.right, bounds.top, bounds.bottom].every(Number.isFinite)
+          || bounds.left > bounds.right || bounds.top > bounds.bottom
+          || bounds.right <= 0 || bounds.left >= width || bounds.bottom <= 0 || bounds.top >= height) continue;
+        nextMapLabelHits.push({
           ...hit,
           x: rect.x + hit.x * scaleX,
           y: rect.y + hit.y * scaleY,
@@ -1072,6 +2018,9 @@ function composeScene() {
       }
     }
   }
+  const nextMapLabelHitIndex = createMapLabelHitIndex(nextMapLabelHits);
+  mapLabelHits = nextMapLabelHits;
+  mapLabelHitIndex = nextMapLabelHitIndex;
   // En zoom monde (×1), le panoramique vertical sort naturellement du bitmap :
   // ne surtout pas reconstruire toutes les couches pendant que le pointeur bouge.
   // Le rendu final est déjà programmé au relâchement dans scheduleInteractionRender.
@@ -1112,12 +2061,20 @@ function scheduleInteractionRender() {
     renderMap();
   }, INTERACTION_SETTLE_DELAY_MS);
 }
-function stopMapDrag() {
-  if (mapDrag) lastDragMoved = mapDrag.moved;
+function stopMapDrag(event) {
+  if (!mapDrag || (event && !shouldHandleMapPointerGesture(event, activeMapPointerId))) return;
+  const pointerId = activeMapPointerId;
+  const endState = getMapPointerGestureEndState(mapDrag, event?.type ?? "pointerup");
+  lastDragMoved = endState.cancelled ? false : endState.moved;
   mapDrag = null;
+  activeMapPointerId = null;
   mapCanvas.classList.remove("is-dragging");
-  if (lastDragMoved) scheduleInteractionRender();
+  mapCanvas.style.cursor = activeGeoEventMode ? "crosshair" : "grab";
+  if (endState.moved) scheduleInteractionRender();
   else mapInteractionActive = false;
+  if (pointerId != null && mapCanvas.hasPointerCapture?.(pointerId)) {
+    try { mapCanvas.releasePointerCapture(pointerId); } catch (error) { /* capture déjà libérée */ }
+  }
 }
 mapCanvas.addEventListener("click", (event) => {
   if (lastDragMoved) { lastDragMoved = false; return; }
@@ -1143,16 +2100,54 @@ mapCanvas.addEventListener("click", (event) => {
     }catch(error){$("save-status").textContent="Événement impossible : "+error.message;}
     return;
   }
-  const hit = [...mapLabelHits].reverse().find(label =>
-    x >= label.bounds.left && x <= label.bounds.right && y >= label.bounds.top && y <= label.bounds.bottom
-  );
+  const hit = findMapLabelHit(x, y);
+  if (hit && !document.body.classList.contains("campaign-started") && hit.kind === "country") {
+    const country = findCampaignCountryForMapHit(hit);
+    if (country) {
+      selectCampaignCountry(country.raw);
+      return;
+    }
+  }
   if (hit) showMapTooltip(hit, x, y, true);
 });
 mapCanvas.addEventListener("pointerup", stopMapDrag);
 mapCanvas.addEventListener("pointercancel", stopMapDrag);
+mapCanvas.addEventListener("lostpointercapture", stopMapDrag);
+window.addEventListener("pagehide", event => {
+  if (event.persisted) return;
+  if (mapTileWorkerReadyTimer !== null) clearTimeout(mapTileWorkerReadyTimer);
+  mapTileWorkerReadyTimer = null;
+  for (const timer of mapTileWorkerRequestTimers.values()) clearTimeout(timer);
+  mapTileWorkerRequestTimers.clear();
+  mapTileWorkerPending.clear();
+  mapTileWorkerQueue = [];
+  if (mapTileWorker) {
+    try { mapTileWorker.terminate(); } catch {}
+    mapTileWorker = null;
+  }
+  mapTileWorkerReady = false;
+  mapTileWorkerLayers = null;
+  if (mapTileFadeFrame !== null) cancelAnimationFrame(mapTileFadeFrame);
+  mapTileFadeFrame = null;
+  mapTileFadeStarts.clear();
+  mapTileCache.dispose();
+  geographicWebGLLifecycle?.dispose();
+  geographicWebGLLifecycle = null;
+  geographicWebGLRenderer?.dispose?.();
+  geographicWebGLRenderer = null;
+}, { once: true });
+
+window.addEventListener("blur", () => {
+  if (mapDrag) stopMapDrag({ pointerId: activeMapPointerId, type: "blur" });
+  hideMapTooltip();
+});
 mapCanvas.addEventListener("pointerleave", () => { if (!mapDrag) hideMapTooltip(); });
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && mapDrag) stopMapDrag({ pointerId: activeMapPointerId, type: "pointercancel" });
+});
 mapCanvas.addEventListener("wheel", (event) => {
   event.preventDefault();
+  hideMapTooltip();
   const rect = mapCanvas.getBoundingClientRect();
   const anchorX = event.clientX - rect.left;
   const anchorY = event.clientY - rect.top;
@@ -1167,4 +2162,7 @@ state.clock = createClock();
 render();
 updateMapControls();
 loadWorldMap();
-window.addEventListener("resize", () => renderMap());
+window.addEventListener("resize", () => {
+  hideMapTooltip();
+  renderMap();
+});

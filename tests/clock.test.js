@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDays, advanceClock, createClock, formatDate, START_DATE } from "../src/core/clock.js";
+import { addDays, advanceClock, createClock, formatDate, START_DATE, MAX_SIMULATION_YEAR } from "../src/core/clock.js";
 test("la campagne commence le 1er janvier 1444", () => { assert.equal(createClock().date, START_DATE); });
+test("l’horizon de simulation est fixé à 2200", () => { assert.equal(MAX_SIMULATION_YEAR, 2200); });
 test("avance correctement au jour suivant et aux changements de mois", () => { assert.equal(addDays("1444-01-31"), "1444-02-01"); });
 test("gère les années bissextiles", () => { assert.equal(addDays("2000-02-28"), "2000-02-29"); assert.equal(addDays("1900-02-28"), "1900-03-01"); });
 test("avance le compteur de jours sans date de fin", () => { const c = advanceClock(createClock({date:"9999-12-31",day:1}),1); assert.equal(c.date,"10000-01-01"); assert.equal(c.day,2); });

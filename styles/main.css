@@ -137,7 +137,13 @@ button,select,textarea{font:inherit}
 .setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:20px 0 15px}
 .setup-date{grid-column:1/-1}
 .setup-date strong{font:600 22px Georgia,serif;color:#f0d49a;letter-spacing:0}
-.setup-date input{width:100%;margin:4px 0;accent-color:#d9b878;cursor:ew-resize}
+.setup-date input{width:100%;height:28px;margin:7px 0 5px;padding:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:ew-resize;touch-action:pan-y;outline:none}
+.setup-date input::-webkit-slider-runnable-track{height:8px;border:1px solid #8d7954;border-radius:3px;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),#e3d0a044 calc(5% - 1px) 5%),linear-gradient(90deg,#d9b878 0 var(--start-year-progress,0%),#263b42 var(--start-year-progress,0%) 100%);box-shadow:inset 0 2px 4px #0009,0 1px 0 #ffffff16}
+.setup-date input::-moz-range-track{height:8px;border:1px solid #8d7954;border-radius:3px;background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 1px),#e3d0a044 calc(5% - 1px) 5%),linear-gradient(90deg,#d9b878 0 var(--start-year-progress,0%),#263b42 var(--start-year-progress,0%) 100%)}
+.setup-date input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border:2px solid #f0d49a;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 5%,#e9cf91 18%,#9a7540 56%,#293b40 78%);box-shadow:0 0 0 4px #d9b87835,0 3px 9px #000c,inset 0 1px 2px #fff9;transition:transform .15s ease,box-shadow .15s ease}
+.setup-date input::-moz-range-thumb{width:18px;height:18px;border:2px solid #f0d49a;border-radius:50%;background:radial-gradient(circle at 32% 28%,#fff 0 5%,#e9cf91 18%,#9a7540 56%,#293b40 78%);box-shadow:0 0 0 4px #d9b87835,0 3px 9px #000c}
+.setup-date input:hover::-webkit-slider-thumb,.setup-date input:focus-visible::-webkit-slider-thumb{transform:scale(1.13);box-shadow:0 0 0 6px #d9b87845,0 0 17px #d9b87899,0 3px 9px #000c}
+.setup-date input:focus-visible{outline:1px solid #d9b878;outline-offset:5px;border-radius:5px}
 .setup-range-ends{display:flex;justify-content:space-between;color:#82979a;font-size:8px;letter-spacing:0}
 .setup-map-hint{display:flex;align-items:center;gap:8px;color:#b7c5bd;font-size:10px;line-height:1.4}
 .setup-live-dot{width:6px;height:6px;border-radius:50%;background:#d7b976;box-shadow:0 0 9px #d7b976}
@@ -211,7 +217,7 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
 .country-picker>label{display:block;margin-bottom:8px}.country-search,.country-filter-row select{width:100%;min-width:0;padding:10px 11px;border:1px solid #52666a88;background:#0e1c23;color:#eee5d2;font-size:12px;outline:none}.country-search:focus,.country-filter-row select:focus{border-color:#c3a66e}.country-filter-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}.country-filter-row select{font-size:10px;padding:8px 5px}.country-result-count{padding:9px 2px 6px;color:#819497;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.country-results{max-height:245px;overflow:auto;border:1px solid #40545a66;background:#0d1a20;scrollbar-color:#657b78 #14242a;scrollbar-width:thin}.country-region-heading{position:sticky;top:0;z-index:1;padding:7px 9px;background:#24373c;color:#d6c49b;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.country-result{display:flex;width:100%;flex-direction:column;gap:4px;padding:9px 10px;border:0;border-bottom:1px solid #ffffff0b;background:transparent;color:#dce2d9;text-align:left;cursor:pointer}.country-result:hover,.country-result.is-selected{background:#293d40}.country-result.is-selected{box-shadow:inset 2px 0 #d6b879}.country-result-name{font:14px Georgia,serif}.country-result-meta{display:flex;justify-content:space-between;gap:6px;color:#829798;font-size:9px}.country-rank{color:#c9b486}.country-selected{display:flex;flex-direction:column;gap:4px;padding:10px;margin-top:8px;border:1px solid #8e7a5155;background:#1c3035}.country-selected strong{font:15px Georgia,serif;color:#e5d2a8}.country-selected span{font-size:9px;color:#92a6a2}.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}@media(max-width:760px){.country-results{max-height:220px}.initial-loading h1{font-size:34px}}@media(prefers-reduced-motion:reduce){.initial-loading,.loading-progress-track span{transition:none}}
 
 /* Fiche de nation : aperçu de campagne */
-.country-picker{min-height:0}.country-selected{padding:10px;margin-top:8px}.country-dossier{margin-top:12px;border-top:1px solid #8e7a5144;padding-top:11px;text-align:left}.dossier-hero{display:flex;align-items:center;gap:10px;margin-bottom:11px}.dossier-emblem{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #c5a66a66;background:linear-gradient(145deg,#34474a,#18272d);color:#e5d2a8;font-size:20px}.dossier-identity{display:flex;min-width:0;flex-direction:column;gap:3px}.dossier-identity strong{font:16px Georgia,serif;color:#f0e3c7}.dossier-identity span{font-size:9px;color:#92a6a2;line-height:1.4}.dossier-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px}.dossier-metric{display:flex;min-width:0;flex-direction:column;gap:3px;padding:8px;background:#0c1a20;border:1px solid #ffffff0d}.dossier-metric>span{font-size:8px;letter-spacing:.1em;color:#91a5a2;text-transform:uppercase}.dossier-metric strong{font:14px Georgia,serif;color:#e7d2a5;overflow-wrap:anywhere}.dossier-metric small{font-size:8px;color:#748b8d;line-height:1.35}.dossier-diplomacy{margin-top:9px;padding:9px;border-left:2px solid #a98c58;background:#15272d}.dossier-diplomacy>span{font-size:8px;letter-spacing:.1em;color:#d0b67f}.dossier-diplomacy p{margin:4px 0 0;font-size:10px;line-height:1.5;color:#c3cfca}.dossier-objectives{margin-top:12px}.dossier-objectives h4{margin:0 0 6px;color:#e0c894;font:13px Georgia,serif}.dossier-objective{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #ffffff0a}.dossier-objective>span{font-size:9px;color:#b99b65;padding-top:2px}.dossier-objective p{margin:0;font-size:10px;line-height:1.45;color:#c4d0c9}.dossier-data-note{margin:9px 0 0;color:#71888a;font-size:8px;line-height:1.45}
+.country-picker{min-height:0}.country-selected{padding:10px;margin-top:8px}.country-dossier{margin-top:12px;border-top:1px solid #8e7a5144;padding-top:11px;text-align:left}.dossier-hero{display:flex;align-items:center;gap:10px;margin-bottom:11px}.dossier-emblem{display:block;object-fit:contain;object-position:center;flex:0 0 64px;width:64px;height:78px;padding:3px;border:1px solid #c5a66a66;border-radius:5px;background:radial-gradient(ellipse at 50% 35%,#f1e7d0,#b5a17b);filter:drop-shadow(0 3px 5px #0009)}.dossier-identity{display:flex;min-width:0;flex-direction:column;gap:3px}.dossier-identity strong{font:16px Georgia,serif;color:#f0e3c7}.dossier-identity span{font-size:9px;color:#92a6a2;line-height:1.4}.dossier-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px}.dossier-metric{display:flex;min-width:0;flex-direction:column;gap:3px;padding:8px;background:#0c1a20;border:1px solid #ffffff0d}.dossier-metric>span{font-size:8px;letter-spacing:.1em;color:#91a5a2;text-transform:uppercase}.dossier-metric strong{font:14px Georgia,serif;color:#e7d2a5;overflow-wrap:anywhere}.dossier-metric small{font-size:8px;color:#748b8d;line-height:1.35}.dossier-diplomacy{margin-top:9px;padding:9px;border-left:2px solid #a98c58;background:#15272d}.dossier-diplomacy>span{font-size:8px;letter-spacing:.1em;color:#d0b67f}.dossier-diplomacy p{margin:4px 0 0;font-size:10px;line-height:1.5;color:#c3cfca}.dossier-objectives{margin-top:12px}.dossier-objectives h4{margin:0 0 6px;color:#e0c894;font:13px Georgia,serif}.dossier-objective{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #ffffff0a}.dossier-objective>span{font-size:9px;color:#b99b65;padding-top:2px}.dossier-objective p{margin:0;font-size:10px;line-height:1.45;color:#c4d0c9}.dossier-data-note{margin:9px 0 0;color:#71888a;font-size:8px;line-height:1.45}
 .country-selected{max-height:min(66vh,690px);overflow:auto;scrollbar-width:thin;scrollbar-color:#657b78 #14242a}
 @media(max-height:850px){.country-results{max-height:165px}.country-selected{max-height:52vh}}
 @media(max-width:760px){.dossier-metric strong{font-size:13px}}
@@ -305,4 +311,1811 @@ body:not(.campaign-started) .topbar-actions{opacity:.35;pointer-events:none}
   .setup-card h1{font-size:28px}
   .country-filter-row{grid-template-columns:1fr}
   .country-results{max-height:88px}
+}
+
+/* Système visuel unifié des six ères — une seule source de vérité */
+body {
+  --theme-surface: #0b141b;
+  --theme-panel: #14232c;
+  --theme-panel-raised: #1a2b34;
+  --theme-border: #354a50;
+  --theme-accent: #c6a66b;
+  --theme-text: #edf1ec;
+  --theme-muted: #b0bfba;
+  --theme-control: #101d24;
+  --theme-control-text: #edf1ec;
+  --theme-radius: 6px;
+  --theme-map-filter: none;
+  --theme-display-font: Georgia, serif;
+  --theme-body-font: Inter, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: dark;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  font-family: var(--theme-body-font);
+  transition: background-color .25s ease, color .25s ease;
+}
+body[data-cartographic-era="exploration"] {
+  --theme-surface: #21190f;
+  --theme-panel: #382b1d;
+  --theme-panel-raised: #493822;
+  --theme-border: #80613c;
+  --theme-accent: #d0ad70;
+  --theme-text: #f2e5ca;
+  --theme-muted: #d7c5a3;
+  --theme-control: #281e14;
+  --theme-control-text: #f5e8cd;
+  --theme-radius: 3px;
+  --theme-display-font: Cinzel, Georgia, serif;
+  --theme-body-font: "EB Garamond", Georgia, serif;
+  --theme-map-filter: sepia(.16) saturate(.88) contrast(1.04);
+  background-image: radial-gradient(ellipse at 50% 0%, #493722 0, #21190f 70%);
+}
+body[data-cartographic-era="westphalia"] {
+  --theme-surface: #191b20;
+  --theme-panel: #292c32;
+  --theme-panel-raised: #35363a;
+  --theme-border: #756957;
+  --theme-accent: #bd9d79;
+  --theme-text: #f0e9dc;
+  --theme-muted: #c9c0b1;
+  --theme-control: #202329;
+  --theme-control-text: #f0e9dc;
+  --theme-radius: 3px;
+  --theme-display-font: "Cormorant Garamond", Georgia, serif;
+  --theme-body-font: "Libre Baskerville", Georgia, serif;
+  --theme-map-filter: sepia(.1) saturate(.86) contrast(1.05);
+  background-image: linear-gradient(115deg, #252932, #191b20 58%, #2a2025);
+}
+body[data-cartographic-era="revolution"] {
+  --theme-surface: #1b1b1a;
+  --theme-panel: #292927;
+  --theme-panel-raised: #353330;
+  --theme-border: #69635c;
+  --theme-accent: #c45a60;
+  --theme-text: #f2eee7;
+  --theme-muted: #c9c3b9;
+  --theme-control: #20201f;
+  --theme-control-text: #f2eee7;
+  --theme-radius: 1px;
+  --theme-display-font: "Playfair Display", Georgia, serif;
+  --theme-body-font: Newsreader, Georgia, serif;
+  --theme-map-filter: grayscale(.12) contrast(1.06);
+  background-image: linear-gradient(180deg, #252422, #191918);
+}
+body[data-cartographic-era="modern"] {
+  --theme-surface: #10191e;
+  --theme-panel: #202b30;
+  --theme-panel-raised: #2b3739;
+  --theme-border: #59645f;
+  --theme-accent: #c1aa76;
+  --theme-text: #edf0e9;
+  --theme-muted: #c0c9c0;
+  --theme-control: #151f24;
+  --theme-control-text: #edf0e9;
+  --theme-radius: 0;
+  --theme-display-font: Oswald, "Arial Narrow", sans-serif;
+  --theme-body-font: "IBM Plex Mono", monospace;
+  --theme-map-filter: saturate(.8) contrast(1.06);
+  background-image: linear-gradient(135deg, #1a272b, #10191e 62%, #20251f);
+}
+body[data-cartographic-era="present"] {
+  --theme-surface: #090e10;
+  --theme-panel: #141b1d;
+  --theme-panel-raised: #1d2627;
+  --theme-border: #3d4945;
+  --theme-accent: #a58d68;
+  --theme-text: #e8ece6;
+  --theme-muted: #b9c2ba;
+  --theme-control: #0e1517;
+  --theme-control-text: #e8ece6;
+  --theme-radius: 5px;
+  --theme-display-font: Inter, sans-serif;
+  --theme-body-font: "Plus Jakarta Sans", Inter, sans-serif;
+  --theme-map-filter: none;
+  background-image: radial-gradient(ellipse at 50% 0%, #1b2423, #090e10 68%);
+}
+body[data-cartographic-era="future"] {
+  --theme-surface: #03090f;
+  --theme-panel: #09131a;
+  --theme-panel-raised: #101e25;
+  --theme-border: #29434a;
+  --theme-accent: #9cae8a;
+  --theme-text: #dce9e5;
+  --theme-muted: #aebfbc;
+  --theme-control: #060e14;
+  --theme-control-text: #dce9e5;
+  --theme-radius: 3px;
+  --theme-display-font: Orbitron, sans-serif;
+  --theme-body-font: "JetBrains Mono", monospace;
+  --theme-map-filter: none;
+  background-image: radial-gradient(ellipse at 50% -20%, #10212a 0, #03090f 64%);
+}
+
+/* Surfaces : même matériau et mêmes niveaux de contraste pour toute l'interface */
+.topbar,
+.side-panel,
+.setup-card,
+.chronicle-console,
+.chat-preview,
+.chat-message,
+.ai-sidebar .ai-capabilities {
+  color: var(--theme-text);
+  background-color: var(--theme-panel);
+  border-color: var(--theme-border);
+}
+.topbar {
+  background-image: linear-gradient(110deg, var(--theme-panel-raised), var(--theme-panel));
+  border-bottom: 1px solid var(--theme-border);
+}
+.side-panel {
+  background-image: linear-gradient(155deg, var(--theme-panel-raised), var(--theme-panel) 72%);
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  box-shadow: 0 12px 30px #0004;
+}
+.setup-card {
+  background: linear-gradient(145deg, var(--theme-panel-raised), var(--theme-panel));
+  border: 1px solid var(--theme-border);
+}
+.chronicle-console,
+.chat-preview,
+.chat-message {
+  background-color: var(--theme-panel-raised);
+  border-color: var(--theme-border);
+}
+.map-stage { background-color: var(--theme-surface); }
+.map-frame {
+  background-color: var(--theme-panel);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 16px 38px #0007;
+}
+.map-frame #world-map { filter: var(--theme-map-filter); }
+.side-heading h1, .side-heading h2,
+.map-stage-heading h2, .setup-card h1,
+.date-display, .chat-message {
+  color: var(--theme-text);
+  font-family: var(--theme-display-font);
+}
+.side-copy, .ai-intro, .ai-capabilities,
+.time-stats, .mini-status, .save-status,
+.map-bottom-bar, .map-legend, .map-scale,
+.timeline-heading span, .timeline-ends,
+.clock-subline span, .ai-disclaimer {
+  color: var(--theme-muted);
+}
+.eyebrow, .side-section-title, .chat-preview label,
+.clock-subline strong, .date-display {
+  color: var(--theme-accent);
+}
+.run-indicator { color: var(--theme-accent); }
+.button, .speed-chip, .map-tool, .era-milestones button,
+.speed-control select, .chat-preview textarea {
+  color: var(--theme-control-text);
+  background: var(--theme-control);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius);
+}
+.button:hover:not(:disabled), .speed-chip:hover,
+.map-tool:hover, .era-milestones button:hover {
+  border-color: var(--theme-accent);
+}
+.button-primary {
+  color: #171710;
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+.button-primary:hover:not(:disabled) { filter: brightness(1.08); }
+body[data-cartographic-era="exploration"] .button-primary {
+  color: #21190f;
+  background: #d0ad70;
+  border-color: #d0ad70;
+  text-shadow: none;
+}
+body[data-cartographic-era="exploration"] .button-primary:hover:not(:disabled) {
+  background: #dfbd83;
+  border-color: #dfbd83;
+  filter: none;
+}
+.button:disabled, .speed-chip:disabled { opacity: .62; }
+.chat-preview textarea::placeholder { color: var(--theme-muted); opacity: .82; }
+.chat-preview textarea:focus-visible,
+.button:focus-visible, .speed-chip:focus-visible,
+.map-tool:focus-visible, .era-milestones button:focus-visible,
+.speed-control select:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+.era-banner {
+  color: var(--theme-text);
+  background: var(--theme-panel-raised);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius);
+  font-family: var(--theme-display-font);
+}
+.era-pulse { background: var(--theme-accent); box-shadow: 0 0 7px color-mix(in srgb, var(--theme-accent), transparent 35%); }
+.era-live, .build-label { color: var(--theme-muted); }
+
+/* Matières discrètes : grain contenu dans les surfaces, jamais sur les glyphes */
+body[data-cartographic-era="exploration"] { --material-texture-exploration: url("../assets/textures/parchment.svg"); }
+body[data-cartographic-era="westphalia"] { --material-texture-westphalia: url("../assets/textures/vellum.svg"); }
+body[data-cartographic-era="revolution"] { --material-texture-revolution: url("../assets/textures/newsprint.svg"); }
+body[data-cartographic-era="modern"] { --material-texture-modern: url("../assets/textures/military.svg"); }
+body[data-cartographic-era="present"] { --material-texture-present: url("../assets/textures/glass.svg"); }
+body[data-cartographic-era="future"] { --material-texture-future: url("../assets/textures/obsidian.svg"); }
+
+body[data-cartographic-era="exploration"] .side-panel,
+body[data-cartographic-era="exploration"] .topbar,
+body[data-cartographic-era="exploration"] .setup-card,
+body[data-cartographic-era="exploration"] .chronicle-console,
+body[data-cartographic-era="exploration"] .chat-message,
+body[data-cartographic-era="exploration"] .era-banner {
+  background-color: #382b1d;
+  background-image: var(--material-texture-exploration), linear-gradient(145deg, #493822, #2b2117);
+  background-size: cover, auto;
+  background-blend-mode: soft-light, normal;
+  color: #f2e5ca;
+}
+body[data-cartographic-era="westphalia"] .side-panel,
+body[data-cartographic-era="westphalia"] .topbar,
+body[data-cartographic-era="westphalia"] .setup-card,
+body[data-cartographic-era="westphalia"] .chronicle-console,
+body[data-cartographic-era="westphalia"] .chat-message,
+body[data-cartographic-era="westphalia"] .era-banner {
+  background-image: var(--material-texture-westphalia), linear-gradient(145deg, #35363a, #292c32);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="revolution"] .side-panel,
+body[data-cartographic-era="revolution"] .topbar,
+body[data-cartographic-era="revolution"] .setup-card,
+body[data-cartographic-era="revolution"] .chronicle-console,
+body[data-cartographic-era="revolution"] .chat-message,
+body[data-cartographic-era="revolution"] .era-banner {
+  background-image: var(--material-texture-revolution), linear-gradient(180deg, #353330, #292927);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="modern"] .side-panel,
+body[data-cartographic-era="modern"] .topbar,
+body[data-cartographic-era="modern"] .setup-card,
+body[data-cartographic-era="modern"] .chronicle-console,
+body[data-cartographic-era="modern"] .chat-message,
+body[data-cartographic-era="modern"] .era-banner {
+  background-image: var(--material-texture-modern), linear-gradient(150deg, #2b3739, #202b30);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="present"] .side-panel,
+body[data-cartographic-era="present"] .topbar,
+body[data-cartographic-era="present"] .setup-card,
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="present"] .chat-message,
+body[data-cartographic-era="present"] .era-banner {
+  background-image: var(--material-texture-present), linear-gradient(145deg, #1d2627, #141b1d);
+  background-blend-mode: soft-light, normal;
+}
+body[data-cartographic-era="future"] .side-panel,
+body[data-cartographic-era="future"] .topbar,
+body[data-cartographic-era="future"] .setup-card,
+body[data-cartographic-era="future"] .chronicle-console,
+body[data-cartographic-era="future"] .chat-message,
+body[data-cartographic-era="future"] .era-banner {
+  background-image: var(--material-texture-future), linear-gradient(150deg, #101e25, #09131a);
+  background-blend-mode: soft-light, normal;
+}
+
+/* Chaque époque conserve un cadre cartographique identifiable, sans surcharge */
+body[data-cartographic-era="exploration"] .map-frame { border: 5px double #80613c; box-shadow: 0 0 0 3px #80613c22, 0 16px 38px #0008; }
+body[data-cartographic-era="westphalia"] .map-frame { border: 3px double #756957; }
+body[data-cartographic-era="revolution"] .map-frame { border: 1px solid #756b62; }
+body[data-cartographic-era="modern"] .map-frame { border: 1px solid #59645f; }
+body[data-cartographic-era="present"] .map-frame { border: 1px solid #3d4945; }
+body[data-cartographic-era="future"] .map-frame { border: 1px solid #29434a; box-shadow: 0 16px 42px #000a; }
+
+@media (prefers-reduced-motion: reduce) {
+  body, body .side-panel, body .topbar, body .map-frame,
+  body .button, body .speed-chip {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+
+/* HUD de grande stratégie — profondeur, instruments et matières */
+.game-layout { position:relative; isolation:isolate; }
+.time-sidebar,.ai-sidebar {
+  position:relative; z-index:2; align-self:stretch;
+  box-shadow: 0 18px 42px #0008, 0 3px 10px #0005, inset 0 1px 0 #ffffff16;
+}
+.time-sidebar::before,.ai-sidebar::before {
+  content:""; position:absolute; inset:0 0 auto; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--theme-accent) 68%,white 12%),transparent);
+  opacity:.72;
+}
+.chronicle-console {
+  position:relative; padding:16px 14px 14px; margin:15px -7px 0;
+  border:1px solid var(--theme-border); border-radius:var(--theme-radius);
+  background:
+    radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--theme-accent) 12%,transparent),transparent 62%),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 70%);
+  box-shadow:inset 0 1px 0 #ffffff12,0 9px 22px #0003;
+}
+.map-stage { position:relative; z-index:1; min-width:0; }
+.map-stage-heading { padding:0 4px 8px; }
+.map-frame {
+  position:relative; isolation:isolate; overflow:hidden;
+  border-radius:var(--theme-radius);
+  box-shadow:0 26px 64px #0009,0 8px 20px #0006,inset 0 0 0 1px #ffffff12;
+}
+.map-frame::before {
+  content:""; position:absolute; z-index:1; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 54%,#02060938 100%);
+  box-shadow:inset 0 0 46px #0005,inset 0 1px 0 #ffffff20;
+}
+.map-cartographic-overlay {
+  position:absolute; z-index:2; inset:0; overflow:hidden; pointer-events:none;
+  color:var(--theme-accent); opacity:.56;
+  font:500 8px/1.2 var(--theme-body-font); letter-spacing:.12em;
+  text-shadow:0 1px 3px #000,0 0 8px #0009;
+}
+.map-cartographic-overlay::before {
+  content:""; position:absolute; inset:12px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 35%,transparent);
+  opacity:.62;
+}
+.map-overlay-coordinate { position:absolute; padding:3px 5px; background:linear-gradient(90deg,#080d10a8,transparent); }
+.map-overlay-coordinate-nw { top:17px;left:18px; }
+.map-overlay-coordinate-ne { top:17px;right:18px;text-align:right; }
+.map-overlay-coordinate-sw { bottom:16px;left:18px; }
+.map-overlay-coordinate-se { bottom:16px;right:18px;text-align:right; }
+.map-compass {
+  position:absolute; right:26px; bottom:28px; width:62px; height:62px;
+  display:grid; place-items:center; border:1px solid currentColor; border-radius:50%;
+  background:radial-gradient(circle,#111b1b66,#080d1099);
+  box-shadow:0 2px 12px #0008,inset 0 0 12px #ffffff0c;
+  font:9px Georgia,serif;
+}
+.map-compass::before,.map-compass::after { content:"";position:absolute;background:currentColor;opacity:.55; }
+.map-compass::before { width:1px;height:48px; }
+.map-compass::after { width:48px;height:1px; }
+.map-compass i { position:absolute;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:20px solid var(--theme-accent);transform:translateY(-8px);filter:drop-shadow(0 1px 2px #000); }
+.map-compass b { position:absolute;top:4px; } .map-compass em { position:absolute;right:5px;font-style:normal; }
+.map-compass small { position:absolute;bottom:4px; } .map-compass strong { position:absolute;left:5px; }
+.map-reticle { position:absolute;width:22px;height:22px;opacity:.45; }
+.map-reticle-a { top:12px;left:12px;border-top:1px solid currentColor;border-left:1px solid currentColor; }
+.map-reticle-b { right:12px;bottom:12px;border-right:1px solid currentColor;border-bottom:1px solid currentColor; }
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::before,
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before {
+  inset:9px; border:3px double color-mix(in srgb,var(--theme-accent) 64%,transparent);
+  background:
+    repeating-linear-gradient(32deg,transparent 0 74px,color-mix(in srgb,var(--theme-accent) 11%,transparent) 75px 76px,transparent 77px 148px),
+    repeating-linear-gradient(148deg,transparent 0 92px,color-mix(in srgb,var(--theme-accent) 9%,transparent) 93px 94px,transparent 95px 184px);
+}
+body[data-cartographic-era="exploration"] .map-compass,
+body[data-cartographic-era="westphalia"] .map-compass { border-radius:50%; }
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  inset:10px;
+  background:none;
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay,
+body[data-cartographic-era="future"] .map-cartographic-overlay { opacity:.48; }
+body[data-cartographic-era="present"] .map-cartographic-overlay::before,
+body[data-cartographic-era="future"] .map-cartographic-overlay::before {
+  inset:10px;
+  border-color:color-mix(in srgb,var(--theme-accent) 42%,transparent);
+  background:
+    linear-gradient(90deg,var(--theme-accent) 1px,transparent 1px) 0 0/34px 34px,
+    linear-gradient(var(--theme-accent) 1px,transparent 1px) 0 0/34px 34px;
+  mask-image:linear-gradient(90deg,#0008,transparent 28%,transparent 72%,#0008);
+  opacity:.14;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::after {
+  content:""; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent 0 5px,#9cae8a08 6px,transparent 7px);
+  opacity:.65;
+}
+body[data-cartographic-era="exploration"] .map-overlay-coordinate,
+body[data-cartographic-era="westphalia"] .map-overlay-coordinate {
+  font-family:"EB Garamond",Georgia,serif; letter-spacing:.08em;
+}
+body[data-cartographic-era="modern"] .map-overlay-coordinate,
+body[data-cartographic-era="present"] .map-overlay-coordinate,
+body[data-cartographic-era="future"] .map-overlay-coordinate { font-family:var(--theme-body-font); }
+
+/* Commandes mécaniques : arête éclairée, matière pressée, état actif gravé */
+.button,.speed-chip,.map-tool,.era-milestones button,.map-data-button {
+  position:relative; overflow:hidden;
+  box-shadow:inset 0 1px 0 #ffffff20,0 2px 5px #0004;
+  transition:transform .16s ease,border-color .2s ease,background-color .2s ease,box-shadow .2s ease,filter .2s ease;
+}
+.button::before,.speed-chip::before,.map-tool::before,.era-milestones button::before {
+  content:""; position:absolute;top:0;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg,transparent,#ffffff66,transparent);opacity:.5;pointer-events:none;
+}
+.button:hover:not(:disabled),.speed-chip:hover:not(:disabled),.map-tool:hover:not(:disabled),.era-milestones button:hover {
+  transform:translateY(-1px); box-shadow:inset 0 1px 0 #ffffff28,0 5px 12px #0005;
+}
+.button:active:not(:disabled),.speed-chip:active:not(:disabled),.map-tool:active:not(:disabled),.era-milestones button:active {
+  transform:translateY(1px);box-shadow:inset 0 2px 5px #0006;
+}
+.speed-presets { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px; }
+.speed-chip {
+  min-width:0;padding:7px 3px 6px;border:1px solid var(--theme-border);
+  border-radius:var(--theme-radius);background:linear-gradient(180deg,var(--theme-panel-raised),var(--theme-control));
+  color:var(--theme-text);font:600 12px var(--theme-body-font);cursor:pointer;
+}
+.speed-chip small { display:block;margin-top:3px;color:var(--theme-muted);font:8px var(--theme-body-font);letter-spacing:.04em; }
+.speed-chip.is-active {
+  color:var(--theme-accent);border-color:var(--theme-accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 18%,var(--theme-panel)),var(--theme-control));
+  box-shadow:inset 0 1px 0 #ffffff24,0 0 0 1px color-mix(in srgb,var(--theme-accent) 22%,transparent),0 0 15px color-mix(in srgb,var(--theme-accent) 12%,transparent);
+}
+.era-milestones { position:relative; }
+.era-milestones::before {
+  content:"";position:absolute;top:0;left:4%;right:4%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--theme-border),var(--theme-accent),var(--theme-border),transparent);
+}
+.era-milestones button { border-radius:var(--theme-radius);background:linear-gradient(180deg,var(--theme-panel-raised),var(--theme-panel)); }
+.era-milestones button.is-active {
+  color:var(--theme-accent);border-color:var(--theme-accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 17%,var(--theme-panel-raised)),var(--theme-panel));
+  box-shadow:inset 0 1px 0 #ffffff24,0 0 14px color-mix(in srgb,var(--theme-accent) 13%,transparent);
+}
+.era-milestones button small { color:var(--theme-muted); }
+#year-scrubber { accent-color:var(--theme-accent); }
+#year-scrubber::-webkit-slider-runnable-track {
+  height:4px;border-radius:9px;
+  background:linear-gradient(90deg,var(--theme-accent),var(--theme-border));
+  box-shadow:0 1px 3px #0008;
+}
+#year-scrubber::-webkit-slider-thumb {
+  width:15px;height:15px;margin-top:-5px;border:2px solid var(--theme-accent);
+  border-radius:50%;background:linear-gradient(145deg,#fff8,var(--theme-panel-raised));
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 18%,transparent),0 2px 7px #0009;
+  -webkit-appearance:none;
+}
+#year-scrubber::-moz-range-track { height:4px;border-radius:9px;background:linear-gradient(90deg,var(--theme-accent),var(--theme-border)); }
+#year-scrubber::-moz-range-thumb { width:12px;height:12px;border:2px solid var(--theme-accent);border-radius:50%;background:var(--theme-panel-raised);box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 18%,transparent); }
+
+/* Les époques numériques adoptent le verre fumé sans augmenter le coût du rendu carte */
+body[data-cartographic-era="present"] .time-sidebar,
+body[data-cartographic-era="present"] .ai-sidebar,
+body[data-cartographic-era="future"] .time-sidebar,
+body[data-cartographic-era="future"] .ai-sidebar,
+body[data-cartographic-era="present"] .chronicle-console,
+body[data-cartographic-era="future"] .chronicle-console {
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background-image:
+    linear-gradient(145deg,#ffffff08,transparent 42%),
+    radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--theme-accent) 9%,transparent),transparent 65%),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 72%);
+}
+body[data-cartographic-era="modern"] .time-sidebar,
+body[data-cartographic-era="modern"] .ai-sidebar {
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 23px,#c2c9b008 24px),
+    linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel) 72%);
+}
+@media (max-width:760px) {
+  .map-cartographic-overlay { opacity:.28; }
+  .map-compass { transform:scale(.78);transform-origin:bottom right;right:18px;bottom:22px; }
+  .map-overlay-coordinate { font-size:7px; }
+  .chronicle-console { margin:12px 0 0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .button,.speed-chip,.map-tool,.era-milestones button { transition:none!important; }
+}
+
+
+/* Registre des événements : document consultable, sans simuler une validation IA */
+.ai-sidebar { gap:0; }
+.ai-sidebar .side-heading { position:relative; padding-bottom:13px; border-bottom:1px solid color-mix(in srgb,var(--theme-border) 76%,transparent); }
+.ai-sidebar .side-heading::after {
+  content:""; position:absolute;left:0;bottom:-1px;width:54px;height:1px;
+  background:var(--theme-accent);box-shadow:0 0 9px color-mix(in srgb,var(--theme-accent) 35%,transparent);
+}
+.ai-orb {
+  width:72px;height:72px;margin:23px auto 17px;
+  border-color:color-mix(in srgb,var(--theme-accent) 58%,transparent);
+  background:radial-gradient(circle at 35% 28%,color-mix(in srgb,var(--theme-accent) 16%,transparent),transparent 58%);
+  box-shadow:0 0 0 5px color-mix(in srgb,var(--theme-accent) 5%,transparent),0 8px 24px #0005,inset 0 0 22px color-mix(in srgb,var(--theme-accent) 12%,transparent);
+}
+.ai-orb::before,.ai-orb::after { border-color:color-mix(in srgb,var(--theme-accent) 34%,transparent); }
+.ai-intro { max-width:29ch;margin-left:auto;margin-right:auto;color:var(--theme-muted); }
+.ai-capabilities { gap:0;padding:5px 0;border-color:var(--theme-border); }
+.ai-capabilities span { padding:8px 3px;border-bottom:1px solid color-mix(in srgb,var(--theme-border) 48%,transparent); }
+.ai-capabilities span:last-child { border-bottom:0; }
+.chat-preview {
+  position:relative;margin-top:17px;padding:12px;
+  border:1px solid var(--theme-border);border-radius:var(--theme-radius);
+  background:linear-gradient(145deg,var(--theme-panel-raised),var(--theme-panel));
+  box-shadow:inset 0 1px 0 #ffffff12,0 10px 24px #0003;
+}
+.chat-preview::before {
+  content:"";position:absolute;top:-1px;left:14px;width:44px;height:2px;
+  background:var(--theme-accent);opacity:.8;
+}
+.chat-message {
+  position:relative;padding:28px 12px 13px;
+  border:1px solid color-mix(in srgb,var(--theme-border) 86%,var(--theme-accent));
+  border-radius:2px;box-shadow:inset 0 1px 0 #ffffff0c,0 4px 12px #0002;
+  font:500 11px/1.75 var(--theme-body-font);
+}
+.chat-message::before {
+  content:"REGISTRE  /  NOTE EN ATTENTE";
+  position:absolute;top:9px;left:11px;
+  color:var(--theme-accent);font:700 7px/1 var(--theme-body-font);
+  letter-spacing:.15em;
+}
+.chat-preview label { margin-top:7px;font-weight:700; }
+.chat-preview textarea {
+  min-height:104px;padding:12px;border-radius:2px;
+  background:linear-gradient(145deg,var(--theme-control),color-mix(in srgb,var(--theme-control) 82%,var(--theme-panel-raised)));
+  box-shadow:inset 0 2px 8px #0004;
+}
+.ai-send { min-height:38px;letter-spacing:.035em; }
+.ai-disclaimer { padding:13px 2px 0;border-top:1px solid color-mix(in srgb,var(--theme-border) 55%,transparent); }
+
+/* Frise chronologique : rail gradué, progression réelle et curseur tactile */
+.chronicle-console { overflow:visible; }
+.chronicle-console::after {
+  content:"";position:absolute;top:0;right:12px;width:76px;height:7px;
+  background:repeating-linear-gradient(90deg,var(--theme-accent) 0 1px,transparent 1px 9px);
+  opacity:.42;pointer-events:none;
+}
+.timeline-control { position:relative;padding-top:15px; }
+.timeline-heading { margin-bottom:7px; }
+.timeline-heading label { color:var(--theme-accent);font-size:9px;letter-spacing:.17em; }
+.timeline-heading span { font:600 9px/1 var(--theme-mono-font,monospace);font-variant-numeric:tabular-nums; }
+#year-scrubber {
+  display:block;width:100%;height:22px;margin:8px 0 4px;padding:0;
+  appearance:none;-webkit-appearance:none;cursor:ew-resize;touch-action:pan-y;
+  background:transparent;outline:none;
+}
+#year-scrubber::-webkit-slider-runnable-track {
+  height:7px;border:1px solid color-mix(in srgb,var(--theme-border) 72%,#000);
+  border-radius:2px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--theme-text) 28%,transparent) calc(10% - 1px) 10%),
+    linear-gradient(90deg,var(--theme-accent) 0 var(--timeline-progress,0%),color-mix(in srgb,var(--theme-panel-raised) 82%,#000) var(--timeline-progress,0%) 100%);
+  box-shadow:inset 0 1px 3px #0009,0 1px 0 #ffffff0a;
+}
+#year-scrubber::-moz-range-track {
+  height:7px;border:1px solid color-mix(in srgb,var(--theme-border) 72%,#000);border-radius:2px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--theme-text) 28%,transparent) calc(10% - 1px) 10%),
+    linear-gradient(90deg,var(--theme-accent) 0 var(--timeline-progress,0%),color-mix(in srgb,var(--theme-panel-raised) 82%,#000) var(--timeline-progress,0%) 100%);
+}
+#year-scrubber::-webkit-slider-thumb {
+  appearance:none;-webkit-appearance:none;width:19px;height:19px;margin-top:-7px;
+  border:2px solid var(--theme-accent);border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff9,var(--theme-panel-raised) 38%,var(--theme-control) 78%);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 22%,transparent),0 2px 7px #000b,inset 0 1px 2px #fff5;
+  transition:box-shadow .16s ease,transform .16s ease;
+}
+#year-scrubber::-moz-range-thumb {
+  width:15px;height:15px;border:2px solid var(--theme-accent);border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff9,var(--theme-panel-raised) 38%,var(--theme-control) 78%);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 22%,transparent),0 2px 7px #000b;
+}
+#year-scrubber:hover::-webkit-slider-thumb,#year-scrubber:focus-visible::-webkit-slider-thumb {
+  transform:scale(1.12);box-shadow:0 0 0 5px color-mix(in srgb,var(--theme-accent) 24%,transparent),0 0 15px color-mix(in srgb,var(--theme-accent) 38%,transparent);
+}
+#year-scrubber:focus-visible { outline:1px solid var(--theme-accent);outline-offset:5px;border-radius:4px; }
+.timeline-ends { font-variant-numeric:tabular-nums;letter-spacing:.04em; }
+.era-milestones { padding-top:8px;gap:4px; }
+.era-milestones button {
+  position:relative;min-height:38px;padding:7px 1px 5px;
+  border:1px solid color-mix(in srgb,var(--theme-border) 45%,transparent);
+  border-top:2px solid color-mix(in srgb,var(--theme-border) 55%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-panel-raised) 72%,transparent),transparent);
+  transition:border-color .18s ease,background .18s ease,transform .18s ease;
+}
+.era-milestones button:hover { transform:translateY(-2px); }
+.era-milestones button.is-active {
+  border-color:var(--theme-accent);border-top-color:var(--theme-accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 20%,var(--theme-panel-raised)),transparent);
+  box-shadow:inset 0 1px 0 #ffffff20,0 2px 8px #0005;
+}
+.era-milestones button.is-active::before {
+  content:"";position:absolute;top:-5px;left:calc(50% - 3px);width:6px;height:6px;
+  border:1px solid var(--theme-accent);border-radius:50%;background:var(--theme-panel);
+  box-shadow:0 0 8px color-mix(in srgb,var(--theme-accent) 65%,transparent);
+}
+.era-banner { min-height:34px;box-shadow:inset 0 1px 0 #ffffff0c; }
+body[data-cartographic-era="exploration"] .chat-message,
+body[data-cartographic-era="exploration"] .chat-preview {
+  border-color:#80613c;
+  background-image:url("../assets/textures/parchment.svg"),linear-gradient(145deg,#493822,#2b2117);
+  background-size:cover,auto;background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="westphalia"] .chat-message,
+body[data-cartographic-era="westphalia"] .chat-preview { border-style:double;border-width:3px; }
+body[data-cartographic-era="revolution"] .chat-message::before { content:"GAZETTE  /  BRÈVE À CONSIGNER"; }
+body[data-cartographic-era="modern"] .chat-message::before { content:"ÉTAT-MAJOR  /  RAPPORT"; }
+body[data-cartographic-era="present"] .chat-message::before { content:"CENTRE DE VEILLE  /  NOTE"; }
+body[data-cartographic-era="future"] .chat-message::before { content:"CONSOLE ORBITALE  /  SIGNAL"; }
+body[data-cartographic-era="modern"] .chat-preview { border-radius:1px; }
+body[data-cartographic-era="present"] .chat-preview,
+body[data-cartographic-era="future"] .chat-preview {
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background-image:linear-gradient(145deg,#ffffff08,transparent 40%),linear-gradient(155deg,var(--theme-panel-raised),var(--theme-panel));
+}
+@media (prefers-reduced-motion:reduce) {
+  .ai-orb,.chat-preview,.chat-message { animation:none!important;transition:none!important; }
+}
+
+
+/* Encadrement de la scène : la carte reste le seul plan interactif */
+.map-frame { border:1px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border)); }
+.map-frame::after {
+  content:"";position:absolute;z-index:3;inset:0;pointer-events:none;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px top 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px top 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px top 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px top 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px bottom 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 10px bottom 10px/1px 24px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px bottom 10px/24px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 10px bottom 10px/1px 24px no-repeat;
+  opacity:.52;
+}
+.map-stage-heading .eyebrow { margin-bottom:5px; }
+.map-stage-heading h2 { text-shadow:0 2px 18px #0008; }
+.map-bottom-bar {
+  min-height:35px;padding:9px 10px 0;
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 65%,transparent);
+}
+.map-footnote { padding-left:10px;opacity:.76; }
+body[data-cartographic-era="exploration"] .map-frame,
+body[data-cartographic-era="westphalia"] .map-frame {
+  border:5px double color-mix(in srgb,var(--theme-accent) 62%,#332416);
+  border-radius:2px;
+  box-shadow:0 24px 58px #000a,0 0 0 1px #17100b,inset 0 0 0 2px #e0bd7950,inset 0 0 42px #160e0870;
+  background:
+    radial-gradient(ellipse at center,#263c40 0%,#182d31 72%,#111f22 100%);
+}
+body[data-cartographic-era="exploration"] .map-frame::after,
+body[data-cartographic-era="westphalia"] .map-frame::after {
+  inset:5px;opacity:.75;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px top 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px top 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px top 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px top 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px bottom 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 7px bottom 7px/2px 32px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px bottom 7px/32px 2px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 7px bottom 7px/2px 32px no-repeat;
+}
+body[data-cartographic-era="exploration"] .map-compass {
+  width:76px;height:76px;border:1px double var(--theme-accent);
+  background:radial-gradient(circle,#5b432477,#21180cbb 72%);
+  box-shadow:0 0 0 4px #9d77452a,0 4px 16px #0009,inset 0 0 18px #d9b87820;
+}
+body[data-cartographic-era="westphalia"] .map-compass {
+  width:70px;height:70px;border:3px double var(--theme-accent);
+  background:radial-gradient(circle,#3b3430aa,#14191dcc 72%);
+}
+body[data-cartographic-era="revolution"] .map-frame {
+  border-radius:0;border:2px solid color-mix(in srgb,var(--theme-border) 75%,var(--theme-accent));
+  box-shadow:0 20px 50px #0009,inset 0 0 0 1px #ffffff12;
+}
+/* L'ère Révolution conserve son cadre net : aucun motif de points sur la surface de la carte. */
+body[data-cartographic-era="modern"] .map-frame {
+  border-radius:0;border:1px solid #82918a66;
+  box-shadow:0 22px 54px #000a,inset 0 0 0 1px #d0d7c30c;
+}
+body[data-cartographic-era="modern"] .map-frame::after { opacity:.28; }
+body[data-cartographic-era="present"] .map-frame,
+body[data-cartographic-era="future"] .map-frame {
+  border-radius:3px;border-color:color-mix(in srgb,var(--theme-accent) 42%,#17252c);
+  box-shadow:0 26px 68px #000b,0 0 26px color-mix(in srgb,var(--theme-accent) 5%,transparent),inset 0 0 0 1px #ffffff0a;
+}
+body[data-cartographic-era="future"] .map-frame::after {
+  opacity:.36;
+  background:
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px top 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px top 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px top 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px top 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px bottom 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) left 8px bottom 8px/1px 38px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px bottom 8px/38px 1px no-repeat,
+    linear-gradient(var(--theme-accent),var(--theme-accent)) right 8px bottom 8px/1px 38px no-repeat;
+}
+@media(max-width:760px) {
+  body[data-cartographic-era="exploration"] .map-frame,
+  body[data-cartographic-era="westphalia"] .map-frame { border-width:3px; }
+  .map-frame::after { opacity:.28; }
+}
+
+
+/* Finition tactile du HUD — micro-reliefs, repères et lisibilité des instruments */
+.topbar {
+  box-shadow: 0 5px 18px #0004, inset 0 1px 0 #ffffff0a;
+}
+.brand-mark {
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb,var(--theme-accent) 12%,transparent),0 2px 8px #0005;
+  text-shadow: 0 0 12px color-mix(in srgb,var(--theme-accent) 28%,transparent);
+}
+.brand-mark::after {
+  content:"";
+  position:absolute;
+  inset:3px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
+  pointer-events:none;
+}
+.side-panel {
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border)) transparent;
+}
+.side-panel::-webkit-scrollbar,
+.country-results::-webkit-scrollbar { width:6px; }
+.side-panel::-webkit-scrollbar-thumb,
+.country-results::-webkit-scrollbar-thumb {
+  border:1px solid transparent;
+  border-radius:8px;
+  background:color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border));
+  background-clip:padding-box;
+}
+.side-heading { position:relative; }
+.side-heading h1,
+.side-heading h2 { text-shadow:0 2px 14px #0004; }
+.date-display {
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.035em;
+  text-shadow:0 2px 18px color-mix(in srgb,var(--theme-accent) 15%,transparent),0 3px 8px #0007;
+}
+.country-result {
+  position:relative;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease,padding-left .16s ease;
+}
+.country-result:hover { padding-left:14px; }
+.country-result.is-selected {
+  background:linear-gradient(90deg,color-mix(in srgb,var(--theme-accent) 18%,var(--theme-panel)),transparent);
+  box-shadow:inset 3px 0 var(--theme-accent),inset 0 1px 0 #ffffff0a;
+}
+.country-result.is-selected .country-result-name { color:var(--theme-text); }
+.country-selected {
+  position:relative;
+  border-color:color-mix(in srgb,var(--theme-accent) 42%,var(--theme-border));
+  background:
+    linear-gradient(135deg,color-mix(in srgb,var(--theme-accent) 9%,transparent),transparent 58%),
+    var(--theme-panel-raised);
+  box-shadow:inset 0 1px 0 #ffffff10,0 7px 18px #0003;
+}
+.map-stage-heading {
+  padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 60%,transparent);
+}
+.map-stage-heading h2 { letter-spacing:-.025em; }
+.map-tools .map-tool {
+  box-shadow:inset 0 1px 0 #ffffff10,0 2px 5px #0003;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.map-tools .map-tool:active { transform:translateY(1px);box-shadow:inset 0 2px 5px #0006; }
+.map-zoom-level {
+  padding:5px 4px;
+  border-top:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  font-variant-numeric:tabular-nums;
+}
+.map-tooltip {
+  border-color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-border));
+  border-radius:var(--theme-radius);
+  background:
+    linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-raised) 94%,transparent),color-mix(in srgb,var(--theme-panel) 97%,transparent));
+  color:var(--theme-text);
+  box-shadow:0 12px 32px #0009,inset 0 1px 0 #ffffff14;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.map-tooltip span { color:var(--theme-muted); }
+.map-bottom-bar { font-variant-numeric:tabular-nums; }
+.map-legend i {
+  box-shadow:0 0 0 1px #0006,0 1px 4px #0005;
+}
+.map-data-tools {
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 48%,transparent);
+  margin-top:5px;
+}
+.map-data-copy strong { color:var(--theme-accent);letter-spacing:.045em; }
+.map-data-button {
+  border-radius:var(--theme-radius);
+  box-shadow:inset 0 1px 0 #ffffff12,0 3px 9px #0004;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease;
+}
+.map-data-button:active:not(:disabled) { transform:translateY(1px);box-shadow:inset 0 2px 5px #0006; }
+.button,.speed-chip,.era-milestones button { -webkit-tap-highlight-color:transparent; }
+@media (prefers-reduced-motion:reduce) {
+  .country-result,.map-tools .map-tool,.map-data-button { transition:none!important; }
+}
+
+
+/* Écran de campagne : atlas plein cadre et sélection directe sur la carte */
+body:not(.campaign-started) .game-layout{
+  position:fixed;inset:58px 0 0;height:auto;display:block;overflow:hidden;
+}
+body:not(.campaign-started) .time-sidebar,
+body:not(.campaign-started) .ai-sidebar{display:none}
+body:not(.campaign-started) .map-stage{
+  position:absolute;inset:0;min-height:0;padding:136px 24px 18px;
+  background:radial-gradient(ellipse at 48% 48%,#314a4b55,transparent 66%),var(--theme-surface);
+}
+body:not(.campaign-started) .map-stage-heading{
+  position:relative;z-index:1;min-height:43px;margin:0 0 10px;padding:0 2px 9px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+}
+body:not(.campaign-started) .map-stage-heading h2{font-size:clamp(20px,2vw,28px)}
+body:not(.campaign-started) .map-frame{
+  min-height:0;border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+  box-shadow:0 22px 70px #0009,inset 0 0 45px #0003;
+}
+body:not(.campaign-started) .map-bottom-bar{padding-top:8px}
+body:not(.campaign-started) .map-data-tools,
+body:not(.campaign-started) .map-footnote,
+body:not(.campaign-started) .map-diagnostics{display:none}
+body:not(.campaign-started) .campaign-datebar{
+  position:fixed;z-index:32;top:70px;left:24px;width:calc(100% - 468px);min-height:57px;
+  display:grid;grid-template-columns:auto minmax(150px,1fr) auto;align-items:center;gap:20px;
+  padding:9px 16px;border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+  background:linear-gradient(110deg,color-mix(in srgb,var(--theme-panel-raised) 92%,transparent),color-mix(in srgb,var(--theme-panel) 88%,transparent));
+  box-shadow:0 12px 34px #0007,inset 0 1px #ffffff12;backdrop-filter:blur(14px);
+}
+.campaign-datebar[hidden]{display:none}
+.campaign-datebar-heading{display:flex;flex-direction:column;gap:1px;min-width:116px}
+.campaign-datebar-heading span{font-size:8px;font-weight:700;letter-spacing:.18em;color:var(--theme-muted)}
+.campaign-datebar-heading strong{font:600 25px/1.05 var(--theme-display-font);color:var(--theme-accent);font-variant-numeric:tabular-nums}
+.campaign-datebar-heading em{font:normal 7px var(--theme-body-font);letter-spacing:.12em;color:var(--theme-muted);opacity:.72}
+.campaign-date-slider{display:flex;min-width:0;flex-direction:column;gap:0;margin:0}
+.campaign-date-slider input{margin:3px 0 5px}
+.campaign-datebar-mark{padding-left:14px;border-left:1px solid var(--theme-border);font:600 9px var(--theme-body-font);letter-spacing:.12em;color:var(--theme-muted);white-space:nowrap}
+body:not(.campaign-started) .campaign-setup{
+  inset:58px 0 0;justify-content:flex-end;align-items:stretch;padding:98px 22px 16px;
+  background:linear-gradient(90deg,transparent 52%,rgba(3,9,13,.22) 72%,rgba(3,9,13,.48));
+}
+body:not(.campaign-started) .setup-card{
+  width:min(392px,36vw);max-height:100%;padding:22px 21px 18px;
+  border-color:color-mix(in srgb,var(--theme-accent) 54%,var(--theme-border));
+  background:linear-gradient(155deg,color-mix(in srgb,var(--theme-panel-raised) 97%,transparent),color-mix(in srgb,var(--theme-panel) 97%,transparent));
+  box-shadow:0 28px 90px #000b,inset 0 1px #ffffff18,0 0 0 1px #0005;
+  backdrop-filter:blur(16px);
+}
+body:not(.campaign-started) .setup-card:after{
+  content:"ATLAS · SÉLECTION DES NATIONS";display:block;margin-top:14px;padding-top:10px;
+  border-top:1px solid color-mix(in srgb,var(--theme-accent) 26%,transparent);
+  color:var(--theme-muted);font:8px var(--theme-body-font);letter-spacing:.16em;opacity:.75;
+}
+body:not(.campaign-started) .setup-card h1{font-size:clamp(30px,3vw,40px);line-height:1.04}
+body:not(.campaign-started) .setup-lead{font-size:12px;line-height:1.55;color:var(--theme-muted)}
+body:not(.campaign-started) .setup-map-hint{padding:8px 0;border-top:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent);border-bottom:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent)}
+body:not(.campaign-started) .setup-grid{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+body:not(.campaign-started) .setup-country{display:flex;min-height:0;flex-direction:column;flex:1}
+body:not(.campaign-started) .country-results{max-height:none;min-height:130px;flex:1;border-color:var(--theme-border);background:color-mix(in srgb,var(--theme-surface) 78%,transparent)}
+body:not(.campaign-started) .country-region-heading{background:var(--theme-panel-raised);color:var(--theme-accent)}
+body:not(.campaign-started) .country-result{padding:8px 10px;border-bottom-color:color-mix(in srgb,var(--theme-border) 40%,transparent)}
+body:not(.campaign-started) .country-result:hover{background:color-mix(in srgb,var(--theme-accent) 13%,var(--theme-panel))}
+body:not(.campaign-started) .country-result.is-selected{background:color-mix(in srgb,var(--theme-accent) 16%,var(--theme-panel));box-shadow:inset 3px 0 var(--theme-accent),inset 0 0 22px color-mix(in srgb,var(--theme-accent) 7%,transparent)}
+body:not(.campaign-started) .country-result-name{font-family:var(--theme-display-font);font-size:14px}
+body:not(.campaign-started) .country-selected{max-height:31vh;flex:0 0 auto;border-color:color-mix(in srgb,var(--theme-accent) 45%,var(--theme-border));background:color-mix(in srgb,var(--theme-panel-raised) 94%,transparent)}
+body:not(.campaign-started) .country-dossier{max-height:20vh;overflow:auto}
+body:not(.campaign-started) .setup-note{flex:0 0 auto;margin-top:2px}
+body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:12px}
+body:not(.campaign-started) .country-search,
+body:not(.campaign-started) .country-filter-row select,
+body:not(.campaign-started) .setup-grid select{background:var(--theme-control);color:var(--theme-control-text);border-color:var(--theme-border)}
+body:not(.campaign-started) .map-frame canvas{cursor:crosshair}
+body:not(.campaign-started) .map-frame canvas.is-dragging{cursor:grabbing}
+body:not(.campaign-started) .map-bottom-bar{font-size:9px}
+body:not(.campaign-started) .map-legend{font-size:8px}
+@media(max-width:1050px){
+  body:not(.campaign-started) .campaign-datebar{width:calc(100% - 420px);left:14px;gap:12px}
+  body:not(.campaign-started) .campaign-setup{padding-right:14px}
+  body:not(.campaign-started) .setup-card{width:390px;max-width:42vw}
+  body:not(.campaign-started) .map-stage{padding-left:14px;padding-right:14px}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .game-layout{inset:54px 0 0}
+  body:not(.campaign-started) .map-stage{padding:128px 9px 9px}
+  body:not(.campaign-started) .campaign-datebar{top:60px;left:9px;width:calc(100% - 18px);min-height:58px;grid-template-columns:auto minmax(90px,1fr);gap:10px;padding:7px 10px}
+  body:not(.campaign-started) .campaign-datebar-mark{display:none}
+  body:not(.campaign-started) .campaign-datebar-heading{min-width:92px}
+  body:not(.campaign-started) .campaign-datebar-heading strong{font-size:21px}
+  body:not(.campaign-started) .campaign-datebar-heading em{font-size:6px}
+  body:not(.campaign-started) .campaign-setup{inset:54px 0 0;align-items:flex-end;justify-content:center;padding:0 8px 8px;background:linear-gradient(180deg,transparent 38%,#03090dbb 70%)}
+  body:not(.campaign-started) .setup-card{width:100%;max-width:none;max-height:49dvh;padding:12px 13px}
+  body:not(.campaign-started) .setup-card h1{font-size:26px;margin:4px 0}
+  body:not(.campaign-started) .setup-lead{font-size:10px;margin:0 0 4px}
+  body:not(.campaign-started) .setup-map-hint{font-size:8px;margin:3px 0}
+  body:not(.campaign-started) .setup-grid{gap:6px;margin:6px 0}
+  body:not(.campaign-started) .setup-country{min-height:0}
+  body:not(.campaign-started) .country-results{min-height:76px;max-height:110px;flex:1}
+  body:not(.campaign-started) .country-selected{max-height:18vh;padding:6px}
+  body:not(.campaign-started) .country-dossier{max-height:8vh}
+  body:not(.campaign-started) .country-dossier .dossier-objectives,
+  body:not(.campaign-started) .country-dossier .dossier-diplomacy,
+  body:not(.campaign-started) .country-dossier .dossier-data-note{display:none}
+  body:not(.campaign-started) .setup-note{display:none}
+  body:not(.campaign-started) .setup-start{margin-top:6px;padding:9px 12px}
+  body:not(.campaign-started) .map-stage-heading{margin-bottom:5px}
+  body:not(.campaign-started) .map-stage-heading h2{font-size:17px}
+  body:not(.campaign-started) .map-bottom-bar{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  body:not(.campaign-started) .campaign-datebar,
+  body:not(.campaign-started) .setup-card{scroll-behavior:auto;transition:none}
+}
+
+/* Le bandeau de date appartient uniquement à l'écran de préparation. */
+.campaign-datebar{display:none}
+
+
+/* Lecture contextuelle des nations dans l'atlas de campagne */
+body:not(.campaign-started) .map-tooltip.is-campaign-country{
+  min-width:206px;padding:11px 13px;border-color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-border));
+  background:linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-raised) 97%,transparent),color-mix(in srgb,var(--theme-panel) 96%,transparent));
+  box-shadow:0 12px 34px #0009,inset 0 1px #ffffff17,0 0 22px color-mix(in srgb,var(--theme-accent) 9%,transparent);
+}
+body:not(.campaign-started) .map-tooltip.is-campaign-country strong{
+  display:block;margin-bottom:4px;font:600 16px/1.15 var(--theme-display-font);color:var(--theme-accent);
+}
+body:not(.campaign-started) .map-tooltip.is-campaign-country span{
+  display:block;font-size:9px;line-height:1.5;color:var(--theme-muted);
+}
+body:not(.campaign-started) .map-tooltip.is-campaign-country .map-tooltip-country-detail{
+  margin-top:6px;padding-top:6px;border-top:1px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
+  color:var(--theme-text);font-size:10px;font-weight:600;letter-spacing:.02em;
+}
+body:not(.campaign-started) .country-results[role="listbox"]{outline:none}
+body:not(.campaign-started) .country-result:focus-visible{
+  outline:2px solid var(--theme-accent);outline-offset:-2px;
+  background:color-mix(in srgb,var(--theme-accent) 17%,var(--theme-panel));
+}
+body:not(.campaign-started) .country-result[aria-selected="true"] .country-rank{color:var(--theme-accent)}
+body:not(.campaign-started) .country-result-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+@media(max-width:760px){
+  body:not(.campaign-started) .map-tooltip.is-campaign-country{min-width:176px;padding:8px 10px}
+  body:not(.campaign-started) .map-tooltip.is-campaign-country strong{font-size:13px}
+}
+
+/* Dossier de campagne : statut, profondeur territoriale et contexte d'époque */
+.dossier-status{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:7px 9px;border:1px solid color-mix(in srgb,var(--theme-accent) 30%,transparent);background:color-mix(in srgb,var(--theme-panel) 88%,transparent)}
+.dossier-status span,.dossier-historical-lens>span{font-size:8px;letter-spacing:.12em;color:var(--theme-muted);text-transform:uppercase}
+.dossier-status strong{font:11px var(--theme-display-font);color:var(--theme-accent);text-align:right}
+.dossier-situation{margin-top:8px;padding:9px 10px;border-left:2px solid var(--theme-accent);background:color-mix(in srgb,var(--theme-panel-raised) 88%,transparent)}
+.dossier-situation h4{margin:0 0 4px;font:13px var(--theme-display-font);color:var(--theme-text)}
+.dossier-situation p,.dossier-historical-lens p{margin:0;font-size:10px;line-height:1.5;color:var(--theme-muted)}
+.dossier-historical-lens{margin-top:8px;padding:9px 10px;border:1px solid var(--theme-border);background:linear-gradient(135deg,color-mix(in srgb,var(--theme-accent) 8%,var(--theme-panel)),var(--theme-panel))}
+.dossier-historical-lens p{margin-top:4px;color:var(--theme-text)}
+.dossier-metric:nth-child(5){grid-column:1/-1}
+@media(max-width:760px){.dossier-status,.dossier-situation,.dossier-historical-lens{padding:6px}.dossier-situation p,.dossier-historical-lens p{font-size:9px}}
+
+/* Préparation de campagne : panneau compact, CTA toujours visible sans défilement global. */
+body:not(.campaign-started) .campaign-setup{align-items:stretch}
+body:not(.campaign-started) .setup-card{
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  max-height:calc(100dvh - 114px);padding:15px 17px 13px;
+}
+body:not(.campaign-started) .setup-card h1{font-size:clamp(27px,2.35vw,34px);margin:5px 0 6px}
+body:not(.campaign-started) .setup-lead{font-size:10px;line-height:1.4;margin:0 0 6px}
+body:not(.campaign-started) .setup-map-hint{padding:5px 0;font-size:9px;line-height:1.35}
+body:not(.campaign-started) .setup-grid{flex:1 1 auto;min-height:0;gap:6px;margin:7px 0}
+body:not(.campaign-started) .setup-country{flex:1 1 auto;min-height:0}
+body:not(.campaign-started) .country-picker>label{margin-bottom:4px;font-size:9px}
+body:not(.campaign-started) .country-search{padding:7px 9px;font-size:11px}
+body:not(.campaign-started) .country-filter-row{margin-top:5px;gap:5px}
+body:not(.campaign-started) .country-filter-row select{padding:6px 5px;font-size:9px}
+body:not(.campaign-started) .country-result-count{padding:5px 2px 3px;font-size:8px}
+body:not(.campaign-started) .map-cache-status{font-size:8px;line-height:1.25}
+body:not(.campaign-started) .country-results{flex:1 1 110px;min-height:72px;max-height:clamp(76px,15vh,150px)}
+body:not(.campaign-started) .country-result{padding:5px 8px;gap:2px}
+body:not(.campaign-started) .country-result-name{font-size:12px}
+body:not(.campaign-started) .country-result-meta{font-size:8px}
+body:not(.campaign-started) .country-selected{flex:0 0 auto;max-height:none;overflow:visible;padding:7px 9px;margin-top:5px}
+body:not(.campaign-started) .country-selected strong{font-size:13px}
+body:not(.campaign-started) .country-selected span{font-size:8px}
+body:not(.campaign-started) .country-dossier{max-height:none;overflow:visible;margin-top:5px;padding-top:5px}
+body:not(.campaign-started) .dossier-hero{gap:6px;margin-bottom:5px}
+body:not(.campaign-started) .dossier-emblem{width:27px;height:27px;flex-basis:27px;font-size:14px}
+body:not(.campaign-started) .dossier-identity strong{font-size:13px}
+body:not(.campaign-started) .dossier-identity span{font-size:8px}
+body:not(.campaign-started) .dossier-metrics{gap:3px}
+body:not(.campaign-started) .dossier-metric{gap:1px;padding:4px 6px}
+body:not(.campaign-started) .dossier-metric>span{font-size:7px}
+body:not(.campaign-started) .dossier-metric strong{font-size:11px}
+body:not(.campaign-started) .dossier-metric small{font-size:7px;line-height:1.15}
+body:not(.campaign-started) .dossier-status{margin-top:4px;padding:4px 6px}
+body:not(.campaign-started) .dossier-situation,
+body:not(.campaign-started) .dossier-historical-lens{margin-top:4px;padding:5px 7px}
+body:not(.campaign-started) .dossier-situation h4{font-size:10px;margin-bottom:2px}
+body:not(.campaign-started) .dossier-situation p,
+body:not(.campaign-started) .dossier-historical-lens p{font-size:8px;line-height:1.25}
+body:not(.campaign-started) .dossier-historical-lens>span,
+body:not(.campaign-started) .dossier-status span{font-size:7px}
+body:not(.campaign-started) .dossier-objectives{margin-top:5px}
+body:not(.campaign-started) .dossier-objectives h4{font-size:10px;margin:0 0 2px}
+body:not(.campaign-started) .dossier-objective{gap:5px;padding:2px 0}
+body:not(.campaign-started) .dossier-objective p{font-size:8px;line-height:1.2}
+body:not(.campaign-started) .dossier-data-note{display:none}
+body:not(.campaign-started) .setup-note{flex:0 0 auto;margin:3px 0 0;font-size:8px;line-height:1.25}
+body:not(.campaign-started) .setup-start{flex:0 0 auto;margin-top:7px;padding:10px 13px}
+@media(max-width:1050px) and (min-width:761px){body:not(.campaign-started) .campaign-datebar{width:calc(100% - 720px);left:14px}}
+@media(max-height:850px) and (min-width:761px){
+  body:not(.campaign-started) .campaign-setup{padding-top:86px;padding-bottom:10px}
+  body:not(.campaign-started) .setup-card{max-height:calc(100dvh - 96px);padding:11px 14px 10px}
+  body:not(.campaign-started) .setup-grid{gap:4px;margin:5px 0}
+  body:not(.campaign-started) .country-results{max-height:12vh;min-height:60px}
+  body:not(.campaign-started) .dossier-situation p,
+  body:not(.campaign-started) .dossier-historical-lens p{font-size:7px}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .setup-card{max-height:49dvh;overflow:hidden}
+  body:not(.campaign-started) .country-results{max-height:12vh;min-height:54px}
+  body:not(.campaign-started) .country-dossier .dossier-objectives,
+  body:not(.campaign-started) .country-dossier .dossier-diplomacy,
+  body:not(.campaign-started) .country-dossier .dossier-data-note{display:none}
+}
+
+/* Sélection dissociée : catalogue généreux à gauche, dossier de nation à droite. */
+@media(min-width:761px){
+  body:not(.campaign-started) .campaign-datebar{width:calc(100% - 760px)}
+  body:not(.campaign-started) .setup-card{
+    width:min(690px,58vw);max-width:690px;max-height:calc(100dvh - 112px);
+    padding:17px 18px 14px;gap:0;
+  }
+  body:not(.campaign-started) .setup-card h1{font-size:clamp(27px,2.4vw,35px)}
+  body:not(.campaign-started) .setup-grid{
+    display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);
+    grid-template-rows:auto minmax(0,1fr);align-items:stretch;gap:10px;
+    flex:1 1 auto;min-height:0;margin:8px 0;
+  }
+  body:not(.campaign-started) .setup-grid>label{grid-column:1/-1}
+  body:not(.campaign-started) .setup-country{grid-column:1;grid-row:2;min-height:0}
+  body:not(.campaign-started) .country-results{flex:1 1 auto;min-height:180px;max-height:42vh}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{
+    grid-column:2;grid-row:2;display:flex;flex-direction:column;min-width:0;min-height:0;
+    max-height:none;overflow:hidden;margin:0;padding:11px 12px;
+    border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+    background:linear-gradient(150deg,color-mix(in srgb,var(--theme-panel-raised) 98%,transparent),color-mix(in srgb,var(--theme-panel) 96%,transparent));
+    box-shadow:inset 0 1px #ffffff12,0 8px 24px #0004;
+  }
+  body:not(.campaign-started) .country-selected-heading{display:flex;flex-direction:column;gap:4px;padding-bottom:9px;border-bottom:1px solid var(--theme-border)}
+  body:not(.campaign-started) .country-selected-heading strong{font:600 19px var(--theme-display-font);color:var(--theme-text)}
+  body:not(.campaign-started) .country-selected-heading span{font-size:9px;line-height:1.35;color:var(--theme-muted)}
+  body:not(.campaign-started) .country-dossier{flex:1 1 auto;min-height:0;overflow-y:auto;max-height:none;margin-top:8px;padding:0 4px 0 0;border:0;scrollbar-width:thin;scrollbar-color:var(--theme-border) transparent}
+  body:not(.campaign-started) .dossier-hero{margin-bottom:8px}
+  body:not(.campaign-started) .dossier-metric{padding:6px 7px}
+  body:not(.campaign-started) .dossier-status,
+  body:not(.campaign-started) .dossier-situation,
+  body:not(.campaign-started) .dossier-historical-lens{margin-top:6px;padding:7px 8px}
+  body:not(.campaign-started) .dossier-situation p,
+  body:not(.campaign-started) .dossier-historical-lens p{font-size:9px;line-height:1.4}
+  body:not(.campaign-started) .setup-start{margin-top:7px}
+  body:not(.campaign-started) .setup-card:after{margin-top:7px;padding-top:6px}
+}
+@media(max-height:850px) and (min-width:761px){
+  body:not(.campaign-started) .setup-card{max-height:calc(100dvh - 94px);padding:10px 13px}
+  body:not(.campaign-started) .country-results{min-height:130px;max-height:36vh}
+  body:not(.campaign-started) .country-dossier{margin-top:5px}
+  body:not(.campaign-started) .dossier-metric{padding:4px 5px}
+  body:not(.campaign-started) .dossier-metric small{font-size:7px}
+  body:not(.campaign-started) .dossier-situation p,
+  body:not(.campaign-started) .dossier-historical-lens p{font-size:8px}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .setup-card{max-height:58dvh}
+  body:not(.campaign-started) .setup-grid{display:flex;flex-direction:column;min-height:0}
+  body:not(.campaign-started) .setup-country{flex:1 1 auto;min-height:0}
+  body:not(.campaign-started) .country-results{min-height:90px;max-height:18vh}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{flex:0 0 auto;max-height:17vh;overflow:auto;margin-top:5px;padding:6px 8px}
+  body:not(.campaign-started) .country-dossier{max-height:none;overflow:visible}
+  body:not(.campaign-started) .country-dossier .dossier-objectives,
+  body:not(.campaign-started) .country-dossier .dossier-diplomacy,
+  body:not(.campaign-started) .country-dossier .dossier-data-note{display:none}
+}
+
+
+
+/* Sélecteur de mode et disposition en deux ailes de préparation. */
+.campaign-mode-switch{margin:12px 0 16px;max-width:620px}
+.campaign-mode-label{display:block;margin-bottom:7px;color:#c8b98f;font-size:9px;font-weight:700;letter-spacing:.16em}
+.campaign-mode-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.campaign-mode-button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:62px;padding:10px 13px;border:1px solid #52676b;background:linear-gradient(145deg,#14252c,#0d191f);color:#dce4dc;text-align:left;cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s,transform .18s}
+.campaign-mode-button strong{font:600 15px Georgia,serif;color:#e9dfc9}
+.campaign-mode-button small{font-size:9px;line-height:1.35;color:#91a39f}
+.campaign-mode-button:hover{border-color:#c8aa70;background:linear-gradient(145deg,#263a3d,#14242a)}
+.campaign-mode-button.is-active{border-color:var(--theme-accent,#d9b878);background:linear-gradient(145deg,#3b382b,#19292d);box-shadow:inset 0 0 0 1px #d9b87835,inset 0 1px #fff2,0 5px 16px #0005}
+.campaign-mode-button.is-active strong{color:#f1d69e}
+.campaign-mode-button:focus-visible{outline:2px solid var(--theme-accent,#d9b878);outline-offset:3px}
+@media(min-width:761px){
+  body:not(.campaign-started) .campaign-setup{justify-content:center;padding:14px 24px}
+  body:not(.campaign-started) .setup-card{width:min(1080px,calc(100vw - 48px));max-width:1080px;max-height:calc(100dvh - 88px);padding:15px 20px 13px}
+  body:not(.campaign-started) .setup-card h1{font-size:clamp(26px,2.2vw,34px);margin:6px 0}
+  body:not(.campaign-started) .setup-lead{margin:5px 0;font-size:11px}
+  body:not(.campaign-started) .setup-map-hint{margin:5px 0}
+  body:not(.campaign-started) .campaign-mode-switch{max-width:570px;margin:8px 0 10px}
+  body:not(.campaign-started) .campaign-mode-button{min-height:54px;padding:8px 11px}
+  body:not(.campaign-started) .setup-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:8px 0 10px}
+  body:not(.campaign-started) .setup-country{grid-column:1;grid-row:1}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{grid-column:2;grid-row:1}
+  body:not(.campaign-started) .country-results{min-height:190px;max-height:38vh}
+}
+@media(max-width:760px){
+  body:not(.campaign-started) .campaign-mode-options{grid-template-columns:1fr 1fr}
+  body:not(.campaign-started) .campaign-mode-button{min-height:58px;padding:8px}
+  body:not(.campaign-started) .campaign-mode-button strong{font-size:13px}
+  body:not(.campaign-started) .campaign-mode-button small{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .campaign-mode-button{transition:none}
+}
+
+
+/* Pré-campagne : deux ailes latérales, atlas central entièrement dégagé. */
+@media(min-width:1000px){
+  body:not(.campaign-started) .campaign-setup{inset:58px 0 0;display:block;padding:0;background:none;pointer-events:none}
+  body:not(.campaign-started) .setup-card{
+    position:fixed;left:18px;top:88px;bottom:18px;width:clamp(290px,25vw,360px);
+    max-width:360px;max-height:none;overflow-y:auto;display:flex;flex-direction:column;
+    gap:0;padding:18px 16px 15px;pointer-events:auto;
+    border:1px solid color-mix(in srgb,var(--theme-accent) 48%,#52676b);
+    background:linear-gradient(155deg,rgba(20,34,40,.97),rgba(9,18,23,.96));
+    box-shadow:0 20px 65px #0009,inset 0 1px #ffffff12;backdrop-filter:blur(15px)
+  }
+  body:not(.campaign-started) .setup-card:before{left:8%;right:8%}
+  body:not(.campaign-started) .setup-card .eyebrow{font-size:8px}
+  body:not(.campaign-started) .setup-card h1{font-size:clamp(25px,2vw,31px);line-height:1.05;margin:9px 0}
+  body:not(.campaign-started) .setup-lead{font-size:11px;line-height:1.5;margin:5px 0}
+  body:not(.campaign-started) .setup-map-hint{font-size:9px;margin:8px 0 12px}
+  body:not(.campaign-started) .setup-grid{display:contents}
+  body:not(.campaign-started) .campaign-mode-switch{order:0;max-width:none;margin:0 0 14px}
+  body:not(.campaign-started) .campaign-mode-options{gap:6px}
+  body:not(.campaign-started) .campaign-mode-button{min-height:58px;padding:8px}
+  body:not(.campaign-started) .campaign-mode-button strong{font-size:13px}
+  body:not(.campaign-started) .campaign-mode-button small{font-size:8px}
+  body:not(.campaign-started) .setup-country{order:1;display:flex;flex:1 1 auto;flex-direction:column;min-height:0}
+  body:not(.campaign-started) .country-results{flex:1 1 auto;min-height:160px;max-height:none}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{
+    position:fixed;z-index:31;right:18px;top:88px;bottom:18px;width:clamp(300px,26vw,380px);
+    display:flex;flex-direction:column;min-width:0;min-height:0;max-height:none;overflow:hidden;
+    margin:0;padding:17px 16px 14px;border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+    background:linear-gradient(155deg,rgba(20,34,40,.97),rgba(9,18,23,.96));
+    box-shadow:0 20px 65px #0009,inset 0 1px #ffffff12;backdrop-filter:blur(15px);pointer-events:auto
+  }
+  body:not(.campaign-started) .country-selected-heading{display:flex;flex-direction:column;gap:5px;padding-bottom:12px;border-bottom:1px solid var(--theme-border)}
+  body:not(.campaign-started) .country-selected-heading strong{font:600 21px var(--theme-display-font);color:var(--theme-text)}
+  body:not(.campaign-started) .country-selected-heading span{font-size:10px;line-height:1.4;color:var(--theme-muted)}
+  body:not(.campaign-started) .country-dossier{flex:1 1 auto;min-height:0;overflow-y:auto;max-height:none;margin-top:10px;padding:0 5px 0 0;border:0}
+  body:not(.campaign-started) .setup-note{order:2;margin-top:12px;font-size:9px;line-height:1.4}
+  body:not(.campaign-started) .setup-start{order:3;width:100%;margin-top:10px;flex:0 0 auto}
+  body:not(.campaign-started) .campaign-datebar{width:100%;left:0}
+}
+@media(min-width:1000px) and (max-width:1250px){
+  body:not(.campaign-started) .setup-card{left:10px;width:290px;padding:14px 12px}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{right:10px;width:300px;padding:13px 12px}
+}
+@media(max-width:999px){
+  body:not(.campaign-started) .campaign-setup{justify-content:center;padding:14px}
+  body:not(.campaign-started) .setup-card{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:min(690px,100%);max-height:calc(100dvh - 88px);overflow-y:auto}
+  body:not(.campaign-started) .setup-grid{display:flex;flex-direction:column}
+  body:not(.campaign-started) .country-selected.country-dossier-panel{position:static;width:auto;max-height:35vh}
+}
+
+
+/* Disposition définitive de la pré-campagne : deux panneaux frères autour de l'atlas. */
+@media(min-width:1000px){
+  body:not(.campaign-started) #campaign-setup.campaign-setup{
+    position:fixed;inset:58px 0 0;z-index:30;display:block;
+    padding:0;background:none;pointer-events:none;overflow:visible;
+  }
+  body:not(.campaign-started) #campaign-setup>.setup-card{
+    position:absolute;left:clamp(12px,1.35vw,22px);top:82px;bottom:16px;
+    width:clamp(270px,23vw,340px);max-width:none;max-height:none;
+    display:flex;flex-direction:column;overflow:hidden;min-width:0;
+    padding:16px 14px 13px;pointer-events:auto;
+    border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+    background:linear-gradient(155deg,rgba(20,34,40,.97),rgba(9,18,23,.97));
+    box-shadow:0 18px 52px #0009,inset 0 1px #ffffff12;backdrop-filter:blur(14px);
+  }
+  body:not(.campaign-started) #campaign-setup>.country-dossier-panel{
+    position:absolute;right:clamp(12px,1.35vw,22px);top:82px;bottom:16px;
+    width:clamp(280px,24vw,350px);max-width:none;max-height:none;
+    display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;
+    margin:0;padding:16px 14px 13px;pointer-events:auto;
+    border:1px solid color-mix(in srgb,var(--theme-accent) 48%,var(--theme-border));
+    background:linear-gradient(155deg,rgba(20,34,40,.97),rgba(9,18,23,.97));
+    box-shadow:0 18px 52px #0009,inset 0 1px #ffffff12;backdrop-filter:blur(14px);
+  }
+  body:not(.campaign-started) #campaign-setup .setup-grid{display:contents}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-switch{flex:0 0 auto;max-width:none;margin:0 0 11px}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-options{gap:6px}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-button{min-height:54px;padding:7px 8px}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-button strong{font-size:13px}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-button small{font-size:8px}
+  body:not(.campaign-started) #campaign-setup .setup-country{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;min-width:0}
+  body:not(.campaign-started) #campaign-setup .country-results{flex:1 1 auto;min-height:80px;max-height:none}
+  body:not(.campaign-started) #campaign-setup .setup-note{flex:0 0 auto;margin-top:9px;padding:8px 9px;font-size:9px}
+  body:not(.campaign-started) #campaign-setup .setup-start{flex:0 0 auto;width:100%;margin-top:9px}
+  body:not(.campaign-started) #campaign-setup .country-selected-heading{flex:0 0 auto;padding-bottom:10px;border-bottom:1px solid var(--theme-border)}
+  body:not(.campaign-started) #campaign-setup .country-dossier{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;margin-top:9px}
+  body:not(.campaign-started) .campaign-datebar{
+    left:calc(clamp(270px,23vw,340px) + 34px);
+    width:calc(100% - clamp(270px,23vw,340px) - clamp(280px,24vw,350px) - 68px);
+  }
+}
+@media(min-width:1000px) and (max-height:760px){
+  body:not(.campaign-started) #campaign-setup>.setup-card,
+  body:not(.campaign-started) #campaign-setup>.country-dossier-panel{top:76px;bottom:10px}
+  body:not(.campaign-started) #campaign-setup .setup-card h1{font-size:25px}
+  body:not(.campaign-started) #campaign-setup .setup-lead{font-size:9px}
+  body:not(.campaign-started) #campaign-setup .setup-map-hint{font-size:8px}
+  body:not(.campaign-started) #campaign-setup .campaign-mode-button{min-height:46px}
+}
+@media(max-width:999px){
+  body:not(.campaign-started) #campaign-setup.campaign-setup{
+    position:fixed;inset:58px 0 0;z-index:30;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-start;gap:10px;padding:12px;
+    overflow-y:auto;pointer-events:auto;background:rgba(3,9,13,.38);
+  }
+  body:not(.campaign-started) #campaign-setup>.setup-card{
+    position:relative;inset:auto;width:min(680px,100%);max-width:100%;
+    max-height:none;overflow:visible;flex:0 0 auto;
+  }
+  body:not(.campaign-started) #campaign-setup>.country-dossier-panel{
+    position:relative;inset:auto;right:auto;bottom:auto;width:min(680px,100%);
+    max-width:100%;max-height:34vh;overflow:auto;flex:0 0 auto;margin:0;
+  }
+  body:not(.campaign-started) #campaign-setup .setup-grid{display:grid;grid-template-columns:1fr;gap:8px}
+  body:not(.campaign-started) #campaign-setup .setup-country{grid-column:1}
+  body:not(.campaign-started) #campaign-setup .country-results{max-height:180px;min-height:90px}
+  body:not(.campaign-started) .campaign-datebar{left:12px;width:calc(100% - 24px)}
+}
+@media(max-width:600px){
+  body:not(.campaign-started) #campaign-setup.campaign-setup{inset:54px 0 0;padding:8px}
+  body:not(.campaign-started) #campaign-setup>.setup-card{padding:12px}
+  body:not(.campaign-started) #campaign-setup>.country-dossier-panel{max-height:28vh;padding:10px}
+}
+
+
+/* Séquence de lancement de campagne : sceau d'époque, puis révélation de la carte. */
+.campaign-launch[hidden]{display:none}
+.campaign-launch{
+  position:fixed;inset:0;z-index:120;display:grid;place-items:center;overflow:hidden;
+  padding:24px;background:
+    radial-gradient(ellipse at 50% 46%,color-mix(in srgb,var(--theme-accent,#c8aa70) 17%,transparent),transparent 43%),
+    linear-gradient(135deg,rgba(3,8,12,.94),rgba(8,17,22,.82) 52%,rgba(3,8,12,.96));
+  backdrop-filter:blur(7px) saturate(.72);pointer-events:auto;
+  animation:campaign-launch-fade 1.55s cubic-bezier(.2,.72,.22,1) forwards;
+}
+.campaign-launch:before,.campaign-launch:after{
+  content:"";position:absolute;left:50%;top:50%;width:min(78vw,760px);aspect-ratio:1;
+  border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 32%,transparent);
+  border-radius:50%;transform:translate(-50%,-50%) scale(.72);opacity:0;
+  box-shadow:0 0 0 18px color-mix(in srgb,var(--theme-accent,#c8aa70) 4%,transparent),0 0 0 42px color-mix(in srgb,var(--theme-accent,#c8aa70) 3%,transparent);
+  animation:campaign-launch-orbit 1.4s ease-out forwards;
+}
+.campaign-launch:after{width:min(56vw,540px);animation-delay:.08s}
+.campaign-launch-card{
+  position:relative;z-index:1;width:min(560px,92vw);padding:clamp(28px,5vw,52px);
+  border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 58%,#52616a);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-raised,#26343b) 92%,#111),color-mix(in srgb,var(--theme-panel,#111a20) 96%,#03070a));
+  box-shadow:0 35px 110px #000b,inset 0 1px #ffffff18,inset 0 0 44px #0005;
+  text-align:center;color:var(--theme-text,#e9e0cb);
+  animation:campaign-launch-card 1.35s cubic-bezier(.16,.82,.22,1) both;
+}
+.campaign-launch-overline{display:block;color:var(--theme-muted,#a6aaa2);font:700 9px/1.4 var(--theme-body-font,Inter);letter-spacing:.24em}
+.campaign-launch-rule{display:block;width:74px;height:2px;margin:22px auto;background:linear-gradient(90deg,transparent,var(--theme-accent,#c8aa70),transparent);box-shadow:0 0 18px color-mix(in srgb,var(--theme-accent,#c8aa70) 60%,transparent)}
+.campaign-launch-era{display:block;color:var(--theme-accent,#c8aa70);font:600 12px/1.4 var(--theme-display-font,Georgia);letter-spacing:.13em;text-transform:uppercase}
+.campaign-launch-card h2{margin:12px 0 18px;font:600 clamp(27px,5vw,43px)/1.08 var(--theme-display-font,Georgia);letter-spacing:.015em;text-wrap:balance}
+.campaign-launch-meta{display:flex;justify-content:center;align-items:center;gap:18px}
+.campaign-launch-meta strong{font:600 30px/1 var(--theme-display-font,Georgia);color:var(--theme-accent,#c8aa70);font-variant-numeric:tabular-nums}
+.campaign-launch-meta span{padding-left:18px;border-left:1px solid var(--theme-border,#52616a);color:var(--theme-muted,#a6aaa2);font:700 8px/1.4 var(--theme-body-font,Inter);letter-spacing:.16em}
+.campaign-launch-card p{margin:22px 0 0;color:var(--theme-muted,#a6aaa2);font:italic 13px/1.55 var(--theme-body-font,Georgia)}
+.campaign-launch-seal{display:grid;place-items:center;width:38px;height:38px;margin:28px auto 0;border:1px solid color-mix(in srgb,var(--theme-accent,#c8aa70) 55%,transparent);border-radius:50%;color:var(--theme-accent,#c8aa70);font:700 10px var(--theme-display-font,Georgia);letter-spacing:.08em;box-shadow:0 0 0 5px color-mix(in srgb,var(--theme-accent,#c8aa70) 7%,transparent),inset 0 0 12px #0005}
+body.campaign-launching .campaign-setup,body.campaign-launching .campaign-datebar{
+  opacity:0;transform:translateY(12px);transition:opacity .42s ease,transform .55s cubic-bezier(.2,.7,.2,1);pointer-events:none
+}
+body.campaign-launching .game-layout{filter:brightness(.66) saturate(.78);transform:scale(1.012);transition:filter .7s ease,transform 1.1s cubic-bezier(.16,.82,.22,1)}
+body.campaign-started .game-layout{filter:none;transform:none}
+body.campaign-started .campaign-launch{display:none}
+@keyframes campaign-launch-fade{0%{opacity:0}12%{opacity:1}68%{opacity:1}100%{opacity:0}}
+@keyframes campaign-launch-card{0%{opacity:0;transform:translateY(24px) scale(.96);filter:blur(7px)}22%{opacity:1;filter:blur(0)}76%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-9px) scale(1.015)}}
+@keyframes campaign-launch-orbit{0%{opacity:0;transform:translate(-50%,-50%) scale(.72) rotate(-18deg)}28%{opacity:.65}100%{opacity:0;transform:translate(-50%,-50%) scale(1.16) rotate(18deg)}}
+@media(prefers-reduced-motion:reduce){
+  .campaign-launch,.campaign-launch-card,.campaign-launch:before,.campaign-launch:after{animation:none!important}
+  body.campaign-launching .campaign-setup,body.campaign-launching .campaign-datebar,body.campaign-launching .game-layout{transition:none!important}
+}
+@media(max-width:600px){.campaign-launch-card{padding:30px 20px}.campaign-launch-meta{gap:12px}.campaign-launch-meta span{padding-left:12px}}
+
+
+/* Finition de la sélection de campagne : états vides, recherche et retour tactile. */
+.country-empty-state{margin:0;padding:18px 12px;color:var(--theme-muted,#91a5a2);font:italic 13px/1.55 var(--theme-display-font,Georgia);text-align:center}
+.country-result{transition:background .16s ease,box-shadow .16s ease,color .16s ease}
+.country-result:focus-visible{position:relative;z-index:2;outline:2px solid var(--theme-accent,#d9b878);outline-offset:-2px;background:color-mix(in srgb,var(--theme-accent,#d9b878) 12%,#14232c)}
+.country-result.is-selected .country-result-name{color:var(--theme-accent,#e5d2a8);text-shadow:0 0 16px color-mix(in srgb,var(--theme-accent,#d9b878) 24%,transparent)}
+.country-result.is-selected .country-rank:before{content:"◆";margin-right:6px;font-size:7px}
+.country-search:focus-visible,.country-filter-row select:focus-visible{outline:2px solid var(--theme-accent,#c3a66e);outline-offset:2px}
+.country-result-count{font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){.country-result{transition:none}}
+
+
+/* Drapeau ou blason de la nation : insigne lisible au premier regard. */
+.dossier-emblem{overflow:hidden;flex:0 0 48px;width:48px;height:34px;min-height:34px;border:1px solid color-mix(in srgb,var(--theme-accent,#c5a66a) 72%,#fff);border-radius:3px;background:linear-gradient(145deg,#34474a,#18272d);box-shadow:0 3px 10px #0008,inset 0 1px #ffffff35;font-size:25px;line-height:1}
+.dossier-emblem--flag{flex-basis:58px;width:58px;height:39px;object-fit:cover;padding:0;border:1px solid #c9b68d;border-radius:2px;background:#eee4d0;filter:drop-shadow(0 2px 3px #0008)}
+.dossier-emblem--crest{object-fit:contain;padding:2px;border:0;border-radius:0;clip-path:none;background:radial-gradient(ellipse at 50% 38%,#f2e8d2,#9c8965 82%);filter:drop-shadow(0 3px 5px #0009)}
+
+
+/* Insignes : fichiers de drapeaux et armoiries, jamais de glyphes emoji. */
+.country-result-heading{display:flex;align-items:center;gap:9px;min-width:0}
+.country-result-insignia{display:block;flex:0 0 38px;width:38px;height:31px;object-fit:contain;object-position:center;border:1px solid color-mix(in srgb,var(--theme-accent,#c5a66a) 68%,#fff);border-radius:4px;background:linear-gradient(145deg,#f1e8d3,#cfc1a2);box-shadow:0 2px 7px #0008,inset 0 1px #ffffff80;padding:2px}
+.country-result-insignia.is-crest{height:39px;object-fit:contain;border:0;background:radial-gradient(ellipse at 50% 42%,#e7ddc5,#9b8967);filter:drop-shadow(0 2px 3px #0009);padding:1px}
+.country-result-insignia.is-flag{object-fit:cover;border:1px solid #c6b58f;padding:0}
+.country-result-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.country-result:hover .country-result-insignia,.country-result.is-selected .country-result-insignia{border-color:var(--theme-accent,#d9b878);box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent,#d9b878) 28%,transparent),0 3px 10px #0009}
+@media(max-width:600px){.country-result-insignia{flex-basis:32px;width:32px;height:27px}.country-result-insignia.is-crest{height:34px}.country-result-heading{gap:7px}}
+
+/* Les insignes absents ou dont le chargement échoue doivent réellement disparaître. */
+.country-result-insignia[hidden],.dossier-emblem[hidden]{display:none!important}
+
+/* Robustesse responsive de l'écran de préparation — lot campagne 3 */
+body:not(.campaign-started) .campaign-setup,
+body:not(.campaign-started) .setup-card,
+body:not(.campaign-started) .country-picker,
+body:not(.campaign-started) .country-selected { min-width:0; }
+body:not(.campaign-started) .setup-card { overscroll-behavior:contain; scrollbar-gutter:stable; }
+body:not(.campaign-started) .setup-grid,
+body:not(.campaign-started) .country-filter-row { min-width:0; }
+body:not(.campaign-started) .country-search,
+body:not(.campaign-started) .country-filter-row select,
+body:not(.campaign-started) .setup-grid select { min-width:0; max-width:100%; }
+body:not(.campaign-started) .country-result,
+body:not(.campaign-started) .country-result-heading,
+body:not(.campaign-started) .country-result-meta { min-width:0; }
+body:not(.campaign-started) .country-result-name { overflow-wrap:anywhere; }
+body:not(.campaign-started) .country-result-meta span { min-width:0; overflow-wrap:anywhere; }
+body:not(.campaign-started) .country-dossier,
+body:not(.campaign-started) .country-selected { overscroll-behavior:contain; }
+body:not(.campaign-started) .setup-start { min-height:44px; }
+body:not(.campaign-started) .setup-card :focus-visible {
+  outline:2px solid var(--theme-accent);
+  outline-offset:3px;
+}
+@media (min-width:761px) and (max-width:1100px) {
+  body:not(.campaign-started) .setup-card { width:min(370px,40vw); }
+  body:not(.campaign-started) .campaign-datebar { grid-template-columns:auto minmax(110px,1fr); }
+  body:not(.campaign-started) .campaign-datebar-mark { display:none; }
+}
+@media (max-height:720px) and (min-width:761px) {
+  body:not(.campaign-started) .campaign-setup { padding-top:82px; padding-bottom:10px; }
+  body:not(.campaign-started) .setup-card { max-height:calc(100dvh - 92px); padding:12px 15px; }
+  body:not(.campaign-started) .setup-map-hint { padding:5px 0; }
+  body:not(.campaign-started) .country-results { min-height:78px; }
+  body:not(.campaign-started) .country-selected { max-height:24vh; }
+  body:not(.campaign-started) .country-dossier { max-height:14vh; }
+}
+@media (max-width:760px) {
+  body:not(.campaign-started) .campaign-setup {
+    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  }
+  body:not(.campaign-started) .setup-card {
+    max-height:min(58dvh,calc(100dvh - 150px));
+    padding-bottom:max(12px,env(safe-area-inset-bottom));
+  }
+  body:not(.campaign-started) .campaign-datebar {
+    padding-top:max(7px,env(safe-area-inset-top));
+  }
+  body:not(.campaign-started) .setup-start,
+  body:not(.campaign-started) .country-filter-row select { min-height:40px; }
+  body:not(.campaign-started) .country-selected { max-height:16vh; }
+}
+@media (max-width:760px) and (orientation:landscape) {
+  body:not(.campaign-started) .map-stage { padding-top:112px; }
+  body:not(.campaign-started) .campaign-setup { align-items:flex-end; }
+  body:not(.campaign-started) .setup-card { max-height:62dvh; width:min(520px,76vw); }
+  body:not(.campaign-started) .country-results { max-height:76px; min-height:58px; }
+  body:not(.campaign-started) .country-selected { max-height:13vh; }
+}
+@media (max-width:360px) {
+  body:not(.campaign-started) .campaign-datebar { grid-template-columns:78px minmax(0,1fr); gap:7px; }
+  body:not(.campaign-started) .campaign-datebar-heading { min-width:0; }
+  body:not(.campaign-started) .campaign-datebar-heading em { letter-spacing:.04em; }
+  body:not(.campaign-started) .setup-card h1 { font-size:23px; }
+  body:not(.campaign-started) .country-filter-row { grid-template-columns:minmax(0,1fr); }
+}
+@media (prefers-reduced-motion:reduce) {
+  body:not(.campaign-started) .setup-card,
+  body:not(.campaign-started) .country-results { scroll-behavior:auto; }
+}
+
+/* Lot artistique 4 — identité matérielle de l'atlas et profondeur du cadre */
+.map-stage-heading {
+  position:relative;
+  padding:4px 7px 11px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 72%,transparent);
+}
+.map-stage-heading::after {
+  content:"";position:absolute;left:7px;bottom:-1px;width:clamp(54px,8vw,112px);height:2px;
+  background:linear-gradient(90deg,var(--theme-accent),transparent);
+  box-shadow:0 0 12px color-mix(in srgb,var(--theme-accent) 32%,transparent);
+}
+.map-stage-heading .eyebrow { display:flex;align-items:center;gap:8px;letter-spacing:.22em; }
+.map-stage-heading .eyebrow::before {
+  content:"";width:18px;height:1px;background:var(--theme-accent);opacity:.8;
+}
+.map-stage-heading h2 { text-shadow:0 2px 16px #0008; }
+.map-frame {
+  background:
+    radial-gradient(ellipse at 50% 48%,color-mix(in srgb,var(--theme-accent) 7%,var(--theme-panel)),var(--theme-panel) 76%);
+  outline:1px solid color-mix(in srgb,var(--theme-border) 48%,transparent);
+  outline-offset:4px;
+}
+.map-frame::after {
+  content:"";position:absolute;z-index:1;inset:0;pointer-events:none;opacity:.17;
+  background-image:repeating-linear-gradient(0deg,transparent 0 3px,#ffffff08 4px,transparent 5px);
+  mix-blend-mode:soft-light;
+}
+.map-cartographic-overlay { contain:paint; }
+.map-cartographic-overlay::before {
+  box-shadow:inset 0 0 22px color-mix(in srgb,var(--theme-accent) 8%,transparent);
+}
+.map-compass {
+  backdrop-filter:blur(3px);
+  text-shadow:0 1px 3px #000;
+}
+.map-compass i { filter:drop-shadow(0 0 4px color-mix(in srgb,var(--theme-accent) 38%,transparent)); }
+.map-reticle { filter:drop-shadow(0 1px 2px #000); }
+.map-bottom-bar {
+  position:relative;
+  border-top:1px solid color-mix(in srgb,var(--theme-border) 62%,transparent);
+  margin-top:7px;padding-top:9px;
+}
+.map-legend { row-gap:7px; }
+.map-legend i { box-shadow:0 0 0 1px #0006,0 0 7px color-mix(in srgb,var(--theme-accent) 12%,transparent); }
+.map-tools { padding:4px;border:1px solid color-mix(in srgb,var(--theme-border) 70%,transparent);background:color-mix(in srgb,var(--theme-panel) 76%,transparent);box-shadow:inset 0 1px #ffffff0a,0 5px 16px #0003; }
+.map-tool { box-shadow:inset 0 1px #ffffff18,0 2px 5px #0005; }
+.map-reset { letter-spacing:.08em;text-transform:uppercase; }
+body[data-cartographic-era="exploration"] .map-frame {
+  border:6px double #80613c;
+  outline:1px solid #d0ad704d;
+  outline-offset:5px;
+  box-shadow:0 0 0 9px #24190e55,0 24px 58px #000b,inset 0 0 34px #d0ad7014;
+}
+body[data-cartographic-era="exploration"] .map-frame::after {
+  opacity:.22;
+  background:repeating-linear-gradient(37deg,transparent 0 90px,#d0ad7010 91px 92px,transparent 93px 180px);
+}
+body[data-cartographic-era="westphalia"] .map-frame {
+  border:4px double #756957;
+  box-shadow:0 0 0 2px #d2c5a51c,0 22px 54px #000a,inset 0 0 25px #d2c5a50c;
+}
+body[data-cartographic-era="revolution"] .map-frame {
+  border:1px solid #756b62;
+  box-shadow:0 0 0 4px #292927,0 0 0 5px #756b6255,0 22px 50px #000a;
+}
+body[data-cartographic-era="modern"] .map-frame {
+  border:1px solid #68746d;
+  box-shadow:0 0 0 2px #10191e,0 0 0 3px #68746d55,0 24px 56px #000b;
+}
+body[data-cartographic-era="present"] .map-frame {
+  border:1px solid #3d5555;
+  box-shadow:0 0 0 1px #a8c6b81a,0 0 32px #6d9b9b0c,0 24px 60px #000c;
+}
+body[data-cartographic-era="future"] .map-frame {
+  border:1px solid #31515b;
+  box-shadow:0 0 0 1px #69d5d522,0 0 26px #32b9c51a,0 26px 66px #000e,inset 0 0 34px #32b9c50b;
+}
+body[data-cartographic-era="future"] .map-frame::after {
+  opacity:.3;
+  background:repeating-linear-gradient(0deg,transparent 0 7px,#72d8df0a 8px,transparent 9px);
+}
+body[data-cartographic-era="future"] .map-tools {
+  border-color:#3a6871;background:#07151dcc;box-shadow:0 0 18px #2ab7c51c,inset 0 1px #a4f1ed16;
+}
+body[data-cartographic-era="exploration"] .map-tools,
+body[data-cartographic-era="westphalia"] .map-tools {
+  border-style:double;border-width:3px;background:#241b12c9;
+}
+@media(max-width:760px) {
+  .map-stage-heading { align-items:flex-start;flex-direction:column; }
+  .map-tools { max-width:100%;flex-wrap:wrap;align-self:stretch; }
+  .map-stage-heading::after { bottom:-1px; }
+  .map-frame { outline-offset:2px; }
+  .map-compass { right:16px;bottom:18px;transform:scale(.82);transform-origin:bottom right; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .map-frame,.map-tools,.map-tool { transition:none!important; }
+}
+
+
+/* Lot artistique 5 — matières de surface et profondeur de l'atlas.
+   Les textures restent dans l'overlay décoratif : aucune altération des pixels
+   du canvas, des couleurs de territoires ou des interactions cartographiques. */
+.map-frame::before {
+  background:
+    radial-gradient(ellipse at 50% 48%,transparent 42%,#02060922 76%,#02060970 100%),
+    linear-gradient(145deg,#ffffff08,transparent 24% 72%,#00000024);
+  box-shadow:inset 0 0 54px #0007,inset 0 1px 0 #ffffff22,inset 0 -1px 0 #0008;
+}
+.map-cartographic-overlay::before {
+  z-index:1;
+}
+.map-cartographic-overlay::after {
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
+  background-position:center;
+  background-repeat:repeat;
+  background-size:cover;
+  opacity:.18;
+  mix-blend-mode:soft-light;
+  filter:saturate(.72);
+}
+.map-overlay-coordinate,.map-compass,.map-reticle {
+  z-index:2;
+}
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/parchment.svg");
+  opacity:.25;
+  background-size:768px 768px;
+  mix-blend-mode:multiply;
+}
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/vellum.svg");
+  opacity:.2;
+  background-size:640px 640px;
+  mix-blend-mode:soft-light;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/newsprint.svg");
+  opacity:.19;
+  background-size:560px 560px;
+  mix-blend-mode:multiply;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::before {
+  background-image:radial-gradient(circle,color-mix(in srgb,var(--theme-text) 20%,transparent) .65px,transparent .9px);
+  background-size:5px 5px;
+  mask-image:linear-gradient(135deg,#0008,transparent 62%);
+  opacity:.2;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/military.svg");
+  opacity:.16;
+  background-size:620px 620px;
+  mix-blend-mode:soft-light;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  background-image:repeating-radial-gradient(ellipse at 28% 34%,transparent 0 19px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 20px 20.7px,transparent 21px 34px);
+  background-size:100% 100%;
+  mask-image:radial-gradient(ellipse at center,#000 0 42%,transparent 82%);
+  opacity:.22;
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay::after {
+  background-image:url("../assets/textures/glass.svg");
+  opacity:.18;
+  background-size:640px 640px;
+  mix-blend-mode:screen;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::after {
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 7px,#72d8df09 8px,transparent 9px),
+    url("../assets/textures/obsidian.svg");
+  opacity:.2;
+  background-size:100% 100%,640px 640px;
+  mix-blend-mode:screen;
+}
+@media(max-width:760px) {
+  .map-cartographic-overlay::after { opacity:.12; }
+  body[data-cartographic-era="exploration"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="westphalia"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="revolution"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="modern"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="present"] .map-cartographic-overlay::after,
+  body[data-cartographic-era="future"] .map-cartographic-overlay::after { opacity:.12; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .map-cartographic-overlay::after { transition:none!important; }
+}
+
+
+/* Lot artistique 6 — instruments de commandement et hiérarchie des panneaux.
+   Les effets restent strictement décoratifs : aucun calque ne capte les entrées. */
+.side-heading {
+  position:relative;
+  padding:0 0 13px;
+  border-bottom:1px solid color-mix(in srgb,var(--theme-border) 58%,transparent);
+}
+.side-heading::after {
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:-1px;
+  width:42px;
+  height:2px;
+  background:var(--theme-accent);
+  box-shadow:0 0 10px color-mix(in srgb,var(--theme-accent) 28%,transparent);
+}
+.side-heading h1,.side-heading h2 {
+  font-family:var(--theme-display-font);
+  letter-spacing:-.025em;
+  text-shadow:0 2px 14px #0007;
+}
+.time-sidebar,.ai-sidebar {
+  background-color:var(--theme-panel);
+  background-image:
+    linear-gradient(180deg,color-mix(in srgb,var(--theme-panel-raised) 92%,transparent),var(--theme-panel) 46%),
+    var(--material-texture-present);
+  background-blend-mode:normal,soft-light;
+}
+.ai-orb {
+  border-color:color-mix(in srgb,var(--theme-accent) 76%,transparent);
+  background:
+    radial-gradient(circle at 34% 28%,color-mix(in srgb,var(--theme-accent) 18%,transparent),transparent 58%),
+    linear-gradient(145deg,var(--theme-panel-raised),var(--theme-panel));
+  box-shadow:0 0 30px color-mix(in srgb,var(--theme-accent) 12%,transparent),
+    inset 0 1px #ffffff18,inset 0 -12px 24px #0005;
+}
+.ai-orb::before,.ai-orb::after {
+  border-color:color-mix(in srgb,var(--theme-accent) 38%,transparent);
+}
+.ai-capabilities {
+  background:linear-gradient(115deg,color-mix(in srgb,var(--theme-panel-raised) 88%,transparent),transparent);
+}
+.time-stats strong { font-variant-numeric:tabular-nums; }
+.chronicle-console .clock-subline strong {
+  text-shadow:0 0 16px color-mix(in srgb,var(--theme-accent) 18%,transparent);
+}
+.timeline-control { position:relative; }
+.timeline-heading label { color:var(--theme-text);font-family:var(--theme-display-font); }
+.era-milestones button {
+  position:relative;
+  overflow:hidden;
+  transition:background-color .18s,border-color .18s,transform .18s,box-shadow .18s;
+}
+.era-milestones button small {
+  display:block;
+  margin-top:2px;
+  color:var(--theme-muted);
+  font-size:7px;
+  line-height:1.2;
+}
+.era-milestones button.is-active {
+  color:var(--theme-accent);
+  border-color:var(--theme-accent);
+  background:linear-gradient(155deg,color-mix(in srgb,var(--theme-accent) 16%,var(--theme-control)),var(--theme-control));
+  box-shadow:inset 0 1px #ffffff16,0 3px 10px #0004;
+}
+.era-milestones button.is-active small { color:var(--theme-text); }
+.speed-chip {
+  box-shadow:inset 0 1px #ffffff0c,0 2px 6px #0003;
+}
+.speed-chip.is-active {
+  box-shadow:inset 0 1px #ffffff1c,inset 0 -8px 16px #0003,0 0 12px color-mix(in srgb,var(--theme-accent) 12%,transparent);
+}
+.topbar .brand-mark {
+  position:relative;
+  overflow:hidden;
+  border-color:var(--theme-accent);
+  color:var(--theme-accent);
+  background:linear-gradient(145deg,color-mix(in srgb,var(--theme-accent) 12%,var(--theme-panel)),var(--theme-panel));
+  box-shadow:inset 0 1px #ffffff20,0 2px 8px #0005;
+}
+.topbar .brand-mark::after {
+  content:"";
+  position:absolute;
+  inset:3px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 32%,transparent);
+  pointer-events:none;
+}
+body[data-cartographic-era="exploration"] .time-sidebar,
+body[data-cartographic-era="exploration"] .ai-sidebar {
+  background-image:url("../assets/textures/parchment.svg"),linear-gradient(155deg,#493822,#2b2117);
+  background-blend-mode:multiply,normal;
+}
+body[data-cartographic-era="westphalia"] .time-sidebar,
+body[data-cartographic-era="westphalia"] .ai-sidebar {
+  background-image:url("../assets/textures/vellum.svg"),linear-gradient(155deg,#35363a,#292c32);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="revolution"] .time-sidebar,
+body[data-cartographic-era="revolution"] .ai-sidebar {
+  background-image:url("../assets/textures/newsprint.svg"),linear-gradient(180deg,#353330,#292927);
+  background-blend-mode:multiply,normal;
+}
+body[data-cartographic-era="modern"] .time-sidebar,
+body[data-cartographic-era="modern"] .ai-sidebar {
+  background-image:url("../assets/textures/military.svg"),linear-gradient(150deg,#2b3739,#202b30);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="present"] .time-sidebar,
+body[data-cartographic-era="present"] .ai-sidebar {
+  background-image:url("../assets/textures/glass.svg"),linear-gradient(145deg,#1d2627,#141b1d);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="future"] .time-sidebar,
+body[data-cartographic-era="future"] .ai-sidebar {
+  background-image:url("../assets/textures/obsidian.svg"),linear-gradient(150deg,#101e25,#09131a);
+  background-blend-mode:soft-light,normal;
+}
+body[data-cartographic-era="exploration"] .ai-orb { border-style:double;border-width:3px; }
+body[data-cartographic-era="westphalia"] .ai-orb { border-radius:12px; }
+body[data-cartographic-era="westphalia"] .ai-orb::before,
+body[data-cartographic-era="westphalia"] .ai-orb::after { border-radius:8px; }
+body[data-cartographic-era="revolution"] .ai-orb { border-radius:2px;box-shadow:inset 0 0 0 5px #0003,0 5px 18px #0006; }
+body[data-cartographic-era="modern"] .ai-orb { border-radius:0;border-width:2px; }
+body[data-cartographic-era="present"] .ai-orb { backdrop-filter:blur(10px); }
+body[data-cartographic-era="future"] .ai-orb {
+  border-radius:5px;
+  box-shadow:0 0 22px #32b9c51a,inset 0 0 18px #32b9c510;
+}
+@media(max-width:760px) {
+  .side-heading { padding-bottom:10px; }
+  .ai-orb { width:52px;height:52px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .era-milestones button { transition:none!important; }
+}
+
+
+/* Lot artistique 7 — langage cartographique propre à chaque époque.
+   Calques strictement décoratifs, sans interception des gestes ni modification du canvas. */
+.map-cartographic-overlay::before {
+  background-repeat:no-repeat;
+  box-shadow:inset 0 0 24px color-mix(in srgb,var(--theme-accent) 8%,transparent);
+}
+body[data-cartographic-era="exploration"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle at 50% 50%,transparent 0 34px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 35px 35.7px,transparent 36px 68px,color-mix(in srgb,var(--theme-accent) 15%,transparent) 69px 69.7px,transparent 70px),
+    repeating-conic-gradient(from 0deg at 50% 50%,transparent 0deg 14deg,color-mix(in srgb,var(--theme-accent) 14%,transparent) 14.3deg 14.8deg,transparent 15deg 30deg);
+  background-size:190px 190px,190px 190px;
+  background-position:center;
+  opacity:.26;
+}
+body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before {
+  background-image:
+    linear-gradient(90deg,transparent 0 12px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 12.5px 13px,transparent 13.5px),
+    linear-gradient(0deg,transparent 0 12px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 12.5px 13px,transparent 13.5px);
+  background-size:100% 100%;
+  box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--theme-accent) 8%,transparent),inset 0 0 24px #0005;
+  opacity:.22;
+}
+body[data-cartographic-era="revolution"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle,color-mix(in srgb,var(--theme-text) 20%,transparent) .65px,transparent .9px),
+    linear-gradient(135deg,transparent 0 48%,#0000000a 49% 51%,transparent 52%);
+  background-size:5px 5px,100% 100%;
+  opacity:.2;
+}
+body[data-cartographic-era="modern"] .map-cartographic-overlay::before {
+  background-image:
+    repeating-radial-gradient(ellipse at 28% 34%,transparent 0 19px,color-mix(in srgb,var(--theme-accent) 22%,transparent) 20px 20.7px,transparent 21px 34px),
+    linear-gradient(90deg,transparent 49.8%,color-mix(in srgb,var(--theme-accent) 12%,transparent) 50%,transparent 50.2%);
+  background-size:100% 100%;
+  opacity:.22;
+}
+body[data-cartographic-era="present"] .map-cartographic-overlay::before {
+  background-image:
+    linear-gradient(90deg,color-mix(in srgb,var(--theme-accent) 12%,transparent) 1px,transparent 1px),
+    linear-gradient(0deg,color-mix(in srgb,var(--theme-accent) 12%,transparent) 1px,transparent 1px);
+  background-size:48px 48px;
+  box-shadow:inset 0 0 36px color-mix(in srgb,var(--theme-accent) 10%,transparent);
+  opacity:.18;
+}
+body[data-cartographic-era="future"] .map-cartographic-overlay::before {
+  background-image:
+    radial-gradient(circle at 50% 50%,transparent 0 24px,color-mix(in srgb,var(--theme-accent) 30%,transparent) 24.5px 25px,transparent 25.5px 52px,color-mix(in srgb,var(--theme-accent) 18%,transparent) 52.5px 53px,transparent 53.5px),
+    linear-gradient(90deg,transparent calc(50% - .5px),color-mix(in srgb,var(--theme-accent) 22%,transparent) 50%,transparent calc(50% + .5px)),
+    linear-gradient(0deg,transparent calc(50% - .5px),color-mix(in srgb,var(--theme-accent) 22%,transparent) 50%,transparent calc(50% + .5px));
+  background-size:100% 100%;
+  opacity:.2;
+}
+@media(max-width:760px) {
+  body[data-cartographic-era="exploration"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="westphalia"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="revolution"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="modern"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="present"] .map-cartographic-overlay::before,
+  body[data-cartographic-era="future"] .map-cartographic-overlay::before { opacity:.12; }
 }

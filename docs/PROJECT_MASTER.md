@@ -1,3 +1,15 @@
+## 21 novembre 2026 — intégration moteur cartographique et validation PC
+
+- Branche d'intégration : `integration/unified-map-engine-main`, PR #46 vers `main`, conservée en brouillon. Ne pas fusionner sans validation visuelle navigateur et accord explicite.
+- L'intégration préserve les systèmes de simulation et de géographie physique de `main), tout en portant progressivement les modules WebGL, le relief tuilé, le stockage persistant et le préchargement.
+- Le cache WebGL polygonal utilise huit compartiments stables par identité de feature ; le cache des chemins projetés est limité à 2 048 chemins et 500 000 sommets (budget estimé 16 Mo) ; le budget cible des buffers WebGL reste 128 Mio.
+- Le Worker LOD persistant est raccordé aux couches mondiales et régionales. Les niveaux LOD sont configurés jusqu'aux zooms 6 et 9 ; un benchmark au zoom 20 ne valide donc pas son activation.
+- Le benchmark Pixel 10 au zoom 20 (205 échantillons, 70,3 s) : rendu médian 23,2 ms, p95 103,98 ms, heap JS médian 260,3 Mo. Comparaison indicative au benchmark pré-optimisations au même zoom : 319,25 ms, 348,47 ms et ~434 Mo.
+- À la demande du joueur, la prochaine référence de performance sera le navigateur PC en mode bureau. Les exports consignent maintenant viewport, écran, DPR, visualViewport scale, maxTouchPoints et indicateur user-agent mobile. Les résultats PC et mobile doivent rester dans deux séries distinctes.
+- Dernière CI vérifiée sur le head `f4f104b1357809e820c0cf6844f393190f2500d6` : 252 tests réussis, 0 échec.
+- Validation visuelle, benchmark matériel PC, vérification des transitions parent/enfant et du style des frontières restent à faire.
+
+
 ## 20 novembre 2026 — remplacement progressif des tuiles parentes
 - La pile de rendu collecte désormais tous les ancêtres disponibles et les tuiles enfants exactes du plan courant, sans doublons.
 - Les niveaux parents sont dessinés avant les enfants ; les enfants apparaissent par fondu de 180 ms lorsqu'un parent est présent, évitant les trous visuels pendant le raffinement.

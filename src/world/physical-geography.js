@@ -3,42 +3,141 @@
 import { invalidateGeoTiles } from "./geo-tile-cache.js";
 const TYPES=new Set(["meteor-impact","earthquake","volcanic-eruption","tsunami","sea-level-rise","tectonic-uplift"]);
 const R=6371,clone=v=>structuredClone(v),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const physicalExpirySchedule=new WeakMap();
+const sortedPhysicalEventsCache=new WeakMap();
+function getSortedPhysicalEvents(events){
+ let sorted=sortedPhysicalEventsCache.get(events);
+ if(!sorted){sorted=events.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));sortedPhysicalEventsCache.set(events,sorted);}
+ return sorted;
+}
 function id(v,l){if(typeof v!=="string"||!v.trim())throw new TypeError(l+" requis.");return v;}
 function num(v,l,a=-Infinity,b=Infinity){v=Number(v);if(!Number.isFinite(v)||v<a||v>b)throw new TypeError(l+" invalide.");return v;}
 function addCalendarMonths(date,months){const d=new Date(date+"T00:00:00Z");const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+months);const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(day,last));return d.toISOString().slice(0,10);}
 function addCalendarDays(date,days){const d=new Date(date+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
-function distance(a,b){const rad=Math.PI/180,p1=a.latitude*rad,p2=b.latitude*rad,dp=(b.latitude-a.latitude)*rad,dl=(((b.longitude-a.longitude+540)%360)-180)*rad,h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(clamp(h,0,1)));}
+function distanceCoordinates(longitudeA,latitudeA,longitudeB,latitudeB){const rad=Math.PI/180,p1=latitudeA*rad,p2=latitudeB*rad,dp=(latitudeB-latitudeA)*rad,dl=(((longitudeB-longitudeA+540)%360)-180)*rad,h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(clamp(h,0,1)));}
+function distance(a,b){return distanceCoordinates(a.longitude,a.latitude,b.longitude,b.latitude);}
+function createDistanceFromPoint(point){const rad=Math.PI/180,p1=point.latitude*rad,cosP1=Math.cos(p1),longitude=point.longitude,latitude=point.latitude;return cell=>{const p2=cell.latitude*rad,dp=(cell.latitude-latitude)*rad,dl=(((cell.longitude-longitude+540)%360)-180)*rad,h=Math.sin(dp/2)**2+cosP1*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(clamp(h,0,1)));};}
+function visitOceanNeighbor(nx,ny,cols,rows,mask,queue,tail,grid,step){
+ if(ny<0||ny>=rows)return tail;
+ nx=(nx+cols)%cols;
+ const next=ny*cols+nx;
+ if(mask[next])return tail;
+ const px=Math.min(grid.width-1,nx*step+Math.floor(step/2));
+ const py=Math.min(grid.height-1,ny*step+Math.floor(step/2));
+ if(grid.values[py*grid.width+px]>=0)return tail;
+ mask[next]=1;
+ queue[tail++]=next;
+ return tail;
+}
 function checkCell(c){id(c.id,"Cellule");num(c.longitude,"Longitude",-180,180);num(c.latitude,"Latitude",-90,90);num(c.elevationM??0,"Altitude",-12000,9000);num(c.coastalDistanceKm??0,"Distance côtière",0,20000);if(c.regionId!=null)id(c.regionId,"Région");}
 export function createPhysicalWorld(cells=[]){const ids=new Set(),baseCells=cells.map(c=>{checkCell(c);if(ids.has(c.id))throw Error("Cellule dupliquée : "+c.id);ids.add(c.id);return {...clone(c),baseElevationM:Number(c.elevationM??0),elevationDeltaM:0,currentElevationM:Number(c.elevationM??0),damage:0,ashLoad:0,inundated:false,waterDepthM:0,habitability:1,surfaceState:"natural"};});return {baseCells,currentCells:clone(baseCells),events:[],history:[],revision:0,meanSeaLevelM:0,tileRevisions:{},lastInvalidatedTileKeys:[]};}
 export function validatePhysicalWorld(w){if(!w||!Array.isArray(w.baseCells)||!Array.isArray(w.currentCells)||!Array.isArray(w.events))throw TypeError("État physique invalide.");const ids=new Set();for(const c of w.currentCells){checkCell(c);if(ids.has(c.id))throw Error("Cellule dupliquée : "+c.id);ids.add(c.id);}return true;}
 export function validatePhysicalEvent(e){if(!e||typeof e!=="object"||!TYPES.has(e.type))throw TypeError("Événement géophysique inconnu.");const v={...clone(e),id:id(e.id,"Événement"),date:String(e.date??"")};if(!/^\d{1,6}-\d{2}-\d{2}$/.test(v.date))throw TypeError("Date d'événement invalide.");if(e.type==="sea-level-rise")v.seaLevelM=num(e.seaLevelM,"Niveau marin",-20,200);else{v.longitude=num(e.longitude,"Longitude",-180,180);v.latitude=num(e.latitude,"Latitude",-90,90);v.radiusKm=num(e.radiusKm??100,"Rayon",1,20000);}if(e.type==="meteor-impact"){v.craterDepthM=num(e.craterDepthM??150,"Profondeur",1,12000);v.craterRadiusKm=num(e.craterRadiusKm??e.radiusKm*.42,"Rayon du cratère",1,v.radiusKm);v.rimHeightM=num(e.rimHeightM??Math.max(20,e.craterDepthM*.22),"Hauteur du bourrelet",0,5000);v.lavaRadiusKm=num(e.lavaRadiusKm??8,"Rayon de lave",0,v.radiusKm);v.noManLandRadiusKm=num(e.noManLandRadiusKm??55,"Rayon de zone interdite",v.lavaRadiusKm,v.radiusKm);v.surfaceDurationMonths=num(e.surfaceDurationMonths??1,"Durée des effets temporaires",1,6);v.visualExpiresAt=addCalendarMonths(v.date,v.surfaceDurationMonths);}if(e.type==="earthquake"){v.magnitude=num(e.magnitude,"Magnitude",1,10);v.ruptureOffsetM=num(e.ruptureOffsetM??0,"Déplacement tectonique",-100,100);v.ruptureBearingDeg=num(e.ruptureBearingDeg??35,"Orientation de la faille",0,360);v.ruptureOffsetM=num(e.ruptureOffsetM??Math.max(4,(e.magnitude-4)**2*.8),"Déplacement tectonique",-100,100);v.visualExpiresAt=addCalendarDays(v.date,7);}if(e.type==="volcanic-eruption"){v.lavaRadiusKm=num(e.lavaRadiusKm??10,"Rayon de lave",0,v.radiusKm);v.ashLoad=num(e.ashLoad??.6,"Cendres",0,1);v.elevationDeltaM=num(e.elevationDeltaM??40,"Dépôt volcanique",-1000,5000);}if(e.type==="tsunami"){v.waveHeightM=num(e.waveHeightM,"Hauteur de vague",.1,100);v.maxCoastalDistanceKm=num(e.maxCoastalDistanceKm??250,"Portée côtière",1,5000);v.visualExpiresAt=addCalendarMonths(v.date,1);}if(e.type==="tectonic-uplift")v.upliftM=num(e.upliftM??10,"Soulèvement",.01,5000);return v;}
 function nextWaterContact(world,e){
  const reach=e.craterRadiusKm+3;
+ const distanceToImpact=createDistanceFromPoint(e);
  return world.baseCells.some(c=>{
   if(Number.isInteger(c.gridStep)&&c.gridStep>2)return false;
-  if(distance(e,c)>reach)return false;
+  if(distanceToImpact(c)>reach)return false;
   const elevation=Number(c.baseElevationM??c.elevationM);
   return c.oceanConnected===true||(elevation>=0&&Number(c.coastalDistanceKm)<=3)||(c.oceanConnected==null&&elevation<0);
  });
 }
-function effect(e,c,d){if(e.type==="sea-level-rise"){if(c.baseElevationM+c.elevationDeltaM<0)return null;const depth=e.seaLevelM-(c.baseElevationM+c.elevationDeltaM);return depth>0?{severity:clamp(depth/5,0,1),waterDepthM:depth}:null;}if(e.type==="tsunami"){if(c.baseElevationM<0||d>e.radiusKm||c.coastalDistanceKm>e.maxCoastalDistanceKm)return null;const coast=Math.exp(-c.coastalDistanceKm/Math.max(1,e.maxCoastalDistanceKm/3)),radial=Math.max(.15,1-d/e.radiusKm),height=e.waveHeightM*coast*radial;return height>.15?{severity:clamp(height/12,0,1),waterDepthM:height}:null;}if(d===null||d>e.radiusKm)return null;const f=Math.max(0,1-d/e.radiusKm);return {severity:e.type==="earthquake"?clamp(e.magnitude/10*f,0,1):f};}
-export function applyPhysicalEvent(world,event){validatePhysicalWorld(world);const e=validatePhysicalEvent(event);if(e.type==="meteor-impact")e.waterContact=nextWaterContact(world,e);if(world.events.some(x=>x.id===e.id))throw Error("Identifiant d'événement déjà utilisé.");const next=clone(world),affected=[],regions=new Map();for(const c of next.currentCells){const d=e.type==="sea-level-rise"?null:distance(e,c),fx=effect(e,c,d);if(!fx)continue;const s=fx.severity;let damage=0;if(e.type==="meteor-impact"){const impactDistance=d??Infinity;const ratio=impactDistance/e.craterRadiusKm;const bowl=impactDistance<=e.craterRadiusKm?Math.sqrt(Math.max(0,1-ratio*ratio)):0;const rim=impactDistance>e.craterRadiusKm*.82&&impactDistance<e.craterRadiusKm*1.28?Math.sin(Math.PI*(impactDistance/e.craterRadiusKm-.82)/.46):0;c.elevationDeltaM-=e.craterDepthM*bowl*bowl;c.elevationDeltaM+=e.rimHeightM*Math.max(0,rim);if(!e.waterContact&&c.baseElevationM>=0)c.elevationDeltaM=Math.max(c.elevationDeltaM,1-c.baseElevationM);c.damage=clamp(c.damage+s*.95,0,1);c.noManLand=impactDistance<=e.noManLandRadiusKm;c.surfaceState=impactDistance<=e.lavaRadiusKm?"lava-flow":impactDistance<=e.noManLandRadiusKm?"impact-zone":"natural";c.surfaceExpiresAt=addCalendarMonths(e.date,e.surfaceDurationMonths);c.habitability=c.noManLand?0:clamp(c.habitability*(1-s*.9),0,1);damage=s;}else if(e.type==="earthquake"){c.damage=clamp(c.damage+s*.75,0,1);const bearing=e.ruptureBearingDeg*Math.PI/180,side=Math.sin((c.longitude-e.longitude)*Math.cos(e.latitude*Math.PI/180)*Math.sin(bearing)+(c.latitude-e.latitude)*Math.cos(bearing));c.elevationDeltaM+=e.ruptureOffsetM*s*(side>=0?1:-.72);c.habitability=clamp(c.habitability*(1-s*.45),0,1);damage=s*.75;}else if(e.type==="volcanic-eruption"){c.ashLoad=clamp(c.ashLoad+e.ashLoad*s,0,1);c.elevationDeltaM+=e.elevationDeltaM*s;if(d<=e.lavaRadiusKm){c.surfaceState="lava-flow";c.habitability=0;c.damage=1;}else c.habitability=clamp(c.habitability-s*.55,0,1);damage=d<=e.lavaRadiusKm?1:s*.65;}else if(e.type==="tsunami"){c.damage=clamp(c.damage+s*.85,0,1);c.waterDepthM=Math.max(c.waterDepthM,fx.waterDepthM);if(fx.waterDepthM>c.currentElevationM){c.tsunamiWaterDepthM=Math.max(c.tsunamiWaterDepthM??0,fx.waterDepthM-c.currentElevationM);c.waterExpiresAt=addCalendarMonths(e.date,1);}c.habitability=clamp(c.habitability-s*.7,0,1);damage=s*.85;}else if(e.type==="sea-level-rise"){c.inundated=true;c.waterDepthM=Math.max(c.waterDepthM,fx.waterDepthM);c.habitability=0;damage=1;}else if(e.type==="tectonic-uplift"){c.elevationDeltaM+=e.upliftM*s;damage=s*.08;}c.currentElevationM=c.baseElevationM+c.elevationDeltaM;if(e.type==="meteor-impact"&&e.waterContact&&c.baseElevationM>=0&&c.currentElevationM<0){c.permanentlySubmerged=true;c.inundated=true;c.waterDepthM=Math.max(c.waterDepthM,-c.currentElevationM);}const rec={cellId:c.id,regionId:c.regionId??null,severity:s,damage,inundated:c.inundated};affected.push(rec);if(c.regionId){const a=regions.get(c.regionId)??{regionId:c.regionId,cells:0,severity:0,damage:0,inundatedCells:0};a.cells++;a.severity+=s;a.damage+=damage;if(c.inundated)a.inundatedCells++;regions.set(c.regionId,a);}}if(e.type==="sea-level-rise")next.meanSeaLevelM=Math.max(next.meanSeaLevelM,e.seaLevelM);next.events.push(e);next.revision++;const changedIds=new Set(affected.map(item=>item.cellId));const tileInvalidation=invalidateGeoTiles(next.tileRevisions??{},next.currentCells.filter(cell=>changedIds.has(cell.id)),1);next.tileRevisions=tileInvalidation.revisions;next.lastInvalidatedTileKeys=tileInvalidation.invalidatedTileKeys;const regionImpacts=[...regions.values()].map(a=>({...a,exposure:a.severity/a.cells,damage:a.damage/a.cells,inundationFraction:a.inundatedCells/a.cells}));next.history.push({revision:next.revision,eventId:e.id,date:e.date,type:e.type,affectedCellCount:affected.length,regionImpacts:clone(regionImpacts)});validatePhysicalWorld(next);return {world:next,result:{event:e,affectedCells:affected,regionImpacts}};}
+function createPhysicalEventContext(event) {
+ const context = { inverseRadius: event.radiusKm ? 1 / event.radiusKm : 0 };
+ if (event.type === "earthquake") {
+  const bearing = event.ruptureBearingDeg * Math.PI / 180;
+  context.ruptureSin = Math.sin(bearing);
+  context.ruptureCos = Math.cos(bearing);
+  context.latitudeCos = Math.cos(event.latitude * Math.PI / 180);
+  context.magnitudeScale = event.magnitude / 10;
+ } else if (event.type === "tsunami") {
+  context.coastalDecay = 1 / Math.max(1, event.maxCoastalDistanceKm / 3);
+  context.waveHeight = event.waveHeightM;
+ } else if (event.type === "meteor-impact") {
+  context.inverseCraterRadius = 1 / event.craterRadiusKm;
+  context.rimStart = event.craterRadiusKm * .82;
+  context.rimEnd = event.craterRadiusKm * 1.28;
+  context.rimSpan = 1 / .46;
+ } else if (event.type === "volcanic-eruption") {
+  context.lavaRadius = event.lavaRadiusKm;
+ }
+ return context;
+}
+function effect(e,c,d,context){
+ if(e.type==="sea-level-rise"){if(c.baseElevationM+c.elevationDeltaM<0)return null;const depth=e.seaLevelM-(c.baseElevationM+c.elevationDeltaM);return depth>0?{severity:clamp(depth/5,0,1),waterDepthM:depth}:null;}
+ if(e.type==="tsunami"){if(c.baseElevationM<0||d>e.radiusKm||c.coastalDistanceKm>e.maxCoastalDistanceKm)return null;const coast=Math.exp(-c.coastalDistanceKm*context.coastalDecay),radial=Math.max(.15,1-d*context.inverseRadius),height=context.waveHeight*coast*radial;return height>.15?{severity:clamp(height/12,0,1),waterDepthM:height}:null;}
+ if(d===null||d>e.radiusKm)return null;
+ const f=Math.max(0,1-d*context.inverseRadius);
+ return {severity:e.type==="earthquake"?clamp(context.magnitudeScale*f,0,1):f};
+}
+export function applyPhysicalEvent(world,event){validatePhysicalWorld(world);const e=validatePhysicalEvent(event);if(e.type==="meteor-impact")e.waterContact=nextWaterContact(world,e);if(world.events.some(x=>x.id===e.id))throw Error("Identifiant d'événement déjà utilisé.");const next=clone(world),affected=[],changedCells=[],regions=new Map(),distanceToEvent=e.type==="sea-level-rise"?null:createDistanceFromPoint(e),eventContext=createPhysicalEventContext(e),ruptureSide=e.type==="earthquake"?{sin:eventContext.ruptureSin,cos:eventContext.ruptureCos,latitudeCos:eventContext.latitudeCos}:null,impactExpiry=e.type==="meteor-impact"?addCalendarMonths(e.date,e.surfaceDurationMonths):null,tsunamiExpiry=e.type==="tsunami"?addCalendarMonths(e.date,1):null;for(const c of next.currentCells){const d=distanceToEvent?distanceToEvent(c):null,fx=effect(e,c,d,eventContext);if(!fx)continue;const s=fx.severity;let damage=0;if(e.type==="meteor-impact"){const impactDistance=d??Infinity;const ratio=impactDistance*eventContext.inverseCraterRadius;const bowl=impactDistance<=e.craterRadiusKm?Math.sqrt(Math.max(0,1-ratio*ratio)):0;const rim=impactDistance>eventContext.rimStart&&impactDistance<eventContext.rimEnd?Math.sin(Math.PI*(impactDistance*eventContext.inverseCraterRadius-.82)*eventContext.rimSpan):0;c.elevationDeltaM-=e.craterDepthM*bowl*bowl;c.elevationDeltaM+=e.rimHeightM*Math.max(0,rim);if(!e.waterContact&&c.baseElevationM>=0)c.elevationDeltaM=Math.max(c.elevationDeltaM,1-c.baseElevationM);c.damage=clamp(c.damage+s*.95,0,1);c.noManLand=impactDistance<=e.noManLandRadiusKm;c.surfaceState=impactDistance<=e.lavaRadiusKm?"lava-flow":impactDistance<=e.noManLandRadiusKm?"impact-zone":"natural";c.surfaceExpiresAt=impactExpiry;c.habitability=c.noManLand?0:clamp(c.habitability*(1-s*.9),0,1);damage=s;}else if(e.type==="earthquake"){c.damage=clamp(c.damage+s*.75,0,1);const side=Math.sin((c.longitude-e.longitude)*ruptureSide.latitudeCos*ruptureSide.sin+(c.latitude-e.latitude)*ruptureSide.cos);c.elevationDeltaM+=e.ruptureOffsetM*s*(side>=0?1:-.72);c.habitability=clamp(c.habitability*(1-s*.45),0,1);damage=s*.75;}else if(e.type==="volcanic-eruption"){c.ashLoad=clamp(c.ashLoad+e.ashLoad*s,0,1);c.elevationDeltaM+=e.elevationDeltaM*s;if(d<=eventContext.lavaRadius){c.surfaceState="lava-flow";c.habitability=0;c.damage=1;}else c.habitability=clamp(c.habitability-s*.55,0,1);damage=d<=e.lavaRadiusKm?1:s*.65;}else if(e.type==="tsunami"){c.damage=clamp(c.damage+s*.85,0,1);c.waterDepthM=Math.max(c.waterDepthM,fx.waterDepthM);if(fx.waterDepthM>c.currentElevationM){c.tsunamiWaterDepthM=Math.max(c.tsunamiWaterDepthM??0,fx.waterDepthM-c.currentElevationM);c.waterExpiresAt=tsunamiExpiry;}c.habitability=clamp(c.habitability-s*.7,0,1);damage=s*.85;}else if(e.type==="sea-level-rise"){c.inundated=true;c.waterDepthM=Math.max(c.waterDepthM,fx.waterDepthM);c.habitability=0;damage=1;}else if(e.type==="tectonic-uplift"){c.elevationDeltaM+=e.upliftM*s;damage=s*.08;}c.currentElevationM=c.baseElevationM+c.elevationDeltaM;if(e.type==="meteor-impact"&&e.waterContact&&c.baseElevationM>=0&&c.currentElevationM<0){c.permanentlySubmerged=true;c.inundated=true;c.waterDepthM=Math.max(c.waterDepthM,-c.currentElevationM);}const rec={cellId:c.id,regionId:c.regionId??null,severity:s,damage,inundated:c.inundated};affected.push(rec);changedCells.push(c);if(c.regionId){const a=regions.get(c.regionId)??{regionId:c.regionId,cells:0,severity:0,damage:0,inundatedCells:0};a.cells++;a.severity+=s;a.damage+=damage;if(c.inundated)a.inundatedCells++;regions.set(c.regionId,a);}}if(e.type==="sea-level-rise")next.meanSeaLevelM=Math.max(next.meanSeaLevelM,e.seaLevelM);next.events.push(e);next.revision++;const tileInvalidation=invalidateGeoTiles(next.tileRevisions??{},changedCells,1);next.tileRevisions=tileInvalidation.revisions;next.lastInvalidatedTileKeys=tileInvalidation.invalidatedTileKeys;const regionImpacts=[...regions.values()].map(a=>({...a,exposure:a.severity/a.cells,damage:a.damage/a.cells,inundationFraction:a.inundatedCells/a.cells}));next.history.push({revision:next.revision,eventId:e.id,date:e.date,type:e.type,affectedCellCount:affected.length,regionImpacts:clone(regionImpacts)});validatePhysicalWorld(next);return {world:next,result:{event:e,affectedCells:affected,regionImpacts}};}
+
+export function getNextPhysicalSurfaceExpiryDate(world){
+ if(!world?.currentCells)return null;
+ let nextDate=null;
+ const include=date=>{if(date&&(!nextDate||date<nextDate))nextDate=date;};
+ for(const cell of world.currentCells){
+  if(cell.surfaceExpiresAt&&(cell.noManLand||cell.surfaceState==="lava-flow"||cell.surfaceState==="impact-zone"))include(cell.surfaceExpiresAt);
+  if(cell.waterExpiresAt)include(cell.waterExpiresAt);
+ }
+ for(const event of world.events??[]){
+  if(!event.visualExpired)include(event.visualExpiresAt??addCalendarDays(event.date,3));
+  if(event.type==="meteor-impact"&&!event.surfaceExpired)include(addCalendarMonths(event.date,event.surfaceDurationMonths??3));
+ }
+ return nextDate;
+}
 
 export function expirePhysicalSurfaceEffects(world,date){
  if(!world?.currentCells||!/^\d{4,6}-\d{2}-\d{2}$/.test(String(date)))return world;
- let changed=false;const changedCells=[];const next=clone(world);
- for(const c of next.currentCells){
-  const before=JSON.stringify(c);
-  if(c.surfaceExpiresAt&&c.surfaceExpiresAt<=date&&(c.noManLand||c.surfaceState==="lava-flow"||c.surfaceState==="impact-zone")){c.noManLand=false;c.surfaceState="natural";c.surfaceExpiresAt=null;c.habitability=Math.max(c.habitability??0,.35);changed=true;}
-  if(c.waterExpiresAt&&c.waterExpiresAt<=date){c.tsunamiWaterDepthM=0;c.waterExpiresAt=null;changed=true;}
-  if(before!==JSON.stringify(c))changedCells.push(c);
+ // L'échéancier est calculé une seule fois par version immuable du monde.
+ // Les ticks suivants deviennent O(1) jusqu'à la prochaine échéance.
+ let nextExpiryDate;
+ if(physicalExpirySchedule.has(world))nextExpiryDate=physicalExpirySchedule.get(world);
+ else{
+  nextExpiryDate=getNextPhysicalSurfaceExpiryDate(world);
+  physicalExpirySchedule.set(world,nextExpiryDate);
  }
- for(const e of next.events??[]){if(!e.visualExpired&&(e.visualExpiresAt??addCalendarDays(e.date,3))<=date){e.visualExpired=true;changed=true;}if(e.type==="meteor-impact"&&!e.surfaceExpired&&addCalendarMonths(e.date,e.surfaceDurationMonths??3)<=date){e.surfaceExpired=true;changed=true;}}
- if(changed){next.revision=(Number(next.revision)||0)+1;if(changedCells.length){const invalidation=invalidateGeoTiles(next.tileRevisions??{},changedCells,1);next.tileRevisions=invalidation.revisions;next.lastInvalidatedTileKeys=invalidation.invalidatedTileKeys;}}
- return changed?next:world;
+ if(!nextExpiryDate||date<nextExpiryDate)return world;
+ const hasExpiredCell=world.currentCells.some(c=>
+  (c.surfaceExpiresAt&&c.surfaceExpiresAt<=date&&(c.noManLand||c.surfaceState==="lava-flow"||c.surfaceState==="impact-zone"))||
+  (c.waterExpiresAt&&c.waterExpiresAt<=date)
+ );
+ const hasExpiredEvent=(world.events??[]).some(e=>
+  (!e.visualExpired&&(e.visualExpiresAt??addCalendarDays(e.date,3))<=date)||
+  (e.type==="meteor-impact"&&!e.surfaceExpired&&addCalendarMonths(e.date,e.surfaceDurationMonths??3)<=date)
+ );
+ if(!hasExpiredCell&&!hasExpiredEvent)return world;
+ const next=clone(world),changedCells=[];
+ for(const c of next.currentCells){
+  let cellChanged=false;
+  if(c.surfaceExpiresAt&&c.surfaceExpiresAt<=date&&(c.noManLand||c.surfaceState==="lava-flow"||c.surfaceState==="impact-zone")){
+   c.noManLand=false;c.surfaceState="natural";c.surfaceExpiresAt=null;c.habitability=Math.max(c.habitability??0,.35);cellChanged=true;
+  }
+  if(c.waterExpiresAt&&c.waterExpiresAt<=date){c.tsunamiWaterDepthM=0;c.waterExpiresAt=null;cellChanged=true;}
+  if(cellChanged)changedCells.push(c);
+ }
+ for(const e of next.events??[]){
+  if(!e.visualExpired&&(e.visualExpiresAt??addCalendarDays(e.date,3))<=date)e.visualExpired=true;
+  if(e.type==="meteor-impact"&&!e.surfaceExpired&&addCalendarMonths(e.date,e.surfaceDurationMonths??3)<=date)e.surfaceExpired=true;
+ }
+ next.revision=(Number(next.revision)||0)+1;
+ if(changedCells.length){
+  const invalidation=invalidateGeoTiles(next.tileRevisions??{},changedCells,1);
+  next.tileRevisions=invalidation.revisions;next.lastInvalidatedTileKeys=invalidation.invalidatedTileKeys;
+ }
+ return next;
 }
 
-export function getPhysicalStateAtDate(world,date){let current=createPhysicalWorld(world.baseCells);for(const e of [...world.events].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))){if(e.date>date)break;current=applyPhysicalEvent(current,e).world;}current=expirePhysicalSurfaceEffects(current,date);return current;}
+export function getPhysicalStateAtDate(world,date){
+ let current=createPhysicalWorld(world.baseCells);
+ const ordered=getSortedPhysicalEvents(world.events);
+ for(const event of ordered){
+  if(event.date>date)break;
+  current=applyPhysicalEvent(current,event).world;
+ }
+ return expirePhysicalSurfaceEffects(current,date);
+}
 
 export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) {
  if (!world?.currentCells || !grid?.values || !Number.isInteger(pixelStep) || pixelStep < 1) return world;
@@ -52,18 +151,23 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
  const xSpan = Math.ceil(lonSpan / 360 * grid.width) + pixelStep;
  const ySpan = Math.ceil(latSpan / 180 * grid.height) + pixelStep;
  const fineCells = [];
+ const origin = { longitude, latitude };
  const ocean = buildOceanConnectivityMask(grid, 12);
- const seen = new Set();
+ const cellColumns = Math.ceil(grid.width / pixelStep);
+ const cellRows = Math.ceil(grid.height / pixelStep);
+ const seen = new Uint8Array(cellColumns * cellRows);
  for (let row = Math.max(0, Math.floor(centerY - ySpan)); row <= Math.min(grid.height - 1, Math.ceil(centerY + ySpan)); row += pixelStep) {
   for (let offset = -xSpan; offset <= xSpan; offset += pixelStep) {
    const column = ((Math.floor(centerX) + offset) % grid.width + grid.width) % grid.width;
-   const key = Math.floor(row / pixelStep) + ":" + Math.floor(column / pixelStep);
-   if (seen.has(key)) continue;
+   const gridY = Math.floor(row / pixelStep), gridX = Math.floor(column / pixelStep);
+   const seenKey = gridY * cellColumns + gridX;
+   if (seen[seenKey]) continue;
    const lon = (column + .5) / grid.width * 360 - 180;
    const lat = 90 - (row + .5) / grid.height * 180;
-   const cell = { id: "impact-" + event.id + "-" + key.replace(":", "-"), longitude: lon, latitude: lat };
-   if (distance({ longitude, latitude }, cell) > radiusKm) continue;
-   seen.add(key);
+   const cell = { id: "", longitude: lon, latitude: lat };
+   if (distance(origin, cell) > radiusKm) continue;
+   seen[seenKey] = 1;
+   cell.id = "impact-" + event.id + "-" + gridY + "-" + gridX;
    const elevationM = Number(grid.values[row * grid.width + column]);
    let coastalDistanceKm = elevationM < 0 ? 0 : Infinity;
    if (elevationM >= 0) {
@@ -73,7 +177,7 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
       const nx = (column + ox + grid.width) % grid.width, ny = row + oy;
       if (ny < 0 || ny >= grid.height || !ocean.mask[Math.max(0,Math.min(ocean.rows-1,Math.floor(ny/ocean.step)))*ocean.cols+(((Math.floor(nx/ocean.step)%ocean.cols)+ocean.cols)%ocean.cols)]) continue;
       const nlon = (nx + .5) / grid.width * 360 - 180, nlat = 90 - (ny + .5) / grid.height * 180;
-      coastalDistanceKm = Math.min(coastalDistanceKm, distance({longitude:lon,latitude:lat},{longitude:nlon,latitude:nlat}));
+      coastalDistanceKm = Math.min(coastalDistanceKm, distanceCoordinates(lon,lat,nlon,nlat));
      }
     }
     if (coastalDistanceKm === Infinity) coastalDistanceKm = 2000;
@@ -87,10 +191,16 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
   }
  }
  if (!fineCells.length) return world;
- const untouched = world.currentCells.filter(cell => distance({ longitude, latitude }, cell) > radiusKm);
- const untouchedBase = world.baseCells.filter(cell => distance({ longitude, latitude }, cell) > radiusKm);
+ const untouched = [];
+ for (const cell of world.currentCells) {
+  if (distance(origin, cell) > radiusKm) untouched.push(cell);
+ }
+ const untouchedBase = [];
+ for (const cell of world.baseCells) {
+  if (distance(origin, cell) > radiusKm) untouchedBase.push(cell);
+ }
  let refined = createPhysicalWorld(fineCells);
- for (const previous of [...(world.events ?? [])].sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
+ for (const previous of getSortedPhysicalEvents(world.events ?? [])) {
   refined = applyPhysicalEvent(refined, previous).world;
  }
  const next = clone(world);
@@ -103,13 +213,14 @@ export function refinePhysicalWorldForImpact(world, grid, event, pixelStep = 2) 
 export function buildOceanConnectivityMask(grid,step=12){
  if(!grid?.values||!Number.isInteger(step)||step<1)throw TypeError("Grille de relief invalide.");
  const cols=Math.ceil(grid.width/step),rows=Math.ceil(grid.height/step),mask=new Uint8Array(cols*rows),queue=new Int32Array(cols*rows);
- const elevationAt=(gx,gy)=>grid.values[Math.min(grid.height-1,gy*step+Math.floor(step/2))*grid.width+Math.min(grid.width-1,gx*step+Math.floor(step/2))];
  let head=0,tail=0;
- const seed=(gx,gy)=>{const index=gy*cols+gx;if(!mask[index]&&elevationAt(gx,gy)<0){mask[index]=1;queue[tail++]=index;}};
+ const seed=(gx,gy)=>{const index=gy*cols+gx;if(!mask[index]){const px=Math.min(grid.width-1,gx*step+Math.floor(step/2)),py=Math.min(grid.height-1,gy*step+Math.floor(step/2));if(grid.values[py*grid.width+px]<0){mask[index]=1;queue[tail++]=index;}}};
  for(let x=0;x<cols;x++){seed(x,0);if(rows>1)seed(x,rows-1);}
  while(head<tail){const index=queue[head++],x=index%cols,y=Math.floor(index/cols);
-  const visit=(nx,ny)=>{if(ny<0||ny>=rows)return;nx=(nx+cols)%cols;const next=ny*cols+nx;if(!mask[next]&&elevationAt(nx,ny)<0){mask[next]=1;queue[tail++]=next;}};
-  visit(x-1,y);visit(x+1,y);visit(x,y-1);visit(x,y+1);
+  tail=visitOceanNeighbor(x-1,y,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x+1,y,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x,y-1,cols,rows,mask,queue,tail,grid,step);
+  tail=visitOceanNeighbor(x,y+1,cols,rows,mask,queue,tail,grid,step);
  }
  return {mask,cols,rows,step};
 }
@@ -128,7 +239,7 @@ export function buildPhysicalCellsFromTerrainGrid(grid,{step=12,maxCoastSearchCe
      const nx=gx*step+Math.floor(step/2)+ox*step,ny=gy*step+Math.floor(step/2)+oy*step;
      if(ny<0||ny>=grid.height||!ocean.mask[Math.max(0,Math.min(rows-1,Math.floor(ny/step)))*cols+(((Math.floor(nx/step)%cols)+cols)%cols)])continue;
      const lon=(nx+.5)/grid.width*360-180,lat=90-(ny+.5)/grid.height*180;
-     coastalDistanceKm=Math.min(coastalDistanceKm,distance({longitude,latitude},{longitude:lon,latitude:lat}));
+     coastalDistanceKm=Math.min(coastalDistanceKm,distanceCoordinates(longitude,latitude,lon,lat));
     }
    }
    if(coastalDistanceKm===Infinity)coastalDistanceKm=maxCoastSearchCells*step/grid.width*360*111.32;
