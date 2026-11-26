@@ -3154,3 +3154,24 @@ test("la recherche spatiale indexée retrouve la référence exhaustive à trave
     });
   }
 });
+
+
+test("la recherche côtière adaptative retrouve les voisins au-delà du rayon de classification", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Décalage 20 km" },
+    geometry: { type: "Polygon", coordinates: [[[0,0.18],[1,0.18],[1,1.18],[0,1.18],[0,0.18]]] }
+  }] };
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 20, exhaustiveCompare: true });
+  assert.ok(report.exhaustiveCompare.length > 0);
+  for (const comparison of report.exhaustiveCompare) {
+    comparison.sampleDistancesKm.forEach((distance, index) => {
+      assert.ok(Math.abs(distance - comparison.exhaustiveSampleDistancesKm[index]) < 1e-6,
+        "la recherche adaptative doit retrouver la distance exhaustive même au-delà de 5 km");
+    });
+  }
+});
