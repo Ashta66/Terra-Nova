@@ -198,7 +198,18 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
         seen.add(segment);
         nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
       }
-      if (nearest <= searchRadiusKm || searchRadiusKm >= maxSearchRadiusKm) return nearest;
+      if (nearest <= searchRadiusKm || searchRadiusKm >= maxSearchRadiusKm) {
+        // La grille peut manquer un segment lorsque ses cellules sont décalées
+        // par un wrap longitude ou une boîte de segment atypique. Si le résultat
+        // reste hors du rayon de classification, vérification exhaustive afin
+        // de ne pas retourner une fausse distance mondiale.
+        if (nearest > searchRadius) {
+          for (const segment of allLandSegments) {
+            nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+          }
+        }
+        return nearest;
+      }
       searchRadiusKm *= 2;
     }
     return nearest;
