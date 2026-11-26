@@ -167,16 +167,16 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
     }
   }
   const nearestDistance = point => {
-    const bx = Math.floor(Number(point[0]) / cellSize);
     const by = Math.floor(Number(point[1]) / cellSize);
     const latitudeScale = Math.max(0.05, Math.cos(Number(point[1]) * Math.PI / 180));
     const radiusX = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * latitudeScale * cellSize)) + 1);
     const radiusY = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * cellSize)) + 1);
-    const longitudeWorldCells = Math.round(360 / cellSize);
     let nearest = Infinity;
     const seen = new Set();
-    for (const worldOffset of [-longitudeWorldCells, 0, longitudeWorldCells]) {
-      const centerX = bx + worldOffset;
+    // Décaler la longitude en degrés avant conversion en cellule : un décalage
+    // de 360° n'est pas forcément un nombre entier de cellules.
+    for (const worldOffset of [-360, 0, 360]) {
+      const centerX = Math.floor((Number(point[0]) + worldOffset) / cellSize);
       for (let ix = centerX - radiusX; ix <= centerX + radiusX; ix++) {
         for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
           for (const segment of bins.get(ix + ":" + iy) ?? []) {
