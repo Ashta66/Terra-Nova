@@ -3133,3 +3133,24 @@ test("le diagnostic détaillé expose les segments côtiers les plus éloignés 
   assert.deepEqual(land, originalLand);
   assert.deepEqual(territories, originalTerritories);
 });
+
+
+test("la recherche spatiale indexée retrouve la référence exhaustive à travers le wrap longitude", () => {
+  const land = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: {},
+    geometry: { type: "Polygon", coordinates: [[[-179.9,0],[-179.8,0],[-179.8,1],[-179.9,1],[-179.9,0]]] }
+  }] };
+  const territories = { type: "FeatureCollection", features: [{
+    type: "Feature", properties: { ADMIN: "Test antimeridien" },
+    geometry: { type: "Polygon", coordinates: [[[180.1,0],[180.2,0],[180.2,1],[180.1,1],[180.1,0]]] }
+  }] };
+  const report = measureCoastlineProximity(land, territories, 1, 5, 3,
+    { includeSegmentDetails: true, maxSegmentDetails: 20, exhaustiveCompare: true });
+  assert.ok(report.exhaustiveCompare.length > 0);
+  for (const comparison of report.exhaustiveCompare) {
+    comparison.sampleDistancesKm.forEach((distance, index) => {
+      assert.ok(Math.abs(distance - comparison.exhaustiveSampleDistancesKm[index]) < 1e-6,
+        "distance indexée et exhaustive doivent être identiques");
+    });
+  }
+});
