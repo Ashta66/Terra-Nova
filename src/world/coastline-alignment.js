@@ -169,28 +169,37 @@ export function measureCoastlineProximity(landCollection, territoryCollection, t
   const nearestDistance = point => {
     const by = Math.floor(Number(point[1]) / cellSize);
     const latitudeScale = Math.max(0.05, Math.cos(Number(point[1]) * Math.PI / 180));
-    const radiusX = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * latitudeScale * cellSize)) + 1);
-    const radiusY = Math.max(1, Math.ceil(searchRadius / (EARTH_KM_PER_DEGREE * cellSize)) + 1);
-    let nearest = Infinity;
     const seen = new Set();
-    // Décaler la longitude en degrés avant conversion en cellule : un décalage
-    // de 360° n'est pas forcément un nombre entier de cellules.
-    for (const worldOffset of [-360, 0, 360]) {
-      const centerX = Math.floor((Number(point[0]) + worldOffset) / cellSize);
-      for (let ix = centerX - radiusX; ix <= centerX + radiusX; ix++) {
-        for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
-          for (const segment of bins.get(ix + ":" + iy) ?? []) {
-            if (seen.has(segment)) continue;
-            seen.add(segment);
-            nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+    let nearest = Infinity;
+    // Le rayon de classification (5 km, par exemple) ne limite pas la
+    // distance au véritable voisin le plus proche. Recherche adaptative :
+    // on élargit jusqu'à ce que la distance trouvée soit couverte par la
+    // fenêtre de recherche, ce qui garantit qu'un segment plus proche ne
+    // peut pas se trouver hors de cette fenêtre.
+    let searchRadiusKm = Math.max(searchRadius, 50);
+    const maxSearchRadiusKm = 20050;
+    while (searchRadiusKm <= maxSearchRadiusKm) {
+      const radiusX = Math.max(1, Math.ceil(searchRadiusKm / (EARTH_KM_PER_DEGREE * latitudeScale * cellSize)) + 1);
+      const radiusY = Math.max(1, Math.ceil(searchRadiusKm / (EARTH_KM_PER_DEGREE * cellSize)) + 1);
+      for (const worldOffset of [-360, 0, 360]) {
+        const centerX = Math.floor((Number(point[0]) + worldOffset) / cellSize);
+        for (let ix = centerX - radiusX; ix <= centerX + radiusX; ix++) {
+          for (let iy = by - radiusY; iy <= by + radiusY; iy++) {
+            for (const segment of bins.get(ix + ":" + iy) ?? []) {
+              if (seen.has(segment)) continue;
+              seen.add(segment);
+              nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+            }
           }
         }
       }
-    }
-    for (const segment of overflowSegments) {
-      if (seen.has(segment)) continue;
-      seen.add(segment);
-      nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+      for (const segment of overflowSegments) {
+        if (seen.has(segment)) continue;
+        seen.add(segment);
+        nearest = Math.min(nearest, pointSegmentDistanceKm(point, segment[0], segment[1]));
+      }
+      if (nearest <= searchRadiusKm || searchRadiusKm >= maxSearchRadiusKm) return nearest;
+      searchRadiusKm *= 2;
     }
     return nearest;
   };
